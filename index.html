@@ -1912,6 +1912,39 @@
       let activeSectorFilter = "stock_only";
       let showDetailSectors = false;
 
+      // ============================================================
+      // フリーミアム制御レイヤー
+      // 現在は全機能を無料開放（プレミアムプレビュー）。
+      // 将来的に Stripe 等で sip_premium_key を検証するように拡張可能。
+      // ============================================================
+      const FREEMIUM_CONFIG = {
+        watchlistLimit: 5,        // 無料プランのウォッチリスト上限
+        compareLimit: 2,          // 無料プランの比較チャート上限
+        screeningConditions: 2,   // 無料プランのスクリーニング条件数上限
+        csvExport: false,         // 無料プランはCSV出力不可
+        aiAnalysis: false,        // 無料プランはAI分析非表示
+      };
+
+      // プレミアム状態の確認（将来的にサーバー検証に置き換え）
+      function isPremium() {
+        return localStorage.getItem("sip_premium") === "preview_2026";
+        // 現在は全員プレビュー扱い → 将来: return validatePremiumKey();
+      }
+
+      // プレミアムアクセスチェック（制限機能を呼ぶ前に実行）
+      function checkPremiumAccess(feature, onSuccess, limitInfo) {
+        // 現在は全員がプレビューとして全機能を利用可能
+        // TODO: isPremium() が false の場合に upgradePlan() を呼ぶ
+        onSuccess();
+      }
+
+      // フリーミアム状態の初期化（デプロイ時に全ユーザーをプレビューモードに設定）
+      function initFreemium() {
+        if (!localStorage.getItem("sip_premium")) {
+          localStorage.setItem("sip_premium", "preview_2026");
+        }
+      }
+
       // セクターアクセントカラー (名前ハッシュで一意の色を割り当て)
       const SECTOR_ACCENT_COLORS = [
         "#6366f1","#3b82f6","#10b981","#f59e0b","#ef4444",
@@ -2113,6 +2146,7 @@
       }
 
       window.onload = function () {
+        initFreemium();
         const dateEl = document.getElementById("portal-date");
         if (dateEl) dateEl.innerText = new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "2-digit", day: "2-digit" });
         // データ最終更新日時の表示
@@ -2528,7 +2562,12 @@
       }
 
       function exportCSV() {
-        trackEvent("csv_export", { ticker: currentTicker });
+        checkPremiumAccess("csv_export", () => {
+          trackEvent("csv_export", { ticker: currentTicker });
+          _doExportCSV();
+        }, "CSVエクスポートはプレミアム機能です");
+      }
+      function _doExportCSV() {
         const data = STOCK_DATA[currentTicker];
         if (!data) return;
         const currency = data.currency || "JPY";
