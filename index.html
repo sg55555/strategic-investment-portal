@@ -27,6 +27,10 @@
 
     <!-- Canonical URL (デプロイ後に実際のURLに変更) -->
     <!-- <link rel="canonical" href="https://strategic-investment-portal.vercel.app/" /> -->
+
+    <!-- Vercel Analytics: Vercelダッシュボード → Analytics → Enable で有効化 -->
+    <script defer src="/_vercel/insights/script.js"></script>
+
     <script src="https://unpkg.com/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
@@ -2465,7 +2469,15 @@
         series.applyOptions({ visible: maState[period] });
       }
 
+      // Analytics イベントトラッキング（Vercel Analytics または将来のGA4対応）
+      function trackEvent(name, props) {
+        try {
+          if (window.va) window.va("event", { name, ...props });
+        } catch(e) {}  // Analytics未設定でも無視
+      }
+
       function exportCSV() {
+        trackEvent("csv_export", { ticker: currentTicker });
         const data = STOCK_DATA[currentTicker];
         if (!data) return;
         const currency = data.currency || "JPY";
@@ -2662,6 +2674,7 @@
       }
 
       function navigateToDetail(ticker) {
+        trackEvent("view_detail", { ticker, company: STOCK_DATA[ticker]?.company_name });
         currentTicker = ticker;
         const data = STOCK_DATA[ticker];
         if (!data) return;
