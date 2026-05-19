@@ -988,7 +988,8 @@
         .portal-table th:nth-child(5),
         .portal-table td:nth-child(7),
         .portal-table th:nth-child(7) { display: none; }
-        .portal-table { width: 100%; }
+        .portal-table { width: 100%; table-layout: auto; }
+        .portal-table th, .portal-table td { width: auto; }
         /* 詳細チャート高さ削減 */
         #chart-container { height: 260px; }
         .chart-main-area { height: 320px; }
@@ -2180,9 +2181,9 @@
             tbody.appendChild(tr);
           });
 
-          // 横スクロール対応のラッパーで囲む
+          // 横スクロール対応のラッパーで囲む（背景色をテーブルに合わせて暗転防止）
           const scrollWrap = document.createElement("div");
-          scrollWrap.style.cssText = "overflow-x: auto; -webkit-overflow-scrolling: touch;";
+          scrollWrap.style.cssText = "overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; background-color: #161d2b; border-radius: 10px;";
           scrollWrap.appendChild(table);
           sectorDiv.appendChild(scrollWrap);
           container.appendChild(sectorDiv);
