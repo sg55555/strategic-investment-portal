@@ -1760,7 +1760,7 @@
 
     <!-- お問い合わせモーダル -->
     <div class="modal-overlay" id="contact-modal" onclick="closeModal('contact-modal', event)">
-      <div class="modal-box">
+      <div class="modal-box" onclick="event.stopPropagation()">
         <button class="modal-close" onclick="closeModal('contact-modal')">✕</button>
         <div class="modal-title">お問い合わせ / フィードバック</div>
         <div class="modal-text" style="margin-bottom: 16px;">
@@ -1768,7 +1768,7 @@
         </div>
         <!-- Formspree フォーム (action にFormspreeのエンドポイントを設定) -->
         <form class="contact-form" id="contact-form"
-              action="https://formspree.io/f/YOUR_FORM_ID"
+              action="https://formspree.io/f/xpqnwkdg"
               method="POST"
               onsubmit="handleContactSubmit(event)">
           <div class="contact-field">
@@ -1800,7 +1800,7 @@
 
     <!-- Disclaimerモーダル -->
     <div class="modal-overlay" id="disclaimer-modal" onclick="closeModal('disclaimer-modal', event)">
-      <div class="modal-box">
+      <div class="modal-box" onclick="event.stopPropagation()">
         <button class="modal-close" onclick="closeModal('disclaimer-modal')">✕</button>
         <div class="modal-title">免責事項 & プライバシーポリシー</div>
         <div class="modal-section-title">免責事項</div>
@@ -1825,7 +1825,7 @@
 
     <!-- Aboutモーダル -->
     <div class="modal-overlay" id="about-modal" onclick="closeModal('about-modal', event)">
-      <div class="modal-box">
+      <div class="modal-box" onclick="event.stopPropagation()">
         <button class="modal-close" onclick="closeModal('about-modal')">✕</button>
         <div class="modal-title">このサイトについて</div>
         <div class="modal-text">
