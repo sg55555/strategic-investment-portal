@@ -29,6 +29,13 @@ get_stock.py
 # ログ
 update_log.txt
 
+# API キー（絶対にコミットしない）
+.env
+*.env
+
+# AI分析キャッシュ（ローカルのみ・data.jsに組み込まれるため不要）
+analysis_cache.json
+
 # その他
 .DS_Store
 *.swp

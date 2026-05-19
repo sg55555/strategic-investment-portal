@@ -3,11 +3,19 @@ import json
 import yfinance as yf
 import math
 from datetime import datetime
+from pathlib import Path
 
-db_path = "/home/shugo/weather.db"
-js_path = "/home/shugo/my_website/data.js"
+db_path  = "/home/shugo/weather.db"
+js_path  = "/home/shugo/my_website/data.js"
+cache_path = Path(__file__).parent / "analysis_cache.json"
 
-print("--- 🚀 出荷エンジン：最新市場指標（時価総額・PER・PBR）の一括積載開始 ---")
+# AI分析キャッシュを読み込む（analyze_financials.py で事前生成）
+analysis_cache = {}
+if cache_path.exists():
+    analysis_cache = json.loads(cache_path.read_text(encoding="utf-8"))
+    print(f"AI分析キャッシュ読み込み: {len(analysis_cache)}件")
+
+print("--- 株価・財務データ出荷開始 ---")
 
 conn = sqlite3.connect(db_path)
 cursor = conn.cursor()
@@ -63,13 +71,16 @@ for ticker, company_name, industry, currency, country, asset_type in tickers:
     financials_trend_json = {}
     for row in fin_rows:
         year = row[0]
+        cache_key = f"{ticker}_{year}"
         financials_trend_json[year] = {
             "year": row[0], "period": row[1],
             "current_assets": row[2], "non_current_assets": row[3],
             "current_liabilities": row[4], "non_current_liabilities": row[5], "net_assets": row[6],
-            "net_sales": row[7], "operating_income": row[8], 
+            "net_sales": row[7], "operating_income": row[8],
             "ordinary_income": row[9], "income_before_taxes": row[10], "net_income": row[11],
-            "operating_cf": row[12], "investing_cf": row[13], "financing_cf": row[14]
+            "operating_cf": row[12], "investing_cf": row[13], "financing_cf": row[14],
+            # AI分析コメント（analyze_financials.py で事前生成済みの場合に組み込み）
+            "ai_analysis": analysis_cache.get(cache_key, "")
         }
         
     all_data[ticker] = {

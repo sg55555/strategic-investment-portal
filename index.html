@@ -8,7 +8,7 @@
     <!-- SEO Meta Tags -->
     <meta name="description" content="日本株・米国株・ETF 84銘柄の財務3表・株価チャートを一覧表示。PER/PBR/ROE等の指標でスクリーニング可能なプロ仕様の株式分析ダッシュボード。" />
     <meta name="keywords" content="株価,財務分析,ダッシュボード,日本株,米国株,ETF,PER,PBR,ROE,財務諸表" />
-    <meta name="author" content="太田 周吾" />
+    <meta name="author" content="Shugo Ohta" />
     <meta name="robots" content="index, follow" />
 
     <!-- OGP (Open Graph Protocol) -->
@@ -1178,6 +1178,47 @@
         text-align: center;
       }
 
+      /* ── AI財務分析カード ── */
+      .ai-analysis-card {
+        background: linear-gradient(135deg, #0d1422, #111827);
+        border: 1px solid rgba(99,102,241,0.25);
+        border-radius: 10px;
+        padding: 16px 20px;
+        margin-bottom: 20px;
+        position: relative;
+      }
+      .ai-analysis-title {
+        font-size: 0.72rem;
+        font-weight: bold;
+        color: #6366f1;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 10px;
+      }
+      .ai-analysis-icon {
+        display: inline-block;
+        font-size: 0.9rem;
+        opacity: 0.8;
+      }
+      .ai-analysis-text {
+        font-size: 0.84rem;
+        color: #94a3b8;
+        line-height: 1.75;
+        font-style: italic;
+      }
+      .ai-analysis-year-label {
+        font-size: 0.7rem;
+        color: #334155;
+        position: absolute;
+        top: 14px;
+        right: 16px;
+        font-family: "Courier New", monospace;
+        letter-spacing: 0.5px;
+      }
+
       /* ── KPI年度比較カード ── */
       .kpi-compare-card {
         background-color: #0f1724;
@@ -1464,6 +1505,12 @@
           <div class="time-btn-group" id="year-controller-box"></div>
         </div>
 
+        <div class="ai-analysis-card" id="ai-analysis-card" style="display:none;">
+          <div class="ai-analysis-year-label" id="ai-analysis-year"></div>
+          <div class="ai-analysis-title"><span class="ai-analysis-icon">✦</span> AI Financial Analysis</div>
+          <div class="ai-analysis-text" id="ai-analysis-text"></div>
+        </div>
+
         <div class="kpi-compare-card" id="kpi-compare-card">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
             <div class="kpi-compare-title" style="margin-bottom:0;">Annual KPI Comparison — 3 Fiscal Years</div>
@@ -1718,10 +1765,10 @@
         </div>
         <div class="modal-section-title">開発者</div>
         <div class="modal-text">
-          <strong>太田 周吾</strong><br>
+          <strong>Shugo Ohta (太田 周吾)</strong><br>
           個人投資家・フルスタック開発者
         </div>
-        <a href="#" class="about-github-btn" onclick="return false;">GitHub →（準備中）</a>
+        <a href="https://github.com/sg55555/strategic-investment-portal" class="about-github-btn" target="_blank" rel="noopener">GitHub → sg55555/strategic-investment-portal</a>
       </div>
     </div>
 
@@ -2685,6 +2732,19 @@
         if (isEtf) {
           document.getElementById("kpi-compare-card").style.display = "none";
           return;
+        }
+
+        // AI財務分析コメントの表示
+        const aiCard = document.getElementById("ai-analysis-card");
+        const aiText = document.getElementById("ai-analysis-text");
+        const aiYearEl = document.getElementById("ai-analysis-year");
+        const aiComment = fin?.ai_analysis;
+        if (aiCard && aiComment) {
+          aiText.innerText = aiComment;
+          if (aiYearEl) aiYearEl.innerText = selectedYear + " FY";
+          aiCard.style.display = "";
+        } else if (aiCard) {
+          aiCard.style.display = "none";
         }
 
         renderKpiCompare(data);
