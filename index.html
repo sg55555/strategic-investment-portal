@@ -37,7 +37,8 @@
 
     <style>
       body {
-        background-color: #0b0f1a;
+        background: linear-gradient(180deg, #070c16 0%, #0b0f1a 40%, #0e1422 100%);
+        background-attachment: fixed;
         color: #ffffff;
         font-family: "Helvetica Neue", Arial, sans-serif;
         margin: 0;
@@ -47,12 +48,42 @@
         max-width: 1500px;
         margin: 0 auto;
       }
-      /* ── ポータルヘッダー ── */
+      /* ── ポータルヘッダー（オーロラ発光エフェクト付き） ── */
       .portal-header {
         display: flex;
         flex-direction: column;
         align-items: center;
         margin-bottom: 28px;
+        position: relative;
+        z-index: 0;
+      }
+      .portal-header::before, .portal-header::after {
+        content: "";
+        position: absolute;
+        border-radius: 50%;
+        pointer-events: none;
+        z-index: -1;
+        filter: blur(70px);
+      }
+      .portal-header::before {
+        width: 380px; height: 180px;
+        top: -60px; left: calc(50% - 260px);
+        background: rgba(99,102,241,0.22);
+        animation: auroraDrift1 9s ease-in-out infinite;
+      }
+      .portal-header::after {
+        width: 320px; height: 160px;
+        top: -50px; right: calc(50% - 260px);
+        background: rgba(192,132,252,0.16);
+        animation: auroraDrift2 11s ease-in-out infinite;
+      }
+      @keyframes auroraDrift1 {
+        0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.8; }
+        50% { transform: translate(35px, 18px) scale(1.08); opacity: 1; }
+      }
+      @keyframes auroraDrift2 {
+        0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.7; }
+        50% { transform: translate(-28px, 12px) scale(0.92); opacity: 1; }
       }
       .portal-header-row {
         display: flex;
@@ -282,10 +313,14 @@
       .safety-bar-track { height: 3px; background: #1e293b; border-radius: 2px; width: 100%; }
       .safety-bar-fill  { height: 3px; border-radius: 2px; transition: width 0.4s; }
       .safety-score-num { font-size: 0.75rem; font-weight: bold; }
+      .portal-table tbody tr:nth-child(even) {
+        background-color: rgba(15, 20, 35, 0.5);
+      }
       .portal-table tr:hover {
-        background-color: #1e293b;
+        background: linear-gradient(90deg, rgba(99,102,241,0.12) 0%, rgba(99,102,241,0.04) 100%);
+        box-shadow: inset 3px 0 0 #6366f1;
         cursor: pointer;
-        transition: background 0.2s;
+        transition: all 0.2s;
       }
 
       .ticker-code {
@@ -1877,6 +1912,19 @@
       let activeSectorFilter = "stock_only";
       let showDetailSectors = false;
 
+      // セクターアクセントカラー (名前ハッシュで一意の色を割り当て)
+      const SECTOR_ACCENT_COLORS = [
+        "#6366f1","#3b82f6","#10b981","#f59e0b","#ef4444",
+        "#8b5cf6","#06b6d4","#ec4899","#84cc16","#f97316",
+        "#14b8a6","#a855f7","#0ea5e9","#22c55e","#d97706",
+        "#60a5fa","#c084fc","#34d399","#fbbf24","#f87171"
+      ];
+      function getSectorColor(sector) {
+        let h = 0;
+        for (let i = 0; i < sector.length; i++) h = ((h << 5) - h) + sector.charCodeAt(i) | 0;
+        return SECTOR_ACCENT_COLORS[Math.abs(h) % SECTOR_ACCENT_COLORS.length];
+      }
+
       // スクリーニングフィルター状態
       let screeningActive = false;
       let screening = { perMin: null, perMax: null, pbrMin: null, pbrMax: null, eqMin: null, eqMax: null, opMin: null, opMax: null };
@@ -2195,12 +2243,15 @@
           const sectorDiv = document.createElement("div");
           sectorDiv.className = "sector-section";
 
+          const sectorColor = getSectorColor(ind);
           const title = document.createElement("div");
           title.className = "sector-title";
+          title.style.borderLeftColor = sectorColor;
+          title.style.background = `linear-gradient(90deg, ${sectorColor}08, transparent)`;
           title.innerHTML = `
-            <span>${ind.replace("US - ", "🇺🇸 ").replace("国内ETF", "🇯🇵 ETF")}</span>
-            <span class="sector-count-badge">${groups[ind].length}社</span>
-            <span class="sector-title-line"></span>
+            <span style="color:${sectorColor}88;">${ind.replace("US - ", "🇺🇸 ").replace("国内ETF", "🇯🇵 ETF")}</span>
+            <span class="sector-count-badge" style="border-color:${sectorColor}33;color:${sectorColor}99;">${groups[ind].length}社</span>
+            <span class="sector-title-line" style="background:linear-gradient(90deg,${sectorColor}22,transparent)"></span>
           `;
           sectorDiv.appendChild(title);
 
