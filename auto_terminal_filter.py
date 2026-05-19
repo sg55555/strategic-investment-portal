@@ -98,6 +98,8 @@ target_companies = {
     'VTI':   {'name': 'Vanguard Total Market ETF', 'industry': 'US - インデックスETF', 'currency': 'USD', 'country': 'US', 'etf': True},
     'ORCL':  {'name': 'Oracle', 'industry': 'US - テクノロジー', 'currency': 'USD', 'country': 'US'},
     'NFLX':  {'name': 'Netflix', 'industry': 'US - エンターテインメント', 'currency': 'USD', 'country': 'US'},
+    'MCD':   {'name': "McDonald's", 'industry': 'US - 飲食・外食', 'currency': 'USD', 'country': 'US'},
+    'SBUX':  {'name': 'Starbucks', 'industry': 'US - 飲食・外食', 'currency': 'USD', 'country': 'US'},
     'AMD':   {'name': 'Advanced Micro Devices', 'industry': 'US - 半導体・AI', 'currency': 'USD', 'country': 'US'},
     'DIS':   {'name': 'Walt Disney', 'industry': 'US - エンターテインメント', 'currency': 'USD', 'country': 'US'},
     'COST':  {'name': 'Costco Wholesale', 'industry': 'US - 小売・流通', 'currency': 'USD', 'country': 'US'},
