@@ -1,0 +1,34 @@
+# Python仮想環境
+.venv/
+__pycache__/
+*.pyc
+
+# SQLiteデータベース（ローカルのみ）
+*.db
+
+# EDINETダウンロードファイル（大容量・非公開）
+*.zip
+extracted_*/
+
+# EDINET関連スクリプト（旧バージョン・非公開）
+batch_download.py
+create_db_v2.py
+download_edinet.py
+extract_edinet.py
+filter_edinet.py
+parse_all_companies.py
+parse_edinet.py
+parse_edinet_v2.py
+range_edinet.py
+scan_all_tags.py
+scan_multi_companies.py
+test_edinet.py
+update_master.py
+get_stock.py
+
+# ログ
+update_log.txt
+
+# その他
+.DS_Store
+*.swp

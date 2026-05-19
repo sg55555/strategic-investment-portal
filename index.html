@@ -1,0 +1,2975 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Strategic Investment Portal</title>
+    <script src="https://unpkg.com/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+
+    <style>
+      body {
+        background-color: #0b0f1a;
+        color: #ffffff;
+        font-family: "Helvetica Neue", Arial, sans-serif;
+        margin: 0;
+        padding: 20px;
+      }
+      .container {
+        max-width: 1500px;
+        margin: 0 auto;
+      }
+      /* ── ポータルヘッダー ── */
+      .portal-header {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-bottom: 28px;
+      }
+      .portal-header-row {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 8px;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      .live-dot {
+        width: 9px;
+        height: 9px;
+        background: #10b981;
+        border-radius: 50%;
+        box-shadow: 0 0 8px #10b981;
+        flex-shrink: 0;
+        animation: livePulse 2.2s ease-in-out infinite;
+      }
+      @keyframes livePulse {
+        0%, 100% { opacity: 1; box-shadow: 0 0 6px #10b981; }
+        50%       { opacity: 0.45; box-shadow: 0 0 14px #10b981; }
+      }
+      .portal-title {
+        font-size: 1.9rem;
+        font-weight: 200;
+        letter-spacing: 5px;
+        text-transform: uppercase;
+        background: linear-gradient(100deg, #60a5fa 0%, #818cf8 50%, #c084fc 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      .portal-header-date {
+        font-size: 0.72rem;
+        color: #334155;
+        font-family: "Courier New", monospace;
+        letter-spacing: 1px;
+        padding: 3px 8px;
+        border: 1px solid #1e293b;
+        border-radius: 4px;
+      }
+      .portal-subtitle-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      .portal-subtitle-text {
+        font-size: 0.78rem;
+        color: #475569;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+      }
+      .portal-stat-badge {
+        background: rgba(99,102,241,0.1);
+        border: 1px solid rgba(99,102,241,0.25);
+        color: #818cf8;
+        padding: 2px 10px;
+        border-radius: 12px;
+        font-size: 0.72rem;
+        font-weight: bold;
+        letter-spacing: 0.5px;
+      }
+      .portal-divider {
+        width: 80%;
+        max-width: 600px;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, #1e3a5f 40%, #1e3a5f 60%, transparent);
+        margin-top: 16px;
+      }
+
+      .view-section {
+        display: none;
+      }
+      .view-section.active {
+        display: block;
+      }
+
+      .search-container {
+        max-width: 500px;
+        margin: 0 auto 15px auto;
+        position: relative;
+      }
+      .search-input {
+        width: 100%;
+        background-color: #161d2b;
+        color: #ffffff;
+        border: 1px solid #2d3748;
+        padding: 14px 20px;
+        padding-left: 45px;
+        border-radius: 30px;
+        font-size: 1rem;
+        outline: none;
+        transition: all 0.3s;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+      }
+      .search-input:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
+      }
+      .search-icon {
+        position: absolute;
+        left: 18px;
+        top: 15px;
+        color: #475569;
+        font-size: 1.1rem;
+      }
+
+      .legend-bar {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 20px;
+        width: fit-content;
+        max-width: 100%;
+        margin: 0 auto 28px auto;
+        background-color: rgba(15,23,36,0.8);
+        padding: 8px 24px;
+        border-radius: 6px;
+        border: 1px solid #1e293b;
+        font-size: 0.78rem;
+        color: #475569;
+        letter-spacing: 0.3px;
+        box-sizing: border-box;
+      }
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .sector-section {
+        margin-bottom: 30px;
+      }
+      .sector-title {
+        font-size: 0.85rem;
+        font-weight: bold;
+        color: #64748b;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 6px 0;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+      }
+      .sector-title-line {
+        flex: 1;
+        height: 1px;
+        background: linear-gradient(90deg, #1e293b, transparent);
+      }
+      .sector-count-badge {
+        background: rgba(30,41,59,0.8);
+        border: 1px solid #1e293b;
+        color: #334155;
+        padding: 1px 8px;
+        border-radius: 10px;
+        font-size: 0.68rem;
+        font-weight: bold;
+        letter-spacing: 0.5px;
+      }
+
+      .portal-table {
+        width: 100%;
+        border-collapse: collapse;
+        background-color: #161d2b;
+        border-radius: 10px;
+        overflow: hidden;
+        border: 1px solid #2d3748;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+      }
+      .portal-table th {
+        background-color: #1e293b;
+        color: #94a3b8;
+        text-align: left;
+        padding: 14px 12px;
+        font-size: 0.8rem;
+        font-weight: bold;
+        letter-spacing: 1px;
+        border-bottom: 2px solid #2d3748;
+        cursor: pointer;
+        user-select: none;
+        transition: background 0.2s;
+        text-transform: uppercase;
+      }
+      .portal-table th:hover {
+        background-color: #2d3748;
+        color: #f8fafc;
+      }
+      .sort-icon {
+        margin-left: 4px;
+        font-size: 0.75rem;
+        color: #475569;
+      }
+      .portal-table th.active-sort {
+        color: #3b82f6;
+      }
+      .portal-table th.active-sort .sort-icon {
+        color: #3b82f6;
+      }
+
+      .portal-table td {
+        padding: 14px 12px;
+        border-bottom: 1px solid #2d3748;
+        font-size: 0.9rem;
+        vertical-align: middle;
+      }
+      .portal-table tr:hover {
+        background-color: #1e293b;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+
+      .ticker-code {
+        font-family: "Courier New", monospace;
+        color: #3b82f6;
+        font-weight: bold;
+        background: rgba(59, 130, 246, 0.1);
+        padding: 3px 6px;
+        border-radius: 4px;
+      }
+      .company-clickable {
+        font-weight: bold;
+        color: #f8fafc;
+        font-size: 1rem;
+        display: inline-block;
+        max-width: 180px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        vertical-align: middle;
+      }
+      .portal-table tr:hover .company-clickable {
+        color: #60a5fa;
+      }
+
+      /* 💡 【大正解】CSSのGPUクリップパス・アニメーション！右側100%を隠した状態から、0%（全開）に向けて1.5秒でシュルッと幕を開ける最強のハック */
+      @keyframes swipeRight {
+        0% {
+          clip-path: inset(0 100% 0 0);
+        }
+        100% {
+          clip-path: inset(0 0 0 0);
+        }
+      }
+      .sparkline-wrapper {
+        width: 90px;
+        height: 28px;
+        display: block;
+        animation: swipeRight 1.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+      }
+
+      .back-bar {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 0;
+        background: linear-gradient(135deg, #0d1422, #111827);
+        border-radius: 10px;
+        border: 1px solid #1e3a5f;
+        margin-bottom: 14px;
+        overflow: hidden;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+      }
+      .back-btn {
+        background: transparent;
+        color: #475569;
+        border: none;
+        border-right: 1px solid #1e293b;
+        padding: 16px 20px;
+        cursor: pointer;
+        font-size: 0.8rem;
+        font-weight: bold;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        white-space: nowrap;
+      }
+      .back-btn:hover {
+        background-color: rgba(99,102,241,0.12);
+        color: #818cf8;
+      }
+      .time-btn-group {
+        display: flex;
+        gap: 4px;
+        padding: 2px;
+      }
+      .time-btn {
+        background: transparent;
+        color: #334155;
+        border: 1px solid #1e293b;
+        padding: 6px 18px;
+        font-weight: bold;
+        font-size: 0.85rem;
+        border-radius: 5px;
+        cursor: pointer;
+        letter-spacing: 1px;
+        transition: all 0.2s;
+        font-family: "Courier New", monospace;
+      }
+      .time-btn:hover {
+        border-color: #475569;
+        color: #94a3b8;
+      }
+      .time-btn.active {
+        background: linear-gradient(135deg, #1e3a5f, #1e293b);
+        border-color: #3b82f6;
+        color: #60a5fa;
+        box-shadow: 0 0 8px rgba(59,130,246,0.25);
+        font-family: "Courier New", monospace;
+      }
+
+      .dashboard-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 25px;
+      }
+      .card {
+        background: linear-gradient(135deg, #161d2b 0%, #111827 100%);
+        border-radius: 12px;
+        padding: 24px;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5), 0 1px 0 rgba(99,102,241,0.08) inset;
+        border: 1px solid #1e293b;
+        transition: box-shadow 0.3s;
+      }
+      .card:hover {
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.6), 0 1px 0 rgba(99,102,241,0.12) inset;
+      }
+      .card-title {
+        font-size: 0.8rem;
+        color: #475569;
+        font-weight: bold;
+        margin-bottom: 20px;
+        border-left: 3px solid #4f46e5;
+        padding-left: 10px;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+      }
+
+      #chart-container {
+        width: 100%;
+        height: 450px;
+      }
+      .grid-layout {
+        display: flex;
+        flex-direction: column;
+        gap: 30px;
+        align-items: center;
+        justify-content: center;
+      }
+      @media (min-width: 1024px) {
+        .grid-layout {
+          flex-direction: row;
+          align-items: stretch;
+        }
+      }
+
+      .chart-main-area {
+        flex: 1;
+        height: 530px;
+        min-width: 320px;
+        width: 100%;
+      }
+
+      .side-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        width: 100%;
+      }
+      @media (min-width: 1024px) {
+        .side-panel {
+          width: 440px;
+          padding-top: 0px;
+        }
+      }
+
+      .status-card {
+        background: linear-gradient(135deg, #111827, #0f1724);
+        border: 1px solid #1e293b;
+        border-radius: 10px;
+        padding: 14px 20px;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .status-card.gold::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 6px;
+        background-color: #eab308;
+      }
+      .status-card.blue::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 6px;
+        background-color: #3b82f6;
+      }
+      .status-card.green::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 6px;
+        background-color: #10b981;
+      }
+      .status-card.red::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 6px;
+        background-color: #ef4444;
+      }
+      .status-card.purple::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 6px;
+        background-color: #a855f7;
+      }
+      .status-card.cyan::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 6px;
+        background-color: #06b6d4;
+      }
+
+      .panel-label {
+        font-size: 0.85rem;
+        color: #94a3b8;
+        font-weight: bold;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+      }
+
+      .panel-body-vertical {
+        display: flex;
+        flex-direction: column;
+        margin-top: 4px;
+      }
+      .panel-sign-value-large {
+        font-size: 2.8rem;
+        font-weight: bold;
+        font-family: "Impact", sans-serif;
+        line-height: 1;
+        letter-spacing: 1px;
+      }
+
+      .panel-body-grid {
+        display: grid;
+        grid-template-columns: 180px 1fr;
+        align-items: center;
+        margin-top: 10px;
+        white-space: nowrap;
+      }
+      .panel-sign-value-cf {
+        font-size: 2.6rem;
+        font-weight: bold;
+        font-family: "Impact", sans-serif;
+        line-height: 1;
+        letter-spacing: 1px;
+      }
+      .panel-desc-text-cf {
+        font-size: 1.3rem;
+        font-weight: bold;
+        color: #f1f5f9;
+        letter-spacing: 0.5px;
+      }
+
+      .panel-desc-text-below {
+        font-size: 0.85rem;
+        font-weight: bold;
+        color: #64748b;
+        margin-top: 4px;
+        letter-spacing: 0.5px;
+      }
+
+      .type-badge {
+        background: linear-gradient(135deg, #3b82f6, #6366f1);
+        color: #fff;
+        padding: 18px;
+        border-radius: 8px;
+        text-align: center;
+        font-weight: bold;
+        font-size: 1.8rem;
+        letter-spacing: 3px;
+        box-shadow: 0 6px 18px rgba(99, 102, 241, 0.5);
+        margin-bottom: 12px;
+        text-transform: uppercase;
+        font-family: "Impact", sans-serif;
+      }
+
+      .full-width-area {
+        width: 100%;
+        height: 500px;
+      }
+
+      /* ── ウォッチリスト ── */
+      .star-btn {
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        font-size: 1rem;
+        padding: 2px 6px 2px 0;
+        color: #334155;
+        transition: color 0.15s, transform 0.15s;
+        line-height: 1;
+      }
+      .star-btn:hover { transform: scale(1.3); }
+      .star-btn.watched { color: #fbbf24; }
+      .detail-star-btn {
+        background: transparent;
+        border: 1px solid #1e293b;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 1rem;
+        padding: 4px 10px;
+        color: #334155;
+        transition: all 0.2s;
+        margin-left: 8px;
+      }
+      .detail-star-btn:hover { border-color: #fbbf24; color: #fbbf24; }
+      .detail-star-btn.watched { border-color: #fbbf24; color: #fbbf24; background: rgba(251,191,36,0.08); }
+
+      /* ── スクリーニングパネル ── */
+      .screening-toggle-btn {
+        display: block;
+        margin: 0 auto 12px;
+        background: transparent;
+        border: 1px solid #1e293b;
+        color: #475569;
+        padding: 6px 20px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.75rem;
+        font-weight: bold;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        transition: all 0.2s;
+      }
+      .screening-toggle-btn:hover { border-color: #6366f1; color: #818cf8; }
+      .screening-toggle-btn.active { border-color: #6366f1; color: #818cf8; background: rgba(99,102,241,0.08); }
+      .screening-panel {
+        display: none;
+        background: linear-gradient(135deg, #0d1422, #111827);
+        border: 1px solid #1e293b;
+        border-radius: 10px;
+        padding: 16px 20px;
+        margin-bottom: 18px;
+      }
+      .screening-panel.active { display: block; }
+      .screening-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+      .screening-item {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .screening-label {
+        font-size: 0.72rem;
+        color: #475569;
+        font-weight: bold;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+      }
+      .screening-range {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .screening-input {
+        background: #0b0f1a;
+        border: 1px solid #1e293b;
+        color: #94a3b8;
+        padding: 5px 8px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        width: 80px;
+        transition: border-color 0.2s;
+      }
+      .screening-input:focus { outline: none; border-color: #6366f1; }
+      .screening-sep { color: #334155; font-size: 0.8rem; }
+      .screening-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-top: 4px;
+      }
+      .screening-reset-btn {
+        background: transparent;
+        border: 1px solid #334155;
+        color: #64748b;
+        padding: 5px 14px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.72rem;
+        font-weight: bold;
+        transition: all 0.2s;
+      }
+      .screening-reset-btn:hover { border-color: #ef4444; color: #ef4444; }
+      .screening-result-count {
+        font-size: 0.72rem;
+        color: #334155;
+        font-weight: bold;
+        letter-spacing: 0.5px;
+      }
+
+      /* ── フッター ── */
+      .site-footer {
+        margin-top: 40px;
+        padding: 16px 0 10px;
+        border-top: 1px solid #0d1520;
+        text-align: center;
+        font-size: 0.72rem;
+        color: #1e293b;
+        letter-spacing: 1px;
+        font-family: "Courier New", monospace;
+        display: flex;
+        justify-content: center;
+        gap: 20px;
+        flex-wrap: wrap;
+      }
+      .footer-link {
+        color: #334155;
+        cursor: pointer;
+        text-decoration: none;
+        transition: color 0.2s;
+        text-transform: uppercase;
+      }
+      .footer-link:hover { color: #6366f1; }
+
+      /* ── モーダル共通 ── */
+      .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.75);
+        z-index: 1000;
+        justify-content: center;
+        align-items: center;
+        padding: 20px;
+      }
+      .modal-overlay.active { display: flex; }
+      .modal-box {
+        background: linear-gradient(135deg, #111827, #0f1724);
+        border: 1px solid #1e3a5f;
+        border-radius: 14px;
+        padding: 32px 36px;
+        max-width: 680px;
+        width: 100%;
+        max-height: 85vh;
+        overflow-y: auto;
+        position: relative;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+      }
+      .modal-close {
+        position: absolute;
+        top: 16px; right: 20px;
+        background: transparent;
+        border: none;
+        color: #475569;
+        font-size: 1.4rem;
+        cursor: pointer;
+        line-height: 1;
+        transition: color 0.2s;
+      }
+      .modal-close:hover { color: #f8fafc; }
+      .modal-title {
+        font-size: 1.1rem;
+        font-weight: bold;
+        color: #60a5fa;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        margin-bottom: 20px;
+        border-left: 3px solid #4f46e5;
+        padding-left: 10px;
+      }
+      .modal-section-title {
+        font-size: 0.82rem;
+        font-weight: bold;
+        color: #64748b;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        margin: 18px 0 6px;
+      }
+      .modal-text {
+        font-size: 0.84rem;
+        color: #94a3b8;
+        line-height: 1.7;
+      }
+      .modal-text strong { color: #cbd5e1; }
+      .about-tech-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-top: 8px;
+      }
+      .tech-badge {
+        background: rgba(99,102,241,0.1);
+        border: 1px solid rgba(99,102,241,0.2);
+        color: #818cf8;
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 0.78rem;
+        font-weight: bold;
+      }
+      .about-github-btn {
+        display: inline-block;
+        margin-top: 16px;
+        background: rgba(99,102,241,0.15);
+        border: 1px solid rgba(99,102,241,0.4);
+        color: #818cf8;
+        padding: 8px 20px;
+        border-radius: 6px;
+        text-decoration: none;
+        font-size: 0.82rem;
+        font-weight: bold;
+        transition: all 0.2s;
+      }
+      .about-github-btn:hover { background: rgba(99,102,241,0.25); color: #c084fc; }
+
+      /* ── レスポンシブ対応 ── */
+      @media (max-width: 900px) {
+        body { padding: 10px; }
+        .portal-title { font-size: 1.3rem; letter-spacing: 3px; }
+        .portal-header-row { gap: 8px; }
+        .portal-table td:nth-child(4),
+        .portal-table th:nth-child(4) { display: none; }   /* スパークライン非表示 */
+        .portal-table td:nth-child(6),
+        .portal-table th:nth-child(6),
+        .portal-table td:nth-child(7),
+        .portal-table th:nth-child(7),
+        .portal-table td:nth-child(9),
+        .portal-table th:nth-child(9),
+        .portal-table td:nth-child(10),
+        .portal-table th:nth-child(10) { display: none; }  /* PBR/営業利益率/ROE非表示 */
+        .time-control-bar { flex-direction: column; gap: 10px; align-items: flex-start; }
+        .grid-layout { gap: 16px; }
+        #chart-container { height: 300px; }
+      }
+      @media (max-width: 600px) {
+        .portal-header-row { flex-direction: column; gap: 4px; }
+        .back-bar { grid-template-columns: auto 1fr; }
+        .active-company-title { padding: 10px 14px; }
+        .dashboard-stack { gap: 16px; }
+        .card { padding: 16px; }
+        .portal-table td:nth-child(3),
+        .portal-table th:nth-child(3) { display: none; }  /* 売上高も非表示 */
+        .panel-sign-value-large { font-size: 2rem; }
+        .sector-filter-bar { gap: 5px; }
+        .sector-btn { padding: 5px 12px; font-size: 0.72rem; }
+      }
+
+      /* ── セクターフィルターバー ── */
+      .sector-filter-bar {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px;
+        margin-bottom: 18px;
+      }
+      .sector-btn {
+        background-color: #1e293b;
+        color: #64748b;
+        border: 1px solid #2d3748;
+        padding: 6px 16px;
+        border-radius: 20px;
+        cursor: pointer;
+        font-size: 0.8rem;
+        font-weight: bold;
+        letter-spacing: 0.5px;
+        transition: all 0.2s;
+      }
+      .sector-btn:hover { border-color: #3b82f6; color: #f8fafc; }
+      .sector-btn.active {
+        background-color: #3b82f6;
+        color: #ffffff;
+        border-color: #3b82f6;
+        box-shadow: 0 0 8px rgba(59, 130, 246, 0.4);
+      }
+
+      /* ── 移動平均線コントロールバー ── */
+      .ma-control-bar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 10px;
+        padding: 8px 0;
+        border-bottom: 1px solid #1e293b;
+      }
+      .ma-label {
+        font-size: 0.76rem;
+        color: #475569;
+        font-weight: bold;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+      }
+      .ma-btn {
+        background: transparent;
+        border: 1px solid #334155;
+        padding: 4px 14px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.78rem;
+        font-weight: bold;
+        letter-spacing: 0.5px;
+        color: #475569;
+        transition: all 0.2s;
+      }
+      .ma-btn:hover { border-color: #64748b; color: #94a3b8; }
+      #ma-btn-5.active  { border-color: #c084fc; color: #c084fc; background: rgba(192,132,252,0.12); }
+      #ma-btn-25.active { border-color: #38bdf8; color: #38bdf8; background: rgba(56,189,248,0.12); }
+      #ma-btn-75.active { border-color: #818cf8; color: #818cf8; background: rgba(129,140,248,0.12); }
+      .vol-label {
+        font-size: 0.7rem;
+        color: #334155;
+        margin-left: 8px;
+      }
+
+      /* ── ヘッダーセクターバッジ ── */
+      .sector-badge {
+        display: inline-block;
+        background: rgba(99, 102, 241, 0.15);
+        color: #818cf8;
+        border: 1px solid rgba(99, 102, 241, 0.35);
+        padding: 3px 10px;
+        border-radius: 20px;
+        font-size: 0.72rem;
+        font-weight: bold;
+        letter-spacing: 0.5px;
+        margin-left: 10px;
+        vertical-align: middle;
+        white-space: nowrap;
+      }
+      .active-company-title {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 14px 20px;
+      }
+      .company-title-main {
+        font-size: 1.15rem;
+        font-weight: 600;
+        background: linear-gradient(90deg, #f1f5f9, #94a3b8);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        letter-spacing: 0.5px;
+      }
+      .company-title-year {
+        font-size: 0.78rem;
+        color: #334155;
+        font-weight: normal;
+        letter-spacing: 0.5px;
+      }
+
+      /* ── タイムコントロールバー ── */
+      .time-control-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: rgba(10,14,24,0.6);
+        padding: 10px 20px;
+        border-radius: 8px;
+        border: 1px solid #1e293b;
+        border-top: none;
+        border-top-left-radius: 0;
+        border-top-right-radius: 0;
+        margin-bottom: 20px;
+        margin-top: -2px;
+      }
+      .time-control-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .time-period-icon {
+        font-size: 0.9rem;
+        opacity: 0.4;
+      }
+      .time-label {
+        font-size: 0.74rem;
+        color: #334155;
+        font-weight: bold;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+      }
+      .time-selected-year {
+        font-size: 1.3rem;
+        font-weight: bold;
+        font-family: "Impact", sans-serif;
+        background: linear-gradient(90deg, #60a5fa, #818cf8);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        letter-spacing: 2px;
+        min-width: 80px;
+        text-align: center;
+      }
+
+      /* ── KPI年度比較カード ── */
+      .kpi-compare-card {
+        background-color: #0f1724;
+        border-radius: 10px;
+        padding: 16px 20px;
+        border: 1px solid #1e3a5f;
+        margin-bottom: 20px;
+      }
+      .kpi-compare-title {
+        font-size: 0.77rem;
+        color: #475569;
+        font-weight: bold;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        border-left: 3px solid #3b82f6;
+        padding-left: 8px;
+        margin-bottom: 14px;
+      }
+      .kpi-compare-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+      }
+      .kpi-year-col {
+        background-color: #161d2b;
+        border-radius: 8px;
+        padding: 12px 14px;
+        border: 1px solid #2d3748;
+        transition: border-color 0.2s;
+      }
+      .kpi-year-col.active-year {
+        border-color: #3b82f6;
+        box-shadow: 0 0 10px rgba(59,130,246,0.15);
+      }
+      .kpi-year-label {
+        font-size: 0.8rem;
+        font-weight: bold;
+        color: #64748b;
+        margin-bottom: 10px;
+        letter-spacing: 1px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .kpi-year-col.active-year .kpi-year-label { color: #3b82f6; }
+      .kpi-active-badge {
+        font-size: 0.6rem;
+        background: #3b82f6;
+        color: #fff;
+        padding: 1px 6px;
+        border-radius: 10px;
+      }
+      .kpi-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 6px;
+        gap: 6px;
+      }
+      .kpi-row-label {
+        font-size: 0.76rem;
+        color: #64748b;
+        letter-spacing: 0.5px;
+        white-space: nowrap;
+      }
+      .kpi-row-value {
+        font-size: 0.88rem;
+        font-weight: bold;
+        color: #e2e8f0;
+        text-align: right;
+        flex-shrink: 0;
+      }
+      .kpi-yoy {
+        font-size: 0.72rem;
+        font-weight: bold;
+        margin-left: 4px;
+      }
+      .kpi-yoy.up   { color: #f87171; }
+      .kpi-yoy.down { color: #4ade80; }
+      .kpi-yoy.flat { color: #64748b; }
+      .kpi-divider { border: none; border-top: 1px solid #1e293b; margin: 6px 0; }
+
+      /* ── コピーライトバー ── */
+      .copyright-bar {
+        text-align: center;
+        font-size: 0.68rem;
+        color: #1e293b;
+        letter-spacing: 1.5px;
+        padding: 7px 0 5px;
+        margin-bottom: 10px;
+        border-bottom: 1px solid #0d1520;
+        font-family: "Courier New", monospace;
+        text-transform: uppercase;
+        transition: color 0.3s;
+      }
+      .copyright-bar:hover { color: #334155; }
+      .copyright-bar .c-sep { margin: 0 8px; color: #1e293b; }
+
+      /* ── 背景グリッドアニメーション（Bloomberg Terminal風） ── */
+      .grid-bg {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-image:
+          linear-gradient(rgba(99,102,241,0.03) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(99,102,241,0.03) 1px, transparent 1px);
+        background-size: 48px 48px;
+        animation: gridDrift 30s linear infinite;
+        pointer-events: none;
+        z-index: 0;
+      }
+      .container {
+        position: relative;
+        z-index: 1;
+      }
+      @keyframes gridDrift {
+        0%   { background-position: 0 0; }
+        100% { background-position: 48px 48px; }
+      }
+
+      /* ── KPIカード数値のリビールアニメーション ── */
+      @keyframes kpiReveal {
+        from { opacity: 0; transform: translateY(6px); filter: blur(3px); }
+        to   { opacity: 1; transform: translateY(0); filter: blur(0); }
+      }
+      .kpi-row-value.reveal {
+        animation: kpiReveal 0.5s ease-out forwards;
+      }
+
+      /* ── テーブル行シマーホバー ── */
+      .portal-table tbody tr {
+        position: relative;
+        overflow: hidden;
+      }
+      .portal-table tbody tr::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 60%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(99,102,241,0.06), transparent);
+        transition: left 0.5s ease;
+        pointer-events: none;
+      }
+      .portal-table tbody tr:hover::after {
+        left: 150%;
+      }
+
+      /* ── セクターフィルターのフェードイン ── */
+      .sector-btn {
+        opacity: 0;
+        animation: sectorFadeIn 0.3s ease forwards;
+      }
+      @keyframes sectorFadeIn {
+        from { opacity: 0; transform: translateY(-6px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+
+      /* ── カードフェードインアニメーション ── */
+      @keyframes cardFadeInUp {
+        from { opacity: 0; transform: translateY(16px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+      .dashboard-stack.animate-cards .card {
+        opacity: 0;
+        animation: cardFadeInUp 0.45s ease-out forwards;
+      }
+      .dashboard-stack.animate-cards .card:nth-child(1) { animation-delay: 0.05s; }
+      .dashboard-stack.animate-cards .card:nth-child(2) { animation-delay: 0.18s; }
+      .dashboard-stack.animate-cards .card:nth-child(3) { animation-delay: 0.31s; }
+      .dashboard-stack.animate-cards .card:nth-child(4) { animation-delay: 0.44s; }
+      .dashboard-stack.animate-cards .card:nth-child(5) { animation-delay: 0.57s; }
+    </style>
+  </head>
+  <body>
+    <div class="grid-bg"></div>
+    <div class="container">
+      <div class="copyright-bar">
+        <span>© 2026 Strategic Investment Portal</span>
+        <span class="c-sep">·</span>
+        <span>Personal Research Tool</span>
+        <span class="c-sep">·</span>
+        <span>Data: yfinance</span>
+        <span class="c-sep">·</span>
+        <span>Not Financial Advice</span>
+      </div>
+      <div class="portal-header">
+        <div class="portal-header-row">
+          <span class="live-dot"></span>
+          <span class="portal-title">Strategic Investment Portal</span>
+          <span class="portal-header-date" id="portal-date"></span>
+        </div>
+        <div class="portal-subtitle-row">
+          <span class="portal-subtitle-text">Financial Intelligence Terminal</span>
+          <span class="portal-stat-badge" id="portal-company-count">-- 銘柄</span>
+          <span class="portal-stat-badge" id="portal-sector-count">-- セクター</span>
+          <span class="portal-stat-badge" id="data-updated-at" style="color:#334155;border-color:rgba(51,65,85,0.4);background:transparent;"></span>
+        </div>
+        <div class="portal-divider"></div>
+      </div>
+
+      <div id="portal-view" class="view-section active">
+        <div class="search-container">
+          <span class="search-icon">🔍</span>
+          <input
+            type="text"
+            id="portal-search"
+            class="search-input"
+            placeholder="企業名、コード、またはセクターで絞り込み..."
+            oninput="filterAndRenderPortal()"
+          />
+        </div>
+
+        <div class="sector-filter-bar" id="sector-filter-bar"></div>
+
+        <button class="screening-toggle-btn" id="screening-toggle" onclick="toggleScreening()">▼ スクリーニング</button>
+        <div class="screening-panel" id="screening-panel">
+          <div class="screening-grid">
+            <div class="screening-item">
+              <span class="screening-label">PER (株価収益率)</span>
+              <div class="screening-range">
+                <input class="screening-input" id="scr-per-min" type="number" placeholder="最小" min="0" step="0.5" oninput="applyScreening()">
+                <span class="screening-sep">〜</span>
+                <input class="screening-input" id="scr-per-max" type="number" placeholder="最大" min="0" step="0.5" oninput="applyScreening()">
+                <span class="screening-sep" style="font-size:0.7rem;color:#334155;">倍</span>
+              </div>
+            </div>
+            <div class="screening-item">
+              <span class="screening-label">PBR (株価純資産倍率)</span>
+              <div class="screening-range">
+                <input class="screening-input" id="scr-pbr-min" type="number" placeholder="最小" min="0" step="0.1" oninput="applyScreening()">
+                <span class="screening-sep">〜</span>
+                <input class="screening-input" id="scr-pbr-max" type="number" placeholder="最大" min="0" step="0.1" oninput="applyScreening()">
+                <span class="screening-sep" style="font-size:0.7rem;color:#334155;">倍</span>
+              </div>
+            </div>
+            <div class="screening-item">
+              <span class="screening-label">自己資本比率</span>
+              <div class="screening-range">
+                <input class="screening-input" id="scr-eq-min" type="number" placeholder="最小" min="0" max="100" step="1" oninput="applyScreening()">
+                <span class="screening-sep">〜</span>
+                <input class="screening-input" id="scr-eq-max" type="number" placeholder="最大" min="0" max="100" step="1" oninput="applyScreening()">
+                <span class="screening-sep" style="font-size:0.7rem;color:#334155;">%</span>
+              </div>
+            </div>
+            <div class="screening-item">
+              <span class="screening-label">営業利益率</span>
+              <div class="screening-range">
+                <input class="screening-input" id="scr-op-min" type="number" placeholder="最小" min="-100" step="0.5" oninput="applyScreening()">
+                <span class="screening-sep">〜</span>
+                <input class="screening-input" id="scr-op-max" type="number" placeholder="最大" step="0.5" oninput="applyScreening()">
+                <span class="screening-sep" style="font-size:0.7rem;color:#334155;">%</span>
+              </div>
+            </div>
+          </div>
+          <div class="screening-actions">
+            <button class="screening-reset-btn" onclick="resetScreening()">✕ リセット</button>
+            <span class="screening-result-count" id="screening-count"></span>
+          </div>
+        </div>
+
+        <div class="legend-bar">
+          <div class="legend-item">
+            <span style="color: #10b981; font-weight: bold"
+              >🌟 PER 15.0倍以下</span
+            >：収益割安圏
+          </div>
+          <div class="legend-item">
+            <span style="color: #eab308; font-weight: bold"
+              >💎 PBR 1.0倍以下</span
+            >：解散価値以下（割安圏）
+          </div>
+          <div class="legend-item">
+            <span style="color: #f43f5e; font-weight: bold">■ 赤字/過熱</span
+            >：過度な高PER・高PBRへの警告シグナル
+          </div>
+        </div>
+
+        <div id="portal-container"></div>
+      </div>
+
+      <div id="detail-view" class="view-section">
+        <div class="back-bar">
+          <button class="back-btn" onclick="navigateToPortal()">
+            ← PORTAL
+          </button>
+          <div class="active-company-title" id="active-company-header">
+            <span class="company-title-main">企業詳細分析</span>
+          </div>
+        </div>
+
+        <div class="time-control-bar">
+          <div class="time-control-left">
+            <span class="time-period-icon">📅</span>
+            <span class="time-label">Fiscal Year</span>
+            <span class="time-selected-year" id="selected-year-display">----</span>
+          </div>
+          <div class="time-btn-group" id="year-controller-box"></div>
+        </div>
+
+        <div class="kpi-compare-card" id="kpi-compare-card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <div class="kpi-compare-title" style="margin-bottom:0;">Annual KPI Comparison — 3 Fiscal Years</div>
+            <button id="csv-export-btn" onclick="exportCSV()" style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);color:#34d399;padding:4px 12px;border-radius:5px;cursor:pointer;font-size:0.72rem;font-weight:bold;letter-spacing:1px;transition:all 0.2s;">↓ CSV</button>
+          </div>
+          <div class="kpi-compare-grid" id="kpi-compare-grid"></div>
+        </div>
+
+        <div class="dashboard-stack">
+          <div class="card">
+            <div class="card-title" id="stock-title">MARKET CHART</div>
+            <div class="ma-control-bar">
+              <span class="ma-label">移動平均線:</span>
+              <button class="ma-btn" id="ma-btn-5" onclick="toggleMA(5)">MA 5日</button>
+              <button class="ma-btn" id="ma-btn-25" onclick="toggleMA(25)">MA 25日</button>
+              <button class="ma-btn" id="ma-btn-75" onclick="toggleMA(75)">MA 75日</button>
+              <span class="vol-label">▌ 出来高: 下段表示</span>
+            </div>
+            <div id="chart-container"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-title" id="bs-title">BALANCE SHEET ANALYSIS</div>
+            <div class="grid-layout">
+              <div
+                class="chart-main-area"
+                style="display: flex; justify-content: center; width: 100%"
+              >
+                <div style="width: 100%; height: 100%">
+                  <canvas id="bsChart"></canvas>
+                </div>
+              </div>
+              <div class="side-panel">
+                <div class="status-card gold">
+                  <div class="panel-label">自己資本比率</div>
+                  <div class="panel-body-vertical">
+                    <span
+                      class="panel-sign-value-large"
+                      id="equity-ratio"
+                      style="color: #eab308"
+                      >0.0%</span
+                    >
+                    <span class="panel-desc-text-below" id="desc-equity-ratio"
+                      >▶ 中長期安全性基準: 40.0% 以上で健全企業水準</span
+                    >
+                  </div>
+                </div>
+                <div class="status-card blue">
+                  <div class="panel-label">流動比率</div>
+                  <div class="panel-body-vertical">
+                    <span
+                      class="panel-sign-value-large"
+                      id="current-ratio"
+                      style="color: #3b82f6"
+                      >0.0%</span
+                    >
+                    <span class="panel-desc-text-below" id="desc-current-ratio"
+                      >▶ 短期支払能力基準: 100.0% 〜 150.0% 以上で安全圏</span
+                    >
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title" id="radar-title">
+              FINANCIAL COMPASS & VALUATION METRICS
+            </div>
+            <div class="grid-layout">
+              <div class="chart-main-area">
+                <canvas id="radarChart"></canvas>
+              </div>
+              <div class="side-panel">
+                <div class="status-card purple">
+                  <div class="panel-label">ROE (自己資本利益率)</div>
+                  <div class="panel-body-vertical">
+                    <span
+                      class="panel-sign-value-large"
+                      id="txt-roe-val"
+                      style="color: #c084fc"
+                      >0.0%</span
+                    >
+                    <span class="panel-desc-text-below"
+                      >▶ 資本効率基準: 8.0% 〜 10.0% 以上で合格圏</span
+                    >
+                  </div>
+                </div>
+                <div class="status-card cyan">
+                  <div class="panel-label">ROA (総資産利益率)</div>
+                  <div class="panel-body-vertical">
+                    <span
+                      class="panel-sign-value-large"
+                      id="txt-roa-val"
+                      style="color: #22d3ee"
+                      >0.0%</span
+                    >
+                    <span class="panel-desc-text-below"
+                      >▶ 総合資産効率基準: 5.0% 以上で合格圏</span
+                    >
+                  </div>
+                </div>
+                <div class="status-card green" id="card-per">
+                  <div class="panel-label">PER (株価収益率)</div>
+                  <div class="panel-body-vertical">
+                    <span
+                      class="panel-sign-value-large"
+                      id="txt-per-val"
+                      style="color: #10b981"
+                      >0.0倍</span
+                    >
+                    <span class="panel-desc-text-below" id="txt-per-status"
+                      >▶ 収益割安基準: 15.0倍以下で割安圏</span
+                    >
+                  </div>
+                </div>
+                <div class="status-card blue" id="card-pbr">
+                  <div class="panel-label">PBR (株価純資産倍率)</div>
+                  <div class="panel-body-vertical">
+                    <span
+                      class="panel-sign-value-large"
+                      id="txt-pbr-val"
+                      style="color: #3b82f6"
+                      >0.0倍</span
+                    >
+                    <span class="panel-desc-text-below" id="txt-pbr-status"
+                      >▶ 解散価値基準: 1.0倍以下で割安圏</span
+                    >
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title" id="pl-title">PROFIT & LOSS STATEMENT</div>
+            <div class="full-width-area">
+              <canvas id="plChart"></canvas>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title" id="cf-title">CASH FLOW ANALYSIS</div>
+            <div class="grid-layout">
+              <div class="chart-main-area">
+                <canvas id="cfChart"></canvas>
+              </div>
+              <div class="side-panel">
+                <div class="type-badge" id="cf-type-badge">ANALYZING...</div>
+                <div class="status-card" id="card-ope">
+                  <div class="panel-label">営業活動CF (本業の底力)</div>
+                  <div class="panel-body-grid">
+                    <span class="panel-sign-value-cf" id="txt-ope-sign">-</span>
+                    <span class="panel-desc-text-cf" id="txt-ope-desc">-</span>
+                  </div>
+                </div>
+                <div class="status-card" id="card-inv">
+                  <div class="panel-label">投資活動CF (未来への攻め)</div>
+                  <div class="panel-body-grid">
+                    <span class="panel-sign-value-cf" id="txt-inv-sign">-</span>
+                    <span class="panel-desc-text-cf" id="txt-inv-desc">-</span>
+                  </div>
+                </div>
+                <div class="status-card" id="card-fin">
+                  <div class="panel-label">財務活動CF (金庫の出し入れ)</div>
+                  <div class="panel-body-grid">
+                    <span class="panel-sign-value-cf" id="txt-fin-sign">-</span>
+                    <span class="panel-desc-text-cf" id="txt-fin-desc">-</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- フッター -->
+      <footer class="site-footer">
+        <span>© 2026 Strategic Investment Portal</span>
+        <a class="footer-link" onclick="openModal('disclaimer-modal')">免責事項 & プライバシーポリシー</a>
+        <a class="footer-link" onclick="openModal('about-modal')">このサイトについて</a>
+        <span>Data: yfinance</span>
+      </footer>
+    </div>
+
+    <!-- Disclaimerモーダル -->
+    <div class="modal-overlay" id="disclaimer-modal" onclick="closeModal('disclaimer-modal', event)">
+      <div class="modal-box">
+        <button class="modal-close" onclick="closeModal('disclaimer-modal')">✕</button>
+        <div class="modal-title">免責事項 & プライバシーポリシー</div>
+        <div class="modal-section-title">免責事項</div>
+        <div class="modal-text">
+          本サイトに掲載されている情報は、<strong>投資情報の提供を目的としたものではなく</strong>、個人的な学習・研究目的のみを対象としています。<br><br>
+          本サイトで提供するデータは yfinance API を通じて取得した<strong>二次情報</strong>であり、データの正確性・完全性・最新性を一切保証するものではありません。
+          掲載情報に基づいて行われた投資判断によって生じた損失について、当サイトは<strong>いかなる責任も負いません</strong>。<br><br>
+          投資に関する最終的な意思決定は、必ず公式データおよびご自身の判断に基づいて行ってください。
+        </div>
+        <div class="modal-section-title">データソース</div>
+        <div class="modal-text">
+          株価・財務データ: <strong>yfinance</strong>（Yahoo Finance 非公式API）<br>
+          チャートライブラリ: Lightweight Charts, Chart.js<br>
+          データは定期的に更新されますが、リアルタイムではありません。
+        </div>
+        <div class="modal-section-title">プライバシーポリシー</div>
+        <div class="modal-text">
+          本サイトは<strong>ユーザーの個人情報を収集・保存しません</strong>。ウォッチリスト機能はお使いのブラウザのローカルストレージのみを使用し、サーバーには送信されません。
+        </div>
+      </div>
+    </div>
+
+    <!-- Aboutモーダル -->
+    <div class="modal-overlay" id="about-modal" onclick="closeModal('about-modal', event)">
+      <div class="modal-box">
+        <button class="modal-close" onclick="closeModal('about-modal')">✕</button>
+        <div class="modal-title">このサイトについて</div>
+        <div class="modal-text">
+          <strong>Strategic Investment Portal</strong> は、機関投資家レベルの財務分析UIを個人投資家が手軽に利用できることを目指したプライベートなダッシュボードです。<br><br>
+          現在 <strong id="about-company-count">--</strong> 銘柄（日本株・米国株・ETF）の財務3表（BS/PL/CF）と株価チャートを収録しています。
+        </div>
+        <div class="modal-section-title">使用技術</div>
+        <div class="about-tech-grid">
+          <div class="tech-badge">Lightweight Charts 4.2</div>
+          <div class="tech-badge">Chart.js v4 + datalabels</div>
+          <div class="tech-badge">Python / yfinance</div>
+          <div class="tech-badge">SQLite3</div>
+          <div class="tech-badge">Vanilla HTML/CSS/JS</div>
+          <div class="tech-badge">GitHub Pages / Vercel</div>
+        </div>
+        <div class="modal-section-title">開発者</div>
+        <div class="modal-text">
+          <strong>太田 周吾</strong><br>
+          個人投資家・フルスタック開発者
+        </div>
+        <a href="#" class="about-github-btn" onclick="return false;">GitHub →（準備中）</a>
+      </div>
+    </div>
+
+    <script src="data.js"></script>
+    <script>
+      Chart.register(ChartDataLabels);
+
+      let currentTicker = "7203.T";
+      let selectedYear = 2025;
+      let priceChart = null;
+      let candleSeries = null;
+      let bsChartInstance = null;
+      let radarChartInstance = null;
+      let plChartInstance = null;
+      let cfChartInstance = null;
+
+      let sortKey = "ticker";
+      let sortAsc = true;
+      let sparklineInstances = [];
+
+      let ma5Series = null, ma25Series = null, ma75Series = null;
+      let volumeSeries = null;
+      let maState = { 5: false, 25: false, 75: false };
+      let activeSectorFilter = "stock_only";
+      let showDetailSectors = false;
+
+      // スクリーニングフィルター状態
+      let screeningActive = false;
+      let screening = { perMin: null, perMax: null, pbrMin: null, pbrMax: null, eqMin: null, eqMax: null, opMin: null, opMax: null };
+
+      function toggleScreening() {
+        screeningActive = !screeningActive;
+        document.getElementById("screening-panel").classList.toggle("active", screeningActive);
+        const btn = document.getElementById("screening-toggle");
+        btn.classList.toggle("active", screeningActive);
+        btn.innerText = (screeningActive ? "▲" : "▼") + " スクリーニング";
+      }
+
+      function applyScreening() {
+        const g = (id) => { const v = parseFloat(document.getElementById(id).value); return isNaN(v) ? null : v; };
+        screening = { perMin: g("scr-per-min"), perMax: g("scr-per-max"), pbrMin: g("scr-pbr-min"), pbrMax: g("scr-pbr-max"), eqMin: g("scr-eq-min"), eqMax: g("scr-eq-max"), opMin: g("scr-op-min"), opMax: g("scr-op-max") };
+        filterAndRenderPortal();
+      }
+
+      function resetScreening() {
+        ["scr-per-min","scr-per-max","scr-pbr-min","scr-pbr-max","scr-eq-min","scr-eq-max","scr-op-min","scr-op-max"].forEach(id => { document.getElementById(id).value = ""; });
+        screening = { perMin: null, perMax: null, pbrMin: null, pbrMax: null, eqMin: null, eqMax: null, opMin: null, opMax: null };
+        filterAndRenderPortal();
+      }
+
+      function passesScreening(item) {
+        const s = screening;
+        if (s.perMin !== null && (item.per <= 0 || item.per < s.perMin)) return false;
+        if (s.perMax !== null && item.per > 0 && item.per > s.perMax) return false;
+        if (s.pbrMin !== null && (item.pbr <= 0 || item.pbr < s.pbrMin)) return false;
+        if (s.pbrMax !== null && item.pbr > 0 && item.pbr > s.pbrMax) return false;
+        if (s.eqMin !== null && item.eqRatio < s.eqMin) return false;
+        if (s.eqMax !== null && item.eqRatio > s.eqMax) return false;
+        if (s.opMin !== null && item.opMargin < s.opMin) return false;
+        if (s.opMax !== null && item.opMargin > s.opMax) return false;
+        return true;
+      }
+
+      // ウォッチリスト (localStorage永続化)
+      let watchlist = new Set(JSON.parse(localStorage.getItem("sip_watchlist") || "[]"));
+      function isWatched(ticker) { return watchlist.has(ticker); }
+      function toggleWatchlist(ticker) {
+        if (watchlist.has(ticker)) { watchlist.delete(ticker); }
+        else { watchlist.add(ticker); }
+        localStorage.setItem("sip_watchlist", JSON.stringify([...watchlist]));
+        // 一覧画面のスター更新
+        const cleanTicker = ticker.replace(".", "_");
+        const starEl = document.getElementById("star-" + cleanTicker);
+        if (starEl) { starEl.className = "star-btn" + (isWatched(ticker) ? " watched" : ""); starEl.innerText = isWatched(ticker) ? "★" : "☆"; }
+        // 詳細画面のスター更新
+        const detailStar = document.getElementById("detail-star-btn");
+        if (detailStar && currentTicker === ticker) { detailStar.className = "detail-star-btn" + (isWatched(ticker) ? " watched" : ""); detailStar.innerText = isWatched(ticker) ? "★ ウォッチ中" : "☆ ウォッチ"; }
+        // ウォッチフィルター中なら再描画
+        if (activeSectorFilter === "watch_only") filterAndRenderPortal();
+      }
+
+      function openModal(id) {
+        document.getElementById(id).classList.add("active");
+        if (id === "about-modal") {
+          const el = document.getElementById("about-company-count");
+          if (el) el.innerText = Object.keys(STOCK_DATA).length;
+        }
+      }
+      function closeModal(id, event) {
+        if (!event || event.target.classList.contains("modal-overlay")) {
+          document.getElementById(id).classList.remove("active");
+        }
+      }
+
+      window.onload = function () {
+        const dateEl = document.getElementById("portal-date");
+        if (dateEl) dateEl.innerText = new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "2-digit", day: "2-digit" });
+        // データ最終更新日時の表示
+        const updEl = document.getElementById("data-updated-at");
+        if (updEl && typeof DATA_UPDATED_AT !== "undefined") updEl.innerText = "Data: " + DATA_UPDATED_AT + " 更新";
+        const companies = Object.keys(STOCK_DATA);
+        const sectors = new Set(companies.map(t => STOCK_DATA[t].industry));
+        const countEl = document.getElementById("portal-company-count");
+        const sectorEl = document.getElementById("portal-sector-count");
+        if (countEl) countEl.innerText = companies.length + " 銘柄";
+        if (sectorEl) sectorEl.innerText = sectors.size + " セクター";
+
+        initSectorFilter();
+        filterAndRenderPortal();
+        initPriceChart();
+      };
+
+      function filterAndRenderPortal() {
+        sparklineInstances.forEach((ins) => ins.destroy());
+        sparklineInstances = [];
+
+        const container = document.getElementById("portal-container");
+        container.innerHTML = "";
+        const searchQuery = document
+          .getElementById("portal-search")
+          .value.toLowerCase()
+          .trim();
+
+        let list = [];
+        for (const ticker in STOCK_DATA) {
+          const company = STOCK_DATA[ticker];
+          const currency = company.currency || "JPY";
+
+          // 最新年度データを動的に取得（2025固定をやめ、NVDA FY2026等にも対応）
+          const finYears = Object.keys(company.financials_trend).sort((a, b) => Number(b) - Number(a));
+          const latestYear = finYears[0] || null;
+          const latestFin = latestYear ? company.financials_trend[latestYear] : null;
+          const fin = latestFin || {};
+          const hasFinData = latestFin !== null && (latestFin.net_sales > 0 || latestFin.net_assets > 0);
+
+          const totalAssets = (fin.current_assets || 0) + (fin.non_current_assets || 0);
+          const eqRatio = totalAssets > 0 ? ((fin.net_assets || 0) / totalAssets) * 100 : 0;
+          const curRatio = (fin.current_liabilities || 0) > 0
+            ? ((fin.current_assets || 0) / (fin.current_liabilities || 0)) * 100 : 0;
+
+          const assetType = company.type || "stock";
+          if (activeSectorFilter === "stock_only" && assetType === "etf") continue;
+          if (activeSectorFilter === "jp_only" && (company.country !== "JP" || assetType === "etf")) continue;
+          if (activeSectorFilter === "us_only" && (company.country !== "US" || assetType === "etf")) continue;
+          if (activeSectorFilter === "etf_only" && assetType !== "etf") continue;
+          if (activeSectorFilter === "watch_only" && !isWatched(ticker)) continue;
+          if (activeSectorFilter !== "all" && activeSectorFilter !== "stock_only" &&
+              activeSectorFilter !== "jp_only" && activeSectorFilter !== "us_only" &&
+              activeSectorFilter !== "etf_only" && activeSectorFilter !== "watch_only" &&
+              company.industry !== activeSectorFilter) continue;
+
+          if (searchQuery) {
+            const match =
+              ticker.toLowerCase().includes(searchQuery) ||
+              company.company_name.toLowerCase().includes(searchQuery) ||
+              company.industry.toLowerCase().includes(searchQuery);
+            if (!match) continue;
+          }
+
+          let trendSales = [];
+          const trendYears = Object.keys(company.financials_trend).sort((a, b) => Number(a) - Number(b)).slice(-3);
+          trendYears.forEach((yr) => {
+            trendSales.push(company.financials_trend[yr].net_sales || 0);
+          });
+
+          const opMargin = (fin.net_sales || 0) > 0
+            ? ((fin.operating_income || 0) / fin.net_sales) * 100 : 0;
+          const roe = (fin.net_assets || 0) > 0
+            ? ((fin.net_income || 0) / fin.net_assets) * 100 : 0;
+
+          const item = {
+            ticker: ticker,
+            name: company.company_name,
+            industry: company.industry,
+            currency: currency,
+            country: company.country || "JP",
+            marketCap: company.marketCap || 0,
+            per: company.per || 0,
+            pbr: company.pbr || 0,
+            sales: fin.net_sales || 0,
+            eqRatio: eqRatio,
+            curRatio: curRatio,
+            trendSales: trendSales,
+            opMargin: opMargin,
+            roe: roe,
+            hasFinData: hasFinData,
+          };
+          if (!passesScreening(item)) continue;
+          list.push(item);
+        }
+
+        // スクリーニング結果数を更新
+        const countEl = document.getElementById("screening-count");
+        if (countEl) {
+          const hasFilter = Object.values(screening).some(v => v !== null);
+          countEl.innerText = hasFilter ? `${list.length} 銘柄がヒット` : "";
+        }
+
+        list.sort((a, b) => {
+          let valA = a[sortKey];
+          let valB = b[sortKey];
+          if (typeof valA === "string") {
+            return sortAsc
+              ? valA.localeCompare(valB)
+              : valB.localeCompare(valA);
+          } else {
+            return sortAsc ? valA - valB : valB - valA;
+          }
+        });
+
+        const groups = {};
+        list.forEach((item) => {
+          if (!groups[item.industry]) groups[item.industry] = [];
+          groups[item.industry].push(item);
+        });
+
+        if (Object.keys(groups).length === 0) {
+          container.innerHTML = `<div style="text-align:center; color:#64748b; padding:40px;">該当する企業が見つかりません</div>`;
+          return;
+        }
+
+        for (const ind in groups) {
+          const sectorDiv = document.createElement("div");
+          sectorDiv.className = "sector-section";
+
+          const title = document.createElement("div");
+          title.className = "sector-title";
+          title.innerHTML = `
+            <span>${ind.replace("US - ", "🇺🇸 ").replace("国内ETF", "🇯🇵 ETF")}</span>
+            <span class="sector-count-badge">${groups[ind].length}社</span>
+            <span class="sector-title-line"></span>
+          `;
+          sectorDiv.appendChild(title);
+
+          const table = document.createElement("table");
+          table.className = "portal-table";
+
+          table.innerHTML = `
+                <thead>
+                    <tr>
+                        <th style="width: 7%;" class="${sortKey === "ticker" ? "active-sort" : ""}" onclick="setSort('ticker')">コード<span class="sort-icon">${sortKey === "ticker" ? (sortAsc ? "▲" : "▼") : "↕"}</span></th>
+                        <th style="width: 18%;" class="${sortKey === "name" ? "active-sort" : ""}" onclick="setSort('name')">企業名<span class="sort-icon">${sortKey === "name" ? (sortAsc ? "▲" : "▼") : "↕"}</span></th>
+                        <th style="width: 14%;" class="${sortKey === "sales" ? "active-sort" : ""}" onclick="setSort('sales')">売上高<span class="sort-icon">${sortKey === "sales" ? (sortAsc ? "▲" : "▼") : "↕"}</span></th>
+                        <th style="width: 9%; cursor: default;">3期トレンド</th>
+                        <th style="width: 12%;" class="${sortKey === "marketCap" ? "active-sort" : ""}" onclick="setSort('marketCap')">時価総額<span class="sort-icon">${sortKey === "marketCap" ? (sortAsc ? "▲" : "▼") : "↕"}</span></th>
+                        <th style="width: 7%;" class="${sortKey === "per" ? "active-sort" : ""}" onclick="setSort('per')">PER<span class="sort-icon">${sortKey === "per" ? (sortAsc ? "▲" : "▼") : "↕"}</span></th>
+                        <th style="width: 7%;" class="${sortKey === "pbr" ? "active-sort" : ""}" onclick="setSort('pbr')">PBR<span class="sort-icon">${sortKey === "pbr" ? (sortAsc ? "▲" : "▼") : "↕"}</span></th>
+                        <th style="width: 9%;" class="${sortKey === "eqRatio" ? "active-sort" : ""}" onclick="setSort('eqRatio')">自己資本比率<span class="sort-icon">${sortKey === "eqRatio" ? (sortAsc ? "▲" : "▼") : "↕"}</span></th>
+                        <th style="width: 9%;" class="${sortKey === "opMargin" ? "active-sort" : ""}" onclick="setSort('opMargin')">営業利益率<span class="sort-icon">${sortKey === "opMargin" ? (sortAsc ? "▲" : "▼") : "↕"}</span></th>
+                        <th style="width: 8%;" class="${sortKey === "roe" ? "active-sort" : ""}" onclick="setSort('roe')">ROE<span class="sort-icon">${sortKey === "roe" ? (sortAsc ? "▲" : "▼") : "↕"}</span></th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            `;
+
+          const tbody = table.querySelector("tbody");
+          groups[ind].forEach((item) => {
+            const tr = document.createElement("tr");
+            tr.onclick = () => navigateToDetail(item.ticker);
+
+            let perStyle = "color: #cbd5e1;";
+            let perText = item.per > 0 ? item.per.toFixed(1) + " 倍" : "--";
+            if (item.per > 0) {
+              if (item.per <= 15.0) {
+                perStyle = "color: #10b981; font-weight: bold;";
+                perText += " 🌟";
+              } else if (item.per >= 28.0) {
+                perStyle = "color: #f43f5e;";
+              }
+            }
+
+            let pbrStyle = "color: #cbd5e1;";
+            let pbrText = item.pbr > 0 ? item.pbr.toFixed(1) + " 倍" : "--";
+            if (item.pbr > 0) {
+              if (item.pbr <= 1.0) {
+                pbrStyle = "color: #eab308; font-weight: bold;";
+                pbrText += " 💎";
+              } else if (item.pbr >= 3.0) {
+                pbrStyle = "color: #f43f5e;";
+              }
+            }
+
+            let opStyle = "color: #64748b;";
+            let opText = item.opMargin !== null ? item.opMargin.toFixed(1) + "%" : "--";
+            if (item.opMargin > 0) {
+              if (item.opMargin >= 25) { opStyle = "color: #eab308; font-weight: bold;"; opText += " ✦"; }
+              else if (item.opMargin >= 15) { opStyle = "color: #10b981; font-weight: bold;"; }
+              else if (item.opMargin >= 5) { opStyle = "color: #94a3b8;"; }
+            }
+
+            let roeStyle = "color: #64748b;";
+            let roeText = item.roe !== null ? item.roe.toFixed(1) + "%" : "--";
+            if (item.roe < 0) { roeStyle = "color: #f43f5e;"; }
+            else if (item.roe >= 15) { roeStyle = "color: #eab308; font-weight: bold;"; roeText += " ✦"; }
+            else if (item.roe >= 8) { roeStyle = "color: #10b981; font-weight: bold;"; }
+
+            const isUSD = item.currency === "USD";
+            const currBadge = isUSD
+              ? `<span style="font-size:0.6rem;background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.4);padding:1px 5px;border-radius:8px;margin-left:4px;">USD</span>`
+              : "";
+            const capString = item.marketCap > 0
+              ? isUSD
+                ? (item.marketCap / 1e12).toFixed(1) + " 兆ドル"
+                : (item.marketCap / 1e12).toFixed(1) + " 兆円"
+              : "--";
+            const salesText = item.hasFinData
+              ? item.sales.toLocaleString() + (isUSD ? " 百万ドル" : " 百万円")
+              : "<span style='color:#475569'>-- (ETF)</span>";
+
+            const cleanTicker = item.ticker.replace(".", "_");
+            tr.innerHTML = `
+                    <td><span class="ticker-code">${item.ticker}</span></td>
+                    <td style="white-space: nowrap;">
+                      <button class="star-btn${isWatched(item.ticker) ? " watched" : ""}" id="star-${cleanTicker}"
+                        onclick="event.stopPropagation(); toggleWatchlist('${item.ticker}')">${isWatched(item.ticker) ? "★" : "☆"}</button>
+                      <span class="company-clickable" title="${item.name}">${item.name}</span>${currBadge}
+                    </td>
+                    <td style="font-weight: bold; color: #10b981;">${salesText}</td>
+                    <td>
+                        <div class="sparkline-wrapper">
+                            <canvas id="spark-${cleanTicker}"></canvas>
+                        </div>
+                    </td>
+                    <td style="font-weight: bold; color: #cbd5e1;">${capString}</td>
+                    <td style="${perStyle}">${perText}</td>
+                    <td style="${pbrStyle}">${pbrText}</td>
+                    <td style="color: #eab308; font-weight: bold;">${item.hasFinData ? item.eqRatio.toFixed(1) + "%" : "--"}</td>
+                    <td style="${opStyle}">${item.hasFinData ? opText : "--"}</td>
+                    <td style="${roeStyle}">${item.hasFinData ? roeText : "--"}</td>
+                `;
+            tbody.appendChild(tr);
+          });
+
+          sectorDiv.appendChild(table);
+          container.appendChild(sectorDiv);
+        }
+
+        // 💡 描画の完了を少し待ってから、確実にCSSアニメーション（シュルっと動く）を発動させます！
+        setTimeout(() => {
+          list.forEach((item) => {
+            const cleanTicker = item.ticker.replace(".", "_");
+            const canvasEl = document.getElementById(`spark-${cleanTicker}`);
+            if (canvasEl && item.trendSales.length > 0) {
+              renderSparkline(canvasEl, item.trendSales);
+            }
+          });
+        }, 50);
+      }
+
+      function renderSparkline(canvas, dataPoints) {
+        const ctx = canvas.getContext("2d");
+        const instance = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: dataPoints.map((_, i) => i),
+            datasets: [
+              {
+                data: dataPoints,
+                borderColor: "#34d399",
+                borderWidth: 1.5,
+                pointRadius: 0,
+                pointHoverRadius: 0,
+                fill: false,
+                tension: 0.2,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            // 💡 Chart.jsの無意味なアニメーションを切り、上で仕込んだCSSの `swipeRight` に100%全委任！これが動かない原因の解消法です！
+            animation: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: { enabled: false },
+              datalabels: { display: false },
+            },
+            scales: {
+              x: { display: false },
+              y: { display: false },
+            },
+          },
+        });
+        sparklineInstances.push(instance);
+      }
+
+      function setSort(key) {
+        if (sortKey === key) {
+          sortAsc = !sortAsc;
+        } else {
+          sortKey = key;
+          sortAsc =
+            key === "per" ||
+            key === "pbr" ||
+            key === "ticker" ||
+            key === "name";
+        }
+        filterAndRenderPortal();
+      }
+
+      function initSectorFilter() {
+        const bar = document.getElementById("sector-filter-bar");
+        if (!bar) return;
+        // 個別セクター収集
+        const sectors = [];
+        const seen = new Set();
+        for (const ticker in STOCK_DATA) {
+          const d = STOCK_DATA[ticker];
+          if ((d.type || "stock") === "etf") continue;
+          if (!seen.has(d.industry)) { seen.add(d.industry); sectors.push(d.industry); }
+        }
+        sectors.sort();
+
+        bar.innerHTML = "";
+        // 大分類クイックフィルター
+        const watchCount = watchlist.size;
+        const quickFilters = [
+          { key: "stock_only", label: "株式のみ" },
+          { key: "jp_only",    label: "🇯🇵 日本株" },
+          { key: "us_only",    label: "🇺🇸 米国株" },
+          { key: "etf_only",   label: "ETF" },
+          { key: "watch_only", label: `⭐ ウォッチ${watchCount > 0 ? " (" + watchCount + ")" : ""}` },
+          { key: "all",        label: "すべて" },
+        ];
+        quickFilters.forEach((f, i) => {
+          const btn = document.createElement("button");
+          btn.className = "sector-btn" + (f.key === activeSectorFilter ? " active" : "");
+          btn.innerText = f.label;
+          btn.style.animationDelay = `${i * 35}ms`;
+          btn.onclick = () => setSectorFilter(f.key);
+          bar.appendChild(btn);
+        });
+
+        // 区切り
+        const sep = document.createElement("span");
+        sep.style.cssText = "color:#1e293b;font-size:0.7rem;margin:0 4px;align-self:center;";
+        sep.innerText = "|";
+        bar.appendChild(sep);
+
+        // 詳細セクタートグルボタン
+        const toggleBtn = document.createElement("button");
+        toggleBtn.className = "sector-btn";
+        toggleBtn.style.animationDelay = "200ms";
+        toggleBtn.innerText = showDetailSectors ? "▲ 詳細" : "▼ 詳細";
+        toggleBtn.onclick = () => { showDetailSectors = !showDetailSectors; initSectorFilter(); };
+        bar.appendChild(toggleBtn);
+
+        // 詳細セクター展開時のみ表示
+        if (showDetailSectors) {
+          sectors.forEach((s, i) => {
+            const btn = document.createElement("button");
+            btn.className = "sector-btn" + (s === activeSectorFilter ? " active" : "");
+            btn.innerText = s;
+            btn.style.animationDelay = `${(i + quickFilters.length + 2) * 30}ms`;
+            btn.onclick = () => setSectorFilter(s);
+            bar.appendChild(btn);
+          });
+        }
+      }
+
+      function setSectorFilter(sector) {
+        activeSectorFilter = sector;
+        initSectorFilter();
+        filterAndRenderPortal();
+      }
+
+      function calcMA(prices, period) {
+        const result = [];
+        for (let i = period - 1; i < prices.length; i++) {
+          let sum = 0;
+          for (let j = i - period + 1; j <= i; j++) sum += prices[j].close;
+          result.push({ time: prices[i].time, value: parseFloat((sum / period).toFixed(2)) });
+        }
+        return result;
+      }
+
+      function toggleMA(period) {
+        maState[period] = !maState[period];
+        const btn = document.getElementById("ma-btn-" + period);
+        const series = { 5: ma5Series, 25: ma25Series, 75: ma75Series }[period];
+        if (!series) return;
+        btn.classList.toggle("active", maState[period]);
+        series.applyOptions({ visible: maState[period] });
+      }
+
+      function exportCSV() {
+        const data = STOCK_DATA[currentTicker];
+        if (!data) return;
+        const currency = data.currency || "JPY";
+        const unit = currency === "USD" ? "百万ドル" : "百万円";
+        const years = Object.keys(data.financials_trend).sort();
+        const rows = [
+          ["指標", "単位", ...years],
+          ["企業名", "", ...years.map(() => data.company_name)],
+          ["ティッカー", "", ...years.map(() => currentTicker)],
+          ["", "", ...years.map(() => "")],
+          ["売上高", unit, ...years.map(y => data.financials_trend[y]?.net_sales || 0)],
+          ["売上総利益", unit, ...years.map(y => data.financials_trend[y]?.gross_profit || 0)],
+          ["営業利益", unit, ...years.map(y => data.financials_trend[y]?.operating_income || 0)],
+          ["税引前当期利益", unit, ...years.map(y => data.financials_trend[y]?.income_before_taxes || 0)],
+          ["当期純利益", unit, ...years.map(y => data.financials_trend[y]?.net_income || 0)],
+          ["", "", ...years.map(() => "")],
+          ["流動資産", unit, ...years.map(y => data.financials_trend[y]?.current_assets || 0)],
+          ["固定資産", unit, ...years.map(y => data.financials_trend[y]?.non_current_assets || 0)],
+          ["流動負債", unit, ...years.map(y => data.financials_trend[y]?.current_liabilities || 0)],
+          ["固定負債", unit, ...years.map(y => data.financials_trend[y]?.non_current_liabilities || 0)],
+          ["純資産", unit, ...years.map(y => data.financials_trend[y]?.net_assets || 0)],
+          ["", "", ...years.map(() => "")],
+          ["営業CF", unit, ...years.map(y => data.financials_trend[y]?.operating_cf || 0)],
+          ["投資CF", unit, ...years.map(y => data.financials_trend[y]?.investing_cf || 0)],
+          ["財務CF", unit, ...years.map(y => data.financials_trend[y]?.financing_cf || 0)],
+        ];
+        const csv = rows.map(r => r.join(",")).join("\n");
+        const bom = "﻿";
+        const blob = new Blob([bom + csv], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${currentTicker}_financials.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+
+      function animateNumber(el, endVal, suffix, decimals, duration) {
+        if (!el) return;
+        const start = performance.now();
+        function tick(now) {
+          const t = Math.min((now - start) / duration, 1);
+          const eased = 1 - Math.pow(1 - t, 3);
+          el.innerText = (endVal * eased).toFixed(decimals) + suffix;
+          if (t < 1) requestAnimationFrame(tick);
+        }
+        requestAnimationFrame(tick);
+      }
+
+      function fmtBillion(val, currency) {
+        const cur = currency === "USD" ? "ドル" : "円";
+        if (val === 0) return "--";
+        if (Math.abs(val) >= 1000000) return (val / 1000000).toFixed(2) + " 兆" + cur;
+        if (Math.abs(val) >= 1000) return (val / 1000).toFixed(1) + " 十億" + cur;
+        return val.toLocaleString() + " 百万" + cur;
+      }
+
+      function renderKpiCompare(data) {
+        const grid = document.getElementById("kpi-compare-grid");
+        if (!grid) return;
+        const currency = data.currency || "JPY";
+        const years = Object.keys(data.financials_trend).sort((a, b) => Number(a) - Number(b));
+        grid.innerHTML = "";
+
+        years.forEach((yr, idx) => {
+          const fin = data.financials_trend[yr];
+          const prevFin = idx > 0 ? data.financials_trend[years[idx - 1]] : null;
+          const isActive = String(yr) === String(selectedYear);
+
+          const opMargin = fin.net_sales > 0 ? (fin.operating_income / fin.net_sales * 100) : 0;
+          const roe = fin.net_assets > 0 ? (fin.net_income / fin.net_assets * 100) : 0;
+
+          function yoyBadge(curr, prev) {
+            if (!prev || prev === 0) return "";
+            const pct = ((curr - prev) / Math.abs(prev)) * 100;
+            const cls = pct > 0.5 ? "up" : pct < -0.5 ? "down" : "flat";
+            const sign = pct > 0 ? "▲" : pct < 0 ? "▼" : "─";
+            return `<span class="kpi-yoy ${cls}">${sign}${Math.abs(pct).toFixed(1)}%</span>`;
+          }
+
+          const col = document.createElement("div");
+          col.className = "kpi-year-col" + (isActive ? " active-year" : "");
+          col.innerHTML = `
+            <div class="kpi-year-label">
+              ${yr} FY${isActive ? '<span class="kpi-active-badge">選択中</span>' : ""}
+            </div>
+            <div class="kpi-row">
+              <span class="kpi-row-label">売上高</span>
+              <span class="kpi-row-value reveal">${fmtBillion(fin.net_sales, currency)}${yoyBadge(fin.net_sales, prevFin?.net_sales)}</span>
+            </div>
+            <div class="kpi-row">
+              <span class="kpi-row-label">営業利益率</span>
+              <span class="kpi-row-value kpi-pct" data-val="${opMargin.toFixed(3)}" data-suffix="%">0.0%${yoyBadge(opMargin, prevFin && prevFin.net_sales > 0 ? prevFin.operating_income / prevFin.net_sales * 100 : null)}</span>
+            </div>
+            <hr class="kpi-divider">
+            <div class="kpi-row">
+              <span class="kpi-row-label">純利益</span>
+              <span class="kpi-row-value reveal">${fmtBillion(fin.net_income, currency)}${yoyBadge(fin.net_income, prevFin?.net_income)}</span>
+            </div>
+            <div class="kpi-row">
+              <span class="kpi-row-label">ROE</span>
+              <span class="kpi-row-value kpi-pct" data-val="${roe.toFixed(3)}" data-suffix="%">0.0%${yoyBadge(roe, prevFin && prevFin.net_assets > 0 ? prevFin.net_income / prevFin.net_assets * 100 : null)}</span>
+            </div>
+          `;
+          grid.appendChild(col);
+        });
+
+        // KPI % 値のカウントアップアニメーション（YoYバッジは保持しながら数値部分のみ更新）
+        grid.querySelectorAll(".kpi-pct").forEach((el, i) => {
+          const val = parseFloat(el.dataset.val || "0");
+          setTimeout(() => {
+            const start = performance.now();
+            function tick(now) {
+              const t = Math.min((now - start) / 800, 1);
+              const eased = 1 - Math.pow(1 - t, 3);
+              if (el.childNodes[0]) el.childNodes[0].nodeValue = (val * eased).toFixed(1) + "%";
+              if (t < 1) requestAnimationFrame(tick);
+            }
+            requestAnimationFrame(tick);
+          }, i * 80);
+        });
+      }
+
+      function updateMaAndVolume(displayPrices, allPrices) {
+        if (!displayPrices || displayPrices.length === 0) return;
+        const startTime = displayPrices[0].time;
+        const endTime = displayPrices[displayPrices.length - 1].time;
+
+        const volData = displayPrices.map((p) => ({
+          time: p.time,
+          value: p.volume || 0,
+          color: p.close >= p.open ? "rgba(220,38,38,0.35)" : "rgba(22,163,74,0.35)",
+        }));
+        volumeSeries.setData(volData);
+
+        const base = allPrices && allPrices.length >= 75 ? allPrices : displayPrices;
+        [[5, ma5Series], [25, ma25Series], [75, ma75Series]].forEach(([period, series]) => {
+          const maAll = calcMA(base, period);
+          series.setData(maAll.filter((d) => d.time >= startTime && d.time <= endTime));
+        });
+      }
+
+      function initPriceChart() {
+        const container = document.getElementById("chart-container");
+        priceChart = LightweightCharts.createChart(container, {
+          layout: {
+            background: { type: "solid", color: "#161d2b" },
+            textColor: "#94a3b8",
+          },
+          grid: {
+            vertLines: { color: "#2d3748" },
+            horzLines: { color: "#2d3748" },
+          },
+          timeScale: { borderColor: "#2d3748" },
+          rightPriceScale: { borderColor: "#2d3748" },
+        });
+
+        priceChart.priceScale("right").applyOptions({
+          scaleMargins: { top: 0.05, bottom: 0.25 },
+        });
+
+        candleSeries = priceChart.addCandlestickSeries({
+          upColor: "#ef4444",
+          downColor: "#22c55e",
+          borderDownColor: "#16a34a",
+          borderUpColor: "#dc2626",
+          wickUpColor: "#b91c1c",
+          wickDownColor: "#15803d",
+        });
+
+        volumeSeries = priceChart.addHistogramSeries({
+          priceFormat: { type: "volume" },
+          priceScaleId: "vol",
+          lastValueVisible: false,
+          priceLineVisible: false,
+        });
+        priceChart.priceScale("vol").applyOptions({
+          scaleMargins: { top: 0.82, bottom: 0 },
+          visible: false,
+        });
+
+        ma5Series = priceChart.addLineSeries({
+          color: "#c084fc", lineWidth: 1, visible: false,
+          priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+        });
+        ma25Series = priceChart.addLineSeries({
+          color: "#38bdf8", lineWidth: 1, visible: false,
+          priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+        });
+        ma75Series = priceChart.addLineSeries({
+          color: "#818cf8", lineWidth: 1, visible: false,
+          priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+        });
+      }
+
+      function navigateToDetail(ticker) {
+        currentTicker = ticker;
+        const data = STOCK_DATA[ticker];
+        if (!data) return;
+
+        const availableYears = Object.keys(data.financials_trend).sort(
+          (a, b) => b - a,
+        );
+        selectedYear = availableYears[0] || 2025;
+
+        const ctrlBox = document.getElementById("year-controller-box");
+        ctrlBox.innerHTML = "";
+        availableYears.reverse().forEach((yr) => {
+          const btn = document.createElement("button");
+          btn.className = `time-btn ${yr == selectedYear ? "active" : ""}`;
+          btn.innerText = yr + " FY";
+          btn.onclick = (e) => switchYear(yr, e);
+          ctrlBox.appendChild(btn);
+        });
+
+        document.getElementById("portal-view").classList.remove("active");
+        document.getElementById("detail-view").classList.add("active");
+
+        // カードフェードインアニメーション起動
+        const stack = document.querySelector(".dashboard-stack");
+        stack.classList.remove("animate-cards");
+        void stack.offsetWidth; // reflow
+        stack.classList.add("animate-cards");
+
+        if (priceChart) {
+          const container = document.getElementById("chart-container");
+          priceChart.resize(container.clientWidth, 450);
+        }
+
+        // 💡 【詳細グラフ・アニメーション完全復活】150ms待機でブラウザのレイアウト計算完了後に着火
+        setTimeout(() => {
+          updateFinancialViews();
+        }, 150);
+      }
+
+      function switchYear(year, event) {
+        selectedYear = year;
+        document.querySelectorAll(".time-btn").forEach((b) => b.classList.remove("active"));
+        event.target.classList.add("active");
+        document.getElementById("selected-year-display").innerText = year + " FY";
+        updateFinancialViews();
+      }
+
+      function updateFinancialViews() {
+        const data = STOCK_DATA[currentTicker];
+        if (!data) return;
+
+        const fin = data.financials_trend[selectedYear];
+        if (!fin) return;
+
+        const isUSD = data.currency === "USD";
+        const unitLabel = isUSD ? "百万ドル" : "百万円";
+        const currBadgeHtml = isUSD
+          ? `<span style="font-size:0.7rem;background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.4);padding:2px 8px;border-radius:10px;margin-left:6px;">USD</span>`
+          : "";
+
+        const headerEl = document.getElementById("active-company-header");
+        headerEl.innerHTML = `
+          <span class="company-title-main">${data.company_name} <span style="color:#475569;font-size:0.9rem;">(${currentTicker})</span></span>
+          <span class="sector-badge">${data.industry}</span>${currBadgeHtml}
+          <span style="font-size:0.7rem;color:#334155;margin-left:4px;">単位: ${unitLabel}</span>
+          <button class="detail-star-btn${isWatched(currentTicker) ? " watched" : ""}" id="detail-star-btn"
+            onclick="toggleWatchlist('${currentTicker}')">${isWatched(currentTicker) ? "★ ウォッチ中" : "☆ ウォッチ"}</button>
+        `;
+        document.getElementById("selected-year-display").innerText = selectedYear + " FY";
+
+        // 米国株は暦年、日本株は4月〜翌3月の決算期でフィルタ
+        const isUS = data.country === "US";
+        const startDate = isUS ? `${selectedYear}-01-01` : `${selectedYear - 1}-04-01`;
+        const endDate   = isUS ? `${selectedYear}-12-31` : `${selectedYear}-03-31`;
+        const filteredPrices = data.prices.filter(
+          (p) => p.time >= startDate && p.time <= endDate,
+        );
+
+        const displayPrices = filteredPrices.length > 0 ? filteredPrices : data.prices.slice(-200);
+        if (filteredPrices.length > 0) {
+          const periodLabel = isUS
+            ? `${selectedYear}年1月 〜 ${selectedYear}年12月 経営期間トレンド`
+            : `${selectedYear - 1}年4月 〜 ${selectedYear}年3月 経営期間トレンド`;
+          document.getElementById("stock-title").innerText =
+            `${data.company_name} (${currentTicker}) - 歴史的ローソク足時系列 [${periodLabel}]`;
+        } else {
+          document.getElementById("stock-title").innerText =
+            `${data.company_name} (${currentTicker}) - 直近市場ローソク足時系列`;
+        }
+        candleSeries.setData(displayPrices);
+        updateMaAndVolume(displayPrices, data.prices);
+
+        const rawPer = data.per || 0;
+        const rawPbr = data.pbr || 0;
+
+        // 米国株は市場慣行を反映した別基準を適用
+        const perLow  = isUS ? 20.0 : 15.0;
+        const perHigh = isUS ? 40.0 : 28.0;
+        const pbrLow  = isUS ? 2.0  : 1.0;
+        const pbrHigh = isUS ? 15.0 : 3.0;
+        const market  = isUS ? "米国市場基準" : "プロ基準";
+
+        if (rawPer > 0) {
+          animateNumber(document.getElementById("txt-per-val"), rawPer, "倍", 1, 900);
+        } else {
+          document.getElementById("txt-per-val").innerText = "--";
+        }
+        if (rawPbr > 0) {
+          animateNumber(document.getElementById("txt-pbr-val"), rawPbr, "倍", 1, 900);
+        } else {
+          document.getElementById("txt-pbr-val").innerText = "--";
+        }
+
+        const pCard = document.getElementById("card-per");
+        const pStatus = document.getElementById("txt-per-status");
+        if (rawPer === 0) {
+          pCard.className = "status-card";
+          pStatus.innerText = "▶ 収益評価: データなし";
+        } else if (rawPer <= perLow) {
+          pCard.className = "status-card green";
+          pStatus.innerText = `▶ 収益評価: 割安圏 (${market}: ${perLow}倍以下)`;
+        } else if (rawPer >= perHigh) {
+          pCard.className = "status-card red";
+          pStatus.innerText = `▶ 収益評価: 割高・過熱圏 (${market}: ${perHigh}倍以上)`;
+        } else {
+          pCard.className = "status-card";
+          pStatus.innerText = "▶ 収益評価: 適正水準 (標準レンジ内)";
+        }
+
+        const bCard = document.getElementById("card-pbr");
+        const bStatus = document.getElementById("txt-pbr-status");
+        if (rawPbr === 0) {
+          bCard.className = "status-card";
+          bStatus.innerText = "▶ 資産評価: データなし";
+        } else if (rawPbr <= pbrLow) {
+          bCard.className = "status-card gold";
+          bStatus.innerText = `▶ 資産評価: 解散価値以下 (${market}: ${pbrLow}倍以下)`;
+        } else if (rawPbr >= pbrHigh) {
+          bCard.className = "status-card red";
+          bStatus.innerText = `▶ 資産評価: 高プレミアム評価 (${market}: ${pbrHigh}倍以上)`;
+        } else {
+          bCard.className = "status-card blue";
+          bStatus.innerText = isUS
+            ? "▶ 資産評価: 米国成長株水準 (標準レンジ内)"
+            : "▶ 資産評価: 適正な資産評価水準";
+        }
+
+        // 自己資本比率・流動比率の基準テキストを市場に合わせて更新
+        const eqDesc = document.getElementById("desc-equity-ratio");
+        const crDesc = document.getElementById("desc-current-ratio");
+        if (eqDesc) eqDesc.innerText = isUS
+          ? "▶ 米国基準: 30.0% 以上 (自社株買い等で低下しやすい)"
+          : "▶ 中長期安全性基準: 40.0% 以上で健全企業水準";
+        if (crDesc) crDesc.innerText = isUS
+          ? "▶ 短期支払能力基準: 150.0% 以上で安全圏 (米国基準)"
+          : "▶ 短期支払能力基準: 100.0% 〜 150.0% 以上で安全圏";
+
+        // ETF・財務データなしの場合はチャートカードを非表示
+        const isEtf = data.type === "etf";
+        const finCards = ["kpi-compare-card", "bs-title", "radar-title", "pl-title", "cf-title"];
+        finCards.forEach(id => {
+          const card = document.getElementById(id)?.closest(".card");
+          if (card) card.style.display = isEtf ? "none" : "";
+        });
+        if (isEtf) {
+          document.getElementById("kpi-compare-card").style.display = "none";
+          return;
+        }
+
+        renderKpiCompare(data);
+        renderBSChart(fin);
+        renderRadarChart(fin);
+        renderPLChart(fin);
+        renderCFChart(fin);
+      }
+
+      function navigateToPortal() {
+        document.getElementById("detail-view").classList.remove("active");
+        document.getElementById("portal-view").classList.add("active");
+        document.querySelector(".dashboard-stack").classList.remove("animate-cards");
+        setTimeout(() => {
+          filterAndRenderPortal();
+        }, 100);
+      }
+
+      // 📊 1. BS (太田式：極太2.5倍完全体 ＆ 十字エスケープによる重なり永久追放)
+      function renderBSChart(fin) {
+        const unitStr = (STOCK_DATA[currentTicker]?.currency || "JPY") === "USD" ? "百万ドル" : "百万円";
+        const totalAssets = fin.current_assets + fin.non_current_assets;
+        const equityRatio =
+          totalAssets > 0 ? (fin.net_assets / totalAssets) * 100 : 0;
+        const currentRatio =
+          fin.current_liabilities > 0
+            ? (fin.current_assets / fin.current_liabilities) * 100
+            : 0;
+
+        animateNumber(document.getElementById("equity-ratio"), equityRatio, "%", 1, 900);
+        animateNumber(document.getElementById("current-ratio"), currentRatio, "%", 1, 900);
+
+        const ctx = document.getElementById("bsChart").getContext("2d");
+        if (bsChartInstance) {
+          bsChartInstance.destroy();
+        }
+
+        bsChartInstance = new Chart(ctx, {
+          type: "bar",
+          data: {
+            labels: ["運用形態", "調達源泉"],
+            // 💡 【完璧なマッシブ化】スタックを「Stack0」に統一することでChart.jsの2分割バグを封殺し、画面いっぱいの超極太柱を強制発動！
+            datasets: [
+              {
+                label: "純資産",
+                data: [0, fin.net_assets],
+                backgroundColor: "#d97706",
+                stack: "Stack0",
+                categoryPercentage: 1.0,
+                barPercentage: 1.0,
+              },
+              {
+                label: "固定負債",
+                data: [0, fin.non_current_liabilities],
+                backgroundColor: "#b91c1c",
+                stack: "Stack0",
+                categoryPercentage: 1.0,
+                barPercentage: 1.0,
+              },
+              {
+                label: "流動負債",
+                data: [0, fin.current_liabilities],
+                backgroundColor: "#dc2626",
+                stack: "Stack0",
+                categoryPercentage: 1.0,
+                barPercentage: 1.0,
+              },
+              {
+                label: "固定資産",
+                data: [fin.non_current_assets, 0],
+                backgroundColor: "#4f46e5",
+                stack: "Stack0",
+                categoryPercentage: 1.0,
+                barPercentage: 1.0,
+              },
+              {
+                label: "流動資産",
+                data: [fin.current_assets, 0],
+                backgroundColor: "#2563eb",
+                stack: "Stack0",
+                categoryPercentage: 1.0,
+                barPercentage: 1.0,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            // 💡 吹き出しが右の宇宙へ飛んでいくため、右側のパディングのみを「180px」へ大拡張し、見切れを完全ブロック！
+            layout: { padding: { left: 100, right: 180, top: 40, bottom: 20 } },
+            animation: {
+              duration: 1500,
+              easing: "easeOutQuart",
+            },
+            plugins: {
+              legend: { display: false },
+              datalabels: {
+                color: "#fff",
+                font: { weight: "bold", size: 14 },
+                backgroundColor: function (context) {
+                  const val = context.dataset.data[context.dataIndex];
+                  if (val === 0) return null;
+                  return val / totalAssets < 0.12 ? "#1e293b" : null;
+                },
+                borderColor: function (context) {
+                  const val = context.dataset.data[context.dataIndex];
+                  if (val === 0) return null;
+                  return val / totalAssets < 0.12 ? "#6366f1" : null;
+                },
+                borderWidth: function (context) {
+                  const val = context.dataset.data[context.dataIndex];
+                  if (val === 0) return 0;
+                  return val / totalAssets < 0.12 ? 1.5 : 0;
+                },
+                borderRadius: 6,
+                padding: function (context) {
+                  const val = context.dataset.data[context.dataIndex];
+                  if (val === 0) return 0;
+                  return val / totalAssets < 0.12
+                    ? { top: 6, bottom: 6, left: 10, right: 10 }
+                    : 0;
+                },
+                color: "#ffffff",
+                anchor: function (context) {
+                  const val = context.dataset.data[context.dataIndex];
+                  const label = context.dataset.label;
+                  if (val === 0) return "center";
+
+                  // 🚀 【真・衝突回避：十字セパレートシステム】
+                  if (val / totalAssets < 0.12) {
+                    if (label === "流動資産" || label === "流動負債")
+                      return "end"; // てっぺんの科目は「上」をアンカーに
+                    if (label === "純資産") return "start"; // 一番下は「下」をアンカーに
+                    return context.dataIndex === 0 ? "left" : "right"; // 挟まれた固定科目は「横」をアンカーに
+                  }
+                  return "center";
+                },
+                align: function (context) {
+                  const val = context.dataset.data[context.dataIndex];
+                  const label = context.dataset.label;
+                  if (val === 0) return "center";
+
+                  // 💡 流動負債は「上空」へ、固定負債は「右の宇宙」へと、役割ごとに完全に異なる方向へ吹き出しを逃がす！
+                  if (val / totalAssets < 0.12) {
+                    if (label === "流動資産" || label === "流動負債")
+                      return "top";
+                    if (label === "純資産") return "bottom";
+                    if (label === "固定負債") return "right";
+                    if (label === "固定資産") return "left";
+                  }
+                  return "center";
+                },
+                offset: function (context) {
+                  const val = context.dataset.data[context.dataIndex];
+                  const label = context.dataset.label;
+                  if (val / totalAssets < 0.12) {
+                    // 💡 バーが極太になったため、右の宇宙へ逃げる固定負債は「75px」の超強力推力で完全に外側へ飛ばす！
+                    if (label === "固定資産" || label === "固定負債") return 75;
+                    return 15; // 上下へ逃げる科目は15pxでスマートに浮かす
+                  }
+                  return 0;
+                },
+                formatter: function (value, context) {
+                  if (value === 0) return null;
+                  return (
+                    context.dataset.label +
+                    "\n" +
+                    value.toLocaleString() +
+                    " " + unitStr
+                  );
+                },
+                textAlign: "center",
+              },
+            },
+            scales: {
+              x: {
+                stacked: true,
+                grid: { display: false },
+                ticks: { color: "#a0aec0", font: { size: 15, weight: "bold" } },
+              },
+              y: {
+                stacked: true,
+                grid: { color: "#2d3748" },
+                ticks: {
+                  color: "#718096",
+                  font: { size: 13 },
+                  callback: (v) => v / 1000000 + "兆円",
+                },
+              },
+            },
+          },
+        });
+      }
+
+      // 🕸️ 2. レーダー
+      function renderRadarChart(fin) {
+        const totalAssets = fin.current_assets + fin.non_current_assets;
+        const sales = fin.net_sales || 1;
+
+        const roe =
+          fin.net_assets > 0 ? (fin.net_income / fin.net_assets) * 100 : 0;
+        const roa = totalAssets > 0 ? (fin.net_income / totalAssets) * 100 : 0;
+        const equityRatio =
+          totalAssets > 0 ? (fin.net_assets / totalAssets) * 100 : 0;
+        const currentRatio =
+          fin.current_liabilities > 0
+            ? (fin.current_assets / fin.current_liabilities) * 100
+            : 0;
+
+        const targetOp =
+          currentTicker === "9984.T"
+            ? fin.income_before_taxes
+            : fin.operating_income;
+        const opMargin = (targetOp / sales) * 100;
+
+        animateNumber(document.getElementById("txt-roe-val"), roe, "%", 1, 900);
+        animateNumber(document.getElementById("txt-roa-val"), roa, "%", 1, 900);
+
+        document.getElementById("txt-roe-val").style.color =
+          roe >= 0 ? "#c084fc" : "#f43f5e";
+        document.getElementById("txt-roa-val").style.color =
+          roa >= 0 ? "#22d3ee" : "#f43f5e";
+
+        const score = (val, min, max) =>
+          Math.min(100, Math.max(0, ((val - min) / (max - min)) * 100));
+
+        const score_roe = score(roe, -5, 15);
+        const score_roa = score(roa, -2, 8);
+        const score_margin = score(opMargin, 0, 12);
+        const score_equity = score(equityRatio, 0, 50);
+        const score_current = score(currentRatio, 50, 160);
+
+        const ctx = document.getElementById("radarChart").getContext("2d");
+        if (radarChartInstance) {
+          radarChartInstance.destroy();
+        }
+
+        radarChartInstance = new Chart(ctx, {
+          type: "radar",
+          data: {
+            labels: [
+              "資本効率 (ROE)",
+              "資産効率 (ROA)",
+              "収益性 (利益率)",
+              "中長期安全 (自己資本)",
+              "短期支払 (流動比率)",
+            ],
+            datasets: [
+              {
+                data: [
+                  score_roe,
+                  score_roa,
+                  score_margin,
+                  score_equity,
+                  score_current,
+                ],
+                backgroundColor: "rgba(99, 102, 241, 0.18)",
+                borderColor: "#6366f1",
+                borderWidth: 2,
+                pointBackgroundColor: "#818cf8",
+                pointBorderColor: "#1e293b",
+                pointHoverBackgroundColor: "#c084fc",
+                pointHoverBorderColor: "#6366f1",
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 1500, easing: "easeOutQuart" },
+            plugins: {
+              legend: { display: false },
+              datalabels: {
+                color: "#94a3b8",
+                font: { weight: "bold", size: 11 },
+                formatter: (v) => Math.round(v) + "点",
+              },
+            },
+            scales: {
+              r: {
+                angleLines: { color: "#2d3748" },
+                grid: { color: "#2d3748" },
+                pointLabels: {
+                  color: "#cbd5e1",
+                  font: { size: 13, weight: "bold" },
+                },
+                ticks: { display: false },
+                suggestedMin: 0,
+                suggestedMax: 100,
+              },
+            },
+          },
+        });
+      }
+
+      // 📈 3. PL
+      function renderPLChart(fin) {
+        const unitStr = (STOCK_DATA[currentTicker]?.currency || "JPY") === "USD" ? "百万ドル" : "百万円";
+        const ctx = document.getElementById("plChart").getContext("2d");
+        if (plChartInstance) {
+          plChartInstance.destroy();
+        }
+
+        const sales = fin.net_sales || 0;
+        const opIncome = fin.operating_income || 0;
+        const netIncome = fin.net_income || 0;
+        const grossProfit = fin.gross_profit || Math.round(sales * 0.2);
+        const ordIncome = fin.ordinary_income || opIncome;
+        const preTaxIncome = fin.income_before_taxes || opIncome;
+
+        const opMargin = sales > 0 ? (opIncome / sales) * 100 : 0;
+        const netMargin = sales > 0 ? (netIncome / sales) * 100 : 0;
+
+        const plLabels = [
+          "当期純利益",
+          "税金等調整前当期純利益",
+          "経常利益",
+          "営業利益",
+          "売上総利益",
+          "売上高",
+        ];
+        const plData = [
+          netIncome,
+          preTaxIncome,
+          ordIncome,
+          opIncome,
+          grossProfit,
+          sales,
+        ];
+        const plColors = [
+          "#7c3aed",
+          "#6366f1",
+          "#3b82f6",
+          "#0ea5e9",
+          "#14b8a6",
+          "#334155",
+        ];
+
+        plChartInstance = new Chart(ctx, {
+          type: "bar",
+          data: {
+            labels: plLabels,
+            datasets: [
+              {
+                data: plData,
+                backgroundColor: plColors,
+                categoryPercentage: 0.99,
+                barPercentage: 0.92,
+              },
+            ],
+          },
+          options: {
+            layout: { padding: { top: 60, bottom: 40 } },
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 1500, easing: "easeOutQuart" },
+            plugins: {
+              legend: { display: false },
+              datalabels: {
+                backgroundColor: null,
+                color: function (context) {
+                  let label = context.chart.data.labels[context.dataIndex];
+                  if (label === "営業利益") return "#fde047";
+                  if (label === "当期純利益") return "#67e8f9";
+                  return "#ffffff";
+                },
+                font: { weight: "bold", size: 14 },
+                anchor: "end",
+                align: function (context) {
+                  const val = context.dataset.data[context.dataIndex];
+                  const label = context.chart.data.labels[context.dataIndex];
+                  if (
+                    val === 0 &&
+                    label === "営業利益" &&
+                    currentTicker === "9984.T"
+                  )
+                    return "center";
+                  const max = Math.max(...context.dataset.data.map(Math.abs));
+                  return Math.abs(val) / max < 0.15 ? "top" : "bottom";
+                },
+                offset: function (context) {
+                  const val = context.dataset.data[context.dataIndex];
+                  const max = Math.max(...context.dataset.data.map(Math.abs));
+                  return Math.abs(val) / max < 0.15 ? 6 : 0;
+                },
+                formatter: function (value, context) {
+                  let label = context.chart.data.labels[context.dataIndex];
+                  if (
+                    value === 0 &&
+                    label === "営業利益" &&
+                    currentTicker === "9984.T"
+                  ) {
+                    return `N/A\n(持株会社仕様)`;
+                  }
+                  let baseStr = value.toLocaleString() + "\n" + unitStr;
+                  if (label === "営業利益") {
+                    return (
+                      baseStr +
+                      `\n📈 営業利益率: ${opMargin.toFixed(1)}%\n(基準値4-5%前後)`
+                    );
+                  } else if (label === "当期純利益") {
+                    return (
+                      baseStr +
+                      `\n💰 当期純利益率: ${netMargin.toFixed(1)}%\n(基準値3-4%前後)`
+                    );
+                  }
+                  return baseStr;
+                },
+                textAlign: "center",
+              },
+            },
+            scales: {
+              x: {
+                grid: { display: false },
+                ticks: { color: "#a0aec0", font: { weight: "bold", size: 15 } },
+              },
+              y: {
+                grace: "35%",
+                grid: { color: "#2d3748" },
+                ticks: {
+                  color: "#718096",
+                  font: { size: 13 },
+                  callback: (v) => v / 1000000 + "兆円",
+                },
+              },
+            },
+          },
+        });
+      }
+
+      // 💸 4. CF
+      function renderCFChart(fin) {
+        const unitStr = (STOCK_DATA[currentTicker]?.currency || "JPY") === "USD" ? "百万ドル" : "百万円";
+        const ctx = document.getElementById("cfChart").getContext("2d");
+        if (cfChartInstance) {
+          cfChartInstance.destroy();
+        }
+
+        const opCf = fin.operating_cf;
+        const invCf = fin.investing_cf;
+        const finCf = fin.financing_cf;
+
+        const oCard = document.getElementById("card-ope");
+        const oSign = document.getElementById("txt-ope-sign");
+        const oDesc = document.getElementById("txt-ope-desc");
+        if (opCf >= 0) {
+          oCard.className = "status-card green";
+          oSign.innerText = "プラス";
+          oSign.style.color = "#10b981";
+          oDesc.innerText = "【本業が順調】";
+        } else {
+          oCard.className = "status-card red";
+          oSign.innerText = "マイナス";
+          oSign.style.color = "#ef4444";
+          oDesc.innerText = "【本業が苦戦】";
+        }
+
+        const iCard = document.getElementById("card-inv");
+        const iSign = document.getElementById("txt-inv-sign");
+        const iDesc = document.getElementById("txt-inv-desc");
+        if (invCf < 0) {
+          iCard.className = "status-card red";
+          iSign.innerText = "マイナス";
+          iSign.style.color = "#ef4444";
+          iDesc.innerText = "【攻めの経営】";
+        } else {
+          iCard.className = "status-card green";
+          iSign.innerText = "プラス";
+          iSign.style.color = "#10b981";
+          iDesc.innerText = "【守りの経営】";
+        }
+
+        const fCard = document.getElementById("card-fin");
+        const fSign = document.getElementById("txt-fin-sign");
+        const fDesc = document.getElementById("txt-fin-desc");
+        if (finCf >= 0) {
+          fCard.className = "status-card green";
+          fSign.innerText = "プラス";
+          fSign.style.color = "#10b981";
+          fDesc.innerText = "【導入・成長期】";
+        } else {
+          fCard.className = "status-card red";
+          fSign.innerText = "マイナス";
+          fSign.style.color = "#ef4444";
+          fDesc.innerText = "【成熟・衰退期】";
+        }
+
+        const badge = document.getElementById("cf-type-badge");
+        if (opCf >= 0 && invCf < 0 && finCf < 0) {
+          badge.innerText = "👑 優良企業タイプ";
+          badge.style.background = "linear-gradient(135deg, #10b981, #059669)";
+        } else if (opCf >= 0 && invCf < 0 && finCf >= 0) {
+          badge.innerText = "🚀 積極投資タイプ";
+          badge.style.background = "linear-gradient(135deg, #3b82f6, #2563eb)";
+        } else if (opCf < 0 && invCf < 0 && finCf >= 0) {
+          badge.innerText = "🧪 ベンチャータイプ";
+          badge.style.background = "linear-gradient(135deg, #a855f7, #7c3aed)";
+        } else if (opCf < 0 && invCf >= 0 && finCf >= 0) {
+          badge.innerText = "⚠️ ジリ脚タイプ";
+          badge.style.background = "linear-gradient(135deg, #ef4444, #dc2626)";
+        } else {
+          badge.innerText = "📊 転換期・変革タイプ";
+          badge.style.background = "linear-gradient(135deg, #64748b, #475569)";
+        }
+
+        const startCash = fin.cf_cash_start || 6524000;
+        const step1 = startCash + opCf;
+        const step2 = step1 + invCf;
+        const endCash = fin.cf_cash_end || step2 + finCf;
+
+        const waterfallData = [
+          [0, startCash],
+          [startCash, step1],
+          [step1, step2],
+          [step2, endCash],
+          [0, endCash],
+        ];
+        const cfLabels = [
+          "期首現金残高",
+          "営業活動CF",
+          "投資活動CF",
+          "財務活動CF",
+          "期末現金残高",
+        ];
+
+        const maxCfScale = Math.max(startCash, step1, step2, endCash);
+
+        cfChartInstance = new Chart(ctx, {
+          type: "bar",
+          data: {
+            labels: cfLabels,
+            datasets: [
+              {
+                data: waterfallData,
+                backgroundColor: [
+                  "#2563eb",
+                  opCf >= 0 ? "#0d9488" : "#b91c1c",
+                  invCf >= 0 ? "#0d9488" : "#b91c1c",
+                  finCf >= 0 ? "#0d9488" : "#b91c1c",
+                  "#4f46e5",
+                ],
+                categoryPercentage: 0.99,
+                barPercentage: 0.9,
+              },
+            ],
+          },
+          options: {
+            layout: { padding: { top: 60, bottom: 40 } },
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 1500, easing: "easeOutQuart" },
+            plugins: {
+              legend: { display: false },
+              datalabels: {
+                color: "#fff",
+                font: { weight: "bold", size: 14 },
+                position: "center",
+                anchor: function (context) {
+                  const idx = context.dataIndex;
+                  let diff =
+                    idx === 0
+                      ? startCash
+                      : idx === 1
+                        ? opCf
+                        : idx === 2
+                          ? invCf
+                          : idx === 3
+                            ? finCf
+                            : endCash;
+                  return idx === 0 || idx === 4
+                    ? "end"
+                    : diff >= 0
+                      ? "end"
+                      : "start";
+                },
+                align: function (context) {
+                  const idx = context.dataIndex;
+                  let diff =
+                    idx === 0
+                      ? startCash
+                      : idx === 1
+                        ? opCf
+                        : idx === 2
+                          ? invCf
+                          : idx === 3
+                            ? finCf
+                            : endCash;
+                  return diff >= 0 ? "top" : "bottom";
+                },
+                offset: 15,
+                formatter: function (value, context) {
+                  const idx = context.dataIndex;
+                  let diff =
+                    idx === 0
+                      ? startCash
+                      : idx === 1
+                        ? opCf
+                        : idx === 2
+                          ? invCf
+                          : idx === 3
+                            ? finCf
+                            : endCash;
+                  let sign = diff > 0 && idx !== 0 && idx !== 4 ? "+" : "";
+                  return (
+                    cfLabels[idx] +
+                    "\n" +
+                    sign +
+                    diff.toLocaleString() +
+                    "\n" + unitStr
+                  );
+                },
+                textAlign: "center",
+              },
+            },
+            scales: {
+              x: {
+                grid: { color: "#2d3748" },
+                ticks: { color: "#a0aec0", font: { weight: "bold", size: 14 } },
+              },
+              y: {
+                grace: "40%",
+                grid: { color: "#2d3748" },
+                ticks: {
+                  color: "#718096",
+                  font: { size: 12 },
+                  callback: (v) => v / 1000000 + "兆円",
+                },
+              },
+            },
+          },
+        });
+      }
+    </script>
+  </body>
+</html>
