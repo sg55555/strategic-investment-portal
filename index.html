@@ -1309,25 +1309,8 @@
         animation: kpiReveal 0.5s ease-out forwards;
       }
 
-      /* ── テーブル行シマーホバー ── */
-      .portal-table tbody tr {
-        position: relative;
-        overflow: hidden;
-      }
-      .portal-table tbody tr::after {
-        content: "";
-        position: absolute;
-        top: 0;
-        left: -100%;
-        width: 60%;
-        height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(99,102,241,0.06), transparent);
-        transition: left 0.5s ease;
-        pointer-events: none;
-      }
-      .portal-table tbody tr:hover::after {
-        left: 150%;
-      }
+      /* ── テーブル行ホバー（シマー廃止、背景色のみ変更） ── */
+      /* <tr>のposition:relativeはCSS table仕様上::afterの基準にならず描画不具合の原因となるため削除 */
 
       /* ── セクターフィルターのフェードイン ── */
       .sector-btn {
