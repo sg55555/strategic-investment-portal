@@ -844,6 +844,41 @@
       }
       .open-compare-btn:hover { background: rgba(99,102,241,0.2); }
 
+      /* ── お問い合わせフォーム ── */
+      .contact-form { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+      .contact-field {
+        display: flex; flex-direction: column; gap: 4px;
+      }
+      .contact-label {
+        font-size: 0.75rem; color: #475569; font-weight: bold; letter-spacing: 1px; text-transform: uppercase;
+      }
+      .contact-input, .contact-textarea {
+        background: #0b0f1a;
+        border: 1px solid #1e293b;
+        color: #94a3b8;
+        padding: 10px 14px;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        transition: border-color 0.2s;
+        font-family: inherit;
+      }
+      .contact-input:focus, .contact-textarea:focus {
+        outline: none; border-color: #6366f1; color: #e2e8f0;
+      }
+      .contact-textarea { min-height: 100px; resize: vertical; }
+      .contact-submit {
+        background: linear-gradient(135deg, #4f46e5, #6366f1);
+        border: none; color: #fff;
+        padding: 10px 24px; border-radius: 6px;
+        cursor: pointer; font-size: 0.85rem; font-weight: bold; letter-spacing: 1px;
+        transition: all 0.2s; align-self: flex-start;
+      }
+      .contact-submit:hover { background: linear-gradient(135deg, #6366f1, #818cf8); }
+      .contact-success {
+        color: #34d399; font-size: 0.85rem; font-weight: bold; margin-top: 4px;
+        display: none;
+      }
+
       /* ── フッター ── */
       .site-footer {
         margin-top: 40px;
@@ -1694,6 +1729,7 @@
         <span>© 2026 Strategic Investment Portal</span>
         <a class="footer-link" onclick="openModal('disclaimer-modal')">免責事項 & プライバシーポリシー</a>
         <a class="footer-link" onclick="openModal('about-modal')">このサイトについて</a>
+        <a class="footer-link" onclick="openModal('contact-modal')">お問い合わせ</a>
         <span>Data: yfinance</span>
       </footer>
     </div>
@@ -1719,6 +1755,46 @@
         </div>
         <div id="compare-chart-container"></div>
         <div class="compare-legend" id="compare-legend"></div>
+      </div>
+    </div>
+
+    <!-- お問い合わせモーダル -->
+    <div class="modal-overlay" id="contact-modal" onclick="closeModal('contact-modal', event)">
+      <div class="modal-box">
+        <button class="modal-close" onclick="closeModal('contact-modal')">✕</button>
+        <div class="modal-title">お問い合わせ / フィードバック</div>
+        <div class="modal-text" style="margin-bottom: 16px;">
+          バグ報告・機能要望・その他のご意見をお聞かせください。
+        </div>
+        <!-- Formspree フォーム (action にFormspreeのエンドポイントを設定) -->
+        <form class="contact-form" id="contact-form"
+              action="https://formspree.io/f/YOUR_FORM_ID"
+              method="POST"
+              onsubmit="handleContactSubmit(event)">
+          <div class="contact-field">
+            <label class="contact-label" for="contact-name">お名前</label>
+            <input class="contact-input" id="contact-name" type="text" name="name" placeholder="Taro Yamada" required>
+          </div>
+          <div class="contact-field">
+            <label class="contact-label" for="contact-email">メールアドレス</label>
+            <input class="contact-input" id="contact-email" type="email" name="email" placeholder="email@example.com" required>
+          </div>
+          <div class="contact-field">
+            <label class="contact-label" for="contact-type">種別</label>
+            <select class="contact-input" id="contact-type" name="type">
+              <option value="bug">バグ報告</option>
+              <option value="feature">機能要望</option>
+              <option value="data">データの誤り</option>
+              <option value="other">その他</option>
+            </select>
+          </div>
+          <div class="contact-field">
+            <label class="contact-label" for="contact-message">メッセージ</label>
+            <textarea class="contact-textarea" id="contact-message" name="message" placeholder="詳細をご記入ください..." required></textarea>
+          </div>
+          <button class="contact-submit" type="submit">送信 →</button>
+          <div class="contact-success" id="contact-success">✓ 送信が完了しました。ありがとうございます。</div>
+        </form>
       </div>
     </div>
 
@@ -1949,6 +2025,26 @@
         });
 
         compareChart.timeScale().fitContent();
+      }
+
+      async function handleContactSubmit(e) {
+        e.preventDefault();
+        const form = e.target;
+        const data = new FormData(form);
+        try {
+          const response = await fetch(form.action, {
+            method: "POST",
+            body: data,
+            headers: { "Accept": "application/json" }
+          });
+          if (response.ok) {
+            form.reset();
+            const success = document.getElementById("contact-success");
+            if (success) { success.style.display = "block"; setTimeout(() => success.style.display = "none", 5000); }
+          }
+        } catch (err) {
+          console.error("Form submission error:", err);
+        }
       }
 
       function openModal(id) {
