@@ -2770,6 +2770,9 @@
         const unitStr = (STOCK_DATA[currentTicker]?.currency || "JPY") === "USD" ? "百万ドル" : "百万円";
         const isMobile = window.innerWidth < 768;
         const totalAssets = fin.current_assets + fin.non_current_assets;
+        const hasNegativeEquity = fin.net_assets < 0;
+        // 負の純資産の場合はチャート用に0を使用（自社株買い等による）
+        const displayNetAssets = hasNegativeEquity ? 0 : fin.net_assets;
         const equityRatio =
           totalAssets > 0 ? (fin.net_assets / totalAssets) * 100 : 0;
         const currentRatio =
@@ -2777,7 +2780,14 @@
             ? (fin.current_assets / fin.current_liabilities) * 100
             : 0;
 
-        animateNumber(document.getElementById("equity-ratio"), equityRatio, "%", 1, 900);
+        if (hasNegativeEquity) {
+          document.getElementById("equity-ratio").innerText = "マイナス";
+          document.getElementById("equity-ratio").style.color = "#f87171";
+          document.getElementById("desc-equity-ratio").innerText = "▶ 純資産マイナス（積極的な自社株買い等による）";
+        } else {
+          document.getElementById("equity-ratio").style.color = "#eab308";
+          animateNumber(document.getElementById("equity-ratio"), equityRatio, "%", 1, 900);
+        }
         animateNumber(document.getElementById("current-ratio"), currentRatio, "%", 1, 900);
 
         const ctx = document.getElementById("bsChart").getContext("2d");
@@ -2793,7 +2803,7 @@
             datasets: [
               {
                 label: "純資産",
-                data: [0, fin.net_assets],
+                data: [0, displayNetAssets],
                 backgroundColor: "#d97706",
                 stack: "Stack0",
                 categoryPercentage: 1.0,

@@ -100,6 +100,25 @@ target_companies = {
     'NFLX':  {'name': 'Netflix', 'industry': 'US - エンターテインメント', 'currency': 'USD', 'country': 'US'},
     'MCD':   {'name': "McDonald's", 'industry': 'US - 飲食・外食', 'currency': 'USD', 'country': 'US'},
     'SBUX':  {'name': 'Starbucks', 'industry': 'US - 飲食・外食', 'currency': 'USD', 'country': 'US'},
+
+    # --- 追加：100社到達のための拡充 ---
+    # JP - セクター補強
+    '6503.T': {'name': '三菱電機', 'industry': '電機・インフラIT', 'currency': 'JPY', 'country': 'JP'},
+    '3402.T': {'name': '東レ', 'industry': '化学・素材', 'currency': 'JPY', 'country': 'JP'},
+    '4507.T': {'name': '塩野義製薬', 'industry': '医薬品・バイオ', 'currency': 'JPY', 'country': 'JP'},
+    '8308.T': {'name': 'りそなホールディングス', 'industry': '銀行・金融', 'currency': 'JPY', 'country': 'JP'},
+    '9843.T': {'name': 'ニトリホールディングス', 'industry': '小売業', 'currency': 'JPY', 'country': 'JP'},
+    '2503.T': {'name': 'キリンホールディングス', 'industry': '食品・飲料', 'currency': 'JPY', 'country': 'JP'},
+    '7011.T': {'name': '三菱重工業', 'industry': '重工・防衛', 'currency': 'JPY', 'country': 'JP'},
+    '6301.T': {'name': 'コマツ', 'industry': '空調・産業機器', 'currency': 'JPY', 'country': 'JP'},
+    '8604.T': {'name': '野村ホールディングス', 'industry': '証券・金融サービス', 'currency': 'JPY', 'country': 'JP'},
+    '8591.T': {'name': 'オリックス', 'industry': '証券・金融サービス', 'currency': 'JPY', 'country': 'JP'},
+
+    # US - セクター拡充
+    'CRM':   {'name': 'Salesforce', 'industry': 'US - クラウド・SaaS', 'currency': 'USD', 'country': 'US'},
+    'ADBE':  {'name': 'Adobe', 'industry': 'US - テクノロジー', 'currency': 'USD', 'country': 'US'},
+    'PFE':   {'name': 'Pfizer', 'industry': 'US - 医薬品・バイオ', 'currency': 'USD', 'country': 'US'},
+    'V':     {'name': 'Visa', 'industry': 'US - 決済・フィンテック', 'currency': 'USD', 'country': 'US'},
     'AMD':   {'name': 'Advanced Micro Devices', 'industry': 'US - 半導体・AI', 'currency': 'USD', 'country': 'US'},
     'DIS':   {'name': 'Walt Disney', 'industry': 'US - エンターテインメント', 'currency': 'USD', 'country': 'US'},
     'COST':  {'name': 'Costco Wholesale', 'industry': 'US - 小売・流通', 'currency': 'USD', 'country': 'US'},
