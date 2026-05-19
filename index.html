@@ -958,8 +958,13 @@
 
       /* ── レスポンシブ対応 ── */
       /* 一覧テーブルの横スクロール */
-      .sector-section { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-      .portal-table { min-width: 600px; }
+      .portal-table { width: 100%; }
+      @media (max-width: 900px) {
+        .portal-table { width: 760px; }  /* 固定幅でラッパーがスクロール */
+      }
+      @media (max-width: 480px) {
+        .portal-table { width: 420px; }
+      }
 
       @media (max-width: 1024px) {
         /* タブレット: スパークライン・営業利益率・ROE非表示 */
@@ -978,7 +983,9 @@
         .panel-sign-value-large { font-size: 1.8rem !important; }
         .panel-desc-text-below { font-size: 0.72rem; }
         .panel-label { font-size: 0.75rem; }
-        .type-badge { font-size: 1.2rem; padding: 12px; }
+        .type-badge { font-size: 1rem; padding: 10px; letter-spacing: 1px; }
+        .panel-sign-value-cf { font-size: 1.5rem !important; }
+        .panel-desc-text-cf { font-size: 0.9rem !important; }
         .portal-header-row { gap: 6px; }
         /* PBR・売上高も非表示 → コード/企業名/時価総額/PER/健全性の5列 */
         .portal-table td:nth-child(3),
@@ -1003,7 +1010,11 @@
         .sector-filter-bar { gap: 5px; }
         .sector-btn { padding: 5px 10px; font-size: 0.72rem; }
         .back-bar { grid-template-columns: auto 1fr; }
-        .active-company-title { padding: 10px 12px; flex-wrap: wrap; }
+        .active-company-title { padding: 8px 12px; flex-wrap: nowrap; overflow: hidden; gap: 4px; }
+        .company-title-main { font-size: 0.95rem; }
+        .sector-badge { display: none; }  /* スマホではセクターバッジを非表示 */
+        .detail-star-btn, .open-compare-btn { display: none; }  /* スマホではボタン非表示 */
+        .company-title-year { display: none; }
       }
 
       @media (max-width: 480px) {
@@ -3054,7 +3065,7 @@
             ],
           },
           options: {
-            layout: { padding: { top: 60, bottom: 40 } },
+            layout: { padding: isMobile ? { top: 20, bottom: 8 } : { top: 60, bottom: 40 } },
             responsive: true,
             maintainAspectRatio: false,
             animation: { duration: 1500, easing: "easeOutQuart" },
@@ -3068,7 +3079,11 @@
                   if (label === "当期純利益") return "#67e8f9";
                   return "#ffffff";
                 },
-                font: { weight: "bold", size: 14 },
+                display: isMobile ? function(ctx) {
+                  // モバイルでは売上高と純利益のみ表示
+                  return ctx.dataIndex === 0 || ctx.dataIndex === 5;
+                } : true,
+                font: { weight: "bold", size: isMobile ? 9 : 14 },
                 anchor: "end",
                 align: function (context) {
                   const val = context.dataset.data[context.dataIndex];
@@ -3116,7 +3131,7 @@
             scales: {
               x: {
                 grid: { display: false },
-                ticks: { color: "#a0aec0", font: { weight: "bold", size: 15 } },
+                ticks: { color: "#a0aec0", font: { weight: "bold", size: isMobile ? 9 : 15 } },
               },
               y: {
                 grace: "35%",
@@ -3321,7 +3336,7 @@
             scales: {
               x: {
                 grid: { color: "#2d3748" },
-                ticks: { color: "#a0aec0", font: { weight: "bold", size: 14 } },
+                ticks: { color: "#a0aec0", font: { weight: "bold", size: isMobile ? 9 : 14 } },
               },
               y: {
                 grace: "40%",
