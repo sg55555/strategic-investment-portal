@@ -183,16 +183,20 @@
         margin-bottom: 30px;
       }
       .sector-title {
-        font-size: 0.85rem;
+        font-size: 0.8rem;
         font-weight: bold;
-        color: #64748b;
-        margin-bottom: 10px;
+        color: #475569;
+        margin-bottom: 8px;
         display: flex;
         align-items: center;
         gap: 10px;
-        padding: 6px 0;
-        letter-spacing: 2px;
+        padding: 8px 12px 8px 0;
+        letter-spacing: 1.5px;
         text-transform: uppercase;
+        background: linear-gradient(90deg, rgba(99,102,241,0.04), transparent);
+        border-left: 2px solid #4f46e5;
+        padding-left: 12px;
+        border-radius: 0 4px 4px 0;
       }
       .sector-title-line {
         flex: 1;
@@ -250,11 +254,28 @@
       }
 
       .portal-table td {
-        padding: 14px 12px;
-        border-bottom: 1px solid #2d3748;
-        font-size: 0.9rem;
+        padding: 10px 12px;
+        border-bottom: 1px solid #1e293b;
+        font-size: 0.85rem;
         vertical-align: middle;
       }
+      .val-badge {
+        display: inline-block;
+        font-size: 0.65rem;
+        font-weight: bold;
+        padding: 1px 6px;
+        border-radius: 10px;
+        margin-left: 4px;
+        letter-spacing: 0.3px;
+      }
+      .val-badge.cheap { background: rgba(16,185,129,0.15); color: #34d399; border: 1px solid rgba(16,185,129,0.3); }
+      .val-badge.fair  { background: rgba(71,85,105,0.12); color: #64748b; border: 1px solid rgba(71,85,105,0.2); }
+      .val-badge.exp   { background: rgba(239,68,68,0.12); color: #f87171; border: 1px solid rgba(239,68,68,0.2); }
+      .val-badge.gold  { background: rgba(217,119,6,0.12); color: #d97706; border: 1px solid rgba(217,119,6,0.3); }
+      .safety-bar-wrap { display: flex; flex-direction: column; gap: 2px; }
+      .safety-bar-track { height: 3px; background: #1e293b; border-radius: 2px; width: 100%; }
+      .safety-bar-fill  { height: 3px; border-radius: 2px; transition: width 0.4s; }
+      .safety-score-num { font-size: 0.75rem; font-weight: bold; }
       .portal-table tr:hover {
         background-color: #1e293b;
         cursor: pointer;
@@ -2022,7 +2043,7 @@
                         <th style="width: 12%;" class="${sortKey === "marketCap" ? "active-sort" : ""}" onclick="setSort('marketCap')">時価総額<span class="sort-icon">${sortKey === "marketCap" ? (sortAsc ? "▲" : "▼") : "↕"}</span></th>
                         <th style="width: 7%;" class="${sortKey === "per" ? "active-sort" : ""}" onclick="setSort('per')">PER<span class="sort-icon">${sortKey === "per" ? (sortAsc ? "▲" : "▼") : "↕"}</span></th>
                         <th style="width: 7%;" class="${sortKey === "pbr" ? "active-sort" : ""}" onclick="setSort('pbr')">PBR<span class="sort-icon">${sortKey === "pbr" ? (sortAsc ? "▲" : "▼") : "↕"}</span></th>
-                        <th style="width: 9%;" class="${sortKey === "eqRatio" ? "active-sort" : ""}" onclick="setSort('eqRatio')">自己資本比率<span class="sort-icon">${sortKey === "eqRatio" ? (sortAsc ? "▲" : "▼") : "↕"}</span></th>
+                        <th style="width: 9%;" class="${sortKey === "eqRatio" ? "active-sort" : ""}" onclick="setSort('eqRatio')">健全性<span class="sort-icon">${sortKey === "eqRatio" ? (sortAsc ? "▲" : "▼") : "↕"}</span></th>
                         <th style="width: 9%;" class="${sortKey === "opMargin" ? "active-sort" : ""}" onclick="setSort('opMargin')">営業利益率<span class="sort-icon">${sortKey === "opMargin" ? (sortAsc ? "▲" : "▼") : "↕"}</span></th>
                         <th style="width: 8%;" class="${sortKey === "roe" ? "active-sort" : ""}" onclick="setSort('roe')">ROE<span class="sort-icon">${sortKey === "roe" ? (sortAsc ? "▲" : "▼") : "↕"}</span></th>
                     </tr>
@@ -2035,27 +2056,31 @@
             const tr = document.createElement("tr");
             tr.onclick = () => navigateToDetail(item.ticker);
 
-            let perStyle = "color: #cbd5e1;";
-            let perText = item.per > 0 ? item.per.toFixed(1) + " 倍" : "--";
+            let perStyle = "color: #64748b;";
+            let perText = item.per > 0 ? item.per.toFixed(1) + "x" : "--";
+            let perBadge = "";
             if (item.per > 0) {
-              if (item.per <= 15.0) {
-                perStyle = "color: #10b981; font-weight: bold;";
-                perText += " 🌟";
-              } else if (item.per >= 28.0) {
-                perStyle = "color: #f43f5e;";
-              }
+              if (item.per <= 15.0) { perStyle = "color: #10b981; font-weight: bold;"; perBadge = '<span class="val-badge cheap">割安</span>'; }
+              else if (item.per <= 28.0) { perBadge = '<span class="val-badge fair">標準</span>'; }
+              else { perStyle = "color: #f87171;"; perBadge = '<span class="val-badge exp">割高</span>'; }
             }
 
-            let pbrStyle = "color: #cbd5e1;";
-            let pbrText = item.pbr > 0 ? item.pbr.toFixed(1) + " 倍" : "--";
+            let pbrStyle = "color: #64748b;";
+            let pbrText = item.pbr > 0 ? item.pbr.toFixed(2) + "x" : "--";
+            let pbrBadge = "";
             if (item.pbr > 0) {
-              if (item.pbr <= 1.0) {
-                pbrStyle = "color: #eab308; font-weight: bold;";
-                pbrText += " 💎";
-              } else if (item.pbr >= 3.0) {
-                pbrStyle = "color: #f43f5e;";
-              }
+              if (item.pbr <= 1.0) { pbrStyle = "color: #d97706; font-weight: bold;"; pbrBadge = '<span class="val-badge gold">解散値以下</span>'; }
+              else if (item.pbr <= 3.0) { pbrBadge = '<span class="val-badge fair">標準</span>'; }
+              else { pbrStyle = "color: #f87171;"; pbrBadge = '<span class="val-badge exp">高評価</span>'; }
             }
+
+            // 健全性スコア (0-100): 自己資本比率40% + 流動比率30% + ROE30%
+            const safetyScore = item.hasFinData ? Math.min(100, Math.round(
+              (Math.min(item.eqRatio, 60) / 60) * 40 +
+              (Math.min(item.curRatio, 200) / 200) * 30 +
+              (Math.min(Math.max(item.roe, 0), 20) / 20) * 30
+            )) : null;
+            const safetyColor = safetyScore === null ? "#334155" : safetyScore >= 70 ? "#10b981" : safetyScore >= 40 ? "#fbbf24" : "#f87171";
 
             let opStyle = "color: #64748b;";
             let opText = item.opMargin !== null ? item.opMargin.toFixed(1) + "%" : "--";
@@ -2098,10 +2123,16 @@
                             <canvas id="spark-${cleanTicker}"></canvas>
                         </div>
                     </td>
-                    <td style="font-weight: bold; color: #cbd5e1;">${capString}</td>
-                    <td style="${perStyle}">${perText}</td>
-                    <td style="${pbrStyle}">${pbrText}</td>
-                    <td style="color: #eab308; font-weight: bold;">${item.hasFinData ? item.eqRatio.toFixed(1) + "%" : "--"}</td>
+                    <td style="font-weight: bold; color: #94a3b8;">${capString}</td>
+                    <td style="${perStyle}">${perText}${perBadge}</td>
+                    <td style="${pbrStyle}">${pbrText}${pbrBadge}</td>
+                    <td>
+                      ${safetyScore !== null ? `
+                        <div class="safety-bar-wrap">
+                          <span class="safety-score-num" style="color:${safetyColor};">${safetyScore}</span>
+                          <div class="safety-bar-track"><div class="safety-bar-fill" style="width:${safetyScore}%;background:${safetyColor};"></div></div>
+                        </div>` : '<span style="color:#334155">--</span>'}
+                    </td>
                     <td style="${opStyle}">${item.hasFinData ? opText : "--"}</td>
                     <td style="${roeStyle}">${item.hasFinData ? roeText : "--"}</td>
                 `;
