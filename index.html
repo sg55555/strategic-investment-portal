@@ -957,35 +957,66 @@
       .about-github-btn:hover { background: rgba(99,102,241,0.25); color: #c084fc; }
 
       /* ── レスポンシブ対応 ── */
-      @media (max-width: 900px) {
-        body { padding: 10px; }
-        .portal-title { font-size: 1.3rem; letter-spacing: 3px; }
-        .portal-header-row { gap: 8px; }
+      /* 一覧テーブルの横スクロール */
+      .sector-section { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .portal-table { min-width: 600px; }
+
+      @media (max-width: 1024px) {
+        /* タブレット: スパークライン・営業利益率・ROE非表示 */
         .portal-table td:nth-child(4),
-        .portal-table th:nth-child(4) { display: none; }   /* スパークライン非表示 */
-        .portal-table td:nth-child(6),
-        .portal-table th:nth-child(6),
-        .portal-table td:nth-child(7),
-        .portal-table th:nth-child(7),
+        .portal-table th:nth-child(4),
         .portal-table td:nth-child(9),
         .portal-table th:nth-child(9),
         .portal-table td:nth-child(10),
-        .portal-table th:nth-child(10) { display: none; }  /* PBR/営業利益率/ROE非表示 */
-        .time-control-bar { flex-direction: column; gap: 10px; align-items: flex-start; }
-        .grid-layout { gap: 16px; }
-        #chart-container { height: 300px; }
+        .portal-table th:nth-child(10) { display: none; }
       }
-      @media (max-width: 600px) {
-        .portal-header-row { flex-direction: column; gap: 4px; }
-        .back-bar { grid-template-columns: auto 1fr; }
-        .active-company-title { padding: 10px 14px; }
-        .dashboard-stack { gap: 16px; }
-        .card { padding: 16px; }
+
+      @media (max-width: 768px) {
+        body { padding: 10px; }
+        .portal-title { font-size: 1.2rem; letter-spacing: 2px; }
+        .portal-header-row { gap: 6px; }
+        /* PBR・売上高も非表示 → コード/企業名/時価総額/PER/健全性の5列 */
         .portal-table td:nth-child(3),
-        .portal-table th:nth-child(3) { display: none; }  /* 売上高も非表示 */
-        .panel-sign-value-large { font-size: 2rem; }
+        .portal-table th:nth-child(3),
+        .portal-table td:nth-child(7),
+        .portal-table th:nth-child(7) { display: none; }
+        .portal-table { min-width: 420px; }
+        /* 詳細チャート高さ削減 */
+        #chart-container { height: 260px; }
+        .chart-main-area { height: 320px; }
+        .full-width-area { height: 300px; }
+        /* 時系列コントロール縦積み */
+        .time-control-bar { flex-direction: column; gap: 8px; align-items: flex-start; padding: 12px 14px; }
+        /* グリッドを縦積みに */
+        .grid-layout { gap: 12px; }
+        .side-panel { width: 100% !important; }
+        /* KPI比較カードを1列に */
+        .kpi-compare-grid { grid-template-columns: 1fr !important; }
+        .dashboard-stack { gap: 14px; }
+        .card { padding: 14px; }
+        .panel-sign-value-large { font-size: 2.2rem; }
         .sector-filter-bar { gap: 5px; }
-        .sector-btn { padding: 5px 12px; font-size: 0.72rem; }
+        .sector-btn { padding: 5px 10px; font-size: 0.72rem; }
+        .back-bar { grid-template-columns: auto 1fr; }
+        .active-company-title { padding: 10px 12px; flex-wrap: wrap; }
+      }
+
+      @media (max-width: 480px) {
+        /* スマホ: 企業名/PER/健全性の3列のみ */
+        .portal-table td:nth-child(1),
+        .portal-table th:nth-child(1),
+        .portal-table td:nth-child(5),
+        .portal-table th:nth-child(5) { display: none; }
+        .portal-table { min-width: 300px; }
+        .portal-title { font-size: 1rem; letter-spacing: 1px; }
+        .portal-header-row { flex-wrap: wrap; justify-content: center; }
+        #chart-container { height: 220px; }
+        .full-width-area { height: 260px; }
+        .chart-main-area { height: 280px; }
+        .company-clickable { max-width: 130px; }
+        .time-selected-year { font-size: 1rem; }
+        .screening-grid { grid-template-columns: 1fr !important; }
+        .ma-control-bar { flex-wrap: wrap; gap: 6px; }
       }
 
       /* ── セクターフィルターバー ── */
