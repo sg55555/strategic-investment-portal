@@ -5,9 +5,10 @@ import math
 from datetime import datetime
 from pathlib import Path
 
-db_path  = "/home/shugo/weather.db"
-js_path  = "/home/shugo/my_website/data.js"
-cache_path = Path(__file__).parent / "analysis_cache.json"
+_root      = Path(__file__).parent.parent
+db_path    = str(_root / "data" / "investment.db")
+js_path    = str(_root / "data.js")
+cache_path = _root / "data" / "analysis_cache.json"
 
 # AI分析キャッシュを読み込む（analyze_financials.py で事前生成）
 analysis_cache = {}

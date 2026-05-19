@@ -41,8 +41,9 @@ if not API_KEY:
     print("  .env ファイルに ANTHROPIC_API_KEY=sk-ant-... を記載してください。")
     sys.exit(1)
 
-DB_PATH    = "/home/shugo/weather.db"
-CACHE_PATH = Path(__file__).parent / "analysis_cache.json"
+_root      = Path(__file__).parent.parent
+DB_PATH    = str(_root / "data" / "investment.db")
+CACHE_PATH = _root / "data" / "analysis_cache.json"
 
 client = anthropic.Anthropic(api_key=API_KEY)
 

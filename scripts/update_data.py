@@ -7,7 +7,7 @@ Strategic Investment Portal - 自動更新スクリプト
   python update_data.py --full    # 財務3表データも更新（年次）
 
 推奨 cron 設定（月〜金の朝7:00 JST）:
-  0 7 * * 1-5 /path/to/.venv/bin/python /home/shugo/my_website/update_data.py >> /home/shugo/my_website/update_log.txt 2>&1
+  0 7 * * 1-5 /home/shugo/apps/investment-portal/.venv/bin/python /home/shugo/apps/investment-portal/scripts/update_data.py >> /home/shugo/apps/investment-portal/logs/update_log.txt 2>&1
 """
 
 import sys
@@ -16,9 +16,10 @@ import time
 from pathlib import Path
 from datetime import datetime
 
-SCRIPT_DIR = Path(__file__).parent
-VENV_PYTHON = SCRIPT_DIR / ".venv" / "bin" / "python"
-LOG_FILE    = SCRIPT_DIR / "update_log.txt"
+SCRIPT_DIR  = Path(__file__).parent          # scripts/
+APP_DIR     = SCRIPT_DIR.parent              # investment-portal/
+VENV_PYTHON = APP_DIR / ".venv" / "bin" / "python"
+LOG_FILE    = APP_DIR / "logs" / "update_log.txt"
 
 def log(msg: str):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -65,7 +66,7 @@ def main():
     ok = run("get_stock_multi.py")
     elapsed = time.time() - t0
     if ok:
-        data_js_size = (SCRIPT_DIR / "data.js").stat().st_size / 1024
+        data_js_size = (APP_DIR / "data.js").stat().st_size / 1024
         log(f"  ✅ data.js 更新完了 ({elapsed:.1f}秒 / {data_js_size:.0f} KB)")
     else:
         log("  ❌ data.js 更新に失敗しました")

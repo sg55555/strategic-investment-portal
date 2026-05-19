@@ -3,38 +3,32 @@
 __pycache__/
 *.pyc
 
-# SQLiteデータベース（ローカルのみ）
-*.db
+# データ・DB（ローカルのみ）
+data/
+logs/
 
-# EDINETダウンロードファイル（大容量・非公開）
-*.zip
-extracted_*/
+# 一時ファイル（EDINETダウンロード等）
+tmp/
 
 # EDINET関連スクリプト（旧バージョン・非公開）
-batch_download.py
-create_db_v2.py
-download_edinet.py
-extract_edinet.py
-filter_edinet.py
-parse_all_companies.py
-parse_edinet.py
-parse_edinet_v2.py
-range_edinet.py
-scan_all_tags.py
-scan_multi_companies.py
-test_edinet.py
-update_master.py
-get_stock.py
-
-# ログ
-update_log.txt
+scripts/batch_download.py
+scripts/create_db_v2.py
+scripts/download_edinet.py
+scripts/extract_edinet.py
+scripts/filter_edinet.py
+scripts/parse_all_companies.py
+scripts/parse_edinet.py
+scripts/parse_edinet_v2.py
+scripts/range_edinet.py
+scripts/scan_all_tags.py
+scripts/scan_multi_companies.py
+scripts/test_edinet.py
+scripts/update_master.py
+scripts/get_stock.py
 
 # API キー（絶対にコミットしない）
 .env
 *.env
-
-# AI分析キャッシュ（ローカルのみ・data.jsに組み込まれるため不要）
-analysis_cache.json
 
 # その他
 .DS_Store

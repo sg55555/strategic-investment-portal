@@ -27,27 +27,46 @@
 ## ファイル構成
 
 ```
-my_website/
-├── index.html          # メインSPA（フロントエンド全体）
-├── data.js             # 静的データファイル（STOCK_DATA）
-├── auto_terminal_filter.py  # 財務データ取得 → SQLite格納
-├── get_stock_multi.py  # SQLite → data.js生成
-├── update_data.py      # 自動更新スクリプト
-└── .gitignore
+investment-portal/
+├── index.html           # メインSPA（フロントエンド・Vercelデプロイ対象）
+├── data.js              # 静的データファイル（STOCK_DATA）
+├── favicon.svg / robots.txt / sitemap.xml / vercel.json
+├── scripts/             # バックエンド Python スクリプト
+│   ├── auto_terminal_filter.py  # 財務データ取得 → SQLite格納
+│   ├── get_stock_multi.py       # SQLite → data.js生成
+│   ├── update_data.py           # 自動更新スクリプト（日次/年次）
+│   ├── analyze_financials.py    # AI財務コメント生成
+│   └── maintain.sh              # 定期メンテナンス（tmp削除・ログアーカイブ）
+├── data/                # ローカルのみ（gitignore対象）
+│   ├── investment.db    # SQLiteデータベース
+│   └── analysis_cache.json
+├── tmp/                 # 一時ファイル（gitignore対象）
+└── logs/                # ログ（gitignore対象）
+    └── update_log.txt
 ```
 
 ## データ更新
 
 ```bash
 # 日次更新（株価・市場指標）
-python update_data.py
+python scripts/update_data.py
 
 # 年次更新（財務3表も含む）
-python update_data.py --full
+python scripts/update_data.py --full
 
-# 企業追加（auto_terminal_filter.pyのtarget_companiesを編集後）
-python auto_terminal_filter.py
-python get_stock_multi.py
+# 企業追加（scripts/auto_terminal_filter.pyのtarget_companiesを編集後）
+python scripts/auto_terminal_filter.py
+python scripts/get_stock_multi.py
+```
+
+## メンテナンス
+
+```bash
+# 手動実行（tmp/ の古いファイル削除 + logs/ アーカイブ）
+bash scripts/maintain.sh
+
+# cron 設定（毎週日曜 2:00 に自動実行）
+# 0 2 * * 0 /home/shugo/apps/investment-portal/scripts/maintain.sh >> /home/shugo/apps/investment-portal/logs/maintain.log 2>&1
 ```
 
 ## 免責事項

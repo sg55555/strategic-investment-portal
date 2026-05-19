@@ -2,8 +2,9 @@ import yfinance as yf
 import sqlite3
 import pandas as pd
 import numpy as np
+from pathlib import Path
 
-db_path = "/home/shugo/weather.db"
+db_path = str(Path(__file__).parent.parent / "data" / "investment.db")
 
 # 🎯 【無限拡大エリア】追加したい企業のティッカーと産業セクター属性を並べるだけ！
 # 何社並べても、裏で過去3年分の一連の本物財務データを1秒で全自動パッキングします。
