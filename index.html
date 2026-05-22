@@ -1134,42 +1134,86 @@
         box-shadow: 0 0 8px rgba(59, 130, 246, 0.4);
       }
 
-      /* ── 移動平均線コントロールバー ── */
+      /* ── インジケーターコントロールバー ── */
       .ma-control-bar {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 0;
         margin-bottom: 10px;
         padding: 8px 0;
         border-bottom: 1px solid #1e293b;
+        flex-wrap: wrap;
+        row-gap: 6px;
+      }
+      .ctrl-group {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        padding: 0 10px;
+      }
+      .ctrl-group:first-child { padding-left: 0; }
+      .ctrl-separator {
+        width: 1px;
+        height: 18px;
+        background: #2d3748;
+        flex-shrink: 0;
       }
       .ma-label {
-        font-size: 0.76rem;
-        color: #475569;
+        font-size: 0.68rem;
+        color: #334155;
         font-weight: bold;
-        letter-spacing: 1px;
+        letter-spacing: 0.8px;
         text-transform: uppercase;
+        white-space: nowrap;
       }
       .ma-btn {
         background: transparent;
         border: 1px solid #334155;
-        padding: 4px 14px;
+        padding: 3px 11px;
         border-radius: 4px;
         cursor: pointer;
-        font-size: 0.78rem;
+        font-size: 0.75rem;
         font-weight: bold;
         letter-spacing: 0.5px;
         color: #475569;
         transition: all 0.2s;
+        white-space: nowrap;
       }
       .ma-btn:hover { border-color: #64748b; color: #94a3b8; }
       #ma-btn-5.active  { border-color: #c084fc; color: #c084fc; background: rgba(192,132,252,0.12); }
       #ma-btn-25.active { border-color: #38bdf8; color: #38bdf8; background: rgba(56,189,248,0.12); }
       #ma-btn-75.active { border-color: #818cf8; color: #818cf8; background: rgba(129,140,248,0.12); }
+      #ind-btn-bb.active   { border-color: #0ea5e9; color: #0ea5e9; background: rgba(14,165,233,0.12); }
+      #ind-btn-sr.active   { border-color: #f43f5e; color: #f43f5e; background: rgba(244,63,94,0.12); }
+      #ind-btn-rsi.active  { border-color: #f59e0b; color: #f59e0b; background: rgba(245,158,11,0.12); }
+      #ind-btn-macd.active { border-color: #c084fc; color: #c084fc; background: rgba(192,132,252,0.12); }
       .vol-label {
-        font-size: 0.7rem;
+        font-size: 0.68rem;
+        color: #2d3748;
+        padding-left: 10px;
+        white-space: nowrap;
+      }
+      /* ── サブチャートパネル (RSI / MACD) ── */
+      .sub-chart-wrap {
+        display: none;
+        width: 100%;
+        border-top: 1px solid #1e293b;
+        position: relative;
+      }
+      .sub-chart-wrap.visible { display: block; }
+      #rsi-container  { height: 100px; }
+      #macd-container { height: 110px; }
+      .sub-chart-label {
+        position: absolute;
+        top: 5px;
+        left: 10px;
+        font-size: 0.65rem;
         color: #334155;
-        margin-left: 8px;
+        z-index: 10;
+        pointer-events: none;
+        font-weight: bold;
+        letter-spacing: 1px;
+        text-transform: uppercase;
       }
 
       /* ── ヘッダーセクターバッジ ── */
@@ -1599,13 +1643,37 @@
           <div class="card">
             <div class="card-title" id="stock-title">MARKET CHART</div>
             <div class="ma-control-bar">
-              <span class="ma-label">移動平均線:</span>
-              <button class="ma-btn" id="ma-btn-5" onclick="toggleMA(5)">MA 5日</button>
-              <button class="ma-btn" id="ma-btn-25" onclick="toggleMA(25)">MA 25日</button>
-              <button class="ma-btn" id="ma-btn-75" onclick="toggleMA(75)">MA 75日</button>
-              <span class="vol-label">▌ 出来高: 下段表示</span>
+              <div class="ctrl-group">
+                <span class="ma-label">移動平均</span>
+                <button class="ma-btn" id="ma-btn-5"  onclick="toggleMA(5)">MA 5</button>
+                <button class="ma-btn" id="ma-btn-25" onclick="toggleMA(25)">MA 25</button>
+                <button class="ma-btn" id="ma-btn-75" onclick="toggleMA(75)">MA 75</button>
+              </div>
+              <div class="ctrl-separator"></div>
+              <div class="ctrl-group">
+                <span class="ma-label">エンベロープ</span>
+                <button class="ma-btn" id="ind-btn-bb" onclick="toggleBB()">BB 20</button>
+              </div>
+              <div class="ctrl-separator"></div>
+              <div class="ctrl-group">
+                <span class="ma-label">分析</span>
+                <button class="ma-btn" id="ind-btn-sr" onclick="toggleSR()">S/R線</button>
+              </div>
+              <div class="ctrl-separator"></div>
+              <div class="ctrl-group">
+                <span class="ma-label">オシレーター</span>
+                <button class="ma-btn" id="ind-btn-rsi"  onclick="toggleRSI()">RSI</button>
+                <button class="ma-btn" id="ind-btn-macd" onclick="toggleMACD()">MACD</button>
+              </div>
+              <span class="vol-label">▌ 出来高: 下段</span>
             </div>
             <div id="chart-container"></div>
+            <div id="rsi-container" class="sub-chart-wrap">
+              <span class="sub-chart-label">RSI (14)</span>
+            </div>
+            <div id="macd-container" class="sub-chart-wrap">
+              <span class="sub-chart-label">MACD (12, 26, 9)</span>
+            </div>
           </div>
 
           <div class="card">
@@ -1909,6 +1977,17 @@
       let ma5Series = null, ma25Series = null, ma75Series = null;
       let volumeSeries = null;
       let maState = { 5: false, 25: false, 75: false };
+
+      // ── テクニカル指標 ──
+      let bbUpperSeries = null, bbMidSeries = null, bbLowerSeries = null;
+      let bbState = false;
+      let srLines = [];
+      let srState = false;
+      let rsiChart = null, rsiSeries = null;
+      let rsiState = false;
+      let macdChart = null, macdLineSeries = null, macdSignalSeries = null, macdHistSeries = null;
+      let macdState = false;
+
       let activeSectorFilter = "stock_only";
       let showDetailSectors = false;
 
@@ -2554,6 +2633,241 @@
         series.applyOptions({ visible: maState[period] });
       }
 
+      // ── ボリンジャーバンド ──────────────────────────────────────────
+      function calcBB(prices, period = 20, mult = 2) {
+        const upper = [], mid = [], lower = [];
+        for (let i = period - 1; i < prices.length; i++) {
+          const slice = prices.slice(i - period + 1, i + 1).map(p => p.close);
+          const ma = slice.reduce((a, b) => a + b, 0) / period;
+          const variance = slice.reduce((a, b) => a + (b - ma) ** 2, 0) / period;
+          const std = Math.sqrt(variance);
+          upper.push({ time: prices[i].time, value: parseFloat((ma + mult * std).toFixed(2)) });
+          mid.push(  { time: prices[i].time, value: parseFloat(ma.toFixed(2)) });
+          lower.push({ time: prices[i].time, value: parseFloat((ma - mult * std).toFixed(2)) });
+        }
+        return { upper, mid, lower };
+      }
+
+      function toggleBB() {
+        bbState = !bbState;
+        document.getElementById("ind-btn-bb").classList.toggle("active", bbState);
+        [bbUpperSeries, bbMidSeries, bbLowerSeries].forEach(s => s?.applyOptions({ visible: bbState }));
+      }
+
+      // ── 支持線・抵抗線 自動識別 ────────────────────────────────────
+      function detectSR(prices) {
+        const recent = prices.slice(-Math.min(252, prices.length));
+        const pivotHighs = [], pivotLows = [];
+        const n = 3;
+        for (let i = n; i < recent.length - n; i++) {
+          let isHigh = true, isLow = true;
+          for (let j = i - n; j <= i + n; j++) {
+            if (j === i) continue;
+            if (recent[j].high >= recent[i].high) isHigh = false;
+            if (recent[j].low  <= recent[i].low)  isLow  = false;
+          }
+          if (isHigh) pivotHighs.push(recent[i].high);
+          if (isLow)  pivotLows.push(recent[i].low);
+        }
+        function cluster(levels) {
+          if (!levels.length) return [];
+          const sorted = [...levels].sort((a, b) => a - b);
+          const groups = [];
+          let i = 0;
+          while (i < sorted.length) {
+            const base = sorted[i];
+            const group = [base];
+            let j = i + 1;
+            while (j < sorted.length && (sorted[j] - base) / base < 0.015) {
+              group.push(sorted[j++]);
+            }
+            groups.push({ price: group.reduce((a, b) => a + b, 0) / group.length, count: group.length });
+            i = j;
+          }
+          return groups.sort((a, b) => b.count - a.count).slice(0, 3);
+        }
+        return { resistance: cluster(pivotHighs), support: cluster(pivotLows) };
+      }
+
+      function applySRLines(prices) {
+        srLines.forEach(l => { try { candleSeries.removePriceLine(l); } catch(e) {} });
+        srLines = [];
+        if (!srState || !prices?.length) return;
+        const { resistance, support } = detectSR(prices);
+        resistance.forEach(({ price, count }) => {
+          srLines.push(candleSeries.createPriceLine({
+            price, color: "rgba(244,63,94,0.85)", lineWidth: 1,
+            lineStyle: 2, axisLabelVisible: true, title: `R×${count}`,
+          }));
+        });
+        support.forEach(({ price, count }) => {
+          srLines.push(candleSeries.createPriceLine({
+            price, color: "rgba(16,185,129,0.85)", lineWidth: 1,
+            lineStyle: 2, axisLabelVisible: true, title: `S×${count}`,
+          }));
+        });
+      }
+
+      function toggleSR() {
+        srState = !srState;
+        document.getElementById("ind-btn-sr").classList.toggle("active", srState);
+        const data = STOCK_DATA[currentTicker];
+        if (data) applySRLines(data.prices);
+      }
+
+      // ── RSI ────────────────────────────────────────────────────────
+      function calcRSI(prices, period = 14) {
+        if (prices.length < period + 1) return [];
+        const closes = prices.map(p => p.close);
+        let avgGain = 0, avgLoss = 0;
+        for (let i = 1; i <= period; i++) {
+          const d = closes[i] - closes[i - 1];
+          if (d > 0) avgGain += d; else avgLoss += -d;
+        }
+        avgGain /= period; avgLoss /= period;
+        const result = [];
+        for (let i = period; i < prices.length; i++) {
+          if (i > period) {
+            const d = closes[i] - closes[i - 1];
+            avgGain = (avgGain * (period - 1) + Math.max(d, 0)) / period;
+            avgLoss = (avgLoss * (period - 1) + Math.max(-d, 0)) / period;
+          }
+          const rs  = avgLoss === 0 ? 100 : avgGain / avgLoss;
+          result.push({ time: prices[i].time, value: parseFloat((100 - 100 / (1 + rs)).toFixed(2)) });
+        }
+        return result;
+      }
+
+      function toggleRSI() {
+        rsiState = !rsiState;
+        document.getElementById("ind-btn-rsi").classList.toggle("active", rsiState);
+        const wrap = document.getElementById("rsi-container");
+        wrap.classList.toggle("visible", rsiState);
+        if (rsiState) {
+          if (!rsiChart) initSubCharts();
+          const data = STOCK_DATA[currentTicker];
+          if (data) updateSubCharts(data.prices);
+          setTimeout(() => rsiChart?.timeScale().fitContent(), 50);
+        }
+      }
+
+      // ── MACD ───────────────────────────────────────────────────────
+      function calcEMA(closes, period) {
+        const k = 2 / (period + 1);
+        const result = new Array(closes.length).fill(null);
+        let sum = 0;
+        for (let i = 0; i < period; i++) sum += closes[i];
+        result[period - 1] = sum / period;
+        for (let i = period; i < closes.length; i++) {
+          result[i] = closes[i] * k + result[i - 1] * (1 - k);
+        }
+        return result;
+      }
+
+      function calcMACD(prices, fast = 12, slow = 26, sig = 9) {
+        const closes = prices.map(p => p.close);
+        const fastEMA = calcEMA(closes, fast);
+        const slowEMA = calcEMA(closes, slow);
+        const macdVals = [], macdTimes = [];
+        for (let i = slow - 1; i < closes.length; i++) {
+          if (fastEMA[i] != null && slowEMA[i] != null) {
+            macdVals.push(fastEMA[i] - slowEMA[i]);
+            macdTimes.push(prices[i].time);
+          }
+        }
+        const sigEMAArr = calcEMA(macdVals, sig);
+        const macdLine = [], signalLine = [], histogram = [];
+        for (let i = sig - 1; i < macdVals.length; i++) {
+          if (sigEMAArr[i] == null) continue;
+          const t = macdTimes[i];
+          const mv = parseFloat(macdVals[i].toFixed(4));
+          const sv = parseFloat(sigEMAArr[i].toFixed(4));
+          macdLine.push({ time: t, value: mv });
+          signalLine.push({ time: t, value: sv });
+          histogram.push({ time: t, value: parseFloat((mv - sv).toFixed(4)),
+            color: (mv - sv) >= 0 ? "rgba(239,68,68,0.7)" : "rgba(34,197,94,0.7)" });
+        }
+        return { macdLine, signalLine, histogram };
+      }
+
+      function toggleMACD() {
+        macdState = !macdState;
+        document.getElementById("ind-btn-macd").classList.toggle("active", macdState);
+        const wrap = document.getElementById("macd-container");
+        wrap.classList.toggle("visible", macdState);
+        if (macdState) {
+          if (!macdChart) initSubCharts();
+          const data = STOCK_DATA[currentTicker];
+          if (data) updateSubCharts(data.prices);
+          setTimeout(() => macdChart?.timeScale().fitContent(), 50);
+        }
+      }
+
+      // ── サブチャート 初期化 ────────────────────────────────────────
+      function initSubCharts() {
+        const baseOpts = {
+          layout: { background: { type: "solid", color: "#0d1520" }, textColor: "#64748b" },
+          grid: { vertLines: { color: "#1a2332" }, horzLines: { color: "#1a2332" } },
+          rightPriceScale: { borderColor: "#2d3748", scaleMargins: { top: 0.1, bottom: 0.1 } },
+          crosshair: { mode: 1 },
+          handleScale: false,
+          handleScroll: false,
+        };
+
+        if (!rsiChart) {
+          rsiChart = LightweightCharts.createChart(
+            document.getElementById("rsi-container"),
+            { ...baseOpts, timeScale: { borderColor: "#2d3748", visible: false } }
+          );
+          rsiSeries = rsiChart.addLineSeries({
+            color: "#f59e0b", lineWidth: 1.5,
+            priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: true,
+          });
+          rsiSeries.createPriceLine({ price: 70, color: "rgba(244,63,94,0.45)",  lineWidth: 1, lineStyle: 2, title: "70" });
+          rsiSeries.createPriceLine({ price: 50, color: "rgba(148,163,184,0.2)", lineWidth: 1, lineStyle: 3 });
+          rsiSeries.createPriceLine({ price: 30, color: "rgba(16,185,129,0.45)", lineWidth: 1, lineStyle: 2, title: "30" });
+        }
+
+        if (!macdChart) {
+          macdChart = LightweightCharts.createChart(
+            document.getElementById("macd-container"),
+            { ...baseOpts, timeScale: { borderColor: "#2d3748", visible: true } }
+          );
+          macdHistSeries = macdChart.addHistogramSeries({
+            priceLineVisible: false, lastValueVisible: false,
+          });
+          macdLineSeries = macdChart.addLineSeries({
+            color: "#c084fc", lineWidth: 1.5,
+            priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+          });
+          macdSignalSeries = macdChart.addLineSeries({
+            color: "#38bdf8", lineWidth: 1.5,
+            priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+          });
+          macdHistSeries.createPriceLine({ price: 0, color: "rgba(148,163,184,0.2)", lineWidth: 1, lineStyle: 0 });
+        }
+
+        // 時間軸を主チャートに連動させる
+        priceChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+          if (range == null) return;
+          if (rsiState && rsiChart)  rsiChart.timeScale().setVisibleLogicalRange(range);
+          if (macdState && macdChart) macdChart.timeScale().setVisibleLogicalRange(range);
+        });
+      }
+
+      function updateSubCharts(allPrices) {
+        if (!allPrices?.length) return;
+        if (rsiState && rsiChart && rsiSeries) {
+          rsiSeries.setData(calcRSI(allPrices));
+        }
+        if (macdState && macdChart) {
+          const { macdLine, signalLine, histogram } = calcMACD(allPrices);
+          macdHistSeries?.setData(histogram);
+          macdLineSeries?.setData(macdLine);
+          macdSignalSeries?.setData(signalLine);
+        }
+      }
+
       // Analytics イベントトラッキング（Vercel Analytics または将来のGA4対応）
       function trackEvent(name, props) {
         try {
@@ -2708,6 +3022,20 @@
           const maAll = calcMA(base, period);
           series.setData(maAll.filter((d) => d.time >= startTime && d.time <= endTime));
         });
+
+        // ── ボリンジャーバンド ──
+        const bbBase = base.length >= 20 ? base : displayPrices;
+        const bb = calcBB(bbBase);
+        const f = (d) => d.time >= startTime && d.time <= endTime;
+        bbUpperSeries?.setData(bb.upper.filter(f));
+        bbMidSeries?.setData(bb.mid.filter(f));
+        bbLowerSeries?.setData(bb.lower.filter(f));
+
+        // ── 支持線・抵抗線 ──
+        applySRLines(base);
+
+        // ── RSI / MACD サブチャート ──
+        updateSubCharts(base);
       }
 
       function initPriceChart() {
@@ -2759,6 +3087,20 @@
         });
         ma75Series = priceChart.addLineSeries({
           color: "#818cf8", lineWidth: 1, visible: false,
+          priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+        });
+
+        // ── ボリンジャーバンド シリーズ (初期は非表示) ──
+        bbUpperSeries = priceChart.addLineSeries({
+          color: "rgba(14,165,233,0.55)", lineWidth: 1, lineStyle: 2, visible: false,
+          priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+        });
+        bbMidSeries = priceChart.addLineSeries({
+          color: "rgba(14,165,233,0.75)", lineWidth: 1, visible: false,
+          priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+        });
+        bbLowerSeries = priceChart.addLineSeries({
+          color: "rgba(14,165,233,0.55)", lineWidth: 1, lineStyle: 2, visible: false,
           priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
         });
       }
