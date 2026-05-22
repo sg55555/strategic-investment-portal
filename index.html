@@ -1187,6 +1187,7 @@
       #ind-btn-sr.active   { border-color: #f43f5e; color: #f43f5e; background: rgba(244,63,94,0.12); }
       #ind-btn-rsi.active  { border-color: #f59e0b; color: #f59e0b; background: rgba(245,158,11,0.12); }
       #ind-btn-macd.active { border-color: #c084fc; color: #c084fc; background: rgba(192,132,252,0.12); }
+      #ind-btn-tr.active   { border-color: #fbbf24; color: #fbbf24; background: rgba(251,191,36,0.12); }
       .vol-label {
         font-size: 0.68rem;
         color: #2d3748;
@@ -1658,6 +1659,7 @@
               <div class="ctrl-group">
                 <span class="ma-label">分析</span>
                 <button class="ma-btn" id="ind-btn-sr" onclick="toggleSR()">S/R線</button>
+                <button class="ma-btn" id="ind-btn-tr" onclick="toggleTR()">T/R線</button>
               </div>
               <div class="ctrl-separator"></div>
               <div class="ctrl-group">
@@ -1987,6 +1989,12 @@
       let rsiState = false;
       let macdChart = null, macdLineSeries = null, macdSignalSeries = null, macdHistSeries = null;
       let macdState = false;
+      // T/R トレンド/レンジ自動判定
+      let trState = false;
+      let trSeries = [];      // 斜めトレンドライン用 LineSeries
+      let trPriceLines = [];  // 水平レンジライン用
+      // 現在表示中の価格データ（サブチャート同期用）
+      let currentDisplayPrices = null;
 
       let activeSectorFilter = "stock_only";
       let showDetailSectors = false;
@@ -2746,7 +2754,10 @@
         if (rsiState) {
           if (!rsiChart) initSubCharts();
           const data = STOCK_DATA[currentTicker];
-          if (data) updateSubCharts(data.prices);
+          if (data) {
+            const display = currentDisplayPrices || data.prices.slice(-250);
+            updateSubCharts(display, data.prices);
+          }
           setTimeout(() => rsiChart?.timeScale().fitContent(), 50);
         }
       }
@@ -2798,7 +2809,10 @@
         if (macdState) {
           if (!macdChart) initSubCharts();
           const data = STOCK_DATA[currentTicker];
-          if (data) updateSubCharts(data.prices);
+          if (data) {
+            const display = currentDisplayPrices || data.prices.slice(-250);
+            updateSubCharts(display, data.prices);
+          }
           setTimeout(() => macdChart?.timeScale().fitContent(), 50);
         }
       }
@@ -2855,17 +2869,147 @@
         });
       }
 
-      function updateSubCharts(allPrices) {
-        if (!allPrices?.length) return;
+      function updateSubCharts(displayPrices, allPrices) {
+        if (!displayPrices?.length) return;
+        const startTime = displayPrices[0].time;
+        const endTime   = displayPrices[displayPrices.length - 1].time;
+        // 計算はフル履歴で行い、表示はメインチャートの時間範囲に揃える
+        const calcBase = (allPrices?.length > 50) ? allPrices : displayPrices;
+        const inRange = d => d.time >= startTime && d.time <= endTime;
+
         if (rsiState && rsiChart && rsiSeries) {
-          rsiSeries.setData(calcRSI(allPrices));
+          rsiSeries.setData(calcRSI(calcBase).filter(inRange));
         }
         if (macdState && macdChart) {
-          const { macdLine, signalLine, histogram } = calcMACD(allPrices);
-          macdHistSeries?.setData(histogram);
-          macdLineSeries?.setData(macdLine);
-          macdSignalSeries?.setData(signalLine);
+          const { macdLine, signalLine, histogram } = calcMACD(calcBase);
+          macdHistSeries?.setData(histogram.filter(inRange));
+          macdLineSeries?.setData(macdLine.filter(inRange));
+          macdSignalSeries?.setData(signalLine.filter(inRange));
         }
+      }
+
+      // ── T/R線: トレンド/レンジ自動判定 + ライン描画 ──────────────
+      function detectTrendRange(prices) {
+        const n = prices.length;
+        if (n < 10) return { isTrending: false, isUptrend: false, r2: 0 };
+        const closes = prices.map(p => p.close);
+        const xMean  = (n - 1) / 2;
+        const yMean  = closes.reduce((a, b) => a + b, 0) / n;
+        let ssXX = 0, ssXY = 0, ssYY = 0;
+        for (let i = 0; i < n; i++) {
+          const dx = i - xMean, dy = closes[i] - yMean;
+          ssXX += dx * dx; ssXY += dx * dy; ssYY += dy * dy;
+        }
+        const r2    = ssYY > 0 ? (ssXY * ssXY) / (ssXX * ssYY) : 0;
+        const slope = ssXX > 0 ? ssXY / ssXX : 0;
+        return { isTrending: r2 > 0.55, isUptrend: slope > 0, r2, slope };
+      }
+
+      function findPivotPoints(prices, n = 2, type = "low") {
+        const pivots = [];
+        for (let i = n; i < prices.length - n; i++) {
+          let ok = true;
+          for (let j = i - n; j <= i + n && ok; j++) {
+            if (j === i) continue;
+            if (type === "low"  && prices[j].low  <= prices[i].low)  ok = false;
+            if (type === "high" && prices[j].high >= prices[i].high) ok = false;
+          }
+          if (ok) pivots.push({ idx: i, time: prices[i].time,
+            value: type === "low" ? prices[i].low : prices[i].high });
+        }
+        return pivots;
+      }
+
+      function fitLineToPoints(pts) {
+        if (pts.length < 2) return null;
+        const n = pts.length;
+        const xMean = pts.reduce((a, p) => a + p.idx, 0) / n;
+        const yMean = pts.reduce((a, p) => a + p.value, 0) / n;
+        let ssXX = 0, ssXY = 0;
+        pts.forEach(p => { ssXX += (p.idx - xMean) ** 2; ssXY += (p.idx - xMean) * (p.value - yMean); });
+        const slope = ssXX > 0 ? ssXY / ssXX : 0;
+        return { slope, intercept: yMean - slope * xMean };
+      }
+
+      function makeTrendlinePoints(prices, startIdx, endIdx, slope, intercept) {
+        const pts = [];
+        for (let i = startIdx; i <= endIdx; i++) {
+          pts.push({ time: prices[i].time, value: parseFloat((slope * i + intercept).toFixed(2)) });
+        }
+        return pts;
+      }
+
+      function drawTRLines(displayPrices) {
+        // 既存ラインをクリーンアップ
+        trSeries.forEach(s => { try { priceChart.removeSeries(s); } catch(e) {} });
+        trSeries = [];
+        trPriceLines.forEach(l => { try { candleSeries.removePriceLine(l); } catch(e) {} });
+        trPriceLines = [];
+        if (!trState || !displayPrices?.length) return;
+
+        const { isTrending, isUptrend } = detectTrendRange(displayPrices);
+        const lastIdx = displayPrices.length - 1;
+
+        if (isTrending) {
+          // ── トレンドモード: ピボット回帰による斜めライン ──
+          const mainType = isUptrend ? "low" : "high";
+          const secType  = isUptrend ? "high" : "low";
+
+          // ピボットをフィルタ: 上昇=切り上がる安値、下降=切り下がる高値
+          function filterDirectional(pts, ascending) {
+            return pts.filter((p, i) => i === 0 || (ascending ? p.value > pts[i-1].value : p.value < pts[i-1].value));
+          }
+
+          const mainPivots = filterDirectional(findPivotPoints(displayPrices, 2, mainType), isUptrend);
+          const secPivots  = filterDirectional(findPivotPoints(displayPrices, 2, secType),  !isUptrend);
+
+          // メインライン (上昇: 緑サポート / 下降: 赤レジスタンス)
+          if (mainPivots.length >= 2) {
+            const fit = fitLineToPoints(mainPivots);
+            if (fit) {
+              const s = priceChart.addLineSeries({
+                color: isUptrend ? "rgba(16,185,129,0.9)" : "rgba(244,63,94,0.9)",
+                lineWidth: 1.5, lineStyle: 0,
+                priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+              });
+              s.setData(makeTrendlinePoints(displayPrices, mainPivots[0].idx, lastIdx, fit.slope, fit.intercept));
+              trSeries.push(s);
+            }
+          }
+          // セカンダリライン (上昇: 赤レジスタンス / 下降: 緑サポート、破線)
+          if (secPivots.length >= 2) {
+            const fit = fitLineToPoints(secPivots);
+            if (fit) {
+              const s = priceChart.addLineSeries({
+                color: isUptrend ? "rgba(244,63,94,0.65)" : "rgba(16,185,129,0.65)",
+                lineWidth: 1, lineStyle: 2,
+                priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+              });
+              s.setData(makeTrendlinePoints(displayPrices, secPivots[0].idx, lastIdx, fit.slope, fit.intercept));
+              trSeries.push(s);
+            }
+          }
+        } else {
+          // ── レンジモード: 90/10パーセンタイルによる水平チャネル ──
+          const sortedH = [...displayPrices].map(p => p.high).sort((a, b) => a - b);
+          const sortedL = [...displayPrices].map(p => p.low).sort((a, b) => a - b);
+          const hi = sortedH[Math.floor(sortedH.length * 0.90)];
+          const lo = sortedL[Math.floor(sortedL.length * 0.10)];
+          trPriceLines.push(candleSeries.createPriceLine({
+            price: hi, color: "rgba(251,191,36,0.85)", lineWidth: 1.5, lineStyle: 2,
+            axisLabelVisible: true, title: "RG-High",
+          }));
+          trPriceLines.push(candleSeries.createPriceLine({
+            price: lo, color: "rgba(251,191,36,0.85)", lineWidth: 1.5, lineStyle: 2,
+            axisLabelVisible: true, title: "RG-Low",
+          }));
+        }
+      }
+
+      function toggleTR() {
+        trState = !trState;
+        document.getElementById("ind-btn-tr").classList.toggle("active", trState);
+        drawTRLines(currentDisplayPrices);
       }
 
       // Analytics イベントトラッキング（Vercel Analytics または将来のGA4対応）
@@ -3034,8 +3178,12 @@
         // ── 支持線・抵抗線 ──
         applySRLines(base);
 
-        // ── RSI / MACD サブチャート ──
-        updateSubCharts(base);
+        // ── T/Rトレンドライン ──
+        currentDisplayPrices = displayPrices;
+        drawTRLines(displayPrices);
+
+        // ── RSI / MACD サブチャート（表示範囲に揃える） ──
+        updateSubCharts(displayPrices, base);
       }
 
       function initPriceChart() {
@@ -3058,12 +3206,12 @@
         });
 
         candleSeries = priceChart.addCandlestickSeries({
-          upColor: "#ef4444",
-          downColor: "#22c55e",
-          borderDownColor: "#16a34a",
-          borderUpColor: "#dc2626",
-          wickUpColor: "#b91c1c",
-          wickDownColor: "#15803d",
+          upColor:        "#ff2d55",   // 鮮やかなローズレッド（上昇）
+          downColor:      "#00d4a0",   // 鮮やかなミントグリーン（下降）
+          borderUpColor:  "#ff6b85",   // 明るいピンク→ライト感
+          borderDownColor:"#00ebb8",   // 明るいシアン→ライト感
+          wickUpColor:    "#ff6b85",
+          wickDownColor:  "#00ebb8",
         });
 
         volumeSeries = priceChart.addHistogramSeries({
