@@ -1105,6 +1105,28 @@
         .screening-grid { grid-template-columns: 1fr !important; }
         .ma-control-bar { flex-wrap: wrap; gap: 6px; }
       }
+      @media (max-width: 375px) {
+        body { padding: 6px; }
+        .portal-title { font-size: 0.88rem; letter-spacing: 0; }
+        .portal-header-date { display: none; }
+        /* テーブル: コード列も非表示 → 企業名/PER/健全性のみ */
+        .portal-table th, .portal-table td { padding: 8px 6px; font-size: 0.78rem; }
+        .portal-table th:first-child, .portal-table td:first-child { display: none; }
+        .portal-stat-badge { display: none; }
+        /* チャートさらに縮小 */
+        #chart-container { height: 190px; }
+        .chart-main-area { height: 240px; }
+        .full-width-area { height: 220px; }
+        .sector-btn { padding: 4px 8px; font-size: 0.68rem; }
+        .sector-filter-bar { gap: 4px; }
+        /* 詳細パネル */
+        .panel-sign-value-large { font-size: 1.4rem !important; }
+        .card { padding: 10px; }
+        .card-title { font-size: 0.72rem; letter-spacing: 1px; }
+        /* インジケーターバー折り返し */
+        .ma-control-bar { gap: 4px; }
+        .time-control-bar { padding: 10px 10px; }
+      }
 
       /* ── セクターフィルターバー ── */
       .sector-filter-bar {
