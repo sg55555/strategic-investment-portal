@@ -30,6 +30,9 @@ scripts/get_stock.py
 .env
 *.env
 
+# Claude Code ローカル設定（パス・DB IDなど非公開情報を含む）
+.claude/
+
 # その他
 .DS_Store
 *.swp

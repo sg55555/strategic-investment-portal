@@ -7,7 +7,7 @@ Strategic Investment Portal - 自動更新スクリプト
   python update_data.py --full    # 財務3表データも更新（年次）
 
 推奨 cron 設定（月〜金の朝7:00 JST）:
-  0 7 * * 1-5 /home/shugo/apps/investment-portal/.venv/bin/python /home/shugo/apps/investment-portal/scripts/update_data.py >> /home/shugo/apps/investment-portal/logs/update_log.txt 2>&1
+  0 7 * * 1-5 ~/apps/investment-portal/.venv/bin/python ~/apps/investment-portal/scripts/update_data.py >> ~/apps/investment-portal/logs/update_log.txt 2>&1
 """
 
 import sys

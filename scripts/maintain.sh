@@ -2,14 +2,14 @@
 # Investment Portal メンテナンススクリプト
 # 用途: tmp/ の古い一時ファイル削除 + logs/ のアーカイブ
 # 推奨 cron（毎週日曜 2:00）:
-#   0 2 * * 0 /home/shugo/apps/investment-portal/scripts/maintain.sh >> /home/shugo/apps/investment-portal/logs/maintain.log 2>&1
+#   0 2 * * 0 ~/apps/investment-portal/scripts/maintain.sh >> ~/apps/investment-portal/logs/maintain.log 2>&1
 
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 TMP_DIR="$APP_DIR/tmp"
 LOG_DIR="$APP_DIR/logs"
-ARCHIVE_DIR="/home/shugo/old_logs"
+ARCHIVE_DIR="$HOME/old_logs"
 TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
 YEAR_MONTH=$(date +"%Y-%m")
 

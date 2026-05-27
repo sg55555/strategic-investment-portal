@@ -66,7 +66,7 @@ python scripts/get_stock_multi.py
 bash scripts/maintain.sh
 
 # cron 設定（毎週日曜 2:00 に自動実行）
-# 0 2 * * 0 /home/shugo/apps/investment-portal/scripts/maintain.sh >> /home/shugo/apps/investment-portal/logs/maintain.log 2>&1
+# 0 2 * * 0 ~/apps/investment-portal/scripts/maintain.sh >> ~/apps/investment-portal/logs/maintain.log 2>&1
 ```
 
 ## 免責事項
