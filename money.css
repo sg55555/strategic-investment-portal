@@ -13,3 +13,28 @@
 }
 .mcc-nav-btn:hover { background: rgba(79,70,229,0.25); }
 .mcc-placeholder { color: #94a3b8; text-align: center; padding: 40px; }
+.mcc-gauge-card { background: rgba(15,20,34,0.6); border: 1px solid rgba(129,140,248,0.25); border-radius: 12px; padding: 18px; margin-bottom: 14px; box-shadow: 0 0 40px rgba(79,70,229,0.15) inset; }
+.mcc-gauge-label { color: #94a3b8; font-size: 0.78rem; letter-spacing: 1px; margin-bottom: 10px; }
+.mcc-gauge-bar { height: 14px; background: rgba(255,255,255,0.06); border-radius: 8px; overflow: hidden; }
+.mcc-gauge-fill { height: 100%; background: linear-gradient(90deg, #4f46e5, #818cf8, #10b981); transition: width 0.4s ease; }
+.mcc-gauge-stat { margin-top: 10px; color: #e2e8f0; font-size: 0.86rem; }
+.mcc-gauge-stat strong { color: #c084fc; font-size: 1.1rem; }
+.mcc-banner { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-radius: 10px; margin-bottom: 16px; font-size: 0.9rem; color: #e2e8f0; border: 1px solid; }
+.mcc-banner-icon { color: #818cf8; }
+.mcc-banner-buffer { background: rgba(79,70,229,0.12); border-color: rgba(129,140,248,0.4); }
+.mcc-banner-core { background: rgba(16,185,129,0.1); border-color: rgba(16,185,129,0.35); }
+.mcc-banner-rebalance { background: rgba(255,0,61,0.1); border-color: rgba(255,122,157,0.5); }
+.mcc-buckets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+@media (max-width: 640px) { .mcc-buckets { grid-template-columns: 1fr; } }
+.mcc-bucket { background: rgba(15,20,34,0.5); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 14px; }
+.mcc-bucket-over { border-color: rgba(255,0,61,0.6); box-shadow: 0 0 18px rgba(255,0,61,0.15); }
+.mcc-bucket-name { color: #cbd5e1; font-size: 0.78rem; letter-spacing: 1px; margin-bottom: 8px; }
+.mcc-field { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; color: #94a3b8; font-size: 0.72rem; }
+.mcc-field input { background: rgba(0,0,0,0.3); border: 1px solid rgba(129,140,248,0.3); color: #fff; border-radius: 6px; padding: 7px 9px; font-size: 0.9rem; }
+.mcc-sat-bar { height: 8px; background: rgba(255,255,255,0.06); border-radius: 6px; overflow: hidden; margin-top: 10px; }
+.mcc-sat-fill { height: 100%; background: #818cf8; }
+.mcc-sat-fill.over { background: #ff003d; }
+.mcc-sat-cap { color: #94a3b8; font-size: 0.7rem; margin-top: 6px; }
+.mcc-sat-warn { color: #ff7a9d; font-size: 0.74rem; font-weight: 700; margin-top: 6px; }
+.mcc-settings { margin-top: 18px; color: #cbd5e1; }
+.mcc-settings summary { cursor: pointer; font-size: 0.8rem; letter-spacing: 1px; }
