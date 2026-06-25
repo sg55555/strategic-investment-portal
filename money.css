@@ -38,3 +38,7 @@
 .mcc-sat-warn { color: #ff7a9d; font-size: 0.74rem; font-weight: 700; margin-top: 6px; }
 .mcc-settings { margin-top: 18px; color: #cbd5e1; }
 .mcc-settings summary { cursor: pointer; font-size: 0.8rem; letter-spacing: 1px; }
+.mcc-onboard { background: rgba(79,70,229,0.1); border: 1px dashed rgba(129,140,248,0.45); border-radius: 10px; padding: 12px 14px; color: #c7d2fe; font-size: 0.8rem; line-height: 1.6; margin-bottom: 14px; }
+.mcc-tools { display: flex; gap: 10px; margin-top: 18px; }
+.mcc-tool-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); color: #cbd5e1; padding: 7px 12px; border-radius: 7px; cursor: pointer; font-size: 0.74rem; }
+.mcc-tool-btn:hover { background: rgba(255,255,255,0.1); }

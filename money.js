@@ -92,7 +92,36 @@ window.MCC = (function () {
         moneyInput("サテライト上限（%）", "satelliteCapPct", vm.satelliteCapPct, vm) +
       '</details>';
 
-    root.innerHTML = gauge + banner + buckets + settings;
+    var isEmpty = vm.monthlyExpense === 0 && vm.bufferAmount === 0 && vm.coreAmount === 0 && vm.satelliteAmount === 0;
+    var onboarding = isEmpty
+      ? '<div class="mcc-onboard">まず「設定」で月の生活費を、各バケツに現在の金額を入力してください。実データはこの端末（localStorage）にのみ保存され、外部送信されません。</div>'
+      : '';
+    var tools =
+      '<div class="mcc-tools">' +
+        '<button class="mcc-tool-btn" onclick="MCC.exportJSON()">↓ エクスポート(JSON)</button>' +
+        '<label class="mcc-tool-btn">↑ インポート<input type="file" accept="application/json" style="display:none" ' +
+          'onchange="if(this.files[0])MCC.importJSON(this.files[0])"></label>' +
+      '</div>';
+
+    root.innerHTML = onboarding + gauge + banner + buckets + settings + tools;
+  }
+
+  function exportJSON() {
+    var blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "mcc_state.json";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  function importJSON(file) {
+    var reader = new FileReader();
+    reader.onload = function () {
+      try { state = R.migrate(JSON.parse(reader.result)); save(); render(); }
+      catch (e) { alert("読み込みに失敗しました（JSONが不正です）"); }
+    };
+    reader.readAsText(file);
   }
 
   function init() {
@@ -103,5 +132,5 @@ window.MCC = (function () {
 
   document.addEventListener("DOMContentLoaded", init);
 
-  return { init: init, show: show, backToPortal: backToPortal, setField: setField, load: load, save: save, render: render };
+  return { init: init, show: show, backToPortal: backToPortal, setField: setField, load: load, save: save, render: render, exportJSON: exportJSON, importJSON: importJSON };
 })();
