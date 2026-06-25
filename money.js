@@ -3,6 +3,7 @@ window.MCC = (function () {
   "use strict";
   var R = window.MCCRules;
   var state = null;
+  var lastSaveOk = true;
 
   function load() {
     try {
@@ -13,8 +14,11 @@ window.MCC = (function () {
   }
 
   function save() {
-    try { localStorage.setItem(R.STORAGE_KEY, JSON.stringify(state)); return true; }
-    catch (e) { return false; }
+    var ok;
+    try { localStorage.setItem(R.STORAGE_KEY, JSON.stringify(state)); ok = true; }
+    catch (e) { ok = false; }
+    lastSaveOk = ok;
+    return ok;
   }
 
   // path 例: "monthlyExpense" / "bufferMonths" / "satelliteCapPct" / "buckets.buffer.amount"
@@ -41,7 +45,7 @@ window.MCC = (function () {
     window.scrollTo(0, 0);
   }
 
-  function moneyInput(label, path, value, vm) {
+  function moneyInput(label, path, value) {
     return '<label class="mcc-field"><span>' + label + '</span>' +
       '<input type="number" min="0" step="1000" value="' + value + '" ' +
       'onchange="MCC.setField(\'' + path + '\', this.value)"></label>';
@@ -52,14 +56,16 @@ window.MCC = (function () {
     if (!root) return;
     var vm = R.viewModel(state);
 
+    var gaugeStat = vm.bufferConfigured
+      ? ('<strong>' + vm.bufferProgressPct + '%</strong> ' +
+          '（' + vm.fmt(vm.bufferAmount) + ' / ' + vm.fmt(vm.bufferTarget) + '）' +
+          (vm.bufferRemaining > 0 ? ' ・あと ' + vm.fmt(vm.bufferRemaining) : ' ・達成'))
+      : '未設定 — 「設定」で月の生活費を入力するとバッファ目標が決まります';
     var gauge =
       '<div class="mcc-gauge-card">' +
         '<div class="mcc-gauge-label">バッファ目標（生活防衛資金）</div>' +
-        '<div class="mcc-gauge-bar"><div class="mcc-gauge-fill" style="width:' + vm.bufferProgressPct + '%"></div></div>' +
-        '<div class="mcc-gauge-stat"><strong>' + vm.bufferProgressPct + '%</strong> ' +
-          '（' + vm.fmt(vm.bufferAmount) + ' / ' + vm.fmt(vm.bufferTarget) + '）' +
-          (vm.bufferRemaining > 0 ? ' ・あと ' + vm.fmt(vm.bufferRemaining) : ' ・達成') +
-        '</div>' +
+        '<div class="mcc-gauge-bar"><div class="mcc-gauge-fill" style="width:' + (vm.bufferConfigured ? vm.bufferProgressPct : 0) + '%"></div></div>' +
+        '<div class="mcc-gauge-stat">' + gaugeStat + '</div>' +
       '</div>';
 
     var banner =
@@ -72,12 +78,12 @@ window.MCC = (function () {
     var buckets =
       '<div class="mcc-buckets">' +
         '<div class="mcc-bucket"><div class="mcc-bucket-name">バッファ（現金）</div>' +
-          moneyInput("金額", "buckets.buffer.amount", vm.bufferAmount, vm) + '</div>' +
+          moneyInput("金額", "buckets.buffer.amount", vm.bufferAmount) + '</div>' +
         '<div class="mcc-bucket"><div class="mcc-bucket-name">コア（長期）</div>' +
-          moneyInput("金額", "buckets.core.amount", vm.coreAmount, vm) + '</div>' +
+          moneyInput("金額", "buckets.core.amount", vm.coreAmount) + '</div>' +
         '<div class="mcc-bucket' + (vm.satelliteIsOver ? ' mcc-bucket-over' : '') + '">' +
           '<div class="mcc-bucket-name">サテライト（個別株/短期）</div>' +
-          moneyInput("金額", "buckets.satellite.amount", vm.satelliteAmount, vm) +
+          moneyInput("金額", "buckets.satellite.amount", vm.satelliteAmount) +
           '<div class="mcc-sat-bar"><div class="mcc-sat-fill' + (vm.satelliteIsOver ? " over" : "") +
             '" style="width:' + Math.min(100, vm.satelliteFillPct) + '%"></div></div>' +
           '<div class="mcc-sat-cap">上限 ' + vm.fmt(vm.satelliteCap) + '（investable比 ' + vm.satelliteCapPct + '%）</div>' +
@@ -87,9 +93,9 @@ window.MCC = (function () {
 
     var settings =
       '<details class="mcc-settings"><summary>設定</summary>' +
-        moneyInput("月の生活費", "monthlyExpense", vm.monthlyExpense, vm) +
-        moneyInput("バッファ目標（ヶ月）", "bufferMonths", vm.bufferMonths, vm) +
-        moneyInput("サテライト上限（%）", "satelliteCapPct", vm.satelliteCapPct, vm) +
+        moneyInput("月の生活費", "monthlyExpense", vm.monthlyExpense) +
+        moneyInput("バッファ目標（ヶ月）", "bufferMonths", vm.bufferMonths) +
+        moneyInput("サテライト上限（%）", "satelliteCapPct", vm.satelliteCapPct) +
       '</details>';
 
     var isEmpty = vm.monthlyExpense === 0 && vm.bufferAmount === 0 && vm.coreAmount === 0 && vm.satelliteAmount === 0;
@@ -103,7 +109,8 @@ window.MCC = (function () {
           'onchange="if(this.files[0])MCC.importJSON(this.files[0])"></label>' +
       '</div>';
 
-    root.innerHTML = onboarding + gauge + banner + buckets + settings + tools;
+    var saveWarn = lastSaveOk ? '' : '<div class="mcc-save-warn">⚠ 保存できませんでした（プライベートブラウズ等）。この端末に値が保存されない可能性があります。</div>';
+    root.innerHTML = saveWarn + onboarding + gauge + banner + buckets + settings + tools;
   }
 
   function exportJSON() {
@@ -121,6 +128,7 @@ window.MCC = (function () {
       try { state = R.migrate(JSON.parse(reader.result)); save(); render(); }
       catch (e) { alert("読み込みに失敗しました（JSONが不正です）"); }
     };
+    reader.onerror = function () { alert("ファイルの読み込みに失敗しました"); };
     reader.readAsText(file);
   }
 

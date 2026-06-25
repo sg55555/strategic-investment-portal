@@ -95,3 +95,15 @@ test("viewModel は表示用フィールドを公開", () => {
   assert.equal(typeof vm.next.message, "string");
   assert.equal(vm.fmt(1234), "¥1,234");
 });
+
+test("nextAllocation: 未設定(target=0) -> setup", () => {
+  const s = R.defaultState(); // monthlyExpense=0 => bufferTarget 0
+  assert.equal(R.nextAllocation(s).target, "setup");
+});
+
+test("viewModel.bufferConfigured は target>0 で true", () => {
+  const s = R.defaultState();
+  assert.equal(R.viewModel(s).bufferConfigured, false);
+  s.monthlyExpense = 100000;
+  assert.equal(R.viewModel(s).bufferConfigured, true);
+});

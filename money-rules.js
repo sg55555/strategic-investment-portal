@@ -56,6 +56,9 @@
   function satelliteOver(s) { return Math.max(0, num(s.buckets.satellite.amount) - satelliteCap(s)); }
 
   function nextAllocation(s) {
+    if (bufferTarget(s) === 0) {
+      return { target: "setup", message: "まず「設定」で月の生活費を入力してください（バッファ目標を設定）" };
+    }
     if (bufferProgress(s) < 1) {
       return { target: "buffer", remaining: bufferRemaining(s),
         message: "次の余剰はバッファへ。目標まであと " + yen(bufferRemaining(s)) + "（" + num(s.bufferMonths) + "ヶ月分）" };
@@ -79,6 +82,7 @@
       bufferAmount: num(s.buckets.buffer.amount),
       coreAmount: num(s.buckets.core.amount),
       satelliteAmount: sat,
+      bufferConfigured: bufferTarget(s) > 0,
       bufferTarget: bufferTarget(s),
       bufferProgress: bufferProgress(s),
       bufferProgressPct: Math.round(bufferProgress(s) * 100),
