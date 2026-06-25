@@ -1,0 +1,15 @@
+/* money.css — お金の司令塔(MCC) 専用スタイル。既存トークン流用。 */
+#money-view .mcc-wrap { max-width: 960px; margin: 0 auto; padding: 16px 14px 60px; }
+.mcc-topbar { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+.mcc-title {
+  font-size: 1.05rem; letter-spacing: 2px; font-weight: 700; margin: 0;
+  background: linear-gradient(90deg, #60a5fa, #818cf8, #c084fc);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+}
+.mcc-nav-btn {
+  background: rgba(79,70,229,0.12); border: 1px solid rgba(129,140,248,0.4); color: #c7d2fe;
+  padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 0.74rem; font-weight: 700;
+  letter-spacing: 1px; transition: all 0.2s;
+}
+.mcc-nav-btn:hover { background: rgba(79,70,229,0.25); }
+.mcc-placeholder { color: #94a3b8; text-align: center; padding: 40px; }
