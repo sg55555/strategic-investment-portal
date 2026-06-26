@@ -13,7 +13,7 @@
  */
 let STOCK_DATA = {};
 let DATA_UPDATED_AT = "";
-const REMOTE_ENABLED = false;
+const REMOTE_ENABLED = true;
 
 const _MKT_API = "/api/market";
 const _mktHydrated = new Set();
