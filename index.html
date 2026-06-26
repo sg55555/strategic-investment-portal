@@ -1999,7 +1999,7 @@
       </div>
     </div>
 
-    <script src="data.js"></script>
+    <script src="dataClient.js"></script>
     <script>
       Chart.register(ChartDataLabels);
 
@@ -2170,8 +2170,10 @@
         list.style.display = "block";
       }
 
-      function addToCompare(ticker) {
+      async function addToCompare(ticker) {
         if (compareSet.size >= 8) { alert("比較は最大8銘柄です"); return; }
+        // v2 Slice1: 比較に載せる前に prices をその場ハイドレート
+        if (typeof getStock === "function") { try { await getStock(ticker); } catch (e) { console.error("getStock failed", e); } }
         compareSet.add(ticker);
         document.getElementById("compare-search-input").value = "";
         document.getElementById("compare-search-list").style.display = "none";
@@ -2274,10 +2276,12 @@
         }
       }
 
-      window.onload = function () {
+      window.onload = async function () {
         initFreemium();
         const dateEl = document.getElementById("portal-date");
         if (dateEl) dateEl.innerText = new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "2-digit", day: "2-digit" });
+        // v2 Slice1: データ供給を dataClient(shim) 経由に。grid 描画前に必ず完了させる。
+        if (typeof bootData === "function") { try { await bootData(); } catch (e) { console.error("bootData failed", e); } }
         // データ最終更新日時の表示
         const updEl = document.getElementById("data-updated-at");
         if (updEl && typeof DATA_UPDATED_AT !== "undefined") updEl.innerText = "Data: " + DATA_UPDATED_AT + " 更新";
@@ -3295,9 +3299,11 @@
         });
       }
 
-      function navigateToDetail(ticker) {
+      async function navigateToDetail(ticker) {
         trackEvent("view_detail", { ticker, company: STOCK_DATA[ticker]?.company_name });
         currentTicker = ticker;
+        // v2 Slice1: 詳細を描く前に prices/全財務をその場ハイドレート（remote時のみ実フェッチ）
+        if (typeof getStock === "function") { try { await getStock(ticker); } catch (e) { console.error("getStock failed", e); } }
         const data = STOCK_DATA[ticker];
         if (!data) return;
 

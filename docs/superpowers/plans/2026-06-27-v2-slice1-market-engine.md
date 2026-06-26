@@ -14,22 +14,28 @@
 ## 進捗
 - [x] **Task 1: スキーマ** `db/schema.sql`（market.ticker_master/ohlcv/financials_annual/ai_comments＋索引）。
 - [x] **Task 2: ETL** `scripts/etl_to_postgres.py`（data.js→market 冪等投入）。**パース/変換は実data.jsで検証済**（100/122990/293/292）。DB挿入はNeon接続後に通し。
-- [ ] **Task 3: スキーマ適用＋ETL実行（要DATABASE_URL）**
-  - `psql "$DATABASE_URL" -f db/schema.sql`
-  - `pip install 'psycopg[binary]'` → `DATABASE_URL=... python scripts/etl_to_postgres.py`
-  - 検証: `SELECT count(*) FROM market.ohlcv;` = 122990 等。
-- [ ] **Task 4: API `/api/market/*`（Vercel Python）**
-  - `api/market/list.py` → ticker_master 全件（grid用）。
-  - `api/market/ohlcv.py?ticker=&from=&to=` → 日足配列（既存`prices[]`形）。
-  - `api/market/financials.py?ticker=` → financials_annual＋ai_comments を年度別に（既存`financials_trend`形）。
-  - `api/market/search.py?q=&limit=` → company_name/ticker 部分一致。
-  - kakeibo handler形に合わせ、各々 DB接続→SQL→JSON。`Cache-Control: s-maxage=3600`（過去データ不変）。
-  - 検証: `vercel dev` or デプロイ後 `curl /api/market/list` 等が既存形と一致。
-- [ ] **Task 5: `dataClient.js` shim ＋ index.html 差替**
-  - `dataClient.js`: `STOCK_DATA[ticker]` 同期参照を `await getStock(ticker)`（`/api/market/*` 合成→既存形を返す）へ。`getList()`/`searchTickers()`。
-  - index.html: データアクセス箇所を shim 経由の async へ。`const REMOTE_ENABLED = true/false`。false で旧 `data.js` 同期読みにフォールバック。
-  - 検証(Playwright): REMOTE_ENABLED=true で grid/チャート/財務/AIコメント/検索が既存同等に表示・**初回ロードがdata.js無し（数KB）**。false で完全に従来通り（リグレッション0）。
-- [ ] **Task 6: 本番反映**: `REMOTE_ENABLED` を段階導入（既定falseでマージ→検証後true）。ExitWorktree→main→push。
+- [x] **Task 3: スキーマ適用＋ETL実行（DATABASE_URL投入済）** ✅ 2026-06-27
+  - Neon(PostgreSQL 17.10)に `market` スキーマ＋4テーブル投入済を確認。件数＝ticker_master 100 / ohlcv 122,990 / financials_annual 293 / ai_comments 292（期待値と完全一致）。
+  - 中身検証OK＝実社名/型/通貨・OHLCV(2021-05-19〜2026-05-19,null close 0)・財務実値・日本語AIコメント実在。
+  - 接続=pooled(`-pooler`,us-east-1,channel_binding=require)。ローカルETLは investment-portal `.venv` に `psycopg[binary]` 導入で対応可。
+- [x] **Task 4: API `/api/market/*`（Vercel Python）** ✅ 2026-06-27
+  - `api/market/list.py` → 全100銘柄の軽量サマリ（master＋直近3期×7項目, **prices空**）。実測 **84KB**（vs data.js 21MB）。
+  - `api/market/ohlcv.py?ticker=` → 日足全件（既存`prices[]`形・time昇順）。
+  - `api/market/financials.py?ticker=` → financials_annual＋ai_comments を年度別に（`ai_analysis`を各年度内ネスト・欠損None省略）。
+  - **検索APIは作らない**（understand判明＝検索はクライアント側で読込済listをincludesフィルタ・未配線。YAGNI＋Hobby関数枠節約）。
+  - kakeibo handler形（`class handler(BaseHTTPRequestHandler)`+`_json`）。psycopg＋`DATABASE_URL`。`Cache-Control: public, s-maxage=3600, stale-while-revalidate=86400`。root `requirements.txt`=`psycopg[binary]>=3`。
+  - **形状照合✅**＝API出力 vs data.js を Neon実接続で厳密比較し不一致ゼロ（OHLCはREAL型でも2小数まで完全一致＝maxΔ0）。
+- [x] **Task 5: `dataClient.js` shim ＋ index.html surgery** ✅ 2026-06-27（**遅延ハイドレート方式**＝当初の"全async化"を回避）
+  - `dataClient.js`: `STOCK_DATA`/`DATA_UPDATED_AT` を所有（旧const置換）。`bootData()`（remote=軽量list / fallback=`data-bundle.js`一括）＋`getStock(ticker)`（remote時に ohlcv+financials を `STOCK_DATA[ticker]` にその場マージ）。`const REMOTE_ENABLED=false`（安全弁・既定）。
+  - **index.html surgery は4点のみ**＝①script `data.js`→`dataClient.js` ②`onload` async化+`await bootData()` ③`navigateToDetail` async化+`await getStock()` ④`addToCompare` async化+`await getStock()`。深部の同期描画(チャート/財務/sparkline)は**無改造**。
+  - `data-bundle.js`＝data.jsの`const`を外した代入版（fallback用・sed生成・21MB・REMOTE=true安定後にdata.jsごと退役）。
+  - **実ブラウザ検証✅**(Playwright headless 両モード)＝REMOTE 15/15・LOCAL 12/12機能緑（grid100/検索/詳細/AIコメント/財務/比較・network方式・未捕捉例外0※`_vercel/insights`404は本番限定スクリプトの不在のみ）。残=**カードのチャート実描画ピクセルは太田さん実機サニティ**（GPU/canvasはheadless不可・mistakes.md準拠）。
+- [ ] **Task 6: 本番反映（段階導入・要ユーザーgo＝外向き本番デプロイ）**
+  1. worktree commit → `ExitWorktree(keep)` → main で `git fetch && merge worktree-wealth-cockpit-v2`。
+  2. `git push`（**REMOTE_ENABLED=false のまま**＝本番は data-bundle.js で従来動作・MCC v1/portal無傷）。
+  3. **本番 curl 検証**＝`/api/market/list`(200,JSON,~84KB)・`/api/market/ohlcv?ticker=7203.T`・`/financials?ticker=7203.T`。⚠️zero-config関数がrewrite catch-allに勝つか要確認（404なら builds+routes へ）。
+  4. 200確認後 `REMOTE_ENABLED=true` に1行変更→commit→push→本番で初回ロード削減＆遅延ハイドレートを実機確認（太田さん）。
+  5. 安定後の片付け（別タスク）＝data.js/data-bundle.js 退役、Slice2 へ。
 
 ## 受け入れ基準（Slice 1）
 - 見た目・操作が v1 と同一のまま、`REMOTE_ENABLED=true` で 100銘柄のgrid/チャート/財務3表/AIコメント/検索が API 駆動で動く。

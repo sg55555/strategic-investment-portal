@@ -1,0 +1,3 @@
+# Vercel Python Functions (api/market/*) 用。
+# market データを Neon Postgres から読む。psycopg v3（binary=libpq同梱wheel）。
+psycopg[binary]>=3
