@@ -59,6 +59,8 @@ class handler(BaseHTTPRequestHandler):
     def do_PUT(self):
         token = _cookie_token(self.headers)
         length = int(self.headers.get("Content-Length", 0) or 0)
+        if length > 262144:  # 256KB 上限：巨大 JSONB（巨大 goals 等）の自己DoS を防ぐ（coerce-3）
+            return self._json(413, {"error": "payload too large"})
         try:
             body = json.loads(self.rfile.read(length).decode("utf-8", "replace"))
             state = body.get("state") if isinstance(body, dict) else None

@@ -98,3 +98,36 @@
   padding: 7px 12px; border-radius: 6px; cursor: pointer; font-size: 0.74rem; font-weight: 700; white-space: nowrap;
 }
 .mcc-goal-addbtn:hover { background: rgba(79,70,229,0.3); }
+
+/* --- Slice3: AI規律コーチ（決定論=権威・最上位／AI=従属・ミュート／免責=常時） --- */
+.mcc-advice {
+  margin-top: 18px; padding: 14px 16px; border-radius: 12px;
+  background: rgba(15,20,34,0.55); border: 1px solid rgba(129,140,248,0.22);
+}
+.mcc-advice-rulehead { color: #a5b4fc; font-size: 0.7rem; letter-spacing: 0.5px; font-weight: 700; margin-bottom: 6px; }
+.mcc-advice-rule {
+  display: flex; gap: 8px; align-items: flex-start; color: #e8edff; font-size: 0.9rem; font-weight: 600;
+  line-height: 1.5; padding: 10px 12px; border-radius: 8px;
+  background: rgba(79,70,229,0.16); border-left: 3px solid #818cf8;
+}
+.mcc-advice-rule-icon { color: #818cf8; }
+.mcc-advice-ai {
+  margin-top: 10px; padding: 10px 12px; border-radius: 8px;
+  background: rgba(0,0,0,0.22); border: 1px solid rgba(255,255,255,0.06);
+}
+.mcc-advice-ai-muted { color: #94a3b8; font-size: 0.8rem; }
+.mcc-advice-mode { display: inline-block; color: #fbbf24; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.5px; border: 1px solid rgba(251,191,36,0.4); border-radius: 4px; padding: 1px 5px; margin-bottom: 6px; }
+.mcc-advice-ai-head { color: #cbd5e1; font-size: 0.84rem; font-weight: 700; margin-bottom: 4px; }
+.mcc-advice-ai-edu { color: #94a3b8; font-size: 0.8rem; line-height: 1.6; }
+.mcc-advice-ai-next { color: #a5b4fc; font-size: 0.8rem; margin-top: 6px; }
+.mcc-advice-stale { color: #fbbf24; font-size: 0.72rem; margin-top: 8px; }
+.mcc-advice-actions { margin-top: 12px; }
+.mcc-advice-btn {
+  background: rgba(79,70,229,0.22); border: 1px solid rgba(129,140,248,0.45); color: #c7d2fe;
+  padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 0.78rem; font-weight: 700;
+}
+.mcc-advice-btn:hover { background: rgba(79,70,229,0.34); }
+.mcc-advice-btn:disabled { opacity: 0.5; cursor: default; }
+.mcc-advice-login { color: #64748b; font-size: 0.78rem; }
+.mcc-advice-err { color: #ff7a9d; font-size: 0.74rem; margin-top: 8px; }
+.mcc-advice-disclaimer { color: #5b6478; font-size: 0.62rem; line-height: 1.5; margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.06); }

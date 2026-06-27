@@ -10,8 +10,16 @@
   var STORAGE_KEY = "mcc_state";
   var CURRENT_VERSION = 2; // v2: goals（資産目標）＋クラウド同期
 
+  // Slice3: AI規律コーチ。正準 next ターゲット（Python テンプレ map と test 網羅の単一源）。
+  var NEXT_TARGETS = ["setup", "buffer", "rebalance", "core"];
+  var FACTS_SCHEMA_VERSION = 1; // modeAFacts スキーマ版（版ずれ監査）
+  // 免責（node↔browser 単一源・全描画経路で決定論と不可分に常時表示）。
+  var DISCLAIMER = "本コーチが示す決定論ルールおよび AI の補足はいずれも、資産規律の維持・教育・判断支援を目的とした一般的な情報提供であり、特定の金融商品の売買や投資配分・タイミングを推奨する投資助言ではありません。当ツールは金融商品取引業者・投資助言代理業者として登録された者による助言ではなく、特定の金融商品の勧誘を目的としたものでもありません。将来の利益や成果を保証するものではありません（過去の実績は将来を示しません）。最終的な投資判断はご自身の責任で行ってください。";
+  var DISCLAIMER_VERSION = "disc-v1";
+
   function num(v) { var n = Number(v); return isFinite(n) && n >= 0 ? n : 0; }
   function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
+  function r(x) { return Math.floor(num(x) + 0.5); } // half-up（全値非負前提・Python 還元器とパリティ）
   function yen(n) { return "¥" + Math.round(num(n)).toLocaleString("ja-JP"); }
 
   var _DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -55,7 +63,7 @@
       },
       satelliteCapPct: Number(raw.satelliteCapPct) >= 0 ? num(raw.satelliteCapPct) : d.satelliteCapPct,
       goals: Array.isArray(raw.goals)
-        ? raw.goals.filter(function (g) { return g && typeof g === "object"; }).map(normalizeGoal)
+        ? raw.goals.filter(function (g) { return g && typeof g === "object" && !Array.isArray(g); }).map(normalizeGoal)
         : [],
       updatedAt: num(raw.updatedAt),
       history: Array.isArray(raw.history)
@@ -133,12 +141,102 @@
     };
   }
 
+  // deadline(YYYY-MM-DD) を now(epoch ms)基準の粗バケツへ写す（純粋・生日付は出さない）。
+  function deadlineBucket(deadline, nowMs) {
+    if (!deadline || !_DATE_RE.test(deadline) || !(num(nowMs) > 0)) return null;
+    var t = Date.parse(deadline + "T00:00:00Z");
+    if (!isFinite(t)) return null;
+    var months = (t - num(nowMs)) / (30.44 * 86400000);
+    if (months < 0) return "overdue";
+    if (months < 3) return "under_3m";
+    if (months < 12) return "3_12m";
+    if (months < 36) return "1_3y";
+    return "over_3y";
+  }
+
+  // Slice3: 生 state → Mode A 集約ファクト（純粋）。AI規律コーチへ渡す唯一の境界。
+  // 必ず migrate() で全フィールドを coerce（文字列/NaN/巨大配列/不正日付を強制正規化）してから、
+  // allowlist キーのみで新規 dict を構築する（viewModel をスプレッドしない・history を走査しない）。
+  // opts.includeRawAmounts=true（個人モード・本人合意）でのみ生額・目標ラベルを raw に同梱する。
+  // production（既定）の戻り値には生額・ラベル・生日付が一切含まれない＝Mode A の構造保証。
+  function modeAFacts(rawState, opts) {
+    opts = opts || {};
+    var includeRaw = !!opts.includeRawAmounts;
+    var nowMs = num(opts.nowMs);
+    var s = migrate(rawState);
+    var cur = s.currency === "USD" ? "USD" : "JPY"; // 自由文字列 currency を閉集合へ
+    var total = totalAssets(s);
+    var inv = investable(s);
+    var cap = satelliteCap(s);
+    var sat = num(s.buckets.satellite.amount);
+    var over = satelliteOver(s);
+    var core = num(s.buckets.core.amount);
+    var goalsArr = (Array.isArray(s.goals) ? s.goals : []).slice(0, 20); // 巨大配列注入を抑止
+
+    var facts = {
+      mode: includeRaw ? "personal" : "production",
+      currency: cur,
+      bufferConfigured: bufferTarget(s) > 0,
+      bufferMonths: clamp(r(s.bufferMonths), 0, 120),
+      bufferProgressPct: clamp(r(bufferProgress(s) * 100), 0, 100),
+      bufferAchieved: bufferProgress(s) >= 1,
+      satelliteCapPct: clamp(r(s.satelliteCapPct), 0, 100),
+      satelliteFillPct: clamp(r(cap > 0 ? clamp(sat / cap, 0, 1.5) * 100 : (sat > 0 ? 100 : 0)), 0, 150),
+      satelliteIsOver: over > 0,
+      satelliteOverByPct: clamp(r(cap > 0 ? (over / cap) * 100 : (over > 0 ? 100 : 0)), 0, 100),
+      coreSharePct: clamp(r(inv > 0 ? (core / inv) * 100 : 0), 0, 100),
+      investableConfigured: inv > 0,
+      nextTarget: nextAllocation(s).target,
+      goalsCount: goalsArr.length,
+      goals: goalsArr.map(function (g, i) {
+        var gp = goalProgress(g, total);
+        return {
+          index: i,
+          progressPct: clamp(r(gp.progress * 100), 0, 100),
+          achieved: !!gp.achieved,
+          hasDeadline: !!g.deadline,
+          monthsToDeadlineBucket: deadlineBucket(g.deadline, nowMs),
+        };
+      }),
+      rulesVersion: CURRENT_VERSION,
+      schemaVersion: FACTS_SCHEMA_VERSION,
+    };
+
+    if (includeRaw) {
+      facts.raw = {
+        monthlyExpense: num(s.monthlyExpense),
+        bufferAmount: num(s.buckets.buffer.amount),
+        bufferTarget: bufferTarget(s),
+        bufferRemaining: bufferRemaining(s),
+        coreAmount: core,
+        satelliteAmount: sat,
+        investable: inv,
+        satelliteCap: cap,
+        satelliteOver: over,
+        totalAssets: total,
+        goals: goalsArr.map(function (g, i) {
+          return {
+            index: i,
+            label: String(g.label || ""),
+            targetAmount: num(g.targetAmount),
+            remaining: Math.max(0, num(g.targetAmount) - total),
+            deadline: String(g.deadline || ""),
+          };
+        }),
+      };
+    }
+    return facts;
+  }
+
   return {
     STORAGE_KEY: STORAGE_KEY, CURRENT_VERSION: CURRENT_VERSION,
+    NEXT_TARGETS: NEXT_TARGETS, FACTS_SCHEMA_VERSION: FACTS_SCHEMA_VERSION,
+    DISCLAIMER: DISCLAIMER, DISCLAIMER_VERSION: DISCLAIMER_VERSION,
     defaultState: defaultState, migrate: migrate, normalizeGoal: normalizeGoal,
     bufferTarget: bufferTarget, bufferProgress: bufferProgress, bufferRemaining: bufferRemaining,
     investable: investable, satelliteCap: satelliteCap, satelliteOver: satelliteOver,
     totalAssets: totalAssets, goalProgress: goalProgress,
     nextAllocation: nextAllocation, viewModel: viewModel, yen: yen,
+    deadlineBucket: deadlineBucket, modeAFacts: modeAFacts,
   };
 });

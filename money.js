@@ -15,6 +15,11 @@ window.MCC = (function () {
   var _cloudPending = false;// in-flight 中に来た編集の再送フラグ
   var _cloudDirty = false;  // 未確定の編集が cloud に未到達か（離脱時フラッシュ判定）
 
+  // AI規律コーチ（Slice3）の状態。render 跨ぎで保持（毎 render 再描画＝paintSyncStatus と同方針）。
+  var advice = null;
+  var adviceBusy = false;
+  var adviceErr = "";
+
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
@@ -97,6 +102,38 @@ window.MCC = (function () {
     } catch (e) { /* 離脱中なので何もできない */ }
   }
 
+  // コーチ相談の前に保留中の編集を確実に Neon へ反映（サーバが最新 state を読めるように）。
+  function flushNow() {
+    if (!sync.loggedIn || !_cloudDirty) return Promise.resolve();
+    if (_cloudTimer) { clearTimeout(_cloudTimer); _cloudTimer = null; }
+    return apiJSON("PUT", "/api/me/state", { state: state }).then(function (res) {
+      if (res.ok) { _cloudDirty = false; sync.lastSyncOk = true; }
+      return res;
+    }).catch(function () { return { ok: false }; });
+  }
+
+  // AI規律コーチに相談（ログイン時のみ）。最新 state を反映してからサーバに集約・LLM させる。
+  function requestAdvice() {
+    if (adviceBusy) return;
+    if (!sync.loggedIn) { advice = null; adviceErr = "セッションが切れました。再ログインしてください"; render(); return; } // fe-2
+    adviceBusy = true; adviceErr = ""; render();
+    flushNow().then(function () {
+      return apiJSON("POST", "/api/me/advice", {});
+    }).then(function (res) {
+      adviceBusy = false;
+      // fe-4: 401 以外（429/503/一過性）は直前の良好な助言を破棄せず adviceErr のみ表示。
+      if (res.status === 401) { sync.loggedIn = false; advice = null; adviceErr = "セッションが切れました。再ログインしてください"; }
+      else if (res.status === 429) { adviceErr = "短時間に相談が多すぎます。少し待って再試行してください"; }
+      else if (res.status === 503) { adviceErr = "AIコーチは未設定です（規律ルールは上に表示）"; } // fe-7
+      else if (!res.ok || !res.data) { adviceErr = "コーチの取得に失敗しました"; }
+      else {
+        advice = res.data;
+        advice._stateTs = (state && Number(state.updatedAt)) || 0; // 取得時の state 版（変化検知）
+      }
+      render();
+    }).catch(function () { adviceBusy = false; adviceErr = "通信エラー"; render(); });
+  }
+
   // 背景同期の結果はステータス要素だけ差分更新（innerHTML 再構築で入力フォーカスを壊さない）。
   function paintSyncStatus() {
     var el = document.getElementById("mcc-sync-status");
@@ -166,6 +203,7 @@ window.MCC = (function () {
   function logout() {
     if (_cloudTimer) { clearTimeout(_cloudTimer); _cloudTimer = null; }
     _cloudPending = false; _cloudDirty = false;  // 保留中の PUT を破棄（ログアウト後に飛ばさない）
+    advice = null; adviceErr = ""; adviceBusy = false;  // 個人化助言ブロックを残さない（fe-1）
     apiJSON("POST", "/api/auth/logout").catch(function () {});
     sync.loggedIn = false; sync.lastError = ""; render();  // ローカル state はそのまま残す
   }
@@ -274,6 +312,50 @@ window.MCC = (function () {
       (items || empty) + form + '</div>';
   }
 
+  // AI規律コーチ。決定論ルールを最上位（権威）に、AI を従属表示、免責(DISCLAIMER)を常時同梱（client 定数）。
+  function adviceSection(vm) {
+    var ruleHead = '<div class="mcc-advice-rulehead">あなたが設定したルール（バッファ月数・サテライト上限）に基づく計算（最優先）</div>';
+    var rule = '<div class="mcc-advice-rule"><span class="mcc-advice-rule-icon">▶</span><span>' + esc(vm.next.message) + '</span></div>';
+
+    var aiHtml = '';
+    if (advice) {
+      var curTs = (state && Number(state.updatedAt)) || 0;
+      var stale = (advice._stateTs || 0) !== curTs;
+      var det = advice.deterministic || {};
+      var mismatch = det.nextTarget && det.nextTarget !== vm.next.target; // サーバ集約と画面の不一致＝同期遅延
+      if (advice.ai && !mismatch) {
+        var a = advice.ai;
+        var modeTag = advice.mode === "personal" ? '<span class="mcc-advice-mode">個人モード</span>' : '';
+        aiHtml =
+          '<div class="mcc-advice-ai">' + modeTag +
+            '<div class="mcc-advice-ai-head">' + esc(a.headline || "") + '</div>' +
+            '<div class="mcc-advice-ai-edu">' + esc(a.education || "") + '</div>' +
+            (a.next_step ? '<div class="mcc-advice-ai-next">▶ ' + esc(a.next_step) + '</div>' : '') +
+          '</div>';
+      } else {
+        var why = mismatch ? "数値が同期中です。もう一度相談してください。"
+          : advice.aiStatus === "cooldown" ? "少し時間を置いてから、もう一度相談してください。"
+          : advice.aiStatus === "filtered" ? "AIの応答が規律ガードに掛かったため、規律ルールのみ表示します。"
+          : "AIコメントは今取得できませんでした（規律ルールは上に表示）。";
+        aiHtml = '<div class="mcc-advice-ai mcc-advice-ai-muted">' + esc(why) + '</div>';
+      }
+      if (stale) aiHtml += '<div class="mcc-advice-stale">数値が変わりました。「再相談」で更新できます。</div>';
+    }
+
+    var btn = sync.loggedIn
+      ? '<button class="mcc-advice-btn" onclick="MCC.requestAdvice()"' + (adviceBusy ? ' disabled' : '') + '>' +
+          (adviceBusy ? '相談中…' : (advice ? '再相談' : 'コーチに相談')) + '</button>'
+      : '<span class="mcc-advice-login">ログインすると AI コーチに相談できます</span>';
+    var err = adviceErr ? '<div class="mcc-advice-err">' + esc(adviceErr) + '</div>' : '';
+    var disc = '<div class="mcc-advice-disclaimer">' + esc(R.DISCLAIMER) + '</div>';
+
+    return '<div class="mcc-advice">' +
+      '<div class="mcc-section-title">AI規律コーチ</div>' +
+      ruleHead + rule + aiHtml +
+      '<div class="mcc-advice-actions">' + btn + '</div>' + err + disc +
+    '</div>';
+  }
+
   function render() {
     var root = document.getElementById("mcc-root");
     if (!root) return;
@@ -337,7 +419,7 @@ window.MCC = (function () {
       '</div>';
 
     var saveWarn = lastSaveOk ? '' : '<div class="mcc-save-warn">⚠ 保存できませんでした（プライベートブラウズ等）。この端末に値が保存されない可能性があります。</div>';
-    root.innerHTML = syncBar() + saveWarn + onboarding + gauge + banner + buckets + goalsSection(vm) + settings + tools;
+    root.innerHTML = syncBar() + saveWarn + onboarding + gauge + banner + adviceSection(vm) + buckets + goalsSection(vm) + settings + tools;
   }
 
   function exportJSON() {
@@ -376,5 +458,6 @@ window.MCC = (function () {
     init: init, show: show, backToPortal: backToPortal, setField: setField,
     load: load, save: save, render: render, exportJSON: exportJSON, importJSON: importJSON,
     doLogin: doLogin, logout: logout, addGoal: addGoal, removeGoal: removeGoal,
+    requestAdvice: requestAdvice,
   };
 })();

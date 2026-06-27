@@ -1,5 +1,9 @@
 # Vercel Python Functions 用。
 # api/market/* … 公開市場データを Neon Postgres から読む（psycopg v3・binary=libpq同梱wheel）。
 # api/auth/*, api/me/* … 司令室の認証(bcrypt)＋私的state(psycopg)。
+# api/me/advice.py … AI規律コーチ（claude-sonnet-4-6・遅延 import）。
+#   ※preview デプロイで /api/me/advice を実 cookie+ANTHROPIC_API_KEY で叩き 200＋ai 構造化を確認してから
+#     最新安定版にバージョン pin する（古い wheel での messages API 差異を避ける）。
 psycopg[binary]>=3
 bcrypt>=4
+anthropic>=0.40

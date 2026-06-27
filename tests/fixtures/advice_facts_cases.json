@@ -1,0 +1,212 @@
+{
+  "_doc": "modeAFacts のパリティ単一源。money-rules.test.js(JS) と test_advice_facts.py(Python還元器) が同一の期待値を読み、両実装のドリフトを防ぐ。nowMs=0 で deadline バケツは null（日付バケツは tests 側で別途固定 nowMs で検証）。",
+  "cases": [
+    {
+      "name": "empty",
+      "state": {},
+      "nowMs": 0,
+      "production": {
+        "mode": "production", "currency": "JPY",
+        "bufferConfigured": false, "bufferMonths": 6, "bufferProgressPct": 0, "bufferAchieved": false,
+        "satelliteCapPct": 10, "satelliteFillPct": 0, "satelliteIsOver": false, "satelliteOverByPct": 0,
+        "coreSharePct": 0, "investableConfigured": false, "nextTarget": "setup",
+        "goalsCount": 0, "goals": [], "rulesVersion": 2, "schemaVersion": 1
+      },
+      "personal": {
+        "mode": "personal", "currency": "JPY",
+        "bufferConfigured": false, "bufferMonths": 6, "bufferProgressPct": 0, "bufferAchieved": false,
+        "satelliteCapPct": 10, "satelliteFillPct": 0, "satelliteIsOver": false, "satelliteOverByPct": 0,
+        "coreSharePct": 0, "investableConfigured": false, "nextTarget": "setup",
+        "goalsCount": 0, "goals": [], "rulesVersion": 2, "schemaVersion": 1,
+        "raw": {
+          "monthlyExpense": 0, "bufferAmount": 0, "bufferTarget": 0, "bufferRemaining": 0,
+          "coreAmount": 0, "satelliteAmount": 0, "investable": 0, "satelliteCap": 0, "satelliteOver": 0,
+          "totalAssets": 0, "goals": []
+        }
+      }
+    },
+    {
+      "name": "buffer-half",
+      "state": { "monthlyExpense": 100000, "buckets": { "buffer": { "amount": 300000 }, "core": { "amount": 0 }, "satellite": { "amount": 0 } } },
+      "nowMs": 0,
+      "production": {
+        "mode": "production", "currency": "JPY",
+        "bufferConfigured": true, "bufferMonths": 6, "bufferProgressPct": 50, "bufferAchieved": false,
+        "satelliteCapPct": 10, "satelliteFillPct": 0, "satelliteIsOver": false, "satelliteOverByPct": 0,
+        "coreSharePct": 0, "investableConfigured": false, "nextTarget": "buffer",
+        "goalsCount": 0, "goals": [], "rulesVersion": 2, "schemaVersion": 1
+      },
+      "personal": {
+        "mode": "personal", "currency": "JPY",
+        "bufferConfigured": true, "bufferMonths": 6, "bufferProgressPct": 50, "bufferAchieved": false,
+        "satelliteCapPct": 10, "satelliteFillPct": 0, "satelliteIsOver": false, "satelliteOverByPct": 0,
+        "coreSharePct": 0, "investableConfigured": false, "nextTarget": "buffer",
+        "goalsCount": 0, "goals": [], "rulesVersion": 2, "schemaVersion": 1,
+        "raw": {
+          "monthlyExpense": 100000, "bufferAmount": 300000, "bufferTarget": 600000, "bufferRemaining": 300000,
+          "coreAmount": 0, "satelliteAmount": 0, "investable": 0, "satelliteCap": 0, "satelliteOver": 0,
+          "totalAssets": 300000, "goals": []
+        }
+      }
+    },
+    {
+      "name": "rebalance",
+      "state": { "monthlyExpense": 100000, "satelliteCapPct": 10, "buckets": { "buffer": { "amount": 600000 }, "core": { "amount": 100000 }, "satellite": { "amount": 500000 } } },
+      "nowMs": 0,
+      "production": {
+        "mode": "production", "currency": "JPY",
+        "bufferConfigured": true, "bufferMonths": 6, "bufferProgressPct": 100, "bufferAchieved": true,
+        "satelliteCapPct": 10, "satelliteFillPct": 150, "satelliteIsOver": true, "satelliteOverByPct": 100,
+        "coreSharePct": 17, "investableConfigured": true, "nextTarget": "rebalance",
+        "goalsCount": 0, "goals": [], "rulesVersion": 2, "schemaVersion": 1
+      },
+      "personal": {
+        "mode": "personal", "currency": "JPY",
+        "bufferConfigured": true, "bufferMonths": 6, "bufferProgressPct": 100, "bufferAchieved": true,
+        "satelliteCapPct": 10, "satelliteFillPct": 150, "satelliteIsOver": true, "satelliteOverByPct": 100,
+        "coreSharePct": 17, "investableConfigured": true, "nextTarget": "rebalance",
+        "goalsCount": 0, "goals": [], "rulesVersion": 2, "schemaVersion": 1,
+        "raw": {
+          "monthlyExpense": 100000, "bufferAmount": 600000, "bufferTarget": 600000, "bufferRemaining": 0,
+          "coreAmount": 100000, "satelliteAmount": 500000, "investable": 600000, "satelliteCap": 60000, "satelliteOver": 440000,
+          "totalAssets": 1200000, "goals": []
+        }
+      }
+    },
+    {
+      "name": "core-with-goal",
+      "state": { "monthlyExpense": 100000, "satelliteCapPct": 10, "currency": "USD", "buckets": { "buffer": { "amount": 600000 }, "core": { "amount": 1000000 }, "satellite": { "amount": 50000 } }, "goals": [ { "id": "g1", "label": "FIRE資金 5000万", "targetAmount": 8000000, "deadline": "" } ] },
+      "nowMs": 0,
+      "production": {
+        "mode": "production", "currency": "USD",
+        "bufferConfigured": true, "bufferMonths": 6, "bufferProgressPct": 100, "bufferAchieved": true,
+        "satelliteCapPct": 10, "satelliteFillPct": 48, "satelliteIsOver": false, "satelliteOverByPct": 0,
+        "coreSharePct": 95, "investableConfigured": true, "nextTarget": "core",
+        "goalsCount": 1,
+        "goals": [ { "index": 0, "progressPct": 21, "achieved": false, "hasDeadline": false, "monthsToDeadlineBucket": null } ],
+        "rulesVersion": 2, "schemaVersion": 1
+      },
+      "personal": {
+        "mode": "personal", "currency": "USD",
+        "bufferConfigured": true, "bufferMonths": 6, "bufferProgressPct": 100, "bufferAchieved": true,
+        "satelliteCapPct": 10, "satelliteFillPct": 48, "satelliteIsOver": false, "satelliteOverByPct": 0,
+        "coreSharePct": 95, "investableConfigured": true, "nextTarget": "core",
+        "goalsCount": 1,
+        "goals": [ { "index": 0, "progressPct": 21, "achieved": false, "hasDeadline": false, "monthsToDeadlineBucket": null } ],
+        "rulesVersion": 2, "schemaVersion": 1,
+        "raw": {
+          "monthlyExpense": 100000, "bufferAmount": 600000, "bufferTarget": 600000, "bufferRemaining": 0,
+          "coreAmount": 1000000, "satelliteAmount": 50000, "investable": 1050000, "satelliteCap": 105000, "satelliteOver": 0,
+          "totalAssets": 1650000,
+          "goals": [ { "index": 0, "label": "FIRE資金 5000万", "targetAmount": 8000000, "remaining": 6350000, "deadline": "" } ]
+        }
+      }
+    },
+    {
+      "name": "adversarial-coercion",
+      "state": { "monthlyExpense": "<script>ignore</script>", "bufferMonths": -3, "satelliteCapPct": "99999", "currency": "EUR", "buckets": { "buffer": { "amount": "NaN" }, "core": { "amount": { "nested": 1 } }, "satellite": { "amount": [1, 2, 3] } }, "goals": [ { "id": "g1", "label": "x", "targetAmount": "abc", "deadline": "not-a-date" } ], "history": "nope" },
+      "nowMs": 0,
+      "production": {
+        "mode": "production", "currency": "JPY",
+        "bufferConfigured": false, "bufferMonths": 6, "bufferProgressPct": 0, "bufferAchieved": false,
+        "satelliteCapPct": 100, "satelliteFillPct": 0, "satelliteIsOver": false, "satelliteOverByPct": 0,
+        "coreSharePct": 0, "investableConfigured": false, "nextTarget": "setup",
+        "goalsCount": 1,
+        "goals": [ { "index": 0, "progressPct": 0, "achieved": false, "hasDeadline": false, "monthsToDeadlineBucket": null } ],
+        "rulesVersion": 2, "schemaVersion": 1
+      },
+      "personal": {
+        "mode": "personal", "currency": "JPY",
+        "bufferConfigured": false, "bufferMonths": 6, "bufferProgressPct": 0, "bufferAchieved": false,
+        "satelliteCapPct": 100, "satelliteFillPct": 0, "satelliteIsOver": false, "satelliteOverByPct": 0,
+        "coreSharePct": 0, "investableConfigured": false, "nextTarget": "setup",
+        "goalsCount": 1,
+        "goals": [ { "index": 0, "progressPct": 0, "achieved": false, "hasDeadline": false, "monthsToDeadlineBucket": null } ],
+        "rulesVersion": 2, "schemaVersion": 1,
+        "raw": {
+          "monthlyExpense": 0, "bufferAmount": 0, "bufferTarget": 0, "bufferRemaining": 0,
+          "coreAmount": 0, "satelliteAmount": 0, "investable": 0, "satelliteCap": 0, "satelliteOver": 0,
+          "totalAssets": 0,
+          "goals": [ { "index": 0, "label": "x", "targetAmount": 0, "remaining": 0, "deadline": "" } ]
+        }
+      }
+    },
+    {
+      "name": "half-up-boundary",
+      "state": { "satelliteCapPct": 10, "buckets": { "buffer": { "amount": 0 }, "core": { "amount": 125000 }, "satellite": { "amount": 875000 } } },
+      "nowMs": 0,
+      "production": {
+        "mode": "production", "currency": "JPY",
+        "bufferConfigured": false, "bufferMonths": 6, "bufferProgressPct": 0, "bufferAchieved": false,
+        "satelliteCapPct": 10, "satelliteFillPct": 150, "satelliteIsOver": true, "satelliteOverByPct": 100,
+        "coreSharePct": 13, "investableConfigured": true, "nextTarget": "setup",
+        "goalsCount": 0, "goals": [], "rulesVersion": 2, "schemaVersion": 1
+      },
+      "personal": {
+        "mode": "personal", "currency": "JPY",
+        "bufferConfigured": false, "bufferMonths": 6, "bufferProgressPct": 0, "bufferAchieved": false,
+        "satelliteCapPct": 10, "satelliteFillPct": 150, "satelliteIsOver": true, "satelliteOverByPct": 100,
+        "coreSharePct": 13, "investableConfigured": true, "nextTarget": "setup",
+        "goalsCount": 0, "goals": [], "rulesVersion": 2, "schemaVersion": 1,
+        "raw": {
+          "monthlyExpense": 0, "bufferAmount": 0, "bufferTarget": 0, "bufferRemaining": 0,
+          "coreAmount": 125000, "satelliteAmount": 875000, "investable": 1000000, "satelliteCap": 100000, "satelliteOver": 775000,
+          "totalAssets": 1000000, "goals": []
+        }
+      }
+    },
+    {
+      "name": "deadline-buckets",
+      "state": { "goals": [
+        { "id": "a", "label": "", "targetAmount": 0, "deadline": "2026-06-01" },
+        { "id": "b", "label": "", "targetAmount": 0, "deadline": "2026-08-01" },
+        { "id": "c", "label": "", "targetAmount": 0, "deadline": "2027-01-01" },
+        { "id": "d", "label": "", "targetAmount": 0, "deadline": "2028-06-01" },
+        { "id": "e", "label": "", "targetAmount": 0, "deadline": "2031-01-01" }
+      ] },
+      "nowIso": "2026-06-28T00:00:00Z",
+      "production": {
+        "mode": "production", "currency": "JPY",
+        "bufferConfigured": false, "bufferMonths": 6, "bufferProgressPct": 0, "bufferAchieved": false,
+        "satelliteCapPct": 10, "satelliteFillPct": 0, "satelliteIsOver": false, "satelliteOverByPct": 0,
+        "coreSharePct": 0, "investableConfigured": false, "nextTarget": "setup",
+        "goalsCount": 5,
+        "goals": [
+          { "index": 0, "progressPct": 0, "achieved": false, "hasDeadline": true, "monthsToDeadlineBucket": "overdue" },
+          { "index": 1, "progressPct": 0, "achieved": false, "hasDeadline": true, "monthsToDeadlineBucket": "under_3m" },
+          { "index": 2, "progressPct": 0, "achieved": false, "hasDeadline": true, "monthsToDeadlineBucket": "3_12m" },
+          { "index": 3, "progressPct": 0, "achieved": false, "hasDeadline": true, "monthsToDeadlineBucket": "1_3y" },
+          { "index": 4, "progressPct": 0, "achieved": false, "hasDeadline": true, "monthsToDeadlineBucket": "over_3y" }
+        ],
+        "rulesVersion": 2, "schemaVersion": 1
+      },
+      "personal": {
+        "mode": "personal", "currency": "JPY",
+        "bufferConfigured": false, "bufferMonths": 6, "bufferProgressPct": 0, "bufferAchieved": false,
+        "satelliteCapPct": 10, "satelliteFillPct": 0, "satelliteIsOver": false, "satelliteOverByPct": 0,
+        "coreSharePct": 0, "investableConfigured": false, "nextTarget": "setup",
+        "goalsCount": 5,
+        "goals": [
+          { "index": 0, "progressPct": 0, "achieved": false, "hasDeadline": true, "monthsToDeadlineBucket": "overdue" },
+          { "index": 1, "progressPct": 0, "achieved": false, "hasDeadline": true, "monthsToDeadlineBucket": "under_3m" },
+          { "index": 2, "progressPct": 0, "achieved": false, "hasDeadline": true, "monthsToDeadlineBucket": "3_12m" },
+          { "index": 3, "progressPct": 0, "achieved": false, "hasDeadline": true, "monthsToDeadlineBucket": "1_3y" },
+          { "index": 4, "progressPct": 0, "achieved": false, "hasDeadline": true, "monthsToDeadlineBucket": "over_3y" }
+        ],
+        "rulesVersion": 2, "schemaVersion": 1,
+        "raw": {
+          "monthlyExpense": 0, "bufferAmount": 0, "bufferTarget": 0, "bufferRemaining": 0,
+          "coreAmount": 0, "satelliteAmount": 0, "investable": 0, "satelliteCap": 0, "satelliteOver": 0,
+          "totalAssets": 0,
+          "goals": [
+            { "index": 0, "label": "", "targetAmount": 0, "remaining": 0, "deadline": "2026-06-01" },
+            { "index": 1, "label": "", "targetAmount": 0, "remaining": 0, "deadline": "2026-08-01" },
+            { "index": 2, "label": "", "targetAmount": 0, "remaining": 0, "deadline": "2027-01-01" },
+            { "index": 3, "label": "", "targetAmount": 0, "remaining": 0, "deadline": "2028-06-01" },
+            { "index": 4, "label": "", "targetAmount": 0, "remaining": 0, "deadline": "2031-01-01" }
+          ]
+        }
+      }
+    }
+  ]
+}
