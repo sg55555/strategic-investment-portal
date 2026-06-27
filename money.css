@@ -44,3 +44,57 @@
 .mcc-tool-btn:hover { background: rgba(255,255,255,0.1); }
 .mcc-banner-setup { background: rgba(148,163,184,0.10); border-color: rgba(148,163,184,0.4); }
 .mcc-save-warn { background: rgba(255,0,61,0.12); border: 1px solid rgba(255,122,157,0.5); border-radius:10px; padding:10px 14px; color:#ff7a9d; font-size:0.78rem; margin-bottom:12px; }
+
+/* --- v2: クラウド同期バー --- */
+.mcc-sync {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+  background: rgba(15,20,34,0.55); border: 1px solid rgba(129,140,248,0.25);
+  border-radius: 10px; padding: 10px 14px; margin-bottom: 14px;
+}
+.mcc-sync-on { border-color: rgba(16,185,129,0.4); box-shadow: 0 0 22px rgba(16,185,129,0.08) inset; }
+.mcc-sync-status { color: #c7d2fe; font-size: 0.78rem; letter-spacing: 0.5px; flex: 1 1 auto; min-width: 0; }
+.mcc-sync-on .mcc-sync-status { color: #a7f3d0; }
+.mcc-sync-form { display: flex; gap: 8px; align-items: center; }
+.mcc-sync-form input {
+  background: rgba(0,0,0,0.3); border: 1px solid rgba(129,140,248,0.3); color: #fff;
+  border-radius: 6px; padding: 6px 9px; font-size: 0.82rem; width: 150px;
+}
+.mcc-sync-btn {
+  background: rgba(79,70,229,0.18); border: 1px solid rgba(129,140,248,0.4); color: #c7d2fe;
+  padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.74rem; font-weight: 700; white-space: nowrap;
+}
+.mcc-sync-btn:hover { background: rgba(79,70,229,0.3); }
+.mcc-sync-btn:disabled { opacity: 0.5; cursor: default; }
+.mcc-sync-err { color: #ff7a9d; font-size: 0.74rem; flex-basis: 100%; }
+
+/* --- v2: 資産目標(goals) --- */
+.mcc-goals { margin-top: 18px; }
+.mcc-section-title { color: #cbd5e1; font-size: 0.8rem; letter-spacing: 1.5px; font-weight: 700; margin-bottom: 10px; }
+.mcc-goals-empty { color: #94a3b8; font-size: 0.8rem; padding: 10px 0 14px; }
+.mcc-goal {
+  background: rgba(15,20,34,0.5); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px; padding: 12px 14px; margin-bottom: 10px;
+}
+.mcc-goal-head { display: flex; align-items: center; gap: 8px; }
+.mcc-goal-label { color: #e2e8f0; font-size: 0.86rem; font-weight: 600; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mcc-goal-done { color: #6ee7b7; font-size: 0.7rem; font-weight: 700; border: 1px solid rgba(16,185,129,0.45); border-radius: 5px; padding: 1px 6px; }
+.mcc-goal-del { background: none; border: none; color: #64748b; cursor: pointer; font-size: 1.1rem; line-height: 1; padding: 0 4px; }
+.mcc-goal-del:hover { color: #ff7a9d; }
+.mcc-goal-bar { height: 10px; background: rgba(255,255,255,0.06); border-radius: 6px; overflow: hidden; margin: 9px 0; }
+.mcc-goal-fill { height: 100%; background: linear-gradient(90deg, #4f46e5, #818cf8, #c084fc); transition: width 0.4s ease; }
+.mcc-goal-fill.done { background: linear-gradient(90deg, #10b981, #6ee7b7); }
+.mcc-goal-stat { color: #94a3b8; font-size: 0.74rem; }
+.mcc-goal-dl { color: #818cf8; margin-left: 6px; }
+.mcc-goal-add { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+.mcc-goal-add input {
+  background: rgba(0,0,0,0.3); border: 1px solid rgba(129,140,248,0.3); color: #fff;
+  border-radius: 6px; padding: 7px 9px; font-size: 0.82rem;
+}
+#mcc-goal-label { flex: 1 1 160px; min-width: 120px; }
+#mcc-goal-amount { width: 120px; }
+#mcc-goal-deadline { width: 150px; color-scheme: dark; }
+.mcc-goal-addbtn {
+  background: rgba(79,70,229,0.18); border: 1px solid rgba(129,140,248,0.4); color: #c7d2fe;
+  padding: 7px 12px; border-radius: 6px; cursor: pointer; font-size: 0.74rem; font-weight: 700; white-space: nowrap;
+}
+.mcc-goal-addbtn:hover { background: rgba(79,70,229,0.3); }

@@ -1,3 +1,5 @@
-# Vercel Python Functions (api/market/*) 用。
-# market データを Neon Postgres から読む。psycopg v3（binary=libpq同梱wheel）。
+# Vercel Python Functions 用。
+# api/market/* … 公開市場データを Neon Postgres から読む（psycopg v3・binary=libpq同梱wheel）。
+# api/auth/*, api/me/* … 司令室の認証(bcrypt)＋私的state(psycopg)。
 psycopg[binary]>=3
+bcrypt>=4

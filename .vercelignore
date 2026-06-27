@@ -1,0 +1,11 @@
+# デプロイ対象から除外（実行時に不要・内部スキーマの静的配信を防ぐ）。
+# 注意: api/ requirements.txt index.html *.js *.css 静的アセット data-bundle.js は除外しないこと。
+db/
+*.sql
+tests/
+scripts/
+docs/
+logs/
+tmp/
+.venv/
+.env

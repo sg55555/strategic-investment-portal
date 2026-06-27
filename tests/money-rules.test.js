@@ -107,3 +107,82 @@ test("viewModel.bufferConfigured は target>0 で true", () => {
   s.monthlyExpense = 100000;
   assert.equal(R.viewModel(s).bufferConfigured, true);
 });
+
+// --- Slice2: 目標機能（goals）＋クラウド同期 ---
+
+test("defaultState は v2・goals 空配列", () => {
+  const s = R.defaultState();
+  assert.equal(s.version, 2);
+  assert.equal(R.CURRENT_VERSION, 2);
+  assert.deepEqual(s.goals, []);
+});
+
+test("totalAssets = buffer+core+satellite", () => {
+  const s = R.defaultState();
+  s.buckets.buffer.amount = 500000; s.buckets.core.amount = 900000; s.buckets.satellite.amount = 100000;
+  assert.equal(R.totalAssets(s), 1500000);
+});
+
+test("migrate(v1・goals無し) は goals:[] を補う", () => {
+  const m = R.migrate({ version: 1, monthlyExpense: 100000 });
+  assert.deepEqual(m.goals, []);
+  assert.equal(m.version, 2);
+});
+
+test("migrate は goals を正規化（不正額→0・不正日付→空・id/label保持）", () => {
+  const m = R.migrate({
+    goals: [
+      { id: "g1", label: "FIRE", targetAmount: 50000000, deadline: "2040-01-01" },
+      { id: "g2", label: "車", targetAmount: "abc", deadline: "not-a-date" },
+      "garbage",
+      { label: 123, targetAmount: -5 },
+    ],
+  });
+  assert.equal(m.goals.length, 3); // "garbage"(非object)は除外
+  assert.deepEqual(m.goals[0], { id: "g1", label: "FIRE", targetAmount: 50000000, deadline: "2040-01-01" });
+  assert.equal(m.goals[1].targetAmount, 0);
+  assert.equal(m.goals[1].deadline, "");
+  assert.equal(m.goals[2].label, ""); // 非文字列labelは空
+  assert.equal(m.goals[2].targetAmount, 0); // 負は0
+  assert.equal(typeof m.goals[2].id, "string"); // id欠落でも文字列を割当
+});
+
+test("viewModel.goals は totalAssets基準の進捗を付与", () => {
+  const s = R.defaultState();
+  s.buckets.buffer.amount = 1000000; s.buckets.core.amount = 1000000; // total 2,000,000
+  s.goals = [{ id: "g1", label: "目標", targetAmount: 8000000, deadline: "2030-12-31" }];
+  const vm = R.viewModel(s);
+  assert.equal(vm.totalAssets, 2000000);
+  assert.equal(vm.goals.length, 1);
+  assert.equal(vm.goals[0].progress, 0.25);
+  assert.equal(vm.goals[0].progressPct, 25);
+  assert.equal(vm.goals[0].remaining, 6000000);
+  assert.equal(vm.goals[0].achieved, false);
+  assert.equal(vm.goals[0].label, "目標");
+});
+
+test("goalProgress: targetAmount=0 はゼロ除算せず progress0・remaining0", () => {
+  const g = R.goalProgress({ id: "x", label: "未設定", targetAmount: 0, deadline: "" }, 1000000);
+  assert.equal(g.progress, 0);
+  assert.equal(g.progressPct, 0);
+  assert.equal(g.remaining, 0);
+  assert.equal(g.achieved, false);
+});
+
+test("goalProgress: 達成は progress=1(clamp)・achieved=true・remaining0", () => {
+  const g = R.goalProgress({ id: "x", label: "達成", targetAmount: 1000000, deadline: "" }, 1500000);
+  assert.equal(g.progress, 1);
+  assert.equal(g.progressPct, 100);
+  assert.equal(g.remaining, 0);
+  assert.equal(g.achieved, true);
+});
+
+test("defaultState は updatedAt:0（last-write-wins 用）", () => {
+  assert.equal(R.defaultState().updatedAt, 0);
+});
+
+test("migrate は updatedAt を数値で通す（不正は0）", () => {
+  assert.equal(R.migrate({ updatedAt: 1719500000000 }).updatedAt, 1719500000000);
+  assert.equal(R.migrate({ updatedAt: "bad" }).updatedAt, 0);
+  assert.equal(R.migrate({}).updatedAt, 0);
+});

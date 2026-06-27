@@ -8,11 +8,22 @@
   "use strict";
 
   var STORAGE_KEY = "mcc_state";
-  var CURRENT_VERSION = 1;
+  var CURRENT_VERSION = 2; // v2: goals（資産目標）＋クラウド同期
 
   function num(v) { var n = Number(v); return isFinite(n) && n >= 0 ? n : 0; }
   function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
   function yen(n) { return "¥" + Math.round(num(n)).toLocaleString("ja-JP"); }
+
+  var _DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+  // goal の安全な正規化（migrate と新規追加の両方で使う・純粋）。
+  function normalizeGoal(g, i) {
+    return {
+      id: (g && typeof g.id === "string" && /^[A-Za-z0-9_-]+$/.test(g.id)) ? g.id : "goal-" + i,
+      label: (g && typeof g.label === "string") ? g.label : "",
+      targetAmount: num(g && g.targetAmount),
+      deadline: (g && typeof g.deadline === "string" && _DATE_RE.test(g.deadline)) ? g.deadline : "",
+    };
+  }
 
   function defaultState() {
     return {
@@ -22,6 +33,8 @@
       bufferMonths: 6,
       buckets: { buffer: { amount: 0 }, core: { amount: 0 }, satellite: { amount: 0 } },
       satelliteCapPct: 10,
+      goals: [],
+      updatedAt: 0, // last-write-wins 用の epoch ms（刻むのは money.js・ここは受け渡しのみ）
       history: [],
     };
   }
@@ -41,6 +54,10 @@
         satellite: { amount: num(b.satellite && b.satellite.amount) },
       },
       satelliteCapPct: Number(raw.satelliteCapPct) >= 0 ? num(raw.satelliteCapPct) : d.satelliteCapPct,
+      goals: Array.isArray(raw.goals)
+        ? raw.goals.filter(function (g) { return g && typeof g === "object"; }).map(normalizeGoal)
+        : [],
+      updatedAt: num(raw.updatedAt),
       history: Array.isArray(raw.history)
         ? raw.history.filter(function (h) { return h && typeof h.date === "string"; })
             .map(function (h) { return { date: h.date, buffer: num(h.buffer), core: num(h.core), satellite: num(h.satellite) }; })
@@ -54,6 +71,22 @@
   function investable(s) { return num(s.buckets.core.amount) + num(s.buckets.satellite.amount); }
   function satelliteCap(s) { return investable(s) * num(s.satelliteCapPct) / 100; }
   function satelliteOver(s) { return Math.max(0, num(s.buckets.satellite.amount) - satelliteCap(s)); }
+
+  // 総資産（バッファ＋投資可能枠）。goals の進捗基準。
+  function totalAssets(s) { return num(s.buckets.buffer.amount) + investable(s); }
+  // 1 goal を total に対する進捗へ写す（純粋・ゼロ除算なし。日数計算は表示層で実日付を使う）。
+  function goalProgress(goal, total) {
+    var target = num(goal && goal.targetAmount);
+    var t = num(total);
+    var prog = target > 0 ? clamp(t / target, 0, 1) : 0;
+    return {
+      id: goal && goal.id, label: (goal && goal.label) || "",
+      targetAmount: target, deadline: (goal && goal.deadline) || "",
+      progress: prog, progressPct: Math.round(prog * 100),
+      remaining: Math.max(0, target - t),
+      achieved: target > 0 && t >= target,
+    };
+  }
 
   function nextAllocation(s) {
     if (bufferTarget(s) === 0) {
@@ -74,8 +107,11 @@
   function viewModel(s) {
     var cap = satelliteCap(s);
     var sat = num(s.buckets.satellite.amount);
+    var total = totalAssets(s);
     return {
       currency: s.currency,
+      totalAssets: total,
+      goals: (Array.isArray(s.goals) ? s.goals : []).map(function (g) { return goalProgress(g, total); }),
       monthlyExpense: num(s.monthlyExpense),
       bufferMonths: num(s.bufferMonths),
       satelliteCapPct: num(s.satelliteCapPct),
@@ -99,9 +135,10 @@
 
   return {
     STORAGE_KEY: STORAGE_KEY, CURRENT_VERSION: CURRENT_VERSION,
-    defaultState: defaultState, migrate: migrate,
+    defaultState: defaultState, migrate: migrate, normalizeGoal: normalizeGoal,
     bufferTarget: bufferTarget, bufferProgress: bufferProgress, bufferRemaining: bufferRemaining,
     investable: investable, satelliteCap: satelliteCap, satelliteOver: satelliteOver,
+    totalAssets: totalAssets, goalProgress: goalProgress,
     nextAllocation: nextAllocation, viewModel: viewModel, yen: yen,
   };
 });
