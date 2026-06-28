@@ -72,8 +72,57 @@ def _query(database_id: str, body_extra: dict, cursor: str | None) -> dict:
     if cursor:
         body["start_cursor"] = cursor
     req = urllib.request.Request(url, data=json.dumps(body).encode(), headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return json.loads(resp.read())
+    except urllib.error.HTTPError as e:  # Notion のエラー本文（共有漏れ等の具体的メッセージ）を surface
+        detail = ""
+        try:
+            detail = e.read().decode("utf-8", "replace")[:300]
+        except Exception:  # noqa: BLE001
+            pass
+        raise RuntimeError(f"Notion {e.code} db={database_id[:8]}… {detail}") from None
+
+
+def _api(url: str, body: dict | None = None):
+    headers = {"Authorization": f"Bearer {NOTION_TOKEN}", "Notion-Version": NOTION_VERSION}
+    data = None
+    if body is not None:
+        headers["Content-Type"] = "application/json"
+        data = json.dumps(body).encode()
+    req = urllib.request.Request(url, data=data, headers=headers)
     with urllib.request.urlopen(req, timeout=30) as resp:
         return json.loads(resp.read())
+
+
+def diagnose() -> None:
+    """トークン妥当性と integration がアクセス可能な database を表示（共有漏れ切り分け・秘密は出さない）。"""
+    try:
+        me = _api("https://api.notion.com/v1/users/me")
+        print(f"[diag] token OK: bot='{me.get('name')}' type={me.get('type')}")
+    except Exception as e:  # noqa: BLE001
+        print(f"[diag] /users/me 失敗: {e!r}（NOTION_TOKEN 無効の可能性）")
+        return
+    try:
+        res = _api("https://api.notion.com/v1/search",
+                   {"filter": {"property": "object", "value": "database"}, "page_size": 50})
+        dbs = res.get("results", [])
+        targets = {MONTHLY_DB_ID, VARIABLE_DB_ID, FIXED_DB_ID}
+        seen = set()
+        print(f"[diag] このintegrationがアクセス可能な database 数={len(dbs)}:")
+        for d in dbs:
+            did = (d.get("id") or "").replace("-", "")
+            seen.add(did)
+            title = "".join(t.get("plain_text", "") for t in (d.get("title") or []))
+            mark = "  <== TARGET" if did in targets else ""
+            print(f"  - {did[:8]}… '{title}'{mark}")
+        miss = [t[:8] + "…" for t in targets if t not in seen]
+        if miss:
+            print(f"[diag] ⚠ 未共有のターゲットDB（このintegrationに未接続）: {miss}")
+        else:
+            print("[diag] ターゲット3DBは全てアクセス可能。")
+    except Exception as e:  # noqa: BLE001
+        print(f"[diag] /search 失敗: {e!r}")
 
 
 def _all_pages(database_id: str, body_extra: dict | None = None) -> list[dict]:
@@ -287,6 +336,8 @@ def main() -> int:
     db_url = os.environ.get("DATABASE_URL", "")
     if not db_url and not args.dry_run:
         raise SystemExit("ETL ABORT: DATABASE_URL 未設定")
+
+    diagnose()  # トークン妥当性＋アクセス可能DBを先に表示（共有漏れの切り分け）
 
     now = datetime.now(JST)
     cur_ym = (now.year, now.month)
