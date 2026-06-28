@@ -12,9 +12,9 @@ name: cashflow-pull
 
 on:
   workflow_dispatch:
-  # サニティ後に有効化（毎月 2 日 21:00 UTC = JST 翌 06:00 頃・前月確定後）:
-  # schedule:
-  #   - cron: "0 21 2 * *"
+  # 毎月 2 日 21:00 UTC = JST 翌 06:00 頃（前月確定後）。dispatch サニティ済で有効化（2026-06-29）。
+  schedule:
+    - cron: "0 21 2 * *"
 
 permissions:
   contents: read
