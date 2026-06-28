@@ -57,7 +57,7 @@
    - 完了の定義：見た目同一のまま**初回ロード21MB→数KB**、チャート＋財務3表＋AIコメント＋検索が本番。**認証不要・個人データゼロ＝公開可能な器**。v1を単体で超える出荷物。
 2. **Slice 2「ログイン × 司令室クラウド化」**：`/api/auth/*`（password→httpOnly cookie→Neon `sessions`）／`money.js`の load/save を localStorage↔`mcc_state`テーブル両対応／目標機能／export を初回クラウド同期に流用。完了：バケツ・目標が**複数端末同期**（送信ゼロ放棄はここで初発生・AIまだ無し）。
 3. **Slice 3「AI規律コーチ（集約値のみ）」**：`/api/me/advice` がサーバで`money-rules.js`と同一の規律エンジンで決定論ファクト構築→**Mode A（集約値）**でSonnet→決定論ルールをAI文の上に優先表示＋免責＋監査ログ。完了：「次の一手」に教育的理由。**生額をLLMに出さず機能**。
-4. **Slice 4「収支連携 → 投資余力の可視化」**（中核ゴール）：月次Actionsがkakeibo(Notion)を読取専用pull→`cashflow_snapshots`／投資余力パネル（収入−支出−固定費）／コーチに貯蓄率・余剰を集約供給。完了：「可視化→目標→AI助言」のループが端から端まで閉じる。
+4. **Slice 4「収支連携 → 投資余力の可視化」**（中核ゴール）：月次Actionsがkakeibo(Notion)を読取専用pull→`cashflow_snapshots`／投資余力パネル（**余剰=収入−支出合計=balance**。`total_expense` は固定費を内包済のため「収入−支出−固定費」は固定費二重控除になる＝採らない。固定費は負担比率表示のみ）／コーチに貯蓄率・余剰を集約供給。完了：「可視化→目標→AI助言」のループが端から端まで閉じる。詳細計画＝`docs/superpowers/plans/2026-06-28-v2-slice4-cashflow.md`（接続=専用read-only Notion integration×ハイブリッド粒度・投資余力=median(3)+ウォーターフォール・personalは生額もLLM可・cadence月次）。
 5. **Slice 5「個人保有 × 準リアルタイム評価」**：`holdings`(ticker×株数×取得単価)／`/api/me/summary` が終値/15分遅延気配を結合し時価・損益・バケツ実額を**サーバ集計**／US=Finnhub無料・JP=立花e支店 or yfinance遅延。完了：バケツ実額が保有から自動導出、上限警告が実保有で発火。
 6. **Slice 6「本番データ源 × 全自動 × 銘柄拡張 × 磨き込み」**（旗艦完成形）：JP本番をJ-Quants Lightへ／全自動cron／数百→数千銘柄／バックアップ＋export30日リマインダ／デザイン監修（CHRONOGRAPH級）。
    - （任意）Slice 7：Front A を fork-and-deploy 公開＋セキュリティ監査ハーデン。独立が確定要件になれば Front B を独立アプリへ昇格（C→A）。

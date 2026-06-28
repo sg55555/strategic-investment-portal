@@ -20,6 +20,9 @@ window.MCC = (function () {
   var adviceBusy = false;
   var adviceErr = "";
 
+  // Slice4: 収支連携（投資余力）。/api/me/cashflow の生行を保持（read-only・ログイン時のみ取得）。
+  var _cashflowRows = [];
+
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
@@ -134,6 +137,28 @@ window.MCC = (function () {
     }).catch(function () { adviceBusy = false; adviceErr = "通信エラー"; render(); });
   }
 
+  // Slice4: 収支スナップショットを取得（認証データ＝ログイン時のみ意味がある）。失敗は空配列で degrade。
+  function loadCashflow() {
+    return apiJSON("GET", "/api/me/cashflow").then(function (res) {
+      _cashflowRows = (res.ok && res.data && Array.isArray(res.data.cashflow)) ? res.data.cashflow : [];
+    }).catch(function () { _cashflowRows = []; });
+  }
+
+  // ワンタップ：今月の投資余力をウォーターフォール（バッファ→上限内サテライト→コア）でバケツへ加算。
+  // 既存 save()/クラウド同期に乗る＝「可視化→配分→目標→AI助言」のループを閉じる（明示的な本人操作）。
+  function applySurplus() {
+    if (!state) load();
+    var cv = R.cashflowViewModel(_cashflowRows, state, Date.now());
+    if (!cv.available || cv.monthlySurplus <= 0 || !cv.applyPeriod) return;
+    if (cv.alreadyApplied) return;  // 同一確定月の二重計上を防ぐ（クラウド同期される恒久水増し回避）
+    var b = state.buckets;
+    b.buffer.amount = (Number(b.buffer.amount) || 0) + cv.toBuffer;
+    b.core.amount = (Number(b.core.amount) || 0) + cv.toCore;  // 規律＝バッファ→コア（toSatellite は常に0）
+    state.lastAppliedCashflowPeriod = cv.applyPeriod;  // この確定月は反映済みと記録
+    save();
+    render();
+  }
+
   // 背景同期の結果はステータス要素だけ差分更新（innerHTML 再構築で入力フォーカスを壊さない）。
   function paintSyncStatus() {
     var el = document.getElementById("mcc-sync-status");
@@ -189,7 +214,7 @@ window.MCC = (function () {
       sync.busy = false;
       if (res.ok && res.data && res.data.ok) {
         sync.loggedIn = true;
-        reconcile().then(function () { render(); });
+        Promise.all([reconcile(), loadCashflow()]).then(function () { render(); });
       } else {
         sync.loggedIn = false;
         sync.lastError = res.status === 401 ? "パスワードが違います"
@@ -204,6 +229,7 @@ window.MCC = (function () {
     if (_cloudTimer) { clearTimeout(_cloudTimer); _cloudTimer = null; }
     _cloudPending = false; _cloudDirty = false;  // 保留中の PUT を破棄（ログアウト後に飛ばさない）
     advice = null; adviceErr = ""; adviceBusy = false;  // 個人化助言ブロックを残さない（fe-1）
+    _cashflowRows = [];  // 認証データ＝ログアウトで破棄（次のログインで再取得）
     apiJSON("POST", "/api/auth/logout").catch(function () {});
     sync.loggedIn = false; sync.lastError = ""; render();  // ローカル state はそのまま残す
   }
@@ -237,7 +263,7 @@ window.MCC = (function () {
     if (!_sessionChecked) {
       _sessionChecked = true;
       checkSession().then(function (ok) {
-        if (ok) { reconcile().then(function () { render(); }); }
+        if (ok) { Promise.all([reconcile(), loadCashflow()]).then(function () { render(); }); }
         else { render(); }
       });
     }
@@ -356,10 +382,95 @@ window.MCC = (function () {
     '</div>';
   }
 
+  // 収支推移のスパークライン（balance バー・正=緑/負=赤・当月は半透明）。isolated SVG＝Chart.js を持ち込まない。
+  function sparkline(history) {
+    if (!history || history.length < 2) return "";
+    var w = 280, h = 44, n = history.length, bw = w / n, mid = h / 2;
+    var maxAbs = 1;
+    history.forEach(function (d) { maxAbs = Math.max(maxAbs, Math.abs(Number(d.balance) || 0)); });
+    var bars = history.map(function (d, i) {
+      var v = Number(d.balance) || 0;
+      var bh = Math.max(1, Math.round((Math.abs(v) / maxAbs) * (mid - 2)));
+      var x = Math.round(i * bw) + 1, bwi = Math.max(1, Math.round(bw) - 2);
+      var y = v >= 0 ? (mid - bh) : mid;
+      var cls = v >= 0 ? "pos" : "neg";
+      return '<rect class="mcc-spark-' + cls + '" x="' + x + '" y="' + y + '" width="' + bwi + '" height="' + bh +
+        '" opacity="' + (d.isComplete ? "1" : "0.45") + '"></rect>';
+    }).join("");
+    return '<div class="mcc-cf-spark"><svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" width="100%" height="' + h + '">' +
+      '<line class="mcc-spark-axis" x1="0" y1="' + mid + '" x2="' + w + '" y2="' + mid + '"></line>' + bars + '</svg></div>';
+  }
+
+  // Slice4: 収支カード＋投資余力ゲージ＋鮮度。業務 math は持たず cv（cashflowViewModel）を描くのみ。
+  function cashflowSection(cv) {
+    if (!sync.loggedIn) return "";  // 認証データ＝未ログインでは出さない
+    var title = '<div class="mcc-section-title">収支と投資余力</div>';
+    if (!cv.hasData) {
+      return '<div class="mcc-cashflow">' + title +
+        '<div class="mcc-cashflow-empty">収支データが未連携です。kakeibo（家計）の月次収支を取り込むと、毎月いくら投資に回せるか（投資余力）が表示されます。</div></div>';
+    }
+    if (cv.currencyMismatch) {
+      return '<div class="mcc-cashflow">' + title +
+        '<div class="mcc-cashflow-empty">通貨が JPY 以外のため投資余力は表示しません（収支連携は JPY 前提）。</div></div>';
+    }
+    var partial = cv.latestIsPartial ? '<span class="mcc-cf-partial">（進行中・暫定）</span>' : "";
+    var head =
+      '<div class="mcc-cf-head"><span class="mcc-cf-period">' + esc(cv.latestPeriod) + ' の収支</span>' + partial + '</div>' +
+      '<div class="mcc-cf-stats">' +
+        '<div class="mcc-cf-stat"><span>収入</span><strong>' + cv.fmt(cv.income) + '</strong></div>' +
+        '<div class="mcc-cf-stat"><span>支出</span><strong>' + cv.fmt(cv.expense) + '</strong></div>' +
+        '<div class="mcc-cf-stat"><span>収支</span><strong class="' + (cv.balance < 0 ? "neg" : "pos") + '">' + cv.balanceFmt + '</strong></div>' +
+        '<div class="mcc-cf-stat"><span>貯蓄率</span><strong>' + cv.savingsRatePct + '%</strong></div>' +
+      '</div>';
+
+    var surplus, applyBtn = "";
+    if (cv.surplusPositive) {
+      var dest = cv.destination === "buffer" ? "バッファ（生活防衛資金）" : (cv.destination === "satellite" ? "サテライト" : "コア（長期）");
+      var toMsg = !cv.bufferAchieved
+        ? "まずバッファへ。あと約 " + (cv.monthsToBufferComplete == null ? "—" : cv.monthsToBufferComplete) + "ヶ月で目標到達"
+        : "バッファ達成済み。投資（" + dest + "）へ回せます";
+      var wf =
+        '<span class="mcc-wf mcc-wf-buffer">バッファ ' + cv.fmt(cv.toBuffer) + '</span>' +
+        '<span class="mcc-wf mcc-wf-core">コア ' + cv.fmt(cv.toCore) + '</span>' +
+        (cv.toSatellite > 0 ? '<span class="mcc-wf mcc-wf-sat">サテライト ' + cv.fmt(cv.toSatellite) + '</span>' : "");
+      surplus =
+        '<div class="mcc-cf-surplus">' +
+          '<div class="mcc-cf-surplus-main">毎月の投資余力（平滑後）<strong>' + cv.fmt(cv.monthlySurplus) + ' / 月</strong></div>' +
+          '<div class="mcc-cf-waterfall">' + wf + '</div>' +
+          '<div class="mcc-cf-dest">' + esc(toMsg) + '</div>' +
+        '</div>';
+      applyBtn = cv.alreadyApplied
+        ? '<button class="mcc-cf-apply" disabled>' + esc(cv.latestPeriod) + ' の余剰は反映済み</button>'
+        : '<button class="mcc-cf-apply" onclick="MCC.applySurplus()">今月の余剰 ' + cv.fmt(cv.monthlySurplus) + ' を規律配分でバケツへ反映</button>';
+    } else {
+      var defMsg = cv.deficitMonths > 0
+        ? "直近で赤字の月があります（" + cv.deficitMonths + "回/6ヶ月）。投資より家計の見直し・バッファ防衛を優先しましょう。"
+        : "平滑後の経常余剰がありません。支出の見直しを優先しましょう。";
+      surplus = '<div class="mcc-cf-surplus mcc-cf-surplus-neg">' +
+        '<div class="mcc-cf-surplus-main">投資余力 <strong>' + cv.fmt(0) + ' / 月</strong></div>' +
+        '<div class="mcc-cf-dest">' + esc(defMsg) + '</div></div>';
+    }
+
+    var cats = (cv.categories && cv.categories.length)
+      ? '<div class="mcc-cf-cats">' + cv.categories.map(function (c) {
+          return '<span class="mcc-cf-cat">' + esc(c.name) + ' ' + cv.fmt(c.amount) + '</span>';
+        }).join("") + '</div>'
+      : "";
+    var insuf = cv.insufficientData
+      ? '<div class="mcc-cf-note">確定月が ' + cv.monthsCovered + 'ヶ月分のみ＝暫定値です（3ヶ月で安定します）。</div>' : "";
+    var divNote = cv.expenseDivergence
+      ? '<div class="mcc-cf-note">実支出の平均（' + cv.fmt(cv.avgExpense) + '/月）が設定の月の生活費と乖離しています。「設定」の見直しを検討してください。</div>' : "";
+    var fresh = cv.staleDays == null ? "" :
+      '<div class="mcc-cf-fresh' + (cv.dataFresh ? "" : " stale") + '">最終取得 ' + cv.staleDays + '日前' + (cv.dataFresh ? "" : "・更新が止まっている可能性") + '</div>';
+
+    return '<div class="mcc-cashflow">' + title + head + surplus + applyBtn + sparkline(cv.history) + cats + insuf + divNote + fresh + '</div>';
+  }
+
   function render() {
     var root = document.getElementById("mcc-root");
     if (!root) return;
     var vm = R.viewModel(state);
+    var cv = R.cashflowViewModel(_cashflowRows, state, Date.now());
 
     var gaugeStat = vm.bufferConfigured
       ? ('<strong>' + vm.bufferProgressPct + '%</strong> ' +
@@ -419,7 +530,7 @@ window.MCC = (function () {
       '</div>';
 
     var saveWarn = lastSaveOk ? '' : '<div class="mcc-save-warn">⚠ 保存できませんでした（プライベートブラウズ等）。この端末に値が保存されない可能性があります。</div>';
-    root.innerHTML = syncBar() + saveWarn + onboarding + gauge + banner + adviceSection(vm) + buckets + goalsSection(vm) + settings + tools;
+    root.innerHTML = syncBar() + saveWarn + onboarding + gauge + banner + cashflowSection(cv) + adviceSection(vm) + buckets + goalsSection(vm) + settings + tools;
   }
 
   function exportJSON() {
@@ -458,6 +569,6 @@ window.MCC = (function () {
     init: init, show: show, backToPortal: backToPortal, setField: setField,
     load: load, save: save, render: render, exportJSON: exportJSON, importJSON: importJSON,
     doLogin: doLogin, logout: logout, addGoal: addGoal, removeGoal: removeGoal,
-    requestAdvice: requestAdvice,
+    requestAdvice: requestAdvice, applySurplus: applySurplus,
   };
 })();

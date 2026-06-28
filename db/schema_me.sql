@@ -62,3 +62,29 @@ CREATE INDEX IF NOT EXISTS idx_advice_log_created ON me.advice_log (created_at);
 CREATE INDEX IF NOT EXISTS idx_advice_log_hash    ON me.advice_log (facts_hash, created_at);  -- cache/cooldown 窓 SELECT
 -- 保持方針（決定）: 財務指紋の無期限累積を避け 180日 TTL。cron 無いため当面手動 prune。
 --   DELETE FROM me.advice_log WHERE created_at < now() - interval '180 days';
+
+-- Slice4 収支連携 — 月次収支スナップショット（機械書込専用・ETL のみ INSERT/UPDATE）。
+-- ハイブリッド粒度: 見出し数値(income/expense/balance)は kakeibo 月別集計DB(権威・式プロパティ済)、
+--   breakdown JSONB は生取引DB(変動費/固定費/給与/雑収入)から ETL が集計した自由な内訳。
+-- 投資余力は見出し数値のみ使用 → 生取引集計のズレが規律数字に波及しない。
+-- 生額は mcc_state.monthlyExpense と同じ信頼境界（認証必須・非公開）。
+-- LLM へは生額を渡さない（production は Mode A 集約のみ／personal のみ生額可）。advice_log は両モード生額非保存。
+-- mcc_state(id=1 シングルトン)と異なり時系列（median 平滑/トレンド/バッファ充填月数に履歴が要る）。
+-- ユーザ編集の mcc_state PUT(LWW)とは別テーブル＝書込競合なし。.vercelignore で db/*.sql は配信除外。
+CREATE TABLE IF NOT EXISTS me.cashflow_snapshots (
+  period           DATE PRIMARY KEY,                 -- 月初(YYYY-MM-01)・冪等 upsert の自然キー
+  total_income     NUMERIC(14,0) NOT NULL DEFAULT 0, -- 月別集計DB(権威)
+  salary_income    NUMERIC(14,0) NOT NULL DEFAULT 0, -- 経常収入
+  misc_income      NUMERIC(14,0) NOT NULL DEFAULT 0, -- 臨時収入(windfall・経常へ外挿しない)
+  fixed_expense    NUMERIC(14,0) NOT NULL DEFAULT 0, -- 内訳/負担比率表示のみ・余剰から二重控除しない
+  variable_expense NUMERIC(14,0) NOT NULL DEFAULT 0,
+  total_expense    NUMERIC(14,0) NOT NULL DEFAULT 0, -- = fixed+variable(kakeibo算出)
+  balance          NUMERIC(14,0) NOT NULL DEFAULT 0, -- = total_income - total_expense(=月次余剰の基底)
+  savings_rate     NUMERIC(6,2),                     -- %(参考保持・Mode Aは balance/income から再計算して単一源)
+  is_complete      BOOLEAN NOT NULL DEFAULT true,    -- 当月途中(部分月)は false で rolling/規律から除外
+  breakdown        JSONB,                            -- 生取引DBから集計した自由な内訳(カテゴリ別変動費/固定費明細等)
+  source           TEXT NOT NULL DEFAULT 'kakeibo-notion-hybrid',
+  source_hash      TEXT,                             -- sha256(正規化済元行)=無変化skip/改ざん検知
+  pulled_at        TIMESTAMPTZ NOT NULL DEFAULT now()-- 鮮度(UIバッジ/Mode A staleDays算出元)
+);
+CREATE INDEX IF NOT EXISTS idx_cashflow_period ON me.cashflow_snapshots (period DESC);

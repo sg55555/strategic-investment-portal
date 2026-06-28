@@ -26,7 +26,7 @@ COOKIE = "wc_session"
 MODEL = "claude-sonnet-4-6"
 PROMPT_VERSION = "advice-sys-v1"
 DISCLAIMER_VERSION = "disc-v1"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2  # v2: Slice4 cashflow（収支連携→投資余力）集約を facts に追加
 RULES_VERSION = 2  # money-rules.js CURRENT_VERSION（版ずれ監査）
 NEXT_TARGETS = ["setup", "buffer", "rebalance", "core"]
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -271,7 +271,175 @@ def _deadline_bucket(deadline, now_ms):
     return "over_3y"
 
 
-def mode_a_facts(raw_state, include_raw, now_ms):
+# ---- Slice4: 収支連携 → 投資余力（money-rules.js cashflowDerived の鏡像・fixture でパリティ固定）----
+def _cf_num(v):
+    try:
+        n = float(v)
+    except (TypeError, ValueError):
+        return 0.0
+    return n if math.isfinite(n) else 0.0  # 符号付き（balance は負あり）
+
+
+def _median(arr):
+    if not arr:
+        return 0
+    a = sorted(arr)
+    n = len(a)
+    m = n // 2
+    return a[m] if n % 2 else (a[m - 1] + a[m]) / 2
+
+
+def _mean(arr):
+    return sum(arr) / len(arr) if arr else 0
+
+
+def _parse_iso_ms(v):
+    """ISO 文字列(fixture)も datetime(DB の pulled_at)も epoch ms へ（JS Date.parse と等価・UTC）。"""
+    if isinstance(v, datetime):
+        dt = v if v.tzinfo else v.replace(tzinfo=timezone.utc)
+        return dt.timestamp() * 1000.0
+    if isinstance(v, str) and v:
+        try:
+            dt = datetime.fromisoformat(v.replace("Z", "+00:00"))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt.timestamp() * 1000.0
+        except ValueError:
+            return None
+    return None
+
+
+def _cashflow_rows(rows):
+    if not isinstance(rows, list):
+        return []
+    out = []
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        period = r.get("period")
+        if not (isinstance(period, str) and _DATE_RE.match(period)):
+            continue
+        pulled = r.get("pulled_at")
+        out.append({
+            "period": period,
+            "totalIncome": _cf_num(r.get("total_income")),
+            "salaryIncome": _cf_num(r.get("salary_income")),
+            "miscIncome": _cf_num(r.get("misc_income")),
+            "fixedExpense": _cf_num(r.get("fixed_expense")),
+            "variableExpense": _cf_num(r.get("variable_expense")),
+            "totalExpense": _cf_num(r.get("total_expense")),
+            "balance": _cf_num(r.get("balance")),
+            "isComplete": r.get("is_complete") is not False,
+            "pulledAt": pulled if isinstance(pulled, (str, datetime)) else "",
+        })
+    out.sort(key=lambda x: x["period"])
+    return out
+
+
+def _fixed_burden_bucket(pct):
+    if pct < 30:
+        return "low"
+    if pct < 50:
+        return "mid"
+    if pct < 70:
+        return "high"
+    return "very_high"
+
+
+def _months_to_buffer_bucket(m):
+    if m is None:
+        return "never"
+    if m == 0:
+        return "achieved"
+    if m <= 6:
+        return "lt6"
+    if m <= 12:
+        return "6_12"
+    if m <= 36:
+        return "1_3y"
+    return "over_3y"
+
+
+def _cashflow_derived(rows, s, now_ms):
+    """投資余力ロジックの単一源（mode_a_facts が呼ぶ）。余剰=balance（固定費二重控除を避ける）。"""
+    parsed = _cashflow_rows(rows)
+    currency_mismatch = (s["currency"] == "USD")
+    complete = [r for r in parsed if r["isComplete"]]
+    has_data = len(parsed) > 0
+
+    recurring = [r["balance"] - r["miscIncome"] for r in complete]  # 臨時収入を経常から除外
+    win = recurring[-3:]
+    months_covered = len(complete)
+    insufficient = months_covered < 3
+    base = _median(win) if win else 0
+    monthly_surplus = _r(max(0.0, base))
+
+    win_complete = complete[-3:]
+    win_income = sum(r["totalIncome"] for r in win_complete)
+    win_fixed = sum(r["fixedExpense"] for r in win_complete)
+    win_balance = sum(r["balance"] for r in win_complete)
+    savings_rate_raw = (win_balance / win_income) * 100 if win_income > 0 else 0
+    fixed_burden_raw = (win_fixed / win_income) * 100 if win_income > 0 else 0
+
+    required_buffer = _buffer_target(s)
+    buffer_amount = _num(s["buckets"]["buffer"]["amount"])
+    buffer_rem = max(0.0, required_buffer - buffer_amount)
+    buffer_configured = required_buffer > 0
+    buffer_achieved = buffer_configured and buffer_rem == 0
+    # 規律芯=バッファ→コア。サテライトへ自動配分しない(cf-1)。丸めは to_buffer に集約(par-2)。
+    to_buffer = _r(min(monthly_surplus, buffer_rem))
+    investable_surplus = max(0, monthly_surplus - to_buffer)
+    to_core = investable_surplus
+    to_satellite = 0
+    if buffer_achieved:
+        months_to_buffer = 0
+    elif monthly_surplus > 0 and buffer_rem > 0:
+        months_to_buffer = int(math.ceil(buffer_rem / monthly_surplus))
+    else:
+        months_to_buffer = None
+    destination = _next_target(s)  # nextTarget と単一源で一致（自己矛盾を排除）
+
+    recent3 = recurring[-3:]
+    prev3 = recurring[-6:-3]
+    trend = None
+    if len(recent3) >= 1 and len(prev3) >= 3:
+        ra = _median(recent3)
+        rb = _median(prev3)
+        if rb > 0:
+            trend = "improving" if ra > rb * 1.05 else ("declining" if ra < rb * 0.95 else "flat")
+        else:
+            eps = max(1000, _num(s["monthlyExpense"]) * 0.02)  # rb<=0 は絶対比較(cf-2)
+            trend = "improving" if ra > rb + eps else ("declining" if ra < rb - eps else "flat")
+
+    deficit_months = sum(1 for r in complete[-6:] if r["balance"] < 0)
+    windfall_ttm = _r(sum(max(0.0, r["miscIncome"]) for r in complete[-12:]))
+    avg_income = _r(_mean([r["totalIncome"] for r in win_complete]))
+    avg_expense = _r(_mean([r["totalExpense"] for r in win_complete]))
+
+    latest = parsed[-1] if parsed else None
+    stale_days = None
+    if latest and latest["pulledAt"] and _num(now_ms) > 0:
+        pt = _parse_iso_ms(latest["pulledAt"])
+        if pt is not None:
+            stale_days = max(0, int(math.floor((_num(now_ms) - pt) / 86400000)))
+    data_fresh = None if stale_days is None else (stale_days < 35)
+
+    return {
+        "available": has_data and not currency_mismatch,
+        "monthsCovered": months_covered, "insufficientData": insufficient,
+        "base": base, "monthlySurplus": monthly_surplus, "surplusPositive": base > 0,
+        "bufferRemaining": buffer_rem, "bufferAchieved": buffer_achieved,
+        "toBuffer": to_buffer, "investableSurplus": investable_surplus,
+        "toSatellite": to_satellite, "toCore": to_core,
+        "monthsToBufferComplete": months_to_buffer, "destination": destination,
+        "savingsRatePctRaw": savings_rate_raw, "fixedBurdenRaw": fixed_burden_raw, "trend": trend,
+        "deficitMonths": deficit_months, "windfallTtm": windfall_ttm, "windfallPresent": windfall_ttm > 0,
+        "avgIncome": avg_income, "avgExpense": avg_expense, "dataFresh": data_fresh,
+        "currencyMismatch": currency_mismatch,
+    }
+
+
+def mode_a_facts(raw_state, include_raw, now_ms, cashflow=None):
     """生 state → Mode A 集約ファクト（純粋）。include_raw=True（personal）でのみ raw に生額/ラベルを同梱。
     必ず _migrate で全フィールドを coerce してから allowlist キーのみで dict を構築する。"""
     s = _migrate(raw_state)
@@ -336,6 +504,43 @@ def mode_a_facts(raw_state, include_raw, now_ms):
                 for i, g in enumerate(goals_arr)
             ],
         }
+
+    # Slice4: cashflow（収支連携）。cashflow が渡された時のみ facts.cashflow を付与（None=Slice3 経路）。
+    if cashflow is not None:
+        cd = _cashflow_derived(cashflow, s, now_ms)
+        monthly_expense = _num(s["monthlyExpense"])
+        facts["cashflow"] = {
+            "available": cd["available"],
+            "monthsCovered": _clamp(cd["monthsCovered"], 0, 999),
+            "insufficientData": cd["insufficientData"],
+            "savingsRatePct": _clamp(_r(cd["savingsRatePctRaw"]), 0, 100),
+            "surplusPositive": cd["surplusPositive"],
+            "surplusToExpensePct": _clamp(
+                _r(cd["monthlySurplus"] / monthly_expense * 100 if monthly_expense > 0 else 0), 0, 300),
+            "investableSurplusPositive": cd["investableSurplus"] > 0,
+            "nextDestination": cd["destination"],
+            "monthsToBufferBucket": _months_to_buffer_bucket(cd["monthsToBufferComplete"]),
+            "surplusTrend": cd["trend"],
+            "deficitMonthsInLast6": _clamp(cd["deficitMonths"], 0, 6),
+            "fixedBurdenBucket": _fixed_burden_bucket(cd["fixedBurdenRaw"]) if cd["monthsCovered"] > 0 else None,
+            "windfallPresent": cd["windfallPresent"],
+            "dataFresh": cd["dataFresh"],
+            "currencyMismatch": cd["currencyMismatch"],
+        }
+        if include_raw:
+            facts.setdefault("raw", {})
+            facts["raw"]["cashflow"] = {
+                "monthlySurplus": cd["monthlySurplus"],
+                "investableSurplus": cd["investableSurplus"],
+                "toBuffer": cd["toBuffer"],
+                "toCore": cd["toCore"],
+                "toSatellite": cd["toSatellite"],
+                "avgIncome": cd["avgIncome"],
+                "avgExpense": cd["avgExpense"],
+                "bufferRemaining": _r(cd["bufferRemaining"]),
+                "monthsToBufferComplete": cd["monthsToBufferComplete"],
+                "windfallTtm": cd["windfallTtm"],
+            }
     return facts
 
 
@@ -406,6 +611,14 @@ def coarsen_facts(facts):
             ({**g, "progressPct": _bucket25(g.get("progressPct"))} if isinstance(g, dict) else g)
             for g in out["goals"]
         ]
+    # cashflow 集約も比率を粗バケツ化（raw.cashflow は "raw" 除去で既に落ちている）。
+    # surplusToExpensePct は余剰が月支出を超え得るため 0..300 を25刻み（progress 系の 0..100 と範囲が異なる）。
+    if isinstance(out.get("cashflow"), dict):
+        cf = dict(out["cashflow"])
+        for k in ("savingsRatePct", "surplusToExpensePct"):
+            if isinstance(cf.get(k), (int, float)) and not isinstance(cf.get(k), bool):
+                cf[k] = _bucket25(cf[k])
+        out["cashflow"] = cf
     return out
 
 
@@ -495,7 +708,25 @@ class handler(BaseHTTPRequestHandler):
                 cur.execute("SELECT extract(epoch from now()) * 1000")
                 now_ms = float(cur.fetchone()[0])
 
-                facts = mode_a_facts(raw_state, include_raw, now_ms)
+                # Slice4: 収支スナップショットを server-side で読み集約（生額は LLM へ渡さず Mode A 集約のみ）。
+                # テーブル未適用/読取失敗は cf_rows=None で degrade（autocommit ゆえ後続クエリは無傷）。
+                cf_rows = None
+                try:
+                    cur.execute(
+                        "SELECT period, total_income, salary_income, misc_income, fixed_expense, "
+                        "variable_expense, total_expense, balance, savings_rate, is_complete, pulled_at "
+                        "FROM me.cashflow_snapshots ORDER BY period DESC LIMIT 60"  # 直近5年・_cashflow_rows が昇順整列
+                    )
+                    cf_rows = [{
+                        "period": rec[0].isoformat() if hasattr(rec[0], "isoformat") else rec[0],
+                        "total_income": rec[1], "salary_income": rec[2], "misc_income": rec[3],
+                        "fixed_expense": rec[4], "variable_expense": rec[5], "total_expense": rec[6],
+                        "balance": rec[7], "savings_rate": rec[8], "is_complete": rec[9], "pulled_at": rec[10],
+                    } for rec in cur.fetchall()]
+                except Exception:
+                    cf_rows = None
+
+                facts = mode_a_facts(raw_state, include_raw, now_ms, cf_rows)
                 next_target = facts["nextTarget"]
                 deterministic = deterministic_for(next_target)
                 # facts_hash は coarsen 後（粗バケツ・raw 除去）から計算＝personal の生額指紋をログに残さない（coerce-4b）。

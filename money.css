@@ -131,3 +131,50 @@
 .mcc-advice-login { color: #64748b; font-size: 0.78rem; }
 .mcc-advice-err { color: #ff7a9d; font-size: 0.74rem; margin-top: 8px; }
 .mcc-advice-disclaimer { color: #5b6478; font-size: 0.62rem; line-height: 1.5; margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.06); }
+
+/* --- Slice4: 収支連携（投資余力）--- */
+.mcc-cashflow {
+  margin-top: 18px; padding: 14px 16px; border-radius: 12px;
+  background: rgba(15,20,34,0.55); border: 1px solid rgba(45,212,191,0.18);
+}
+.mcc-cashflow-empty { color: #64748b; font-size: 0.78rem; line-height: 1.6; }
+.mcc-cf-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.mcc-cf-period { color: #cbd5e1; font-size: 0.82rem; font-weight: 700; }
+.mcc-cf-partial { color: #fbbf24; font-size: 0.66rem; }
+.mcc-cf-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+.mcc-cf-stat { display: flex; flex-direction: column; gap: 2px; }
+.mcc-cf-stat span { color: #64748b; font-size: 0.64rem; }
+.mcc-cf-stat strong { color: #e2e8f0; font-size: 0.84rem; font-weight: 700; }
+.mcc-cf-stat strong.pos { color: #34d399; }
+.mcc-cf-stat strong.neg { color: #ff7a9d; }
+.mcc-cf-surplus {
+  padding: 10px 12px; border-radius: 8px; margin-bottom: 10px;
+  background: rgba(16,185,129,0.1); border-left: 3px solid #34d399;
+}
+.mcc-cf-surplus-neg { background: rgba(255,0,61,0.08); border-left-color: #ff7a9d; }
+.mcc-cf-surplus-main { color: #e8f8f1; font-size: 0.8rem; display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.mcc-cf-surplus-main strong { color: #34d399; font-size: 1.0rem; }
+.mcc-cf-surplus-neg .mcc-cf-surplus-main { color: #ffe2ea; }
+.mcc-cf-surplus-neg .mcc-cf-surplus-main strong { color: #ff7a9d; }
+.mcc-cf-waterfall { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.mcc-wf { font-size: 0.66rem; color: #cbd5e1; padding: 2px 8px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.1); }
+.mcc-wf-buffer { border-color: rgba(56,189,248,0.5); color: #bae6fd; }
+.mcc-wf-core { border-color: rgba(129,140,248,0.5); color: #c7d2fe; }
+.mcc-wf-sat { border-color: rgba(251,191,36,0.5); color: #fde68a; }
+.mcc-cf-dest { color: #94a3b8; font-size: 0.72rem; margin-top: 6px; }
+.mcc-cf-apply {
+  background: rgba(16,185,129,0.16); border: 1px solid rgba(52,211,153,0.45); color: #a7f3d0;
+  padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 0.76rem; font-weight: 700; width: 100%;
+}
+.mcc-cf-apply:hover { background: rgba(16,185,129,0.26); }
+.mcc-cf-spark { margin-top: 12px; }
+.mcc-cf-spark svg { display: block; }
+.mcc-spark-pos { fill: #34d399; }
+.mcc-spark-neg { fill: #ff7a9d; }
+.mcc-spark-axis { stroke: rgba(255,255,255,0.12); stroke-width: 1; }
+.mcc-cf-cats { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+.mcc-cf-cat { color: #94a3b8; font-size: 0.64rem; padding: 2px 7px; border-radius: 5px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); }
+.mcc-cf-note { color: #fbbf24; font-size: 0.68rem; margin-top: 10px; }
+.mcc-cf-fresh { color: #5b6478; font-size: 0.64rem; margin-top: 8px; }
+.mcc-cf-fresh.stale { color: #fbbf24; }
+@media (max-width: 640px) { .mcc-cf-stats { grid-template-columns: repeat(2, 1fr); } }

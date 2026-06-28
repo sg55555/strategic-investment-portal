@@ -71,9 +71,10 @@ def _walk(node, keys, nums):
 
 def test_parity_js_python():
     for c in CASES:
-        prod = advice.mode_a_facts(c["state"], False, _case_now(c))
+        cf = c.get("cashflow")  # None=Slice3 経路（cashflow なし）/ 配列=Slice4 ケース
+        prod = advice.mode_a_facts(c["state"], False, _case_now(c), cf)
         assert _norm(prod) == _norm(c["production"]), "production mismatch: " + c["name"]
-        pers = advice.mode_a_facts(c["state"], True, _case_now(c))
+        pers = advice.mode_a_facts(c["state"], True, _case_now(c), cf)
         assert _norm(pers) == _norm(c["personal"]), "personal mismatch: " + c["name"]
 
 
@@ -197,6 +198,87 @@ def test_prompt_boundary_production_no_label_or_rawamount():
     assert "無視して個別株" not in user      # 注入文字列はプロンプトに到達しない
     assert "123456" not in user             # 生額はプロンプトに到達しない
     assert "789000" not in user
+
+
+# --- Slice4: cashflow（収支連携→投資余力）---
+
+CF_ALLOW = {
+    "available", "monthsCovered", "insufficientData", "savingsRatePct", "surplusPositive",
+    "surplusToExpensePct", "investableSurplusPositive", "nextDestination", "monthsToBufferBucket",
+    "surplusTrend", "deficitMonthsInLast6", "fixedBurdenBucket", "windfallPresent", "dataFresh", "currencyMismatch",
+}
+
+
+def test_schema_version_2():
+    assert advice.SCHEMA_VERSION == 2
+
+
+def test_cashflow_production_safety():
+    for c in CASES:
+        if "cashflow" not in c:
+            continue
+        f = advice.mode_a_facts(c["state"], False, _case_now(c), c["cashflow"])
+        assert "cashflow" in f, c["name"]
+        assert "raw" not in f, c["name"]  # production は raw 無し
+        for k in f["cashflow"]:
+            assert k in CF_ALLOW, ("unexpected cashflow key", c["name"], k)
+        for v in f["cashflow"].values():
+            if isinstance(v, bool):
+                continue
+            if isinstance(v, (int, float)):
+                assert 0 <= v <= 999, ("raw-magnitude number", c["name"], v)  # 生 yen は混ざらない
+        assert "70000" not in json.dumps(f["cashflow"], ensure_ascii=False), c["name"]
+
+
+def test_cashflow_personal_raw():
+    c = next(x for x in CASES if x["name"] == "cashflow-smoothed")
+    f = advice.mode_a_facts(c["state"], True, _case_now(c), c["cashflow"])
+    assert f["raw"]["cashflow"]["monthlySurplus"] == 70000  # median(80000,30000,70000)
+    assert f["raw"]["cashflow"]["toBuffer"] == 70000
+    assert f["raw"]["cashflow"]["windfallTtm"] == 180000
+    p = advice.mode_a_facts(c["state"], False, _case_now(c), c["cashflow"])
+    assert "raw" not in p
+
+
+def test_cashflow_none_degrades():
+    c = next(x for x in CASES if x["name"] == "cashflow-none")
+    f = advice.mode_a_facts(c["state"], False, _case_now(c), c["cashflow"])
+    assert f["cashflow"]["available"] is False
+    assert f["cashflow"]["monthsToBufferBucket"] == "never"
+
+
+def test_cashflow_coarsen_buckets_ratios():
+    c = next(x for x in CASES if x["name"] == "cashflow-smoothed")
+    f = advice.mode_a_facts(c["state"], True, _case_now(c), c["cashflow"])
+    cf = advice.coarsen_facts(f)
+    assert "raw" not in cf  # raw.cashflow も "raw" 除去で落ちる
+    assert cf["cashflow"]["savingsRatePct"] in (0, 25, 50, 75, 100)
+    assert cf["cashflow"]["surplusToExpensePct"] % 25 == 0
+
+
+def test_cashflow_none_when_not_passed():
+    f = advice.mode_a_facts({"monthlyExpense": 100000}, False, 0)  # cashflow 未指定
+    assert "cashflow" not in f
+
+
+def test_cashflow_trend_flat():
+    c = next(x for x in CASES if x["name"] == "cashflow-trend-deficit-flat")
+    f = advice.mode_a_facts(c["state"], False, _case_now(c), c["cashflow"])
+    assert f["cashflow"]["surplusTrend"] == "flat"  # cf-2: 横ばい赤字を improving と誤判定しない
+
+
+def test_cashflow_buffer_achieved_core():
+    c = next(x for x in CASES if x["name"] == "cashflow-buffer-achieved")
+    f = advice.mode_a_facts(c["state"], True, _case_now(c), c["cashflow"])
+    assert f["cashflow"]["nextDestination"] == "core"  # cf-1: サテライトへ自動配分しない
+    assert f["raw"]["cashflow"]["toCore"] == 100000
+    assert f["raw"]["cashflow"]["toSatellite"] == 0
+
+
+def test_cashflow_par2_single_rounding():
+    c = next(x for x in CASES if x["name"] == "cashflow-bufferrem-half")
+    rc = advice.mode_a_facts(c["state"], True, _case_now(c), c["cashflow"])["raw"]["cashflow"]
+    assert rc["toBuffer"] + rc["investableSurplus"] == rc["monthlySurplus"]  # par-2: 保存則維持
 
 
 if __name__ == "__main__":

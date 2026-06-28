@@ -1,0 +1,44 @@
+name: cashflow-pull
+
+# Slice4 収支連携 ETL: kakeibo(Notion) の月次収支を Neon me.cashflow_snapshots へ片方向 push。
+# Claude API は叩かない純 ETL。冪等（source_hash 無変化はスキップ）なので再実行は安全。
+#
+# 段階的本番化（plan D5）: まず workflow_dispatch（手動）でサニティ → 問題なければ下の schedule を有効化。
+#
+# 必要 Secrets（リポ Settings → Secrets and variables → Actions）:
+#   NOTION_TOKEN  … 読取専用 internal integration のトークン（月別集計DB/変動費/固定費 に共有）。
+#   DATABASE_URL  … Neon 書込。推奨=me.cashflow_snapshots への INSERT/UPDATE 限定の最小権限ロール
+#                   （アプリ本体の全権 URL を CI に置かず、Secret 漏洩時の被害半径を縮小）。
+
+on:
+  workflow_dispatch:
+  # サニティ後に有効化（毎月 2 日 21:00 UTC = JST 翌 06:00 頃・前月確定後）:
+  # schedule:
+  #   - cron: "0 21 2 * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cashflow-pull
+  cancel-in-progress: false
+
+jobs:
+  pull:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install deps
+        run: pip install "psycopg[binary]>=3"
+
+      - name: Run cashflow ETL
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/etl_cashflow.py
