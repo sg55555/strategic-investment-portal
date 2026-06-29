@@ -435,3 +435,40 @@ test("migrate: lastAppliedCashflowPeriod を保持（不正/欠落は空）", ()
   assert.equal(R.migrate({ lastAppliedCashflowPeriod: "bad" }).lastAppliedCashflowPeriod, "");
   assert.equal(R.migrate({}).lastAppliedCashflowPeriod, "");
 });
+
+// --- データ基盤Phase1: 定点アンカーによる現金自動導出 ---
+
+test("migrate: anchor を正規化（不正日付/負額は安全化・欠落は空）", () => {
+  assert.deepEqual(R.migrate({ anchor: { date: "2026-01-01", amount: 500000 } }).anchor, { date: "2026-01-01", amount: 500000 });
+  assert.deepEqual(R.migrate({ anchor: { date: "bad", amount: -5 } }).anchor, { date: "", amount: 0 });
+  assert.deepEqual(R.migrate({}).anchor, { date: "", amount: 0 });
+  assert.deepEqual(R.defaultState().anchor, { date: "", amount: 0 });
+});
+
+test("cashDerived: アンカー＋確定月balance累積で現在現金を導出（当月除外・アンカー前除外）", () => {
+  const rows = [
+    { period: "2026-02-01", balance: 999999, is_complete: true },  // アンカー月より前 → 対象外
+    { period: "2026-03-01", balance: 80000, is_complete: true },
+    { period: "2026-04-01", balance: 30000, is_complete: true },
+    { period: "2026-05-01", balance: 250000, is_complete: true },
+    { period: "2026-06-01", balance: -20000, is_complete: false }, // 当月（進行中）→ 権威から除外
+  ];
+  const cd = R.cashDerived(rows, [], { date: "2026-03-01", amount: 1000000 }, 0);
+  assert.equal(cd.anchorConfigured, true);
+  assert.equal(cd.derivedCash, 1360000);       // 100万 + (8+3+25万) ＝ 確定月のみ・2026-02は除外
+  assert.equal(cd.derivedCashLive, 1340000);   // 当月 -2万 を含む参考値
+  assert.equal(cd.monthsCovered, 3);
+});
+
+test("cashDerived: アンカー未設定は anchorConfigured=false で degrade", () => {
+  const cd = R.cashDerived([{ period: "2026-05-01", balance: 50000, is_complete: true }], [], { date: "", amount: 0 }, 0);
+  assert.equal(cd.anchorConfigured, false);
+  assert.equal(cd.derivedCash, 0);
+});
+
+test("cashDerived: 投資現金フロー(Phase2形)を月次で合算", () => {
+  const rows = [{ period: "2026-05-01", balance: 100000, is_complete: true }];
+  const inv = [{ period: "2026-05-01", invest_cash_flow: -60000 }]; // 投資購入で現金流出
+  const cd = R.cashDerived(rows, inv, { date: "2026-05-01", amount: 1000000 }, 0);
+  assert.equal(cd.derivedCash, 1040000);  // 100万 + (10万 − 6万)
+});

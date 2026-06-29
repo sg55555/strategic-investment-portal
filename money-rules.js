@@ -44,8 +44,17 @@
       satelliteCapPct: 10,
       goals: [],
       lastAppliedCashflowPeriod: "", // Slice4: 直近で applySurplus 済みの確定 period（多重計上ガード・クラウド同期）
+      anchor: { date: "", amount: 0 }, // データ基盤Phase1: 定点アンカー（基準月初の現金）。現在現金を kakeibo balance 累積で導出
       updatedAt: 0, // last-write-wins 用の epoch ms（刻むのは money.js・ここは受け渡しのみ）
       history: [],
+    };
+  }
+
+  // アンカー（基準日の現金）の安全正規化（純粋）。date は月初前提だが任意日も受け、cashDerived は月で比較。
+  function normalizeAnchor(a) {
+    return {
+      date: (a && typeof a.date === "string" && _DATE_RE.test(a.date)) ? a.date : "",
+      amount: num(a && a.amount),
     };
   }
 
@@ -65,6 +74,7 @@
       },
       satelliteCapPct: Number(raw.satelliteCapPct) >= 0 ? num(raw.satelliteCapPct) : d.satelliteCapPct,
       lastAppliedCashflowPeriod: (typeof raw.lastAppliedCashflowPeriod === "string" && _DATE_RE.test(raw.lastAppliedCashflowPeriod)) ? raw.lastAppliedCashflowPeriod : "",
+      anchor: normalizeAnchor(raw.anchor),
       goals: Array.isArray(raw.goals)
         ? raw.goals.filter(function (g) { return g && typeof g === "object" && !Array.isArray(g); }).map(normalizeGoal)
         : [],
@@ -285,6 +295,37 @@
     };
   }
 
+  // データ基盤Phase1: 定点アンカー＋確定月の(kakeibo balance + 投資現金フロー)累積で現在現金を導出（純粋）。
+  // 手入力 buffer のドリフト（次回開くと現実が乖離）を機械的に消す。investmentRows は Phase2 で投資台帳由来
+  // ({period, invest_cash_flow})・Phase1 は [] で投資フロー0。当月は is_complete=false で除外し権威は確定値。
+  function cashDerived(rows_in, investmentRows, anchor, nowMs) {
+    var a = normalizeAnchor(anchor);
+    if (!a.date) {
+      return { anchorConfigured: false, anchorDate: "", anchorAmount: 0, derivedCash: 0, derivedCashLive: 0, monthsCovered: 0 };
+    }
+    var anchorYM = a.date.slice(0, 7);
+    var rows = cashflowRows(rows_in);
+    var icf = {};
+    if (Array.isArray(investmentRows)) {
+      investmentRows.forEach(function (r) {
+        if (r && typeof r.period === "string") icf[r.period] = cfNum(r.invest_cash_flow);
+      });
+    }
+    var sumComplete = 0, sumLive = 0, monthsCovered = 0;
+    rows.forEach(function (r) {
+      if (r.period.slice(0, 7) < anchorYM) return; // アンカー月より前は対象外
+      var flow = r.balance + (icf[r.period] || 0);
+      sumLive += flow;
+      if (r.isComplete) { sumComplete += flow; monthsCovered++; }
+    });
+    return {
+      anchorConfigured: true, anchorDate: a.date, anchorAmount: a.amount,
+      derivedCash: a.amount + sumComplete,   // 権威（確定月のみ）
+      derivedCashLive: a.amount + sumLive,    // 参考（当月部分含む）
+      monthsCovered: monthsCovered,
+    };
+  }
+
   // Slice3: 生 state → Mode A 集約ファクト（純粋）。AI規律コーチへ渡す唯一の境界。
   // 必ず migrate() で全フィールドを coerce（文字列/NaN/巨大配列/不正日付を強制正規化）してから、
   // allowlist キーのみで新規 dict を構築する（viewModel をスプレッドしない・history を走査しない）。
@@ -444,5 +485,6 @@
     nextAllocation: nextAllocation, viewModel: viewModel, yen: yen, yenSigned: yenSigned,
     deadlineBucket: deadlineBucket, modeAFacts: modeAFacts,
     cashflowDerived: cashflowDerived, cashflowViewModel: cashflowViewModel,
+    normalizeAnchor: normalizeAnchor, cashDerived: cashDerived,
   };
 });

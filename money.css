@@ -177,4 +177,22 @@
 .mcc-cf-note { color: #fbbf24; font-size: 0.68rem; margin-top: 10px; }
 .mcc-cf-fresh { color: #5b6478; font-size: 0.64rem; margin-top: 8px; }
 .mcc-cf-fresh.stale { color: #fbbf24; }
+
+/* --- データ基盤Phase1: 定点アンカー（現在現金の自動算出） --- */
+.mcc-anchor {
+  margin: 12px 0; padding: 10px 12px; border-radius: 8px;
+  background: rgba(56,189,248,0.08); border-left: 3px solid #38bdf8;
+}
+.mcc-anchor-main { color: #e0f2fe; font-size: 0.82rem; display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.mcc-anchor-main strong { color: #7dd3fc; font-size: 1.0rem; }
+.mcc-anchor-sub { color: #94a3b8; font-size: 0.66rem; line-height: 1.5; margin-top: 6px; }
+.mcc-anchor-edit { margin-top: 8px; background: rgba(56,189,248,0.16); border: 1px solid rgba(56,189,248,0.4); color: #bae6fd; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 0.68rem; font-weight: 700; }
+.mcc-anchor-edit:hover { background: rgba(56,189,248,0.26); }
+.mcc-anchor-setup { border-left-color: #64748b; background: rgba(255,255,255,0.03); }
+.mcc-anchor-cta { color: #94a3b8; font-size: 0.74rem; line-height: 1.6; }
+.mcc-anchor-form { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; }
+.mcc-anchor-form input[type="date"] { color-scheme: dark; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.12); color: #e2e8f0; padding: 5px 8px; border-radius: 6px; font-size: 0.72rem; }
+.mcc-anchor-form input[type="number"] { width: 150px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.12); color: #e2e8f0; padding: 5px 8px; border-radius: 6px; font-size: 0.72rem; }
+.mcc-anchor-set { background: rgba(56,189,248,0.18); border: 1px solid rgba(56,189,248,0.45); color: #bae6fd; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.72rem; font-weight: 700; }
+.mcc-anchor-set:hover { background: rgba(56,189,248,0.3); }
 @media (max-width: 640px) { .mcc-cf-stats { grid-template-columns: repeat(2, 1fr); } }

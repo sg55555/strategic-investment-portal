@@ -159,6 +159,23 @@ window.MCC = (function () {
     render();
   }
 
+  // データ基盤Phase1: 定点アンカー（基準日の現金）を保存。以降の確定収支から現在現金を自動導出する起点。
+  function saveAnchor() {
+    var dt = (document.getElementById("mcc-anchor-date") || {}).value || "";
+    var amt = (document.getElementById("mcc-anchor-amount") || {}).value || "";
+    if (!dt || !(Number(amt) >= 0)) return;
+    if (!state) load();
+    state.anchor = { date: dt, amount: Number(amt) >= 0 ? Number(amt) : 0 };
+    save();
+    render();
+  }
+  function editAnchor() {
+    if (!state) load();
+    if (state.anchor) state.anchor.date = "";  // 未設定に戻し再入力フォームを出す（amount は破棄）
+    save();
+    render();
+  }
+
   // 背景同期の結果はステータス要素だけ差分更新（innerHTML 再構築で入力フォーカスを壊さない）。
   function paintSyncStatus() {
     var el = document.getElementById("mcc-sync-status");
@@ -463,7 +480,29 @@ window.MCC = (function () {
     var fresh = cv.staleDays == null ? "" :
       '<div class="mcc-cf-fresh' + (cv.dataFresh ? "" : " stale") + '">最終取得 ' + cv.staleDays + '日前' + (cv.dataFresh ? "" : "・更新が止まっている可能性") + '</div>';
 
-    return '<div class="mcc-cashflow">' + title + head + surplus + applyBtn + sparkline(cv.history) + cats + insuf + divNote + fresh + '</div>';
+    // データ基盤Phase1: 定点アンカー＋確定月収支で現在現金を自動算出（手入力ドリフトの解消・投資フローはPhase2で合算）。
+    var cd = R.cashDerived(_cashflowRows, [], (state && state.anchor) || {}, Date.now());
+    var anchorBlock;
+    if (cd.anchorConfigured) {
+      anchorBlock =
+        '<div class="mcc-anchor">' +
+          '<div class="mcc-anchor-main">導出された現在の現金 <strong>' + cv.fmt(cd.derivedCash) + '</strong></div>' +
+          '<div class="mcc-anchor-sub">基準 ' + esc(cd.anchorDate) + '（' + cv.fmt(cd.anchorAmount) + '）＋ 確定 ' + cd.monthsCovered + 'ヶ月の収支から自動算出。当月込みの参考値 ' + cv.fmt(cd.derivedCashLive) + '。手入力でなく毎回再計算＝ズレが溜まりません。</div>' +
+          '<button class="mcc-anchor-edit" onclick="MCC.editAnchor()">基準を更新</button>' +
+        '</div>';
+    } else {
+      anchorBlock =
+        '<div class="mcc-anchor mcc-anchor-setup">' +
+          '<div class="mcc-anchor-cta">現在の貯蓄額を自動算出：基準日とその日の現金を1回入れると、以降の確定収支から現在の現金を毎回自動計算します（手入力のズレを解消）。</div>' +
+          '<div class="mcc-anchor-form">' +
+            '<input type="date" id="mcc-anchor-date" title="基準日">' +
+            '<input type="number" id="mcc-anchor-amount" placeholder="その日の現金（円）" min="0" step="10000">' +
+            '<button class="mcc-anchor-set" onclick="MCC.saveAnchor()">設定</button>' +
+          '</div>' +
+        '</div>';
+    }
+
+    return '<div class="mcc-cashflow">' + title + head + anchorBlock + surplus + applyBtn + sparkline(cv.history) + cats + insuf + divNote + fresh + '</div>';
   }
 
   function render() {
@@ -570,5 +609,6 @@ window.MCC = (function () {
     load: load, save: save, render: render, exportJSON: exportJSON, importJSON: importJSON,
     doLogin: doLogin, logout: logout, addGoal: addGoal, removeGoal: removeGoal,
     requestAdvice: requestAdvice, applySurplus: applySurplus,
+    saveAnchor: saveAnchor, editAnchor: editAnchor,
   };
 })();
