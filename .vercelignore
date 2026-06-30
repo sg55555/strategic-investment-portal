@@ -1,5 +1,7 @@
 # デプロイ対象から除外（実行時に不要・内部スキーマの静的配信を防ぐ）。
-# 注意: api/ requirements.txt index.html *.js *.css 静的アセット data-bundle.js は除外しないこと。
+# 注意: api/ requirements.txt index.html dataClient.js money*.js *.css 静的アセットは除外しないこと。
+# data.js は退役・削除済（Slice1 で Neon+/api/market+dataClient.js へ移行）。
+# data-bundle.js は REMOTE_ENABLED=false 用のローカル fallback＝本番(REMOTE=true)では未使用ゆえ配信除外（21MB節約・リポには保持）。
 db/
 *.sql
 tests/
@@ -9,3 +11,4 @@ logs/
 tmp/
 .venv/
 .env
+data-bundle.js

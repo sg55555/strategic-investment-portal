@@ -37,9 +37,9 @@
     <!-- Vercel Analytics: Vercelダッシュボード → Analytics → Enable で有効化 -->
     <script defer src="/_vercel/insights/script.js"></script>
 
-    <script src="https://unpkg.com/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+    <script src="https://unpkg.com/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js" integrity="sha384-stKllnUqA9AD0gsKCuUtf5XlqAW7PwIgDagoNsTWkjkBmJ/GZ/uHTgEBxdLV2VSK" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1" integrity="sha384-jb8JQMbMoBUzgWatfe6COACi2ljcDdZQ2OxczGA3bGNeWe+6DChMTBJemed7ZnvJ" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0" integrity="sha384-y49Zu59jZHJL/PLKgZPv3k2WI9c0Yp3pWB76V8OBVCb0QBKS8l4Ff3YslzHVX76Y" crossorigin="anonymous"></script>
 
     <style>
   /* ③ Phase 2: index.html トークン基盤（視覚不変）。名前空間 --ix-* は money.css の
@@ -2104,6 +2104,11 @@
     <script>
       Chart.register(ChartDataLabels);
 
+      // XSS対策: サーバ由来文字列(社名/業種等)を innerHTML/属性に入れる前に必ず通す（money.js の esc() と同型）。
+      function esc(s) {
+        return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+      }
+
       let currentTicker = "7203.T";
       let selectedYear = 2025;
       let priceChart = null;
@@ -2267,7 +2272,7 @@
           return (t.toLowerCase().includes(q) || d.company_name.toLowerCase().includes(q)) && !compareSet.has(t);
         }).slice(0, 10);
         if (results.length === 0) { list.style.display = "none"; return; }
-        list.innerHTML = results.map(t => `<div class="compare-search-item" onclick="addToCompare('${t}')">${t} — ${STOCK_DATA[t].company_name}</div>`).join("");
+        list.innerHTML = results.map(t => `<div class="compare-search-item" onclick="addToCompare('${t}')">${t} — ${esc(STOCK_DATA[t].company_name)}</div>`).join("");
         list.style.display = "block";
       }
 
@@ -2293,7 +2298,7 @@
         chipsEl.innerHTML = [...compareSet].map((t, i) => {
           const color = COMPARE_COLORS[i % COMPARE_COLORS.length];
           return `<div class="compare-chip" style="border-color:${color};color:${color};background:${color}22;">
-            ${STOCK_DATA[t]?.company_name || t}
+            ${esc(STOCK_DATA[t]?.company_name || t)}
             <span class="compare-chip-remove" onclick="removeFromCompare('${t}')">✕</span>
           </div>`;
         }).join("");
@@ -2338,7 +2343,7 @@
           if (data.length === 0) return;
           const series = compareChart.addLineSeries({ color, lineWidth: 2, priceLineVisible: false, lastValueVisible: true });
           series.setData(data);
-          legendEl.innerHTML += `<div class="compare-legend-item"><div class="compare-legend-dot" style="background:${color}"></div><span>${STOCK_DATA[ticker]?.company_name || ticker}</span></div>`;
+          legendEl.innerHTML += `<div class="compare-legend-item"><div class="compare-legend-dot" style="background:${color}"></div><span>${esc(STOCK_DATA[ticker]?.company_name || ticker)}</span></div>`;
         });
 
         compareChart.timeScale().fitContent();
@@ -2517,7 +2522,7 @@
           title.style.borderLeftColor = sectorColor;
           title.style.background = `linear-gradient(90deg, ${sectorColor}08, transparent)`;
           title.innerHTML = `
-            <span style="color:${sectorColor}88;">${ind.replace("US - ", "🇺🇸 ").replace("国内ETF", "🇯🇵 ETF")}</span>
+            <span style="color:${sectorColor}88;">${esc(ind.replace("US - ", "🇺🇸 ").replace("国内ETF", "🇯🇵 ETF"))}</span>
             <span class="sector-count-badge" style="border-color:${sectorColor}33;color:${sectorColor}99;">${groups[ind].length}社</span>
             <span class="sector-title-line" style="background:linear-gradient(90deg,${sectorColor}22,transparent)"></span>
           `;
@@ -2608,7 +2613,7 @@
                     <td style="white-space: nowrap;">
                       <button class="star-btn${isWatched(item.ticker) ? " watched" : ""}" id="star-${cleanTicker}"
                         onclick="event.stopPropagation(); toggleWatchlist('${item.ticker}')">${isWatched(item.ticker) ? "★" : "☆"}</button>
-                      <span class="company-clickable" title="${item.name}">${item.name}</span>${currBadge}
+                      <span class="company-clickable" title="${esc(item.name)}">${esc(item.name)}</span>${currBadge}
                     </td>
                     <td style="font-weight: bold; color: #00e676;">${salesText}</td>
                     <td>
@@ -3466,8 +3471,8 @@
 
         const headerEl = document.getElementById("active-company-header");
         headerEl.innerHTML = `
-          <span class="company-title-main">${data.company_name} <span style="color:#475569;font-size:0.9rem;">(${currentTicker})</span></span>
-          <span class="sector-badge">${data.industry}</span>${currBadgeHtml}
+          <span class="company-title-main">${esc(data.company_name)} <span style="color:#475569;font-size:0.9rem;">(${currentTicker})</span></span>
+          <span class="sector-badge">${esc(data.industry)}</span>${currBadgeHtml}
           <span style="font-size:0.7rem;color:#334155;margin-left:4px;">単位: ${unitLabel}</span>
           <button class="detail-star-btn${isWatched(currentTicker) ? " watched" : ""}" id="detail-star-btn"
             onclick="toggleWatchlist('${currentTicker}')">${isWatched(currentTicker) ? "★ ウォッチ中" : "☆ ウォッチ"}</button>
