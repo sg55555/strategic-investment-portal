@@ -387,6 +387,14 @@ window.MCC = (function () {
     render();
   }
 
+  // 設定の「月の生活費」に実支出の平均をワンタップ採用（連携済みのみ・手動確定＝規律フレーム維持）。
+  function adoptAvgExpense() {
+    if (!sync.loggedIn) return;
+    var cv = R.cashflowViewModel(_cashflowRows, state, Date.now());
+    if (!cv.hasData || !(cv.avgExpense > 0)) return;
+    setField("monthlyExpense", cv.avgExpense); // save()+render() 込み・バッファ目標も即再計算
+  }
+
   // ---- 描画 ----
   function syncBar() {
     if (sync.loggedIn) {
@@ -788,9 +796,25 @@ window.MCC = (function () {
         '</div>' +
       '</div>';
 
+    // 収支連携済みなら、実支出の平均を「月の生活費」に採用できる提案を出す（毎回ゼロから入力する手間を削減）。
+    var expenseSuggest = "";
+    if (cv.hasData && cv.avgExpense > 0) {
+      var matchesAvg = vm.monthlyExpense === cv.avgExpense;
+      expenseSuggest =
+        '<div class="mcc-expense-suggest">' +
+          '<div class="mcc-expense-suggest-main">実支出の平均は <strong>' + cv.fmt(cv.avgExpense) + ' / 月</strong>' +
+            (cv.monthsCovered ? '（直近' + Math.min(3, cv.monthsCovered) + 'ヶ月の確定平均）' : '') + '。' +
+            (matchesAvg
+              ? '<span class="mcc-expense-applied">✓ 設定と一致</span>'
+              : '<button class="mcc-expense-adopt" onclick="MCC.adoptAvgExpense()">この平均を採用</button>') +
+          '</div>' +
+          '<div class="mcc-expense-note">※旅行・臨時出費も含む総支出の平均です。生活防衛資金は「平常の必要生活費」で決めるのが基本（娯楽等を除くとやや少なめになります）。</div>' +
+        '</div>';
+    }
     var settings =
       '<details class="mcc-settings" id="mcc-sec-settings"><summary>設定</summary>' +
         moneyInput("月の生活費", "monthlyExpense", vm.monthlyExpense) +
+        expenseSuggest +
         moneyInput("バッファ目標（ヶ月）", "bufferMonths", vm.bufferMonths) +
         moneyInput("サテライト上限（%）", "satelliteCapPct", vm.satelliteCapPct) +
       '</details>';
@@ -852,7 +876,7 @@ window.MCC = (function () {
     load: load, save: save, render: render, exportJSON: exportJSON, importJSON: importJSON,
     doLogin: doLogin, logout: logout, addGoal: addGoal, removeGoal: removeGoal,
     requestAdvice: requestAdvice, applySurplus: applySurplus,
-    saveAnchor: saveAnchor, editAnchor: editAnchor, refreshData: refreshData, jumpTo: jumpTo,
+    saveAnchor: saveAnchor, editAnchor: editAnchor, refreshData: refreshData, jumpTo: jumpTo, adoptAvgExpense: adoptAvgExpense,
     addReserve: addReserve, removeReserve: removeReserve, fundReserve: fundReserve, setReserveField: setReserveField,
   };
 })();

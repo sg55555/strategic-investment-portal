@@ -54,6 +54,14 @@
 .mcc-sat-warn { color: var(--c-danger-soft); font-size: 0.74rem; font-weight: 700; margin-top: 6px; }
 .mcc-settings { margin-top: 18px; color: var(--c-text-bright); }
 .mcc-settings summary { cursor: pointer; font-size: 0.8rem; letter-spacing: 1px; }
+/* 実支出平均を月の生活費に採用する提案（収支連携済みのみ） */
+.mcc-expense-suggest { margin: 4px 0 12px; padding: 8px 10px; border-radius: 8px; background: rgba(56,189,248,0.07); border-left: 3px solid var(--c-cyan); }
+.mcc-expense-suggest-main { color: var(--c-text-bright); font-size: 0.76rem; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.mcc-expense-suggest-main strong { color: var(--c-cyan-bright); }
+.mcc-expense-adopt { background: rgba(56,189,248,0.16); border: 1px solid rgba(56,189,248,0.45); color: var(--c-cyan-pale); padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 0.72rem; font-weight: 700; }
+.mcc-expense-adopt:hover { background: rgba(56,189,248,0.26); }
+.mcc-expense-applied { color: var(--c-emerald-soft); font-size: 0.72rem; font-weight: 700; }
+.mcc-expense-note { color: var(--c-slate); font-size: 0.66rem; line-height: 1.5; margin-top: 6px; }
 .mcc-onboard { background: rgba(79,70,229,0.1); border: 1px dashed rgba(129,140,248,0.45); border-radius: 10px; padding: 12px 14px; color: var(--c-indigo-pale); font-size: 0.8rem; line-height: 1.6; margin-bottom: 14px; }
 .mcc-tools { display: flex; gap: 10px; margin-top: 18px; }
 .mcc-tool-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); color: var(--c-text-bright); padding: 7px 12px; border-radius: 7px; cursor: pointer; font-size: 0.74rem; }
