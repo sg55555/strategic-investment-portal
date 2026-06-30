@@ -1,26 +1,42 @@
-/* money.css — お金の司令塔(MCC) 専用スタイル。既存トークン流用。 */
+/* money.css — お金の司令塔(MCC) 専用スタイル。 */
+
+/* ③デザイン再設計 Phase 3a（視覚不変の土台）: 名前付き色の単一源（旧仕様の核＝トークン皆無を解消）。
+   ソリッド色を厳密一致でトークン化＝レンダリング完全不変。rgba 系の濃淡は段階移行のため当面インライン据置
+   （Phase 3b 以降で color-mix へ集約）。index.html 本体の移行も段階対応。 */
+:root {
+  --c-indigo: #4f46e5; --c-indigo-bright: #818cf8; --c-indigo-soft: #a5b4fc; --c-indigo-pale: #c7d2fe;
+  --c-violet: #c084fc; --c-blue: #60a5fa;
+  --c-emerald: #10b981; --c-emerald-bright: #34d399; --c-emerald-soft: #6ee7b7; --c-emerald-pale: #a7f3d0;
+  --c-amber: #fbbf24; --c-amber-bright: #fcd34d; --c-amber-pale: #fde68a; --c-amber-deep: #f59e0b; --c-amber-deeper: #b45309;
+  --c-cyan: #38bdf8; --c-cyan-bright: #7dd3fc; --c-cyan-pale: #bae6fd; --c-cyan-tint: #e0f2fe;
+  --c-text: #e2e8f0; --c-text-bright: #cbd5e1; --c-text-dim: #94a3b8; --c-text-faint: #8b94a8; --c-text-mute: #5b6478;
+  --c-slate: #64748b; --c-gray: #6b7280; --c-surface-solid: #0e1422;
+  --c-danger: #ff003d; --c-danger-soft: #ff7a9d;
+  --c-tint-emerald: #e8f8f1; --c-tint-indigo: #e8edff; --c-tint-danger: #ffe2ea; --c-tint-cyan: #dbeafe;
+}
+
 #money-view .mcc-wrap { max-width: 960px; margin: 0 auto; padding: 16px 14px 60px; }
 .mcc-topbar { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
 .mcc-title {
   font-size: 1.05rem; letter-spacing: 2px; font-weight: 700; margin: 0;
-  background: linear-gradient(90deg, #60a5fa, #818cf8, #c084fc);
+  background: linear-gradient(90deg, var(--c-blue), var(--c-indigo-bright), var(--c-violet));
   -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
 }
 .mcc-nav-btn {
-  background: rgba(79,70,229,0.12); border: 1px solid rgba(129,140,248,0.4); color: #c7d2fe;
+  background: rgba(79,70,229,0.12); border: 1px solid rgba(129,140,248,0.4); color: var(--c-indigo-pale);
   padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 0.74rem; font-weight: 700;
   letter-spacing: 1px; transition: all 0.2s;
 }
 .mcc-nav-btn:hover { background: rgba(79,70,229,0.25); }
-.mcc-placeholder { color: #94a3b8; text-align: center; padding: 40px; }
+.mcc-placeholder { color: var(--c-text-dim); text-align: center; padding: 40px; }
 .mcc-gauge-card { background: rgba(15,20,34,0.6); border: 1px solid rgba(129,140,248,0.25); border-radius: 12px; padding: 18px; margin-bottom: 14px; box-shadow: 0 0 40px rgba(79,70,229,0.15) inset; }
-.mcc-gauge-label { color: #94a3b8; font-size: 0.78rem; letter-spacing: 1px; margin-bottom: 10px; }
+.mcc-gauge-label { color: var(--c-text-dim); font-size: 0.78rem; letter-spacing: 1px; margin-bottom: 10px; }
 .mcc-gauge-bar { height: 14px; background: rgba(255,255,255,0.06); border-radius: 8px; overflow: hidden; }
-.mcc-gauge-fill { height: 100%; background: linear-gradient(90deg, #4f46e5, #818cf8, #10b981); transition: width 0.4s ease; }
-.mcc-gauge-stat { margin-top: 10px; color: #e2e8f0; font-size: 0.86rem; }
-.mcc-gauge-stat strong { color: #c084fc; font-size: 1.1rem; }
-.mcc-banner { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-radius: 10px; margin-bottom: 16px; font-size: 0.9rem; color: #e2e8f0; border: 1px solid; }
-.mcc-banner-icon { color: #818cf8; }
+.mcc-gauge-fill { height: 100%; background: linear-gradient(90deg, var(--c-indigo), var(--c-indigo-bright), var(--c-emerald)); transition: width 0.4s ease; }
+.mcc-gauge-stat { margin-top: 10px; color: var(--c-text); font-size: 0.86rem; }
+.mcc-gauge-stat strong { color: var(--c-violet); font-size: 1.1rem; }
+.mcc-banner { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-radius: 10px; margin-bottom: 16px; font-size: 0.9rem; color: var(--c-text); border: 1px solid; }
+.mcc-banner-icon { color: var(--c-indigo-bright); }
 .mcc-banner-buffer { background: rgba(79,70,229,0.12); border-color: rgba(129,140,248,0.4); }
 .mcc-banner-core { background: rgba(16,185,129,0.1); border-color: rgba(16,185,129,0.35); }
 .mcc-banner-rebalance { background: rgba(255,0,61,0.1); border-color: rgba(255,122,157,0.5); }
@@ -28,22 +44,22 @@
 @media (max-width: 640px) { .mcc-buckets { grid-template-columns: 1fr; } }
 .mcc-bucket { background: rgba(15,20,34,0.5); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 14px; }
 .mcc-bucket-over { border-color: rgba(255,0,61,0.6); box-shadow: 0 0 18px rgba(255,0,61,0.15); }
-.mcc-bucket-name { color: #cbd5e1; font-size: 0.78rem; letter-spacing: 1px; margin-bottom: 8px; }
-.mcc-field { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; color: #94a3b8; font-size: 0.72rem; }
+.mcc-bucket-name { color: var(--c-text-bright); font-size: 0.78rem; letter-spacing: 1px; margin-bottom: 8px; }
+.mcc-field { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; color: var(--c-text-dim); font-size: 0.72rem; }
 .mcc-field input { background: rgba(0,0,0,0.3); border: 1px solid rgba(129,140,248,0.3); color: #fff; border-radius: 6px; padding: 7px 9px; font-size: 0.9rem; }
 .mcc-sat-bar { height: 8px; background: rgba(255,255,255,0.06); border-radius: 6px; overflow: hidden; margin-top: 10px; }
-.mcc-sat-fill { height: 100%; background: #818cf8; }
-.mcc-sat-fill.over { background: #ff003d; }
-.mcc-sat-cap { color: #94a3b8; font-size: 0.7rem; margin-top: 6px; }
-.mcc-sat-warn { color: #ff7a9d; font-size: 0.74rem; font-weight: 700; margin-top: 6px; }
-.mcc-settings { margin-top: 18px; color: #cbd5e1; }
+.mcc-sat-fill { height: 100%; background: var(--c-indigo-bright); }
+.mcc-sat-fill.over { background: var(--c-danger); }
+.mcc-sat-cap { color: var(--c-text-dim); font-size: 0.7rem; margin-top: 6px; }
+.mcc-sat-warn { color: var(--c-danger-soft); font-size: 0.74rem; font-weight: 700; margin-top: 6px; }
+.mcc-settings { margin-top: 18px; color: var(--c-text-bright); }
 .mcc-settings summary { cursor: pointer; font-size: 0.8rem; letter-spacing: 1px; }
-.mcc-onboard { background: rgba(79,70,229,0.1); border: 1px dashed rgba(129,140,248,0.45); border-radius: 10px; padding: 12px 14px; color: #c7d2fe; font-size: 0.8rem; line-height: 1.6; margin-bottom: 14px; }
+.mcc-onboard { background: rgba(79,70,229,0.1); border: 1px dashed rgba(129,140,248,0.45); border-radius: 10px; padding: 12px 14px; color: var(--c-indigo-pale); font-size: 0.8rem; line-height: 1.6; margin-bottom: 14px; }
 .mcc-tools { display: flex; gap: 10px; margin-top: 18px; }
-.mcc-tool-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); color: #cbd5e1; padding: 7px 12px; border-radius: 7px; cursor: pointer; font-size: 0.74rem; }
+.mcc-tool-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); color: var(--c-text-bright); padding: 7px 12px; border-radius: 7px; cursor: pointer; font-size: 0.74rem; }
 .mcc-tool-btn:hover { background: rgba(255,255,255,0.1); }
 .mcc-banner-setup { background: rgba(148,163,184,0.10); border-color: rgba(148,163,184,0.4); }
-.mcc-save-warn { background: rgba(255,0,61,0.12); border: 1px solid rgba(255,122,157,0.5); border-radius:10px; padding:10px 14px; color:#ff7a9d; font-size:0.78rem; margin-bottom:12px; }
+.mcc-save-warn { background: rgba(255,0,61,0.12); border: 1px solid rgba(255,122,157,0.5); border-radius:10px; padding:10px 14px; color:var(--c-danger-soft); font-size:0.78rem; margin-bottom:12px; }
 
 /* --- v2: クラウド同期バー --- */
 .mcc-sync {
@@ -52,39 +68,101 @@
   border-radius: 10px; padding: 10px 14px; margin-bottom: 14px;
 }
 .mcc-sync-on { border-color: rgba(16,185,129,0.4); box-shadow: 0 0 22px rgba(16,185,129,0.08) inset; }
-.mcc-sync-status { color: #c7d2fe; font-size: 0.78rem; letter-spacing: 0.5px; flex: 1 1 auto; min-width: 0; }
-.mcc-sync-on .mcc-sync-status { color: #a7f3d0; }
+.mcc-sync-status { color: var(--c-indigo-pale); font-size: 0.78rem; letter-spacing: 0.5px; flex: 1 1 auto; min-width: 0; }
+.mcc-sync-on .mcc-sync-status { color: var(--c-emerald-pale); }
 .mcc-sync-form { display: flex; gap: 8px; align-items: center; }
 .mcc-sync-form input {
   background: rgba(0,0,0,0.3); border: 1px solid rgba(129,140,248,0.3); color: #fff;
   border-radius: 6px; padding: 6px 9px; font-size: 0.82rem; width: 150px;
 }
 .mcc-sync-btn {
-  background: rgba(79,70,229,0.18); border: 1px solid rgba(129,140,248,0.4); color: #c7d2fe;
+  background: rgba(79,70,229,0.18); border: 1px solid rgba(129,140,248,0.4); color: var(--c-indigo-pale);
   padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.74rem; font-weight: 700; white-space: nowrap;
 }
 .mcc-sync-btn:hover { background: rgba(79,70,229,0.3); }
 .mcc-sync-btn:disabled { opacity: 0.5; cursor: default; }
-.mcc-sync-err { color: #ff7a9d; font-size: 0.74rem; flex-basis: 100%; }
+.mcc-sync-err { color: var(--c-danger-soft); font-size: 0.74rem; flex-basis: 100%; }
 
 /* --- v2: 資産目標(goals) --- */
 .mcc-goals { margin-top: 18px; }
-.mcc-section-title { color: #cbd5e1; font-size: 0.8rem; letter-spacing: 1.5px; font-weight: 700; margin-bottom: 10px; }
-.mcc-goals-empty { color: #94a3b8; font-size: 0.8rem; padding: 10px 0 14px; }
+.mcc-section-title { color: var(--c-text-bright); font-size: 0.8rem; letter-spacing: 1.5px; font-weight: 700; margin-bottom: 10px; }
+.mcc-section-desc { color: var(--c-text-faint); font-size: 0.68rem; line-height: 1.5; margin: -4px 0 12px; }
+
+/* --- ① 用語ヘルプ(? ツールチップ) --- */
+.mcc-help {
+  position: relative;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 14px; height: 14px; margin-left: 5px; border-radius: 50%;
+  background: rgba(129,140,248,0.18); border: 1px solid rgba(129,140,248,0.45);
+  color: var(--c-indigo-pale); font-size: 0.6rem; font-weight: 700; cursor: help; vertical-align: middle;
+}
+.mcc-help:hover, .mcc-help:focus { background: rgba(129,140,248,0.34); outline: none; }
+/* ホバーに加えタップ/キーボード(:focus)でも定義を表示する小ポップオーバー（title 依存をやめる） */
+.mcc-help::after {
+  content: attr(data-def);
+  position: absolute; left: 50%; top: calc(100% + 6px); transform: translateX(-50%);
+  width: max-content; max-width: 240px; z-index: 30;
+  background: var(--c-surface-solid); border: 1px solid rgba(129,140,248,0.5); border-radius: 8px;
+  padding: 8px 10px; color: var(--c-tint-cyan); font-size: 0.66rem; font-weight: 400; line-height: 1.5;
+  letter-spacing: 0; text-align: left; white-space: normal;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5); opacity: 0; pointer-events: none; transition: opacity 0.12s;
+}
+.mcc-help:hover::after, .mcc-help:focus::after { opacity: 1; }
+
+/* --- ① 常駐「はじめに / 使い方」--- */
+.mcc-guide {
+  background: rgba(79,70,229,0.08); border: 1px solid rgba(129,140,248,0.28);
+  border-radius: 12px; padding: 4px 14px; margin-bottom: 14px;
+}
+.mcc-guide > summary { cursor: pointer; color: var(--c-indigo-pale); font-size: 0.82rem; font-weight: 700; letter-spacing: 1px; padding: 8px 0; list-style: none; }
+.mcc-guide > summary::-webkit-details-marker { display: none; }
+.mcc-guide > summary::before { content: "▸ "; color: var(--c-indigo-bright); }
+.mcc-guide[open] > summary::before { content: "▾ "; }
+.mcc-guide-body { padding: 4px 0 12px; border-top: 1px solid rgba(129,140,248,0.16); }
+.mcc-guide-lead { color: var(--c-text-bright); font-size: 0.78rem; line-height: 1.7; margin: 10px 0; }
+.mcc-guide-lead b { color: var(--c-indigo-soft); }
+.mcc-guide-rule { background: rgba(0,0,0,0.2); border-left: 3px solid var(--c-indigo-bright); border-radius: 6px; padding: 8px 10px; color: var(--c-indigo-pale); font-size: 0.74rem; line-height: 1.6; margin: 10px 0; }
+.mcc-guide-rule b { color: var(--c-violet); }
+.mcc-guide-steps { margin: 10px 0 4px; padding-left: 1.3em; color: var(--c-text-bright); font-size: 0.76rem; line-height: 1.9; }
+.mcc-guide-steps b { color: var(--c-indigo-soft); }
+.mcc-glo-title { color: var(--c-text-dim); font-size: 0.72rem; font-weight: 700; letter-spacing: 1px; margin: 14px 0 6px; }
+.mcc-glossary { display: grid; gap: 6px; }
+.mcc-glo-item { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: baseline; background: rgba(255,255,255,0.03); border-radius: 6px; padding: 7px 10px; }
+.mcc-glo-term { grid-row: 1 / span 2; color: var(--c-indigo-soft); font-size: 0.78rem; font-weight: 700; align-self: center; }
+.mcc-glo-read { color: var(--c-text-dim); font-size: 0.66rem; }
+.mcc-glo-def { color: var(--c-text-bright); font-size: 0.7rem; line-height: 1.5; }
+.mcc-guide-privacy { color: var(--c-text-faint); font-size: 0.68rem; line-height: 1.5; margin-top: 12px; border-top: 1px solid rgba(129,140,248,0.12); padding-top: 8px; }
+
+/* --- ① 初回ステッパー(今ここ＋残ステップ) --- */
+.mcc-stepper { background: rgba(15,20,34,0.5); border: 1px solid rgba(129,140,248,0.25); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+.mcc-stepper-track { display: flex; align-items: center; flex-wrap: wrap; gap: 0; }
+.mcc-step { display: flex; align-items: center; gap: 6px; }
+.mcc-step-dot { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; font-size: 0.66rem; font-weight: 700; border: 1px solid; flex-shrink: 0; }
+.mcc-step-label { color: var(--c-text-dim); font-size: 0.7rem; white-space: nowrap; }
+.mcc-step-opt { color: var(--c-gray); font-size: 0.58rem; margin-left: 3px; }
+.mcc-step-sep { flex: 1 1 12px; min-width: 12px; height: 1px; background: rgba(129,140,248,0.25); margin: 0 4px; }
+.mcc-step-done .mcc-step-dot { background: rgba(16,185,129,0.2); border-color: rgba(16,185,129,0.55); color: var(--c-emerald-soft); }
+.mcc-step-done .mcc-step-label { color: var(--c-emerald-pale); }
+.mcc-step-current .mcc-step-dot { background: rgba(129,140,248,0.28); border-color: var(--c-indigo-bright); color: var(--c-indigo-pale); box-shadow: 0 0 12px rgba(129,140,248,0.4); }
+.mcc-step-current .mcc-step-label { color: var(--c-indigo-pale); font-weight: 700; }
+.mcc-step-todo .mcc-step-dot { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.14); color: var(--c-gray); }
+.mcc-stepper-next { margin-top: 10px; color: var(--c-indigo-pale); font-size: 0.76rem; background: rgba(0,0,0,0.2); border-radius: 6px; padding: 7px 10px; }
+@media (max-width: 640px) { .mcc-step-label { font-size: 0.62rem; } .mcc-step-sep { min-width: 6px; } }
+.mcc-goals-empty { color: var(--c-text-dim); font-size: 0.8rem; padding: 10px 0 14px; }
 .mcc-goal {
   background: rgba(15,20,34,0.5); border: 1px solid rgba(255,255,255,0.08);
   border-radius: 10px; padding: 12px 14px; margin-bottom: 10px;
 }
 .mcc-goal-head { display: flex; align-items: center; gap: 8px; }
-.mcc-goal-label { color: #e2e8f0; font-size: 0.86rem; font-weight: 600; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mcc-goal-done { color: #6ee7b7; font-size: 0.7rem; font-weight: 700; border: 1px solid rgba(16,185,129,0.45); border-radius: 5px; padding: 1px 6px; }
-.mcc-goal-del { background: none; border: none; color: #64748b; cursor: pointer; font-size: 1.1rem; line-height: 1; padding: 0 4px; }
-.mcc-goal-del:hover { color: #ff7a9d; }
+.mcc-goal-label { color: var(--c-text); font-size: 0.86rem; font-weight: 600; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mcc-goal-done { color: var(--c-emerald-soft); font-size: 0.7rem; font-weight: 700; border: 1px solid rgba(16,185,129,0.45); border-radius: 5px; padding: 1px 6px; }
+.mcc-goal-del { background: none; border: none; color: var(--c-slate); cursor: pointer; font-size: 1.1rem; line-height: 1; padding: 0 4px; }
+.mcc-goal-del:hover { color: var(--c-danger-soft); }
 .mcc-goal-bar { height: 10px; background: rgba(255,255,255,0.06); border-radius: 6px; overflow: hidden; margin: 9px 0; }
-.mcc-goal-fill { height: 100%; background: linear-gradient(90deg, #4f46e5, #818cf8, #c084fc); transition: width 0.4s ease; }
-.mcc-goal-fill.done { background: linear-gradient(90deg, #10b981, #6ee7b7); }
-.mcc-goal-stat { color: #94a3b8; font-size: 0.74rem; }
-.mcc-goal-dl { color: #818cf8; margin-left: 6px; }
+.mcc-goal-fill { height: 100%; background: linear-gradient(90deg, var(--c-indigo), var(--c-indigo-bright), var(--c-violet)); transition: width 0.4s ease; }
+.mcc-goal-fill.done { background: linear-gradient(90deg, var(--c-emerald), var(--c-emerald-soft)); }
+.mcc-goal-stat { color: var(--c-text-dim); font-size: 0.74rem; }
+.mcc-goal-dl { color: var(--c-indigo-bright); margin-left: 6px; }
 .mcc-goal-add { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
 .mcc-goal-add input {
   background: rgba(0,0,0,0.3); border: 1px solid rgba(129,140,248,0.3); color: #fff;
@@ -94,7 +172,7 @@
 #mcc-goal-amount { width: 120px; }
 #mcc-goal-deadline { width: 150px; color-scheme: dark; }
 .mcc-goal-addbtn {
-  background: rgba(79,70,229,0.18); border: 1px solid rgba(129,140,248,0.4); color: #c7d2fe;
+  background: rgba(79,70,229,0.18); border: 1px solid rgba(129,140,248,0.4); color: var(--c-indigo-pale);
   padding: 7px 12px; border-radius: 6px; cursor: pointer; font-size: 0.74rem; font-weight: 700; white-space: nowrap;
 }
 .mcc-goal-addbtn:hover { background: rgba(79,70,229,0.3); }
@@ -104,95 +182,481 @@
   margin-top: 18px; padding: 14px 16px; border-radius: 12px;
   background: rgba(15,20,34,0.55); border: 1px solid rgba(129,140,248,0.22);
 }
-.mcc-advice-rulehead { color: #a5b4fc; font-size: 0.7rem; letter-spacing: 0.5px; font-weight: 700; margin-bottom: 6px; }
+.mcc-advice-rulehead { color: var(--c-indigo-soft); font-size: 0.7rem; letter-spacing: 0.5px; font-weight: 700; margin-bottom: 6px; }
 .mcc-advice-rule {
-  display: flex; gap: 8px; align-items: flex-start; color: #e8edff; font-size: 0.9rem; font-weight: 600;
+  display: flex; gap: 8px; align-items: flex-start; color: var(--c-tint-indigo); font-size: 0.9rem; font-weight: 600;
   line-height: 1.5; padding: 10px 12px; border-radius: 8px;
-  background: rgba(79,70,229,0.16); border-left: 3px solid #818cf8;
+  background: rgba(79,70,229,0.16); border-left: 3px solid var(--c-indigo-bright);
 }
-.mcc-advice-rule-icon { color: #818cf8; }
+.mcc-advice-rule-icon { color: var(--c-indigo-bright); }
 .mcc-advice-ai {
   margin-top: 10px; padding: 10px 12px; border-radius: 8px;
   background: rgba(0,0,0,0.22); border: 1px solid rgba(255,255,255,0.06);
 }
-.mcc-advice-ai-muted { color: #94a3b8; font-size: 0.8rem; }
-.mcc-advice-mode { display: inline-block; color: #fbbf24; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.5px; border: 1px solid rgba(251,191,36,0.4); border-radius: 4px; padding: 1px 5px; margin-bottom: 6px; }
-.mcc-advice-ai-head { color: #cbd5e1; font-size: 0.84rem; font-weight: 700; margin-bottom: 4px; }
-.mcc-advice-ai-edu { color: #94a3b8; font-size: 0.8rem; line-height: 1.6; }
-.mcc-advice-ai-next { color: #a5b4fc; font-size: 0.8rem; margin-top: 6px; }
-.mcc-advice-stale { color: #fbbf24; font-size: 0.72rem; margin-top: 8px; }
+.mcc-advice-ai-muted { color: var(--c-text-dim); font-size: 0.8rem; }
+.mcc-advice-mode { display: inline-block; color: var(--c-amber); font-size: 0.62rem; font-weight: 700; letter-spacing: 0.5px; border: 1px solid rgba(251,191,36,0.4); border-radius: 4px; padding: 1px 5px; margin-bottom: 6px; }
+.mcc-advice-ai-head { color: var(--c-text-bright); font-size: 0.84rem; font-weight: 700; margin-bottom: 4px; }
+.mcc-advice-ai-edu { color: var(--c-text-dim); font-size: 0.8rem; line-height: 1.6; }
+.mcc-advice-ai-next { color: var(--c-indigo-soft); font-size: 0.8rem; margin-top: 6px; }
+.mcc-advice-stale { color: var(--c-amber); font-size: 0.72rem; margin-top: 8px; }
 .mcc-advice-actions { margin-top: 12px; }
 .mcc-advice-btn {
-  background: rgba(79,70,229,0.22); border: 1px solid rgba(129,140,248,0.45); color: #c7d2fe;
+  background: rgba(79,70,229,0.22); border: 1px solid rgba(129,140,248,0.45); color: var(--c-indigo-pale);
   padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 0.78rem; font-weight: 700;
 }
 .mcc-advice-btn:hover { background: rgba(79,70,229,0.34); }
 .mcc-advice-btn:disabled { opacity: 0.5; cursor: default; }
-.mcc-advice-login { color: #64748b; font-size: 0.78rem; }
-.mcc-advice-err { color: #ff7a9d; font-size: 0.74rem; margin-top: 8px; }
-.mcc-advice-disclaimer { color: #5b6478; font-size: 0.62rem; line-height: 1.5; margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.06); }
+.mcc-advice-login { color: var(--c-slate); font-size: 0.78rem; }
+.mcc-advice-err { color: var(--c-danger-soft); font-size: 0.74rem; margin-top: 8px; }
+.mcc-advice-disclaimer { color: var(--c-text-mute); font-size: 0.62rem; line-height: 1.5; margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.06); }
 
 /* --- Slice4: 収支連携（投資余力）--- */
 .mcc-cashflow {
   margin-top: 18px; padding: 14px 16px; border-radius: 12px;
   background: rgba(15,20,34,0.55); border: 1px solid rgba(45,212,191,0.18);
 }
-.mcc-cashflow-empty { color: #64748b; font-size: 0.78rem; line-height: 1.6; }
+.mcc-cashflow-empty { color: var(--c-slate); font-size: 0.78rem; line-height: 1.6; }
 .mcc-cf-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
-.mcc-cf-period { color: #cbd5e1; font-size: 0.82rem; font-weight: 700; }
-.mcc-cf-partial { color: #fbbf24; font-size: 0.66rem; }
+.mcc-cf-period { color: var(--c-text-bright); font-size: 0.82rem; font-weight: 700; }
+.mcc-cf-partial { color: var(--c-amber); font-size: 0.66rem; }
 .mcc-cf-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
 .mcc-cf-stat { display: flex; flex-direction: column; gap: 2px; }
-.mcc-cf-stat span { color: #64748b; font-size: 0.64rem; }
-.mcc-cf-stat strong { color: #e2e8f0; font-size: 0.84rem; font-weight: 700; }
-.mcc-cf-stat strong.pos { color: #34d399; }
-.mcc-cf-stat strong.neg { color: #ff7a9d; }
+.mcc-cf-stat span { color: var(--c-slate); font-size: 0.64rem; }
+.mcc-cf-stat strong { color: var(--c-text); font-size: 0.84rem; font-weight: 700; }
+.mcc-cf-stat strong.pos { color: var(--c-emerald-bright); }
+.mcc-cf-stat strong.neg { color: var(--c-danger-soft); }
 .mcc-cf-surplus {
   padding: 10px 12px; border-radius: 8px; margin-bottom: 10px;
-  background: rgba(16,185,129,0.1); border-left: 3px solid #34d399;
+  background: rgba(16,185,129,0.1); border-left: 3px solid var(--c-emerald-bright);
 }
-.mcc-cf-surplus-neg { background: rgba(255,0,61,0.08); border-left-color: #ff7a9d; }
-.mcc-cf-surplus-main { color: #e8f8f1; font-size: 0.8rem; display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
-.mcc-cf-surplus-main strong { color: #34d399; font-size: 1.0rem; }
-.mcc-cf-surplus-neg .mcc-cf-surplus-main { color: #ffe2ea; }
-.mcc-cf-surplus-neg .mcc-cf-surplus-main strong { color: #ff7a9d; }
+.mcc-cf-surplus-neg { background: rgba(255,0,61,0.08); border-left-color: var(--c-danger-soft); }
+.mcc-cf-surplus-main { color: var(--c-tint-emerald); font-size: 0.8rem; display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.mcc-cf-surplus-main strong { color: var(--c-emerald-bright); font-size: 1.0rem; }
+.mcc-cf-surplus-neg .mcc-cf-surplus-main { color: var(--c-tint-danger); }
+.mcc-cf-surplus-neg .mcc-cf-surplus-main strong { color: var(--c-danger-soft); }
 .mcc-cf-waterfall { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.mcc-wf { font-size: 0.66rem; color: #cbd5e1; padding: 2px 8px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.1); }
-.mcc-wf-buffer { border-color: rgba(56,189,248,0.5); color: #bae6fd; }
-.mcc-wf-core { border-color: rgba(129,140,248,0.5); color: #c7d2fe; }
-.mcc-wf-sat { border-color: rgba(251,191,36,0.5); color: #fde68a; }
-.mcc-cf-dest { color: #94a3b8; font-size: 0.72rem; margin-top: 6px; }
+.mcc-wf { font-size: 0.66rem; color: var(--c-text-bright); padding: 2px 8px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.1); }
+.mcc-wf-buffer { border-color: rgba(56,189,248,0.5); color: var(--c-cyan-pale); }
+.mcc-wf-core { border-color: rgba(129,140,248,0.5); color: var(--c-indigo-pale); }
+.mcc-wf-sat { border-color: rgba(251,191,36,0.5); color: var(--c-amber-pale); }
+.mcc-cf-dest { color: var(--c-text-dim); font-size: 0.72rem; margin-top: 6px; }
 .mcc-cf-apply {
-  background: rgba(16,185,129,0.16); border: 1px solid rgba(52,211,153,0.45); color: #a7f3d0;
+  background: rgba(16,185,129,0.16); border: 1px solid rgba(52,211,153,0.45); color: var(--c-emerald-pale);
   padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 0.76rem; font-weight: 700; width: 100%;
 }
 .mcc-cf-apply:hover { background: rgba(16,185,129,0.26); }
 .mcc-cf-spark { margin-top: 12px; }
 .mcc-cf-spark svg { display: block; }
-.mcc-spark-pos { fill: #34d399; }
-.mcc-spark-neg { fill: #ff7a9d; }
+.mcc-spark-pos { fill: var(--c-emerald-bright); }
+.mcc-spark-neg { fill: var(--c-danger-soft); }
 .mcc-spark-axis { stroke: rgba(255,255,255,0.12); stroke-width: 1; }
 .mcc-cf-cats { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
-.mcc-cf-cat { color: #94a3b8; font-size: 0.64rem; padding: 2px 7px; border-radius: 5px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); }
-.mcc-cf-note { color: #fbbf24; font-size: 0.68rem; margin-top: 10px; }
-.mcc-cf-fresh { color: #5b6478; font-size: 0.64rem; margin-top: 8px; }
-.mcc-cf-fresh.stale { color: #fbbf24; }
+.mcc-cf-cat { color: var(--c-text-dim); font-size: 0.64rem; padding: 2px 7px; border-radius: 5px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); }
+.mcc-cf-note { color: var(--c-amber); font-size: 0.68rem; margin-top: 10px; }
+.mcc-cf-fresh { color: var(--c-text-mute); font-size: 0.64rem; margin-top: 8px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.mcc-cf-fresh.stale .mcc-cf-fresh-txt { color: var(--c-amber); }
+.mcc-cf-refresh { flex-shrink: 0; background: rgba(56,189,248,0.14); border: 1px solid rgba(56,189,248,0.38); color: var(--c-cyan-pale); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 0.66rem; font-weight: 700; }
+.mcc-cf-refresh:hover { background: rgba(56,189,248,0.24); }
+.mcc-cf-refresh:disabled { opacity: 0.6; cursor: default; }
 
 /* --- データ基盤Phase1: 定点アンカー（現在現金の自動算出） --- */
 .mcc-anchor {
   margin: 12px 0; padding: 10px 12px; border-radius: 8px;
-  background: rgba(56,189,248,0.08); border-left: 3px solid #38bdf8;
+  background: rgba(56,189,248,0.08); border-left: 3px solid var(--c-cyan);
 }
-.mcc-anchor-main { color: #e0f2fe; font-size: 0.82rem; display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
-.mcc-anchor-main strong { color: #7dd3fc; font-size: 1.0rem; }
-.mcc-anchor-sub { color: #94a3b8; font-size: 0.66rem; line-height: 1.5; margin-top: 6px; }
-.mcc-anchor-edit { margin-top: 8px; background: rgba(56,189,248,0.16); border: 1px solid rgba(56,189,248,0.4); color: #bae6fd; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 0.68rem; font-weight: 700; }
+.mcc-anchor-main { color: var(--c-cyan-tint); font-size: 0.82rem; display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.mcc-anchor-main strong { color: var(--c-cyan-bright); font-size: 1.0rem; }
+.mcc-anchor-sub { color: var(--c-text-dim); font-size: 0.66rem; line-height: 1.5; margin-top: 6px; }
+.mcc-anchor-edit { margin-top: 8px; background: rgba(56,189,248,0.16); border: 1px solid rgba(56,189,248,0.4); color: var(--c-cyan-pale); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 0.68rem; font-weight: 700; }
 .mcc-anchor-edit:hover { background: rgba(56,189,248,0.26); }
-.mcc-anchor-setup { border-left-color: #64748b; background: rgba(255,255,255,0.03); }
-.mcc-anchor-cta { color: #94a3b8; font-size: 0.74rem; line-height: 1.6; }
+.mcc-anchor-setup { border-left-color: var(--c-slate); background: rgba(255,255,255,0.03); }
+.mcc-anchor-cta { color: var(--c-text-dim); font-size: 0.74rem; line-height: 1.6; }
 .mcc-anchor-form { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; }
-.mcc-anchor-form input[type="date"] { color-scheme: dark; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.12); color: #e2e8f0; padding: 5px 8px; border-radius: 6px; font-size: 0.72rem; }
-.mcc-anchor-form input[type="number"] { width: 150px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.12); color: #e2e8f0; padding: 5px 8px; border-radius: 6px; font-size: 0.72rem; }
-.mcc-anchor-set { background: rgba(56,189,248,0.18); border: 1px solid rgba(56,189,248,0.45); color: #bae6fd; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.72rem; font-weight: 700; }
+.mcc-anchor-form input[type="month"] { color-scheme: dark; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.12); color: var(--c-text); padding: 5px 8px; border-radius: 6px; font-size: 0.72rem; }
+.mcc-anchor-form input[type="number"] { width: 150px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.12); color: var(--c-text); padding: 5px 8px; border-radius: 6px; font-size: 0.72rem; }
+.mcc-anchor-set { background: rgba(56,189,248,0.18); border: 1px solid rgba(56,189,248,0.45); color: var(--c-cyan-pale); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.72rem; font-weight: 700; }
 .mcc-anchor-set:hover { background: rgba(56,189,248,0.3); }
 @media (max-width: 640px) { .mcc-cf-stats { grid-template-columns: repeat(2, 1fr); } }
+
+/* --- Slice4.5: 確保枠(reserves・目的別の取り置き)。amber アクセント＝取り置き/保護 --- */
+.mcc-wf-reserve { border-color: rgba(251,191,36,0.55); color: var(--c-amber-pale); }
+.mcc-reserves {
+  margin-top: 18px; padding: 14px 16px; border-radius: 12px;
+  background: rgba(20,16,8,0.45); border: 1px solid rgba(251,191,36,0.2);
+}
+.mcc-rsv-empty { color: var(--c-text-dim); font-size: 0.78rem; line-height: 1.6; padding: 4px 0 12px; }
+.mcc-rsv-empty strong { color: var(--c-amber-bright); }
+.mcc-rsv {
+  background: rgba(15,20,34,0.5); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px; padding: 12px 14px; margin-bottom: 10px;
+}
+.mcc-rsv.short { border-color: rgba(251,191,36,0.45); }
+.mcc-rsv.done { border-color: rgba(16,185,129,0.4); }
+.mcc-rsv-head { display: flex; align-items: center; gap: 8px; }
+.mcc-rsv-label { color: var(--c-text); font-size: 0.86rem; font-weight: 600; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mcc-rsv-badge { color: var(--c-emerald-soft); font-size: 0.7rem; font-weight: 700; border: 1px solid rgba(16,185,129,0.45); border-radius: 5px; padding: 1px 6px; }
+.mcc-rsv-del { background: none; border: none; color: var(--c-slate); cursor: pointer; font-size: 1.1rem; line-height: 1; padding: 0 4px; }
+.mcc-rsv-del:hover { color: var(--c-danger-soft); }
+.mcc-rsv-bar { height: 10px; background: rgba(255,255,255,0.06); border-radius: 6px; overflow: hidden; margin: 9px 0; }
+.mcc-rsv-fill { height: 100%; background: linear-gradient(90deg, var(--c-amber-deeper), var(--c-amber-deep), var(--c-amber-bright)); transition: width 0.4s ease; }
+.mcc-rsv-fill.done { background: linear-gradient(90deg, var(--c-emerald), var(--c-emerald-soft)); }
+.mcc-rsv-stat { color: var(--c-text-dim); font-size: 0.74rem; }
+.mcc-rsv-dl { color: var(--c-amber); margin-left: 6px; }
+.mcc-rsv-sub { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.mcc-rsv-monthly { font-size: 0.68rem; color: var(--c-amber-pale); padding: 2px 8px; border-radius: 5px; border: 1px solid rgba(251,191,36,0.4); }
+.mcc-rsv-monthly.short { color: var(--c-danger-soft); border-color: rgba(255,122,157,0.5); }
+.mcc-rsv-monthly.done { color: var(--c-emerald-soft); border-color: rgba(16,185,129,0.45); }
+.mcc-rsv-monthly.muted { color: var(--c-text-dim); border-color: rgba(255,255,255,0.12); }
+.mcc-rsv-alloc { font-size: 0.68rem; color: var(--c-emerald-bright); padding: 2px 8px; border-radius: 5px; border: 1px solid rgba(52,211,153,0.45); }
+.mcc-rsv-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+.mcc-rsv-fund {
+  background: rgba(251,191,36,0.14); border: 1px solid rgba(251,191,36,0.4); color: var(--c-amber-pale);
+  padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.7rem; font-weight: 700;
+}
+.mcc-rsv-fund:hover { background: rgba(251,191,36,0.24); }
+.mcc-rsv-editbox { color: var(--c-text-bright); }
+.mcc-rsv-editbox summary { cursor: pointer; font-size: 0.7rem; color: var(--c-text-dim); letter-spacing: 0.5px; }
+.mcc-rsv-editbox .mcc-field input[type="date"] { color-scheme: dark; }
+.mcc-rsv-summary { color: var(--c-text-bright); font-size: 0.74rem; margin: 6px 0 12px; padding: 8px 10px; border-radius: 7px; background: rgba(251,191,36,0.06); border: 1px solid rgba(251,191,36,0.18); }
+.mcc-rsv-add { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 4px; }
+.mcc-rsv-add input {
+  background: rgba(0,0,0,0.3); border: 1px solid rgba(251,191,36,0.3); color: #fff;
+  border-radius: 6px; padding: 7px 9px; font-size: 0.82rem;
+}
+#mcc-rsv-label { flex: 1 1 160px; min-width: 120px; }
+#mcc-rsv-target { width: 120px; }
+#mcc-rsv-deadline { width: 150px; color-scheme: dark; }
+.mcc-rsv-addbtn {
+  background: rgba(251,191,36,0.16); border: 1px solid rgba(251,191,36,0.4); color: var(--c-amber-pale);
+  padding: 7px 12px; border-radius: 6px; cursor: pointer; font-size: 0.74rem; font-weight: 700; white-space: nowrap;
+}
+.mcc-rsv-addbtn:hover { background: rgba(251,191,36,0.28); }
+
+
+/* ============================================================================
+   ③ Phase 3b 採用 = テーマ D「ネオン・ターミナル」。<html data-theme="D"> を既定付与し
+   #money-view に適用（money.js applyTheme が既定で D を設定）。比較用 A/B/C は採用決定により削除。
+   次工程: この設計言語を index.html 本体へ展開（トークン移行・不透明カードのガラス化・Webフォント）。
+   ============================================================================ */
+
+/* =====================================================================
+   THEME D — "NEON TERMINAL"  (#money-view 専用リスキン)
+   Bloomberg/金融ターミナル風: 漆黒+微細グリッド、ネオンの縁と文字、
+   等幅数値(tabular-nums)、矩形的(2-4px)、発光は縁/文字に集中。
+   全セレクタは :root[data-theme="D"] か [data-theme="D"] #money-view 始まり。
+   ===================================================================== */
+
+/* ---------- 0. トークン上書き（まず色の土台をネオン端末へ） ---------- */
+:root[data-theme="D"] {
+  /* mono スタック（このテーマ専用の補助変数） */
+  --mcc-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  /* indigo＝主役/バッファ/規律 → エレクトリック・インディゴ */
+  --c-indigo: #4d5dff; --c-indigo-bright: #8aa0ff; --c-indigo-soft: #aebcff; --c-indigo-pale: #d2dbff;
+  /* violet＝強調 → ネオンマゼンタ */
+  --c-violet: #f570ff; --c-blue: #38bdf8;
+  /* emerald＝ポジ/コア → 蛍光グリーン(フォスファー) */
+  --c-emerald: #00e676; --c-emerald-bright: #39ff8b; --c-emerald-soft: #79ffae; --c-emerald-pale: #b6ffd2;
+  /* amber＝確保枠/取り置き → クラシック・アンバー端末色 */
+  --c-amber: #ffb300; --c-amber-bright: #ffca3a; --c-amber-pale: #ffe49a; --c-amber-deep: #ff9e00; --c-amber-deeper: #cc7600;
+  /* cyan＝基準(アンカー)/データ → エレクトリック・シアン */
+  --c-cyan: #00e5ff; --c-cyan-bright: #62f0ff; --c-cyan-pale: #a8f7ff; --c-cyan-tint: #d6fbff;
+  /* テキスト: わずかに寒色寄りの端末グレー */
+  --c-text: #d4e2ea; --c-text-bright: #ecf4f8; --c-text-dim: #8ba2af; --c-text-faint: #6e8492; --c-text-mute: #54636f;
+  --c-slate: #6b7d8a; --c-gray: #5d6b76; --c-surface-solid: #04070c;
+  /* danger＝警告/超過/赤字 → ホットレッド & マゼンタピンク */
+  --c-danger: #ff1744; --c-danger-soft: #ff5c8a;
+  /* tints（淡色テキスト）: 近白のままネオン寄りに */
+  --c-tint-emerald: #d6ffe9; --c-tint-indigo: #e2e8ff; --c-tint-danger: #ffd9e3; --c-tint-cyan: #d6fbff;
+}
+
+/* ---------- 1. ビュー背景（漆黒＋微細グリッド＋縁グロー）＋ 等幅基盤 ---------- */
+[data-theme="D"] #money-view {
+  background-color: #03060b;
+  background-image:
+    radial-gradient(125% 80% at 50% -12%, rgba(0,229,255,0.10), transparent 60%),
+    radial-gradient(90% 60% at 100% 102%, rgba(0,230,118,0.06), transparent 55%),
+    linear-gradient(rgba(120,205,225,0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(120,205,225,0.035) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px;
+  background-attachment: local;
+  color: var(--c-text);
+  font-family: var(--mcc-mono);          /* 日本語は自動でフォールバック→ラテン/数値のみ等幅 */
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.2px;
+}
+
+/* ---------- 2. トップバー / タイトル ---------- */
+[data-theme="D"] #money-view .mcc-title {
+  font-family: var(--mcc-mono); letter-spacing: 3px; font-weight: 700;
+  background: linear-gradient(90deg, var(--c-cyan), var(--c-emerald-bright), var(--c-violet));
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 6px rgba(0,229,255,0.45));
+}
+[data-theme="D"] #money-view .mcc-title::before { content: "▮ "; -webkit-text-fill-color: var(--c-cyan); color: var(--c-cyan); }
+[data-theme="D"] #money-view .mcc-nav-btn {
+  background: rgba(77,93,255,0.06); border: 1px solid rgba(138,160,255,0.5); color: var(--c-indigo-pale);
+  border-radius: 3px; font-family: var(--mcc-mono); letter-spacing: 1px;
+  transition: box-shadow .15s, background .15s;
+}
+[data-theme="D"] #money-view .mcc-nav-btn:hover { background: rgba(77,93,255,0.16); box-shadow: 0 0 14px rgba(138,160,255,0.4); }
+
+/* ---------- 3. クラウド同期バー ---------- */
+[data-theme="D"] #money-view .mcc-sync {
+  background: rgba(5,9,15,0.72); border: 1px solid rgba(0,229,255,0.3); border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgba(0,229,255,0.05), 0 0 16px rgba(0,229,255,0.06);
+  backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+}
+[data-theme="D"] #money-view .mcc-sync-on {
+  border-color: rgba(0,230,118,0.5);
+  box-shadow: inset 0 0 0 1px rgba(0,230,118,0.08), 0 0 18px rgba(0,230,118,0.12);
+}
+[data-theme="D"] #money-view .mcc-sync-status { color: var(--c-cyan-pale); letter-spacing: 0.5px; text-shadow: 0 0 8px rgba(0,229,255,0.3); }
+[data-theme="D"] #money-view .mcc-sync-on .mcc-sync-status { color: var(--c-emerald-pale); text-shadow: 0 0 8px rgba(0,230,118,0.3); }
+
+/* ---------- 4. ガイド / 用語集 ---------- */
+[data-theme="D"] #money-view .mcc-guide {
+  background: rgba(5,9,15,0.6); border: 1px dashed rgba(138,160,255,0.4); border-radius: 3px;
+}
+[data-theme="D"] #money-view .mcc-guide > summary { color: var(--c-indigo-pale); font-family: var(--mcc-mono); letter-spacing: 1px; }
+[data-theme="D"] #money-view .mcc-guide > summary::before { content: "▸ "; color: var(--c-cyan-bright); }
+[data-theme="D"] #money-view .mcc-guide[open] > summary::before { content: "▾ "; }
+[data-theme="D"] #money-view .mcc-guide-body { border-top-color: rgba(0,229,255,0.18); }
+[data-theme="D"] #money-view .mcc-guide-rule {
+  background: rgba(0,0,0,0.4); border-left: 3px solid var(--c-cyan); border-radius: 2px; color: var(--c-cyan-pale);
+}
+[data-theme="D"] #money-view .mcc-guide-rule b { color: var(--c-violet); }
+[data-theme="D"] #money-view .mcc-glo-item {
+  background: rgba(0,229,255,0.035); border: 1px solid rgba(0,229,255,0.1); border-radius: 2px;
+}
+[data-theme="D"] #money-view .mcc-glo-term { color: var(--c-cyan-bright); font-family: var(--mcc-mono); }
+[data-theme="D"] #money-view .mcc-glo-title { color: var(--c-cyan); font-family: var(--mcc-mono); letter-spacing: 2px; }
+[data-theme="D"] #money-view .mcc-guide-privacy { border-top-color: rgba(0,229,255,0.12); }
+[data-theme="D"] #money-view .mcc-onboard {
+  background: rgba(5,9,15,0.6); border: 1px dashed rgba(138,160,255,0.5); border-radius: 3px; color: var(--c-indigo-pale);
+}
+
+/* ---------- 5. ステッパー ---------- */
+[data-theme="D"] #money-view .mcc-stepper {
+  background: rgba(5,9,15,0.72); border: 1px solid rgba(138,160,255,0.32); border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgba(138,160,255,0.05), 0 0 16px rgba(77,93,255,0.08);
+}
+[data-theme="D"] #money-view .mcc-step-dot { border-radius: 2px; font-family: var(--mcc-mono); }
+[data-theme="D"] #money-view .mcc-step-label { font-family: var(--mcc-mono); letter-spacing: 0.5px; }
+[data-theme="D"] #money-view .mcc-step-sep { background: rgba(0,229,255,0.25); }
+[data-theme="D"] #money-view .mcc-step-done .mcc-step-dot { background: rgba(0,230,118,0.16); border-color: var(--c-emerald-bright); color: var(--c-emerald-soft); box-shadow: 0 0 10px rgba(0,230,118,0.35); }
+[data-theme="D"] #money-view .mcc-step-current .mcc-step-dot { background: rgba(0,229,255,0.16); border-color: var(--c-cyan); color: var(--c-cyan-bright); box-shadow: 0 0 14px rgba(0,229,255,0.5); }
+[data-theme="D"] #money-view .mcc-step-current .mcc-step-label { color: var(--c-cyan-pale); }
+[data-theme="D"] #money-view .mcc-stepper-next { background: rgba(0,0,0,0.4); border: 1px solid rgba(0,229,255,0.16); border-radius: 2px; color: var(--c-cyan-pale); }
+
+/* ---------- 6. ゲージ（バッファ＝indigo主役） ---------- */
+[data-theme="D"] #money-view .mcc-gauge-card {
+  background: rgba(5,9,15,0.72); border: 1px solid rgba(138,160,255,0.34); border-radius: 3px;
+  box-shadow: inset 0 0 26px rgba(77,93,255,0.08), 0 0 18px rgba(77,93,255,0.1);
+  backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+}
+[data-theme="D"] #money-view .mcc-gauge-label { color: var(--c-text-dim); font-family: var(--mcc-mono); letter-spacing: 1px; }
+[data-theme="D"] #money-view .mcc-gauge-fill {
+  background: linear-gradient(90deg, var(--c-indigo), var(--c-cyan), var(--c-emerald-bright));
+  box-shadow: 0 0 12px rgba(0,229,255,0.5);
+}
+[data-theme="D"] #money-view .mcc-gauge-stat { font-family: var(--mcc-mono); }
+[data-theme="D"] #money-view .mcc-gauge-stat strong { color: var(--c-violet); text-shadow: 0 0 10px rgba(245,112,255,0.5); }
+
+/* ---------- 7. バナー（意味色＝左バー＋ネオン縁） ---------- */
+[data-theme="D"] #money-view .mcc-banner {
+  background: rgba(4,8,13,0.7); border-radius: 3px; border-left-width: 3px; font-family: var(--mcc-mono); letter-spacing: 0.3px;
+  backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
+}
+[data-theme="D"] #money-view .mcc-banner-buffer  { border-color: rgba(138,160,255,0.55); box-shadow: inset 0 0 0 1px rgba(138,160,255,0.08), 0 0 16px rgba(77,93,255,0.1); }
+[data-theme="D"] #money-view .mcc-banner-core    { border-color: rgba(0,230,118,0.55);  box-shadow: inset 0 0 0 1px rgba(0,230,118,0.08), 0 0 16px rgba(0,230,118,0.12); color: var(--c-emerald-pale); }
+[data-theme="D"] #money-view .mcc-banner-rebalance { border-color: rgba(255,92,138,0.6); box-shadow: inset 0 0 0 1px rgba(255,23,68,0.1), 0 0 18px rgba(255,23,68,0.16); color: var(--c-danger-soft); }
+[data-theme="D"] #money-view .mcc-banner-setup   { border-color: rgba(107,125,138,0.5); box-shadow: inset 0 0 0 1px rgba(107,125,138,0.08); }
+[data-theme="D"] #money-view .mcc-banner-icon { color: var(--c-cyan-bright); }
+[data-theme="D"] #money-view .mcc-banner-core .mcc-banner-icon { color: var(--c-emerald-bright); }
+[data-theme="D"] #money-view .mcc-save-warn { background: rgba(4,8,13,0.7); border: 1px solid rgba(255,92,138,0.55); border-radius: 3px; box-shadow: 0 0 16px rgba(255,23,68,0.14); font-family: var(--mcc-mono); }
+
+/* ---------- 8. 収支カード / アンカー（基準＝cyan） ---------- */
+[data-theme="D"] #money-view .mcc-cashflow {
+  background: rgba(5,9,15,0.72); border: 1px solid rgba(0,229,255,0.32); border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgba(0,229,255,0.05), 0 0 18px rgba(0,229,255,0.08);
+  backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+}
+[data-theme="D"] #money-view .mcc-cf-period { font-family: var(--mcc-mono); color: var(--c-cyan-pale); letter-spacing: 0.5px; }
+[data-theme="D"] #money-view .mcc-cf-stat span { font-family: var(--mcc-mono); letter-spacing: 0.5px; }
+[data-theme="D"] #money-view .mcc-cf-stat strong { font-family: var(--mcc-mono); }
+[data-theme="D"] #money-view .mcc-cf-stat strong.pos { text-shadow: 0 0 10px rgba(57,255,139,0.45); }
+[data-theme="D"] #money-view .mcc-cf-stat strong.neg { text-shadow: 0 0 10px rgba(255,23,68,0.45); }
+[data-theme="D"] #money-view .mcc-cf-surplus {
+  background: rgba(0,230,118,0.08); border-left: 3px solid var(--c-emerald-bright); border-radius: 2px;
+  box-shadow: inset 0 0 18px rgba(0,230,118,0.06);
+}
+[data-theme="D"] #money-view .mcc-cf-surplus-neg { background: rgba(255,23,68,0.07); border-left-color: var(--c-danger-soft); box-shadow: inset 0 0 18px rgba(255,23,68,0.06); }
+[data-theme="D"] #money-view .mcc-cf-surplus-main { font-family: var(--mcc-mono); }
+[data-theme="D"] #money-view .mcc-cf-surplus-main strong { text-shadow: 0 0 12px rgba(57,255,139,0.5); }
+[data-theme="D"] #money-view .mcc-cf-surplus-neg .mcc-cf-surplus-main strong { text-shadow: 0 0 12px rgba(255,23,68,0.5); }
+/* ウォーターフォール chip = ネオン枠（意味色維持） */
+[data-theme="D"] #money-view .mcc-wf { font-family: var(--mcc-mono); border-radius: 2px; background: rgba(0,0,0,0.35); }
+[data-theme="D"] #money-view .mcc-wf-buffer  { border-color: rgba(0,229,255,0.55); color: var(--c-cyan-pale); box-shadow: 0 0 8px rgba(0,229,255,0.18); }
+[data-theme="D"] #money-view .mcc-wf-core    { border-color: rgba(138,160,255,0.55); color: var(--c-indigo-pale); box-shadow: 0 0 8px rgba(138,160,255,0.18); }
+[data-theme="D"] #money-view .mcc-wf-sat,
+[data-theme="D"] #money-view .mcc-wf-reserve { border-color: rgba(255,179,0,0.6); color: var(--c-amber-pale); box-shadow: 0 0 8px rgba(255,179,0,0.18); }
+[data-theme="D"] #money-view .mcc-cf-cat { background: rgba(0,229,255,0.05); border: 1px solid rgba(0,229,255,0.12); border-radius: 2px; font-family: var(--mcc-mono); }
+[data-theme="D"] #money-view .mcc-cf-note { font-family: var(--mcc-mono); }
+[data-theme="D"] #money-view .mcc-spark-axis { stroke: rgba(0,229,255,0.18); }
+[data-theme="D"] #money-view .mcc-spark-pos { fill: var(--c-emerald-bright); filter: drop-shadow(0 0 3px rgba(57,255,139,0.4)); }
+[data-theme="D"] #money-view .mcc-spark-neg { fill: var(--c-danger-soft); filter: drop-shadow(0 0 3px rgba(255,23,68,0.4)); }
+[data-theme="D"] #money-view .mcc-cf-fresh { font-family: var(--mcc-mono); }
+/* アンカー（基準＝cyan） */
+[data-theme="D"] #money-view .mcc-anchor {
+  background: rgba(0,229,255,0.06); border-left: 3px solid var(--c-cyan); border-radius: 2px;
+  box-shadow: inset 0 0 16px rgba(0,229,255,0.05);
+}
+[data-theme="D"] #money-view .mcc-anchor-main { font-family: var(--mcc-mono); color: var(--c-cyan-tint); }
+[data-theme="D"] #money-view .mcc-anchor-main strong { color: var(--c-cyan-bright); text-shadow: 0 0 12px rgba(0,229,255,0.55); }
+[data-theme="D"] #money-view .mcc-anchor-setup { border-left-color: var(--c-slate); background: rgba(255,255,255,0.025); }
+
+/* ---------- 9. 確保枠 reserves（amber＝取り置き） ---------- */
+[data-theme="D"] #money-view .mcc-reserves {
+  background: rgba(12,9,4,0.72); border: 1px solid rgba(255,179,0,0.34); border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgba(255,179,0,0.05), 0 0 18px rgba(255,179,0,0.08);
+  backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+}
+[data-theme="D"] #money-view .mcc-rsv {
+  background: rgba(5,9,15,0.55); border: 1px solid rgba(255,179,0,0.18); border-radius: 3px; transition: border-color .15s, box-shadow .15s;
+}
+[data-theme="D"] #money-view .mcc-rsv:hover { border-color: rgba(255,179,0,0.4); box-shadow: 0 0 14px rgba(255,179,0,0.12); }
+[data-theme="D"] #money-view .mcc-rsv.short { border-color: rgba(255,179,0,0.5); box-shadow: 0 0 14px rgba(255,179,0,0.14); }
+[data-theme="D"] #money-view .mcc-rsv.done  { border-color: rgba(0,230,118,0.5); box-shadow: 0 0 14px rgba(0,230,118,0.12); }
+[data-theme="D"] #money-view .mcc-rsv-label { font-family: var(--mcc-mono); }
+[data-theme="D"] #money-view .mcc-rsv-stat { font-family: var(--mcc-mono); }
+[data-theme="D"] #money-view .mcc-rsv-fill { background: linear-gradient(90deg, var(--c-amber-deeper), var(--c-amber-deep), var(--c-amber-bright)); box-shadow: 0 0 10px rgba(255,179,0,0.45); }
+[data-theme="D"] #money-view .mcc-rsv-fill.done { background: linear-gradient(90deg, var(--c-emerald), var(--c-emerald-soft)); box-shadow: 0 0 10px rgba(0,230,118,0.45); }
+[data-theme="D"] #money-view .mcc-rsv-badge { color: var(--c-emerald-soft); border-color: rgba(0,230,118,0.5); font-family: var(--mcc-mono); }
+[data-theme="D"] #money-view .mcc-rsv-monthly { font-family: var(--mcc-mono); border-radius: 2px; background: rgba(0,0,0,0.3); }
+[data-theme="D"] #money-view .mcc-rsv-alloc   { font-family: var(--mcc-mono); border-radius: 2px; background: rgba(0,0,0,0.3); box-shadow: 0 0 8px rgba(0,230,118,0.15); }
+[data-theme="D"] #money-view .mcc-rsv-summary { background: rgba(255,179,0,0.05); border: 1px solid rgba(255,179,0,0.2); border-radius: 2px; font-family: var(--mcc-mono); }
+
+/* ---------- 10. AI規律コーチ（indigo＝規律・決定論を最上位に） ---------- */
+[data-theme="D"] #money-view .mcc-advice {
+  background: rgba(5,9,15,0.72); border: 1px solid rgba(138,160,255,0.32); border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgba(138,160,255,0.05), 0 0 18px rgba(77,93,255,0.08);
+  backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+}
+[data-theme="D"] #money-view .mcc-advice-rulehead { color: var(--c-cyan); font-family: var(--mcc-mono); letter-spacing: 1px; }
+[data-theme="D"] #money-view .mcc-advice-rule {
+  background: rgba(77,93,255,0.12); border-left: 3px solid var(--c-indigo-bright); border-radius: 2px; color: var(--c-tint-indigo);
+  box-shadow: inset 0 0 16px rgba(77,93,255,0.08);
+}
+[data-theme="D"] #money-view .mcc-advice-rule-icon { color: var(--c-cyan-bright); }
+[data-theme="D"] #money-view .mcc-advice-ai { background: rgba(0,0,0,0.4); border: 1px solid rgba(0,229,255,0.1); border-radius: 2px; }
+[data-theme="D"] #money-view .mcc-advice-mode { color: var(--c-amber); border-color: rgba(255,179,0,0.5); border-radius: 2px; font-family: var(--mcc-mono); }
+[data-theme="D"] #money-view .mcc-advice-disclaimer { color: var(--c-text-mute); border-top-color: rgba(0,229,255,0.1); }
+
+/* ---------- 11. バケツ3枚 ---------- */
+[data-theme="D"] #money-view .mcc-bucket {
+  background: rgba(5,9,15,0.6); border: 1px solid rgba(0,229,255,0.14); border-radius: 3px; transition: border-color .15s, box-shadow .15s;
+}
+[data-theme="D"] #money-view .mcc-bucket:hover { border-color: rgba(0,229,255,0.34); box-shadow: 0 0 14px rgba(0,229,255,0.1); }
+[data-theme="D"] #money-view .mcc-bucket-over { border-color: rgba(255,92,138,0.6); box-shadow: 0 0 18px rgba(255,23,68,0.18); }
+[data-theme="D"] #money-view .mcc-bucket-name { color: var(--c-cyan-pale); font-family: var(--mcc-mono); letter-spacing: 1px; }
+[data-theme="D"] #money-view .mcc-sat-fill { background: var(--c-indigo-bright); box-shadow: 0 0 10px rgba(138,160,255,0.45); }
+[data-theme="D"] #money-view .mcc-sat-fill.over { background: var(--c-danger); box-shadow: 0 0 12px rgba(255,23,68,0.55); }
+[data-theme="D"] #money-view .mcc-sat-cap { font-family: var(--mcc-mono); }
+[data-theme="D"] #money-view .mcc-sat-warn { color: var(--c-danger-soft); font-family: var(--mcc-mono); text-shadow: 0 0 8px rgba(255,23,68,0.4); }
+
+/* ---------- 12. 資産目標 goals ---------- */
+[data-theme="D"] #money-view .mcc-goal {
+  background: rgba(5,9,15,0.55); border: 1px solid rgba(138,160,255,0.18); border-radius: 3px; transition: border-color .15s, box-shadow .15s;
+}
+[data-theme="D"] #money-view .mcc-goal:hover { border-color: rgba(138,160,255,0.4); box-shadow: 0 0 14px rgba(77,93,255,0.12); }
+[data-theme="D"] #money-view .mcc-goal-label { font-family: var(--mcc-mono); }
+[data-theme="D"] #money-view .mcc-goal-stat { font-family: var(--mcc-mono); }
+[data-theme="D"] #money-view .mcc-goal-fill { background: linear-gradient(90deg, var(--c-indigo), var(--c-indigo-bright), var(--c-violet)); box-shadow: 0 0 10px rgba(138,160,255,0.45); }
+[data-theme="D"] #money-view .mcc-goal-fill.done { background: linear-gradient(90deg, var(--c-emerald), var(--c-emerald-soft)); box-shadow: 0 0 10px rgba(0,230,118,0.45); }
+[data-theme="D"] #money-view .mcc-goal-done { color: var(--c-emerald-soft); border-color: rgba(0,230,118,0.5); border-radius: 2px; font-family: var(--mcc-mono); }
+
+/* ---------- 13. 設定 / ツール ---------- */
+[data-theme="D"] #money-view .mcc-settings summary { font-family: var(--mcc-mono); letter-spacing: 1px; color: var(--c-cyan-pale); cursor: pointer; }
+[data-theme="D"] #money-view .mcc-tool-btn {
+  background: rgba(0,229,255,0.04); border: 1px solid rgba(0,229,255,0.3); color: var(--c-cyan-pale);
+  border-radius: 3px; font-family: var(--mcc-mono); letter-spacing: 0.5px; transition: box-shadow .15s, background .15s;
+}
+[data-theme="D"] #money-view .mcc-tool-btn:hover { background: rgba(0,229,255,0.12); box-shadow: 0 0 14px rgba(0,229,255,0.25); }
+
+/* ---------- 14. 全バー(トラック)＋ 入力欄（黒地・ネオン細枠・等幅・focusグロー） ---------- */
+[data-theme="D"] #money-view .mcc-gauge-bar,
+[data-theme="D"] #money-view .mcc-sat-bar,
+[data-theme="D"] #money-view .mcc-goal-bar,
+[data-theme="D"] #money-view .mcc-rsv-bar {
+  background: #02050a; border: 1px solid rgba(0,229,255,0.12); border-radius: 2px;
+}
+[data-theme="D"] #money-view .mcc-field input,
+[data-theme="D"] #money-view .mcc-sync-form input,
+[data-theme="D"] #money-view .mcc-goal-add input,
+[data-theme="D"] #money-view .mcc-rsv-add input,
+[data-theme="D"] #money-view .mcc-anchor-form input[type="month"],
+[data-theme="D"] #money-view .mcc-anchor-form input[type="number"] {
+  background: #02050a; border: 1px solid rgba(0,229,255,0.3); color: var(--c-cyan-pale);
+  border-radius: 2px; font-family: var(--mcc-mono); font-variant-numeric: tabular-nums; letter-spacing: 0.3px;
+  transition: border-color .15s, box-shadow .15s;
+}
+[data-theme="D"] #money-view .mcc-field input:focus,
+[data-theme="D"] #money-view .mcc-sync-form input:focus,
+[data-theme="D"] #money-view .mcc-goal-add input:focus,
+[data-theme="D"] #money-view .mcc-rsv-add input:focus,
+[data-theme="D"] #money-view .mcc-anchor-form input:focus {
+  border-color: var(--c-cyan); outline: none;
+  box-shadow: 0 0 0 1px rgba(0,229,255,0.35), 0 0 14px rgba(0,229,255,0.3);
+}
+
+/* ---------- 15. 見出し / 一行説明 / 用語ヘルプ ---------- */
+[data-theme="D"] #money-view .mcc-section-title {
+  color: var(--c-cyan-bright); font-family: var(--mcc-mono); letter-spacing: 2px;
+  text-shadow: 0 0 8px rgba(0,229,255,0.35);
+}
+[data-theme="D"] #money-view .mcc-section-title::before { content: "> "; color: var(--c-emerald-bright); }
+[data-theme="D"] #money-view .mcc-section-desc { color: var(--c-text-faint); font-family: var(--mcc-mono); letter-spacing: 0.2px; }
+[data-theme="D"] #money-view .mcc-help {
+  border-radius: 2px; background: rgba(0,229,255,0.12); border: 1px solid rgba(0,229,255,0.5);
+  color: var(--c-cyan-bright); font-family: var(--mcc-mono);
+}
+[data-theme="D"] #money-view .mcc-help:hover, [data-theme="D"] #money-view .mcc-help:focus { background: rgba(0,229,255,0.28); box-shadow: 0 0 10px rgba(0,229,255,0.4); }
+[data-theme="D"] #money-view .mcc-help::after {
+  background: #02050a; border: 1px solid rgba(0,229,255,0.5); border-radius: 3px;
+  color: var(--c-cyan-pale); font-family: var(--mcc-mono);
+  box-shadow: 0 0 0 1px rgba(0,229,255,0.15), 0 8px 24px rgba(0,0,0,0.75);
+}
+
+/* ---------- 16. ボタン共通（意味色は維持・ネオン化＋hoverグロー） ---------- */
+[data-theme="D"] #money-view .mcc-sync-btn,
+[data-theme="D"] #money-view .mcc-goal-addbtn,
+[data-theme="D"] #money-view .mcc-advice-btn {
+  background: rgba(77,93,255,0.08); border-color: rgba(138,160,255,0.5); color: var(--c-indigo-pale);
+  border-radius: 3px; font-family: var(--mcc-mono); letter-spacing: 0.5px; transition: box-shadow .15s, background .15s;
+}
+[data-theme="D"] #money-view .mcc-sync-btn:hover,
+[data-theme="D"] #money-view .mcc-goal-addbtn:hover,
+[data-theme="D"] #money-view .mcc-advice-btn:hover { background: rgba(77,93,255,0.2); box-shadow: 0 0 14px rgba(138,160,255,0.4); }
+[data-theme="D"] #money-view .mcc-cf-apply {
+  background: rgba(0,230,118,0.1); border-color: rgba(57,255,139,0.5); color: var(--c-emerald-pale);
+  border-radius: 3px; font-family: var(--mcc-mono); letter-spacing: 0.3px; transition: box-shadow .15s, background .15s;
+}
+[data-theme="D"] #money-view .mcc-cf-apply:hover { background: rgba(0,230,118,0.2); box-shadow: 0 0 16px rgba(0,230,118,0.35); }
+[data-theme="D"] #money-view .mcc-cf-refresh,
+[data-theme="D"] #money-view .mcc-anchor-edit,
+[data-theme="D"] #money-view .mcc-anchor-set {
+  background: rgba(0,229,255,0.08); border-color: rgba(0,229,255,0.45); color: var(--c-cyan-pale);
+  border-radius: 3px; font-family: var(--mcc-mono); letter-spacing: 0.3px; transition: box-shadow .15s, background .15s;
+}
+[data-theme="D"] #money-view .mcc-cf-refresh:hover,
+[data-theme="D"] #money-view .mcc-anchor-edit:hover,
+[data-theme="D"] #money-view .mcc-anchor-set:hover { background: rgba(0,229,255,0.18); box-shadow: 0 0 14px rgba(0,229,255,0.3); }
+[data-theme="D"] #money-view .mcc-rsv-fund,
+[data-theme="D"] #money-view .mcc-rsv-addbtn {
+  background: rgba(255,179,0,0.1); border-color: rgba(255,179,0,0.5); color: var(--c-amber-pale);
+  border-radius: 3px; font-family: var(--mcc-mono); letter-spacing: 0.3px; transition: box-shadow .15s, background .15s;
+}
+[data-theme="D"] #money-view .mcc-rsv-fund:hover,
+[data-theme="D"] #money-view .mcc-rsv-addbtn:hover { background: rgba(255,179,0,0.2); box-shadow: 0 0 14px rgba(255,179,0,0.3); }
+[data-theme="D"] #money-view .mcc-rsv-editbox summary { font-family: var(--mcc-mono); }

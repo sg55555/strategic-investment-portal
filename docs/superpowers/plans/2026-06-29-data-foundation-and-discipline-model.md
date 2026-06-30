@@ -123,4 +123,33 @@
 
 ## 8. 工数
 Phase1=小〜中（純関数1＋migrate＋API additive＋UIカード・中核改修なし・パリティ不変）。Phase2=大（新ETL＋純関数2＋ウォーターフォール＋Mode A新facts のパリティ＋fuzz＋敵対レビューが支配的・着手前に effort band停止）。Phase3=小〜中（Slice5 time価接続）。
+
+---
+
+## 9. 投資取引DB 実体（2026-06-30 書込integ「収支管理ダッシュボード」で作成済）
+
+- **database_id**: `38eda3f0-c01c-8142-b8e3-db02c921916b`
+- **URL**: https://app.notion.com/p/38eda3f0c01c8142b8e3db02c921916b
+- **title**: `投資取引（Investment Transactions）`
+- **親**: ページ「収支一覧」(`e1a29c85-0ce9-4820-a410-f59b9cd7a9a1`, workspace直下)。**MONTHLY等へのリレーションなし**（インライン配置でも式波及なし）。配置は可逆（移動可）。
+- **プロパティ（name → type）**＝ETL の loud-fail REQUIRED に登録する実名:
+  | name | type | 備考 |
+  |---|---|---|
+  | `名前` | title | 任意ラベル |
+  | `日付` | date | 約定日。ETL は**これ**から period 導出（年/月は手動補助で ETL 非依存） |
+  | `種別` | select | options: 購入/売却/配当/期初保有 |
+  | `戦略区分` | select | options: コア/サテライト |
+  | `ティッカー` | select | options 空（UI/運用で追加） |
+  | `数量` | number(number) | 売却は**必須 loud-fail** |
+  | `約定金額` | number(yen) | 動いた円（JPY換算済・OD7） |
+  | `手数料` | number(yen) | 任意 |
+  | `年` | select | 2024-2027 既定・手動補助 |
+  | `月` | rich_text | 手動補助 |
+  | `メモ` | rich_text | 任意 |
+- **式プロパティなし**（会計＝ETL側）。
+- **残る本人前提作業（hard precondition・Phase2 ETL を回す前に必須）**:
+  1. **期初保有行**: 基準日前から保有の各銘柄を 種別=期初保有・約定金額=取得原価・数量・戦略区分 で1行ずつ投入。
+  2. **事前クリーンアップ**: 基準日以降の投資購入が kakeibo 変動費/固定費に混入していたら削除（二重控除回避）。今後の投資は本DBのみに記録。
+  3. **read-only ETL integration への共有**: GitHub Actions の `NOTION_TOKEN`（read-only integ）から本DBを読めるよう、本DB（または親「収支一覧」）に当該 integration を接続。※作成は別の書込 integ（`NOTION_WRITE_TOKEN`）なので read 側は別途共有が要る。
+- **Phase2 ETL 配線時**: `scripts/etl_investment.py` に `INVESTMENT_DB_ID = "38eda3f0c01c8142b8e3db02c921916b"`（ハイフン無しでも可）と上表の REQUIRED プロパティ名を登録。読取は read-only integ トークンで実機検証。
 </content>

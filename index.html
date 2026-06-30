@@ -42,11 +42,87 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 
     <style>
+  /* ③ Phase 2: index.html トークン基盤（視覚不変）。名前空間 --ix-* は money.css の
+     --c-*（[data-theme="D"] で全上書き）と非衝突＝本体は現状色を維持。値は現状の実色＝レンダリング不変。
+     rgba 濃淡は段階移行で当面据置。ローソク足確定色はトークン化対象外（JS 内・不可侵）。
+     次工程(Phase 3)で --ix-* の値を D「ネオン・ターミナル」へ差し替える。 */
+  :root {
+  --ix-bg-void: #02040a;
+  --ix-bg: #03060b;
+  --ix-surface-solid: #04070c;
+  --ix-surface-0: #05080e;
+  --ix-surface-chart: #05080e;
+  --ix-surface-1: #070a11;
+  --ix-surface-2: #080c14;
+  --ix-surface-panel: #0a0f17;
+  --ix-surface-3: #0c121b;
+  --ix-surface-blue: #0e2c3a;
+  --ix-border: #14202b;
+  --ix-border-mid: #2a3a44;
+  --ix-border-strong: #213039;
+  --ix-slate-line: #6e8492;
+  --ix-slate-muted: #7d93a0;
+  --ix-slate-light: #a8bcc6;
+  --ix-slate: #6b7d8a;
+  --ix-text-dim: #8ba2af;
+  --ix-text: #d4e2ea;
+  --ix-text-bright: #c2d2dc;
+  --ix-text-hi: #ecf4f8;
+  --ix-text-max: #f4fafe;
+  --ix-white: #ffffff;
+  --ix-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --ix-indigo: #4d5dff;
+  --ix-indigo-bright: #8aa0ff;
+  --ix-indigo-accent: #5d6dff;
+  --ix-blue: #38bdf8;
+  --ix-blue-bright: #2f9dff;
+  --ix-blue-deep: #1f7fe0;
+  --ix-cyan: #00e5ff;
+  --ix-sky: #00c4e6;
+  --ix-cyan-deep: #00b8d4;
+  --ix-cyan-bright2: #62f0ff;
+  --ix-cyan-light: #a8f7ff;
+  --ix-teal: #00d6b0;
+  --ix-teal-bright: #2fe6c4;
+  --ix-teal-deep: #0ab896;
+  --ix-emerald: #00e676;
+  --ix-emerald-bright: #39ff8b;
+  --ix-green: #2bff77;
+  --ix-green-bright: #5cff9e;
+  --ix-emerald-deep: #00b85e;
+  --ix-amber: #ffca3a;
+  --ix-amber-deep: #ff9e00;
+  --ix-gold: #ffd60a;
+  --ix-amber-deeper2: #cc7600;
+  --ix-yellow: #ffe84a;
+  --ix-red: #ff1744;
+  --ix-red-soft: #ff5c7a;
+  --ix-rose: #ff2d63;
+  --ix-red-deep: #e00033;
+  --ix-red-deeper: #c0002b;
+  --ix-violet: #f570ff;
+  --ix-purple: #cf4dff;
+  --ix-purple-deep: #a020f0;
+  --ix-violet-bright: #b45cff;
+  --ix-pink: #ff4db8;
+  --ix-orange: #ff8a2a;
+  --ix-orange-deep: #ff7a1a;
+  --ix-lime: #9be600;
+  }
+
       body {
-        background: linear-gradient(180deg, #070c16 0%, #0b0f1a 40%, #0e1422 100%);
+        /* ③ Phase 3 D「ネオン・ターミナル」: 漆黒地＋縁グロー＋微細グリッド＋等幅基盤。 */
+        background-color: var(--ix-bg);
+        background-image:
+          radial-gradient(120% 80% at 50% -10%, rgba(0,229,255,0.08), transparent 60%),
+          radial-gradient(90% 60% at 100% 102%, rgba(0,230,118,0.05), transparent 55%),
+          linear-gradient(rgba(120,205,225,0.030) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(120,205,225,0.030) 1px, transparent 1px);
+        background-size: 100% 100%, 100% 100%, 34px 34px, 34px 34px;
         background-attachment: fixed;
-        color: #ffffff;
-        font-family: "Helvetica Neue", Arial, sans-serif;
+        color: var(--ix-text);
+        font-family: var(--ix-mono);
+        font-variant-numeric: tabular-nums;
         margin: 0;
         padding: 20px;
       }
@@ -74,13 +150,13 @@
       .portal-header::before {
         width: 380px; height: 180px;
         top: -60px; left: calc(50% - 260px);
-        background: rgba(99,102,241,0.22);
+        background: rgba(0,229,255,0.16);
         animation: auroraDrift1 9s ease-in-out infinite;
       }
       .portal-header::after {
         width: 320px; height: 160px;
         top: -50px; right: calc(50% - 260px);
-        background: rgba(192,132,252,0.16);
+        background: rgba(0,230,118,0.12);
         animation: auroraDrift2 11s ease-in-out infinite;
       }
       @keyframes auroraDrift1 {
@@ -102,34 +178,41 @@
       .live-dot {
         width: 9px;
         height: 9px;
-        background: #10b981;
+        background: var(--ix-emerald);
         border-radius: 50%;
-        box-shadow: 0 0 8px #10b981;
+        box-shadow: 0 0 8px var(--ix-emerald);
         flex-shrink: 0;
         animation: livePulse 2.2s ease-in-out infinite;
       }
       @keyframes livePulse {
-        0%, 100% { opacity: 1; box-shadow: 0 0 6px #10b981; }
-        50%       { opacity: 0.45; box-shadow: 0 0 14px #10b981; }
+        0%, 100% { opacity: 1; box-shadow: 0 0 6px var(--ix-emerald); }
+        50%       { opacity: 0.45; box-shadow: 0 0 14px var(--ix-emerald); }
       }
       .portal-title {
         font-size: 1.9rem;
-        font-weight: 200;
-        letter-spacing: 5px;
+        font-weight: 600;
+        font-family: var(--ix-mono);
+        letter-spacing: 4px;
         text-transform: uppercase;
-        background: linear-gradient(100deg, #60a5fa 0%, #818cf8 50%, #c084fc 100%);
+        background: linear-gradient(100deg, var(--ix-cyan) 0%, var(--ix-emerald-bright) 50%, var(--ix-violet) 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
+        filter: drop-shadow(0 0 7px rgba(0,229,255,0.4));
+      }
+      .portal-title::before {
+        content: "\25AE  ";
+        -webkit-text-fill-color: var(--ix-cyan);
+        color: var(--ix-cyan);
       }
       .portal-header-date {
         font-size: 0.72rem;
-        color: #334155;
-        font-family: "Courier New", monospace;
+        color: var(--ix-slate-line);
+        font-family: var(--ix-mono);
         letter-spacing: 1px;
         padding: 3px 8px;
-        border: 1px solid #1e293b;
-        border-radius: 4px;
+        border: 1px solid rgba(0,229,255,0.18);
+        border-radius: 2px;
       }
       .portal-subtitle-row {
         display: flex;
@@ -140,16 +223,16 @@
       }
       .portal-subtitle-text {
         font-size: 0.78rem;
-        color: #475569;
+        color: var(--ix-slate-line);
         letter-spacing: 2px;
         text-transform: uppercase;
       }
       .portal-stat-badge {
-        background: rgba(99,102,241,0.1);
-        border: 1px solid rgba(99,102,241,0.25);
-        color: #818cf8;
+        background: rgba(0,229,255,0.07);
+        border: 1px solid rgba(0,229,255,0.25);
+        color: var(--ix-cyan-bright);
         padding: 2px 10px;
-        border-radius: 12px;
+        border-radius: 2px;
         font-size: 0.72rem;
         font-weight: bold;
         letter-spacing: 0.5px;
@@ -158,7 +241,7 @@
         width: 80%;
         max-width: 600px;
         height: 1px;
-        background: linear-gradient(90deg, transparent, #1e3a5f 40%, #1e3a5f 60%, transparent);
+        background: linear-gradient(90deg, transparent, var(--ix-surface-blue) 40%, var(--ix-surface-blue) 60%, transparent);
         margin-top: 16px;
       }
 
@@ -176,26 +259,27 @@
       }
       .search-input {
         width: 100%;
-        background-color: #161d2b;
-        color: #ffffff;
-        border: 1px solid #2d3748;
+        background-color: var(--ix-surface-panel);
+        color: var(--ix-text-max);
+        border: 1px solid var(--ix-border-strong);
         padding: 14px 20px;
         padding-left: 45px;
-        border-radius: 30px;
+        border-radius: 3px;
         font-size: 1rem;
+        font-family: var(--ix-mono);
         outline: none;
         transition: all 0.3s;
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
       }
       .search-input:focus {
-        border-color: #3b82f6;
-        box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
+        border-color: var(--ix-cyan);
+        box-shadow: 0 0 15px rgba(0, 229, 255, 0.25);
       }
       .search-icon {
         position: absolute;
         left: 18px;
         top: 15px;
-        color: #475569;
+        color: var(--ix-slate-line);
         font-size: 1.1rem;
       }
 
@@ -207,12 +291,12 @@
         width: fit-content;
         max-width: 100%;
         margin: 0 auto 28px auto;
-        background-color: rgba(15,23,36,0.8);
+        background-color: rgba(4,8,13,0.55);
         padding: 8px 24px;
-        border-radius: 6px;
-        border: 1px solid #1e293b;
+        border-radius: 2px;
+        border: 1px solid rgba(0,229,255,0.14);
         font-size: 0.78rem;
-        color: #475569;
+        color: var(--ix-slate-line);
         letter-spacing: 0.3px;
         box-sizing: border-box;
       }
@@ -228,7 +312,7 @@
       .sector-title {
         font-size: 0.8rem;
         font-weight: bold;
-        color: #475569;
+        color: var(--ix-slate-line);
         margin-bottom: 8px;
         display: flex;
         align-items: center;
@@ -237,21 +321,21 @@
         letter-spacing: 1.5px;
         text-transform: uppercase;
         background: linear-gradient(90deg, rgba(99,102,241,0.04), transparent);
-        border-left: 2px solid #4f46e5;
+        border-left: 2px solid var(--ix-indigo);
         padding-left: 12px;
         border-radius: 0 4px 4px 0;
       }
       .sector-title-line {
         flex: 1;
         height: 1px;
-        background: linear-gradient(90deg, #1e293b, transparent);
+        background: linear-gradient(90deg, var(--ix-border), transparent);
       }
       .sector-count-badge {
         background: rgba(30,41,59,0.8);
-        border: 1px solid #1e293b;
-        color: #334155;
+        border: 1px solid var(--ix-border);
+        color: var(--ix-border-mid);
         padding: 1px 8px;
-        border-radius: 10px;
+        border-radius: 2px;
         font-size: 0.68rem;
         font-weight: bold;
         letter-spacing: 0.5px;
@@ -260,45 +344,45 @@
       .portal-table {
         width: 100%;
         border-collapse: collapse;
-        background-color: #161d2b;
-        border-radius: 10px;
+        background-color: var(--ix-surface-panel);
+        border-radius: 2px;
         overflow: hidden;
-        border: 1px solid #2d3748;
-        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+        border: 1px solid var(--ix-border-strong);
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(0,229,255,0.04);
       }
       .portal-table th {
-        background-color: #1e293b;
-        color: #94a3b8;
+        background-color: var(--ix-surface-2);
+        color: var(--ix-text-dim);
         text-align: left;
-        padding: 14px 12px;
-        font-size: 0.8rem;
+        padding: 13px 12px;
+        font-size: 0.78rem;
         font-weight: bold;
         letter-spacing: 1px;
-        border-bottom: 2px solid #2d3748;
+        border-bottom: 1px solid rgba(0,229,255,0.30);
         cursor: pointer;
         user-select: none;
         transition: background 0.2s;
         text-transform: uppercase;
       }
       .portal-table th:hover {
-        background-color: #2d3748;
-        color: #f8fafc;
+        background-color: var(--ix-border-strong);
+        color: var(--ix-text-max);
       }
       .sort-icon {
         margin-left: 4px;
         font-size: 0.75rem;
-        color: #475569;
+        color: var(--ix-slate-line);
       }
       .portal-table th.active-sort {
-        color: #3b82f6;
+        color: var(--ix-blue-bright);
       }
       .portal-table th.active-sort .sort-icon {
-        color: #3b82f6;
+        color: var(--ix-blue-bright);
       }
 
       .portal-table td {
         padding: 10px 12px;
-        border-bottom: 1px solid #1e293b;
+        border-bottom: 1px solid rgba(0,229,255,0.07);
         font-size: 0.85rem;
         vertical-align: middle;
       }
@@ -307,39 +391,40 @@
         font-size: 0.65rem;
         font-weight: bold;
         padding: 1px 6px;
-        border-radius: 10px;
+        border-radius: 2px;
         margin-left: 4px;
         letter-spacing: 0.3px;
+        white-space: nowrap;
       }
-      .val-badge.cheap { background: rgba(16,185,129,0.15); color: #34d399; border: 1px solid rgba(16,185,129,0.3); }
-      .val-badge.fair  { background: rgba(71,85,105,0.12); color: #64748b; border: 1px solid rgba(71,85,105,0.2); }
-      .val-badge.exp   { background: rgba(239,68,68,0.12); color: #f87171; border: 1px solid rgba(239,68,68,0.2); }
-      .val-badge.gold  { background: rgba(217,119,6,0.12); color: #d97706; border: 1px solid rgba(217,119,6,0.3); }
+      .val-badge.cheap { background: rgba(0,230,118,0.15); color: var(--ix-emerald-bright); border: 1px solid rgba(0,230,118,0.35); }
+      .val-badge.fair  { background: rgba(107,125,138,0.14); color: var(--ix-slate-light); border: 1px solid rgba(107,125,138,0.28); }
+      .val-badge.exp   { background: rgba(255,23,68,0.14); color: var(--ix-red-soft); border: 1px solid rgba(255,23,68,0.32); }
+      .val-badge.gold  { background: rgba(255,158,0,0.14); color: var(--ix-amber); border: 1px solid rgba(255,158,0,0.35); }
       .safety-bar-wrap { display: flex; flex-direction: column; gap: 2px; }
-      .safety-bar-track { height: 3px; background: #1e293b; border-radius: 2px; width: 100%; }
+      .safety-bar-track { height: 3px; background: var(--ix-border); border-radius: 2px; width: 100%; }
       .safety-bar-fill  { height: 3px; border-radius: 2px; transition: width 0.4s; }
       .safety-score-num { font-size: 0.75rem; font-weight: bold; }
       .portal-table tbody tr:nth-child(even) {
-        background-color: rgba(15, 20, 35, 0.5);
+        background-color: rgba(0, 229, 255, 0.03);
       }
       .portal-table tr:hover {
-        background: linear-gradient(90deg, rgba(99,102,241,0.12) 0%, rgba(99,102,241,0.04) 100%);
-        box-shadow: inset 3px 0 0 #6366f1;
+        background: linear-gradient(90deg, rgba(0,229,255,0.12) 0%, rgba(0,229,255,0.03) 100%);
+        box-shadow: inset 3px 0 0 var(--ix-cyan);
         cursor: pointer;
         transition: all 0.2s;
       }
 
       .ticker-code {
-        font-family: "Courier New", monospace;
-        color: #3b82f6;
+        font-family: var(--ix-mono);
+        color: var(--ix-cyan-bright);
         font-weight: bold;
-        background: rgba(59, 130, 246, 0.1);
+        background: rgba(0, 229, 255, 0.1);
         padding: 3px 6px;
-        border-radius: 4px;
+        border-radius: 2px;
       }
       .company-clickable {
         font-weight: bold;
-        color: #f8fafc;
+        color: var(--ix-text-max);
         font-size: 1rem;
         display: inline-block;
         max-width: 180px;
@@ -349,7 +434,7 @@
         vertical-align: middle;
       }
       .portal-table tr:hover .company-clickable {
-        color: #60a5fa;
+        color: var(--ix-blue);
       }
 
       /* 💡 【大正解】CSSのGPUクリップパス・アニメーション！右側100%を隠した状態から、0%（全開）に向けて1.5秒でシュルッと幕を開ける最強のハック */
@@ -372,18 +457,18 @@
         display: grid;
         grid-template-columns: auto 1fr;
         gap: 0;
-        background: linear-gradient(135deg, #0d1422, #111827);
-        border-radius: 10px;
-        border: 1px solid #1e3a5f;
+        background: linear-gradient(135deg, var(--ix-surface-0), var(--ix-surface-2));
+        border-radius: 3px;
+        border: 1px solid var(--ix-surface-blue);
         margin-bottom: 14px;
         overflow: hidden;
         box-shadow: 0 4px 20px rgba(0,0,0,0.4);
       }
       .back-btn {
         background: transparent;
-        color: #475569;
+        color: var(--ix-slate-line);
         border: none;
-        border-right: 1px solid #1e293b;
+        border-right: 1px solid var(--ix-border);
         padding: 16px 20px;
         cursor: pointer;
         font-size: 0.8rem;
@@ -397,8 +482,8 @@
         white-space: nowrap;
       }
       .back-btn:hover {
-        background-color: rgba(99,102,241,0.12);
-        color: #818cf8;
+        background-color: rgba(0,229,255,0.1);
+        color: var(--ix-cyan);
       }
       .time-btn-group {
         display: flex;
@@ -407,27 +492,27 @@
       }
       .time-btn {
         background: transparent;
-        color: #334155;
-        border: 1px solid #1e293b;
+        color: var(--ix-slate-line);
+        border: 1px solid var(--ix-border);
         padding: 6px 18px;
         font-weight: bold;
         font-size: 0.85rem;
-        border-radius: 5px;
+        border-radius: 3px;
         cursor: pointer;
         letter-spacing: 1px;
         transition: all 0.2s;
-        font-family: "Courier New", monospace;
+        font-family: var(--ix-mono);
       }
       .time-btn:hover {
-        border-color: #475569;
-        color: #94a3b8;
+        border-color: var(--ix-slate-line);
+        color: var(--ix-text-dim);
       }
       .time-btn.active {
-        background: linear-gradient(135deg, #1e3a5f, #1e293b);
-        border-color: #3b82f6;
-        color: #60a5fa;
-        box-shadow: 0 0 8px rgba(59,130,246,0.25);
-        font-family: "Courier New", monospace;
+        background: linear-gradient(135deg, var(--ix-surface-blue), var(--ix-border));
+        border-color: var(--ix-blue-bright);
+        color: var(--ix-cyan-bright2);
+        box-shadow: 0 0 8px rgba(0,229,255,0.3);
+        font-family: var(--ix-mono);
       }
 
       .dashboard-stack {
@@ -436,25 +521,29 @@
         gap: 25px;
       }
       .card {
-        background: linear-gradient(135deg, #161d2b 0%, #111827 100%);
-        border-radius: 12px;
+        background: linear-gradient(135deg, rgba(10, 15, 23, 0.74) 0%, rgba(7, 10, 17, 0.74) 100%);
+        border-radius: 3px;
         padding: 24px;
-        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5), 0 1px 0 rgba(99,102,241,0.08) inset;
-        border: 1px solid #1e293b;
-        transition: box-shadow 0.3s;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 229, 255, 0.05) inset;
+        border: 1px solid rgba(0, 229, 255, 0.16);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        transition: box-shadow 0.3s, border-color 0.3s;
       }
       .card:hover {
-        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.6), 0 1px 0 rgba(99,102,241,0.12) inset;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.62), 0 0 18px rgba(0, 229, 255, 0.10) inset;
+        border-color: rgba(0, 229, 255, 0.28);
       }
       .card-title {
         font-size: 0.8rem;
-        color: #475569;
+        color: var(--ix-cyan-light);
         font-weight: bold;
         margin-bottom: 20px;
-        border-left: 3px solid #4f46e5;
+        border-left: 3px solid var(--ix-cyan);
         padding-left: 10px;
         text-transform: uppercase;
         letter-spacing: 2px;
+        text-shadow: 0 0 10px rgba(0, 229, 255, 0.35);
       }
 
       #chart-container {
@@ -496,9 +585,9 @@
       }
 
       .status-card {
-        background: linear-gradient(135deg, #111827, #0f1724);
-        border: 1px solid #1e293b;
-        border-radius: 10px;
+        background: linear-gradient(135deg, var(--ix-surface-2), var(--ix-surface-1));
+        border: 1px solid rgba(0,229,255,0.08);
+        border-radius: 3px;
         padding: 14px 20px;
         flex: 1;
         display: flex;
@@ -515,7 +604,7 @@
         top: 0;
         bottom: 0;
         width: 6px;
-        background-color: #eab308;
+        background-color: var(--ix-gold);
       }
       .status-card.blue::before {
         content: "";
@@ -524,7 +613,7 @@
         top: 0;
         bottom: 0;
         width: 6px;
-        background-color: #3b82f6;
+        background-color: var(--ix-blue-bright);
       }
       .status-card.green::before {
         content: "";
@@ -533,7 +622,7 @@
         top: 0;
         bottom: 0;
         width: 6px;
-        background-color: #10b981;
+        background-color: var(--ix-emerald);
       }
       .status-card.red::before {
         content: "";
@@ -542,7 +631,7 @@
         top: 0;
         bottom: 0;
         width: 6px;
-        background-color: #ef4444;
+        background-color: var(--ix-red);
       }
       .status-card.purple::before {
         content: "";
@@ -551,7 +640,7 @@
         top: 0;
         bottom: 0;
         width: 6px;
-        background-color: #a855f7;
+        background-color: var(--ix-purple);
       }
       .status-card.cyan::before {
         content: "";
@@ -560,12 +649,12 @@
         top: 0;
         bottom: 0;
         width: 6px;
-        background-color: #06b6d4;
+        background-color: var(--ix-cyan-deep);
       }
 
       .panel-label {
         font-size: 0.85rem;
-        color: #94a3b8;
+        color: var(--ix-text-dim);
         font-weight: bold;
         letter-spacing: 1px;
         text-transform: uppercase;
@@ -579,9 +668,10 @@
       .panel-sign-value-large {
         font-size: 2.8rem;
         font-weight: bold;
-        font-family: "Impact", sans-serif;
+        font-family: var(--ix-mono);
         line-height: 1;
         letter-spacing: 1px;
+        text-shadow: 0 0 12px currentColor;
       }
 
       .panel-body-grid {
@@ -594,38 +684,39 @@
       .panel-sign-value-cf {
         font-size: 2.6rem;
         font-weight: bold;
-        font-family: "Impact", sans-serif;
+        font-family: var(--ix-mono);
         line-height: 1;
         letter-spacing: 1px;
+        text-shadow: 0 0 12px currentColor;
       }
       .panel-desc-text-cf {
         font-size: 1.3rem;
         font-weight: bold;
-        color: #f1f5f9;
+        color: var(--ix-text-hi);
         letter-spacing: 0.5px;
       }
 
       .panel-desc-text-below {
         font-size: 0.85rem;
         font-weight: bold;
-        color: #64748b;
+        color: var(--ix-text-dim);
         margin-top: 4px;
         letter-spacing: 0.5px;
       }
 
       .type-badge {
-        background: linear-gradient(135deg, #3b82f6, #6366f1);
-        color: #fff;
+        background: linear-gradient(135deg, var(--ix-blue-bright), var(--ix-indigo-accent));
+        color: var(--ix-white);
         padding: 18px;
-        border-radius: 8px;
+        border-radius: 3px;
         text-align: center;
         font-weight: bold;
         font-size: 1.8rem;
         letter-spacing: 3px;
-        box-shadow: 0 6px 18px rgba(99, 102, 241, 0.5);
+        box-shadow: 0 6px 18px rgba(77, 93, 255, 0.45);
         margin-bottom: 12px;
         text-transform: uppercase;
-        font-family: "Impact", sans-serif;
+        font-family: var(--ix-mono);
       }
 
       .full-width-area {
@@ -640,49 +731,50 @@
         cursor: pointer;
         font-size: 1rem;
         padding: 2px 6px 2px 0;
-        color: #334155;
+        color: var(--ix-border-mid);
         transition: color 0.15s, transform 0.15s;
         line-height: 1;
       }
       .star-btn:hover { transform: scale(1.3); }
-      .star-btn.watched { color: #fbbf24; }
+      .star-btn.watched { color: var(--ix-amber); }
       .detail-star-btn {
         background: transparent;
-        border: 1px solid #1e293b;
+        border: 1px solid var(--ix-border);
         border-radius: 6px;
         cursor: pointer;
         font-size: 1rem;
         padding: 4px 10px;
-        color: #334155;
+        color: var(--ix-border-mid);
         transition: all 0.2s;
         margin-left: 8px;
       }
-      .detail-star-btn:hover { border-color: #fbbf24; color: #fbbf24; }
-      .detail-star-btn.watched { border-color: #fbbf24; color: #fbbf24; background: rgba(251,191,36,0.08); }
+      .detail-star-btn:hover { border-color: var(--ix-amber); color: var(--ix-amber); }
+      .detail-star-btn.watched { border-color: var(--ix-amber); color: var(--ix-amber); background: rgba(251,191,36,0.08); }
 
       /* ── スクリーニングパネル ── */
       .screening-toggle-btn {
         display: block;
         margin: 0 auto 12px;
         background: transparent;
-        border: 1px solid #1e293b;
-        color: #475569;
+        border: 1px solid var(--ix-border);
+        color: var(--ix-slate-line);
         padding: 6px 20px;
-        border-radius: 6px;
+        border-radius: 3px;
         cursor: pointer;
         font-size: 0.75rem;
         font-weight: bold;
+        font-family: var(--ix-mono);
         letter-spacing: 1.5px;
         text-transform: uppercase;
         transition: all 0.2s;
       }
-      .screening-toggle-btn:hover { border-color: #6366f1; color: #818cf8; }
-      .screening-toggle-btn.active { border-color: #6366f1; color: #818cf8; background: rgba(99,102,241,0.08); }
+      .screening-toggle-btn:hover { border-color: var(--ix-indigo-accent); color: var(--ix-indigo-bright); }
+      .screening-toggle-btn.active { border-color: var(--ix-indigo-accent); color: var(--ix-indigo-bright); background: rgba(99,102,241,0.08); }
       .screening-panel {
         display: none;
-        background: linear-gradient(135deg, #0d1422, #111827);
-        border: 1px solid #1e293b;
-        border-radius: 10px;
+        background: linear-gradient(135deg, var(--ix-surface-0), var(--ix-surface-2));
+        border: 1px solid rgba(0,229,255,0.12);
+        border-radius: 3px;
         padding: 16px 20px;
         margin-bottom: 18px;
       }
@@ -700,7 +792,7 @@
       }
       .screening-label {
         font-size: 0.72rem;
-        color: #475569;
+        color: var(--ix-slate-line);
         font-weight: bold;
         letter-spacing: 1px;
         text-transform: uppercase;
@@ -711,17 +803,18 @@
         gap: 6px;
       }
       .screening-input {
-        background: #0b0f1a;
-        border: 1px solid #1e293b;
-        color: #94a3b8;
+        background: var(--ix-bg);
+        border: 1px solid var(--ix-border);
+        color: var(--ix-text-dim);
         padding: 5px 8px;
-        border-radius: 4px;
+        border-radius: 2px;
         font-size: 0.8rem;
+        font-family: var(--ix-mono);
         width: 80px;
         transition: border-color 0.2s;
       }
-      .screening-input:focus { outline: none; border-color: #6366f1; }
-      .screening-sep { color: #334155; font-size: 0.8rem; }
+      .screening-input:focus { outline: none; border-color: var(--ix-cyan); }
+      .screening-sep { color: var(--ix-border-mid); font-size: 0.8rem; }
       .screening-actions {
         display: flex;
         gap: 8px;
@@ -730,35 +823,38 @@
       }
       .screening-reset-btn {
         background: transparent;
-        border: 1px solid #334155;
-        color: #64748b;
+        border: 1px solid var(--ix-border-mid);
+        color: var(--ix-slate);
         padding: 5px 14px;
-        border-radius: 4px;
+        border-radius: 2px;
         cursor: pointer;
         font-size: 0.72rem;
         font-weight: bold;
+        font-family: var(--ix-mono);
         transition: all 0.2s;
       }
-      .screening-reset-btn:hover { border-color: #ef4444; color: #ef4444; }
+      .screening-reset-btn:hover { border-color: var(--ix-red); color: var(--ix-red); }
       .screening-result-count {
         font-size: 0.72rem;
-        color: #334155;
+        color: var(--ix-border-mid);
         font-weight: bold;
         letter-spacing: 0.5px;
       }
 
       /* ── 比較チャートモーダル ── */
       .compare-modal-box {
-        background: linear-gradient(135deg, #0d1422, #111827);
-        border: 1px solid #1e3a5f;
-        border-radius: 14px;
+        background: linear-gradient(135deg, rgba(8, 12, 20, 0.92), rgba(5, 8, 14, 0.92));
+        border: 1px solid rgba(0, 229, 255, 0.22);
+        border-radius: 3px;
         padding: 24px 28px;
         max-width: 1100px;
         width: 95%;
         max-height: 90vh;
         overflow-y: auto;
         position: relative;
-        box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        box-shadow: 0 20px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(0, 229, 255, 0.05) inset;
       }
       .compare-header {
         display: flex;
@@ -769,11 +865,12 @@
       .compare-title {
         font-size: 0.85rem;
         font-weight: bold;
-        color: #475569;
+        color: var(--ix-cyan-light);
         letter-spacing: 2px;
         text-transform: uppercase;
-        border-left: 3px solid #4f46e5;
+        border-left: 3px solid var(--ix-cyan);
         padding-left: 10px;
+        text-shadow: 0 0 10px rgba(0, 229, 255, 0.35);
       }
       .compare-controls {
         display: flex;
@@ -783,20 +880,20 @@
         flex-wrap: wrap;
       }
       .compare-search {
-        background: #0b0f1a;
-        border: 1px solid #1e293b;
-        color: #94a3b8;
+        background: var(--ix-bg);
+        border: 1px solid var(--ix-border);
+        color: var(--ix-text-dim);
         padding: 7px 14px;
-        border-radius: 6px;
+        border-radius: 3px;
         font-size: 0.82rem;
         min-width: 220px;
         flex: 1;
       }
-      .compare-search:focus { outline: none; border-color: #4f46e5; }
+      .compare-search:focus { outline: none; border-color: var(--ix-cyan); }
       .compare-search-list {
         position: absolute;
-        background: #111827;
-        border: 1px solid #1e293b;
+        background: var(--ix-surface-2);
+        border: 1px solid var(--ix-border);
         border-radius: 6px;
         max-height: 200px;
         overflow-y: auto;
@@ -808,10 +905,10 @@
         padding: 7px 14px;
         cursor: pointer;
         font-size: 0.8rem;
-        color: #94a3b8;
+        color: var(--ix-text-dim);
         transition: background 0.1s;
       }
-      .compare-search-item:hover { background: #1e293b; color: #f1f5f9; }
+      .compare-search-item:hover { background: var(--ix-border); color: var(--ix-text-hi); }
       .compare-chips {
         display: flex;
         gap: 6px;
@@ -823,7 +920,7 @@
         align-items: center;
         gap: 4px;
         padding: 4px 10px;
-        border-radius: 20px;
+        border-radius: 3px;
         font-size: 0.76rem;
         font-weight: bold;
         border: 1px solid;
@@ -843,19 +940,19 @@
       }
       .compare-period-btn {
         background: transparent;
-        border: 1px solid #1e293b;
-        color: #475569;
+        border: 1px solid var(--ix-border);
+        color: var(--ix-slate-line);
         padding: 4px 12px;
-        border-radius: 4px;
+        border-radius: 3px;
         cursor: pointer;
         font-size: 0.72rem;
         font-weight: bold;
-        font-family: "Courier New", monospace;
+        font-family: var(--ix-mono);
         transition: all 0.2s;
       }
-      .compare-period-btn:hover { border-color: #6366f1; color: #818cf8; }
-      .compare-period-btn.active { border-color: #6366f1; color: #818cf8; background: rgba(99,102,241,0.12); }
-      #compare-chart-container { width: 100%; height: 400px; border-radius: 8px; overflow: hidden; }
+      .compare-period-btn:hover { border-color: var(--ix-cyan); color: var(--ix-cyan); }
+      .compare-period-btn.active { border-color: var(--ix-cyan); color: var(--ix-cyan); background: rgba(0,229,255,0.12); }
+      #compare-chart-container { width: 100%; height: 400px; border-radius: 3px; overflow: hidden; }
       .compare-legend {
         display: flex;
         flex-wrap: wrap;
@@ -867,7 +964,7 @@
         align-items: center;
         gap: 5px;
         font-size: 0.76rem;
-        color: #94a3b8;
+        color: var(--ix-text-dim);
       }
       .compare-legend-dot {
         width: 10px;
@@ -875,11 +972,11 @@
         border-radius: 2px;
       }
       .open-compare-btn {
-        background: rgba(99,102,241,0.1);
-        border: 1px solid rgba(99,102,241,0.3);
-        color: #818cf8;
+        background: rgba(0,229,255,0.1);
+        border: 1px solid rgba(0,229,255,0.3);
+        color: var(--ix-cyan-light);
         padding: 4px 12px;
-        border-radius: 5px;
+        border-radius: 3px;
         cursor: pointer;
         font-size: 0.72rem;
         font-weight: bold;
@@ -887,7 +984,7 @@
         transition: all 0.2s;
         margin-left: 8px;
       }
-      .open-compare-btn:hover { background: rgba(99,102,241,0.2); }
+      .open-compare-btn:hover { background: rgba(0,229,255,0.2); }
 
       /* ── お問い合わせフォーム ── */
       .contact-form { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
@@ -895,12 +992,12 @@
         display: flex; flex-direction: column; gap: 4px;
       }
       .contact-label {
-        font-size: 0.75rem; color: #475569; font-weight: bold; letter-spacing: 1px; text-transform: uppercase;
+        font-size: 0.75rem; color: var(--ix-slate-line); font-weight: bold; letter-spacing: 1px; text-transform: uppercase;
       }
       .contact-input, .contact-textarea {
-        background: #0b0f1a;
-        border: 1px solid #1e293b;
-        color: #94a3b8;
+        background: var(--ix-bg);
+        border: 1px solid var(--ix-border);
+        color: var(--ix-text-dim);
         padding: 10px 14px;
         border-radius: 6px;
         font-size: 0.85rem;
@@ -908,19 +1005,19 @@
         font-family: inherit;
       }
       .contact-input:focus, .contact-textarea:focus {
-        outline: none; border-color: #6366f1; color: #e2e8f0;
+        outline: none; border-color: var(--ix-cyan); color: var(--ix-text);
       }
       .contact-textarea { min-height: 100px; resize: vertical; }
       .contact-submit {
-        background: linear-gradient(135deg, #4f46e5, #6366f1);
-        border: none; color: #fff;
-        padding: 10px 24px; border-radius: 6px;
+        background: linear-gradient(135deg, var(--ix-cyan-deep), var(--ix-teal));
+        border: none; color: #03060b;
+        padding: 10px 24px; border-radius: 3px;
         cursor: pointer; font-size: 0.85rem; font-weight: bold; letter-spacing: 1px;
         transition: all 0.2s; align-self: flex-start;
       }
-      .contact-submit:hover { background: linear-gradient(135deg, #6366f1, #818cf8); }
+      .contact-submit:hover { background: linear-gradient(135deg, var(--ix-cyan), var(--ix-teal-bright)); }
       .contact-success {
-        color: #34d399; font-size: 0.85rem; font-weight: bold; margin-top: 4px;
+        color: var(--ix-emerald-bright); font-size: 0.85rem; font-weight: bold; margin-top: 4px;
         display: none;
       }
 
@@ -928,25 +1025,25 @@
       .site-footer {
         margin-top: 40px;
         padding: 16px 0 10px;
-        border-top: 1px solid #0d1520;
+        border-top: 1px solid var(--ix-surface-chart);
         text-align: center;
         font-size: 0.72rem;
-        color: #1e293b;
+        color: var(--ix-text-dim);
         letter-spacing: 1px;
-        font-family: "Courier New", monospace;
+        font-family: var(--ix-mono);
         display: flex;
         justify-content: center;
         gap: 20px;
         flex-wrap: wrap;
       }
       .footer-link {
-        color: #334155;
+        color: var(--ix-slate-light);
         cursor: pointer;
         text-decoration: none;
         transition: color 0.2s;
         text-transform: uppercase;
       }
-      .footer-link:hover { color: #6366f1; }
+      .footer-link:hover { color: var(--ix-cyan); }
 
       /* ── モーダル共通 ── */
       .modal-overlay {
@@ -961,53 +1058,56 @@
       }
       .modal-overlay.active { display: flex; }
       .modal-box {
-        background: linear-gradient(135deg, #111827, #0f1724);
-        border: 1px solid #1e3a5f;
-        border-radius: 14px;
+        background: linear-gradient(135deg, rgba(8, 12, 20, 0.92), rgba(5, 8, 14, 0.92));
+        border: 1px solid rgba(0, 229, 255, 0.22);
+        border-radius: 3px;
         padding: 32px 36px;
         max-width: 680px;
         width: 100%;
         max-height: 85vh;
         overflow-y: auto;
         position: relative;
-        box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(0, 229, 255, 0.05) inset;
       }
       .modal-close {
         position: absolute;
         top: 16px; right: 20px;
         background: transparent;
         border: none;
-        color: #475569;
+        color: var(--ix-slate-line);
         font-size: 1.4rem;
         cursor: pointer;
         line-height: 1;
         transition: color 0.2s;
       }
-      .modal-close:hover { color: #f8fafc; }
+      .modal-close:hover { color: var(--ix-text-max); }
       .modal-title {
         font-size: 1.1rem;
         font-weight: bold;
-        color: #60a5fa;
+        color: var(--ix-cyan-light);
         letter-spacing: 2px;
         text-transform: uppercase;
         margin-bottom: 20px;
-        border-left: 3px solid #4f46e5;
+        border-left: 3px solid var(--ix-cyan);
         padding-left: 10px;
+        text-shadow: 0 0 10px rgba(0, 229, 255, 0.35);
       }
       .modal-section-title {
         font-size: 0.82rem;
         font-weight: bold;
-        color: #64748b;
+        color: var(--ix-slate);
         letter-spacing: 1px;
         text-transform: uppercase;
         margin: 18px 0 6px;
       }
       .modal-text {
         font-size: 0.84rem;
-        color: #94a3b8;
+        color: var(--ix-text-dim);
         line-height: 1.7;
       }
-      .modal-text strong { color: #cbd5e1; }
+      .modal-text strong { color: var(--ix-text-bright); }
       .about-tech-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -1017,7 +1117,7 @@
       .tech-badge {
         background: rgba(99,102,241,0.1);
         border: 1px solid rgba(99,102,241,0.2);
-        color: #818cf8;
+        color: var(--ix-indigo-bright);
         padding: 6px 12px;
         border-radius: 6px;
         font-size: 0.78rem;
@@ -1028,7 +1128,7 @@
         margin-top: 16px;
         background: rgba(99,102,241,0.15);
         border: 1px solid rgba(99,102,241,0.4);
-        color: #818cf8;
+        color: var(--ix-indigo-bright);
         padding: 8px 20px;
         border-radius: 6px;
         text-decoration: none;
@@ -1036,7 +1136,7 @@
         font-weight: bold;
         transition: all 0.2s;
       }
-      .about-github-btn:hover { background: rgba(99,102,241,0.25); color: #c084fc; }
+      .about-github-btn:hover { background: rgba(99,102,241,0.25); color: var(--ix-violet); }
 
       /* ── レスポンシブ対応 ── */
       /* 一覧テーブルの横スクロール（ラッパーに依存、テーブルは100%幅で調整） */
@@ -1143,23 +1243,24 @@
         margin-bottom: 18px;
       }
       .sector-btn {
-        background-color: #1e293b;
-        color: #64748b;
-        border: 1px solid #2d3748;
+        background-color: var(--ix-surface-1);
+        color: var(--ix-slate);
+        border: 1px solid var(--ix-border-strong);
         padding: 6px 16px;
-        border-radius: 20px;
+        border-radius: 3px;
         cursor: pointer;
         font-size: 0.8rem;
         font-weight: bold;
+        font-family: var(--ix-mono);
         letter-spacing: 0.5px;
         transition: all 0.2s;
       }
-      .sector-btn:hover { border-color: #3b82f6; color: #f8fafc; }
+      .sector-btn:hover { border-color: var(--ix-cyan); color: var(--ix-text-max); }
       .sector-btn.active {
-        background-color: #3b82f6;
-        color: #ffffff;
-        border-color: #3b82f6;
-        box-shadow: 0 0 8px rgba(59, 130, 246, 0.4);
+        background-color: var(--ix-cyan);
+        color: #03060b;
+        border-color: var(--ix-cyan);
+        box-shadow: 0 0 10px rgba(0, 229, 255, 0.45);
       }
 
       /* ── インジケーターコントロールバー ── */
@@ -1169,7 +1270,7 @@
         gap: 0;
         margin-bottom: 10px;
         padding: 8px 0;
-        border-bottom: 1px solid #1e293b;
+        border-bottom: 1px solid var(--ix-border);
         flex-wrap: wrap;
         row-gap: 6px;
       }
@@ -1183,12 +1284,12 @@
       .ctrl-separator {
         width: 1px;
         height: 18px;
-        background: #2d3748;
+        background: var(--ix-border-strong);
         flex-shrink: 0;
       }
       .ma-label {
         font-size: 0.68rem;
-        color: #334155;
+        color: var(--ix-slate);
         font-weight: bold;
         letter-spacing: 0.8px;
         text-transform: uppercase;
@@ -1196,29 +1297,29 @@
       }
       .ma-btn {
         background: transparent;
-        border: 1px solid #334155;
+        border: 1px solid var(--ix-border-mid);
         padding: 3px 11px;
-        border-radius: 4px;
+        border-radius: 3px;
         cursor: pointer;
         font-size: 0.75rem;
         font-weight: bold;
         letter-spacing: 0.5px;
-        color: #475569;
+        color: var(--ix-slate-line);
         transition: all 0.2s;
         white-space: nowrap;
       }
-      .ma-btn:hover { border-color: #64748b; color: #94a3b8; }
-      #ma-btn-5.active  { border-color: #c084fc; color: #c084fc; background: rgba(192,132,252,0.12); }
-      #ma-btn-25.active { border-color: #38bdf8; color: #38bdf8; background: rgba(56,189,248,0.12); }
-      #ma-btn-75.active { border-color: #818cf8; color: #818cf8; background: rgba(129,140,248,0.12); }
-      #ind-btn-bb.active   { border-color: #0ea5e9; color: #0ea5e9; background: rgba(14,165,233,0.12); }
-      #ind-btn-sr.active   { border-color: #f43f5e; color: #f43f5e; background: rgba(244,63,94,0.12); }
-      #ind-btn-rsi.active  { border-color: #f59e0b; color: #f59e0b; background: rgba(245,158,11,0.12); }
-      #ind-btn-macd.active { border-color: #c084fc; color: #c084fc; background: rgba(192,132,252,0.12); }
-      #ind-btn-tr.active   { border-color: #fbbf24; color: #fbbf24; background: rgba(251,191,36,0.12); }
+      .ma-btn:hover { border-color: var(--ix-slate); color: var(--ix-text-dim); }
+      #ma-btn-5.active  { border-color: var(--ix-violet); color: var(--ix-violet); background: rgba(192,132,252,0.12); }
+      #ma-btn-25.active { border-color: var(--ix-cyan); color: var(--ix-cyan); background: rgba(56,189,248,0.12); }
+      #ma-btn-75.active { border-color: var(--ix-indigo-bright); color: var(--ix-indigo-bright); background: rgba(129,140,248,0.12); }
+      #ind-btn-bb.active   { border-color: var(--ix-sky); color: var(--ix-sky); background: rgba(0,229,255,0.12); }
+      #ind-btn-sr.active   { border-color: var(--ix-rose); color: var(--ix-rose); background: rgba(244,63,94,0.12); }
+      #ind-btn-rsi.active  { border-color: var(--ix-amber-deep); color: var(--ix-amber-deep); background: rgba(245,158,11,0.12); }
+      #ind-btn-macd.active { border-color: var(--ix-violet); color: var(--ix-violet); background: rgba(192,132,252,0.12); }
+      #ind-btn-tr.active   { border-color: var(--ix-amber); color: var(--ix-amber); background: rgba(251,191,36,0.12); }
       .vol-label {
         font-size: 0.68rem;
-        color: #2d3748;
+        color: var(--ix-slate);
         padding-left: 10px;
         white-space: nowrap;
       }
@@ -1226,7 +1327,7 @@
       .sub-chart-wrap {
         display: none;
         width: 100%;
-        border-top: 1px solid #1e293b;
+        border-top: 1px solid var(--ix-border);
         position: relative;
       }
       .sub-chart-wrap.visible { display: block; }
@@ -1237,7 +1338,7 @@
         top: 5px;
         left: 10px;
         font-size: 0.65rem;
-        color: #334155;
+        color: var(--ix-border-mid);
         z-index: 10;
         pointer-events: none;
         font-weight: bold;
@@ -1249,7 +1350,7 @@
       .sector-badge {
         display: inline-block;
         background: rgba(99, 102, 241, 0.15);
-        color: #818cf8;
+        color: var(--ix-indigo-bright);
         border: 1px solid rgba(99, 102, 241, 0.35);
         padding: 3px 10px;
         border-radius: 20px;
@@ -1270,7 +1371,7 @@
       .company-title-main {
         font-size: 1.15rem;
         font-weight: 600;
-        background: linear-gradient(90deg, #f1f5f9, #94a3b8);
+        background: linear-gradient(90deg, var(--ix-text-hi), var(--ix-text-dim));
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
@@ -1278,7 +1379,7 @@
       }
       .company-title-year {
         font-size: 0.78rem;
-        color: #334155;
+        color: var(--ix-border-mid);
         font-weight: normal;
         letter-spacing: 0.5px;
       }
@@ -1288,10 +1389,10 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        background: rgba(10,14,24,0.6);
+        background: rgba(4,8,13,0.6);
         padding: 10px 20px;
-        border-radius: 8px;
-        border: 1px solid #1e293b;
+        border-radius: 3px;
+        border: 1px solid var(--ix-border);
         border-top: none;
         border-top-left-radius: 0;
         border-top-right-radius: 0;
@@ -1309,7 +1410,7 @@
       }
       .time-label {
         font-size: 0.74rem;
-        color: #334155;
+        color: var(--ix-border-mid);
         font-weight: bold;
         letter-spacing: 2px;
         text-transform: uppercase;
@@ -1317,8 +1418,8 @@
       .time-selected-year {
         font-size: 1.3rem;
         font-weight: bold;
-        font-family: "Impact", sans-serif;
-        background: linear-gradient(90deg, #60a5fa, #818cf8);
+        font-family: var(--ix-mono);
+        background: linear-gradient(90deg, var(--ix-blue), var(--ix-indigo-bright));
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
@@ -1329,9 +1430,9 @@
 
       /* ── AI財務分析カード ── */
       .ai-analysis-card {
-        background: linear-gradient(135deg, #0d1422, #111827);
-        border: 1px solid rgba(99,102,241,0.25);
-        border-radius: 10px;
+        background: linear-gradient(135deg, var(--ix-surface-0), var(--ix-surface-2));
+        border: 1px solid rgba(0,229,255,0.2);
+        border-radius: 3px;
         padding: 16px 20px;
         margin-bottom: 20px;
         position: relative;
@@ -1339,7 +1440,7 @@
       .ai-analysis-title {
         font-size: 0.72rem;
         font-weight: bold;
-        color: #6366f1;
+        color: var(--ix-indigo-accent);
         letter-spacing: 1.5px;
         text-transform: uppercase;
         display: flex;
@@ -1354,35 +1455,35 @@
       }
       .ai-analysis-text {
         font-size: 0.84rem;
-        color: #94a3b8;
+        color: var(--ix-text-dim);
         line-height: 1.75;
         font-style: italic;
       }
       .ai-analysis-year-label {
         font-size: 0.7rem;
-        color: #334155;
+        color: var(--ix-slate);
         position: absolute;
         top: 14px;
         right: 16px;
-        font-family: "Courier New", monospace;
+        font-family: var(--ix-mono);
         letter-spacing: 0.5px;
       }
 
       /* ── KPI年度比較カード ── */
       .kpi-compare-card {
-        background-color: #0f1724;
-        border-radius: 10px;
+        background-color: var(--ix-surface-1);
+        border-radius: 3px;
         padding: 16px 20px;
-        border: 1px solid #1e3a5f;
+        border: 1px solid var(--ix-surface-blue);
         margin-bottom: 20px;
       }
       .kpi-compare-title {
         font-size: 0.77rem;
-        color: #475569;
+        color: var(--ix-slate-line);
         font-weight: bold;
         letter-spacing: 1.5px;
         text-transform: uppercase;
-        border-left: 3px solid #3b82f6;
+        border-left: 3px solid var(--ix-blue-bright);
         padding-left: 8px;
         margin-bottom: 14px;
       }
@@ -1392,33 +1493,33 @@
         gap: 12px;
       }
       .kpi-year-col {
-        background-color: #161d2b;
-        border-radius: 8px;
+        background-color: var(--ix-surface-panel);
+        border-radius: 3px;
         padding: 12px 14px;
-        border: 1px solid #2d3748;
+        border: 1px solid var(--ix-border-strong);
         transition: border-color 0.2s;
       }
       .kpi-year-col.active-year {
-        border-color: #3b82f6;
-        box-shadow: 0 0 10px rgba(59,130,246,0.15);
+        border-color: var(--ix-blue-bright);
+        box-shadow: 0 0 10px rgba(0,229,255,0.15);
       }
       .kpi-year-label {
         font-size: 0.8rem;
         font-weight: bold;
-        color: #64748b;
+        color: var(--ix-slate);
         margin-bottom: 10px;
         letter-spacing: 1px;
         display: flex;
         align-items: center;
         gap: 6px;
       }
-      .kpi-year-col.active-year .kpi-year-label { color: #3b82f6; }
+      .kpi-year-col.active-year .kpi-year-label { color: var(--ix-blue-bright); }
       .kpi-active-badge {
         font-size: 0.6rem;
-        background: #3b82f6;
-        color: #fff;
+        background: var(--ix-blue-bright);
+        color: var(--ix-white);
         padding: 1px 6px;
-        border-radius: 10px;
+        border-radius: 2px;
       }
       .kpi-row {
         display: flex;
@@ -1429,14 +1530,14 @@
       }
       .kpi-row-label {
         font-size: 0.76rem;
-        color: #64748b;
+        color: var(--ix-slate-light);
         letter-spacing: 0.5px;
         white-space: nowrap;
       }
       .kpi-row-value {
         font-size: 0.88rem;
         font-weight: bold;
-        color: #e2e8f0;
+        color: var(--ix-text);
         text-align: right;
         flex-shrink: 0;
       }
@@ -1445,26 +1546,26 @@
         font-weight: bold;
         margin-left: 4px;
       }
-      .kpi-yoy.up   { color: #f87171; }
-      .kpi-yoy.down { color: #4ade80; }
-      .kpi-yoy.flat { color: #64748b; }
-      .kpi-divider { border: none; border-top: 1px solid #1e293b; margin: 6px 0; }
+      .kpi-yoy.up   { color: var(--ix-red-soft); }
+      .kpi-yoy.down { color: var(--ix-green-bright); }
+      .kpi-yoy.flat { color: var(--ix-slate); }
+      .kpi-divider { border: none; border-top: 1px solid var(--ix-border); margin: 6px 0; }
 
       /* ── コピーライトバー ── */
       .copyright-bar {
         text-align: center;
         font-size: 0.68rem;
-        color: #1e293b;
+        color: var(--ix-text-dim);
         letter-spacing: 1.5px;
         padding: 7px 0 5px;
         margin-bottom: 10px;
-        border-bottom: 1px solid #0d1520;
-        font-family: "Courier New", monospace;
+        border-bottom: 1px solid var(--ix-surface-chart);
+        font-family: var(--ix-mono);
         text-transform: uppercase;
         transition: color 0.3s;
       }
-      .copyright-bar:hover { color: #334155; }
-      .copyright-bar .c-sep { margin: 0 8px; color: #1e293b; }
+      .copyright-bar:hover { color: var(--ix-slate-light); }
+      .copyright-bar .c-sep { margin: 0 8px; color: var(--ix-border-mid); }
 
       /* ── 背景グリッドアニメーション（Bloomberg Terminal風） ── */
       .grid-bg {
@@ -1552,7 +1653,7 @@
           <span class="portal-subtitle-text">Financial Intelligence Terminal</span>
           <span class="portal-stat-badge" id="portal-company-count">-- 銘柄</span>
           <span class="portal-stat-badge" id="portal-sector-count">-- セクター</span>
-          <span class="portal-stat-badge" id="data-updated-at" style="color:#334155;border-color:rgba(51,65,85,0.4);background:transparent;"></span>
+          <span class="portal-stat-badge" id="data-updated-at" style="color:var(--ix-slate-light);border-color:rgba(0,229,255,0.2);background:transparent;"></span>
         </div>
         <div class="portal-divider"></div>
       </div>
@@ -1619,17 +1720,17 @@
 
         <div class="legend-bar">
           <div class="legend-item">
-            <span style="color: #10b981; font-weight: bold"
+            <span style="color: #00e676; font-weight: bold"
               >🌟 PER 15.0倍以下</span
             >：収益割安圏
           </div>
           <div class="legend-item">
-            <span style="color: #eab308; font-weight: bold"
+            <span style="color: #ffd60a; font-weight: bold"
               >💎 PBR 1.0倍以下</span
             >：解散価値以下（割安圏）
           </div>
           <div class="legend-item">
-            <span style="color: #f43f5e; font-weight: bold">■ 赤字/過熱</span
+            <span style="color: #ff1744; font-weight: bold">■ 赤字/過熱</span
             >：過度な高PER・高PBRへの警告シグナル
           </div>
         </div>
@@ -1665,7 +1766,7 @@
         <div class="kpi-compare-card" id="kpi-compare-card">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
             <div class="kpi-compare-title" style="margin-bottom:0;">Annual KPI Comparison — 3 Fiscal Years</div>
-            <button id="csv-export-btn" onclick="exportCSV()" style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);color:#34d399;padding:4px 12px;border-radius:5px;cursor:pointer;font-size:0.72rem;font-weight:bold;letter-spacing:1px;transition:all 0.2s;">↓ CSV</button>
+            <button id="csv-export-btn" onclick="exportCSV()" style="background:rgba(0,230,118,0.1);border:1px solid rgba(0,230,118,0.3);color:#39ff8b;padding:4px 12px;border-radius:3px;cursor:pointer;font-size:0.72rem;font-weight:bold;letter-spacing:1px;transition:all 0.2s;">↓ CSV</button>
           </div>
           <div class="kpi-compare-grid" id="kpi-compare-grid"></div>
         </div>
@@ -1726,7 +1827,7 @@
                     <span
                       class="panel-sign-value-large"
                       id="equity-ratio"
-                      style="color: #eab308"
+                      style="color: #ffd60a"
                       >0.0%</span
                     >
                     <span class="panel-desc-text-below" id="desc-equity-ratio"
@@ -1740,7 +1841,7 @@
                     <span
                       class="panel-sign-value-large"
                       id="current-ratio"
-                      style="color: #3b82f6"
+                      style="color: #38bdf8"
                       >0.0%</span
                     >
                     <span class="panel-desc-text-below" id="desc-current-ratio"
@@ -1767,7 +1868,7 @@
                     <span
                       class="panel-sign-value-large"
                       id="txt-roe-val"
-                      style="color: #c084fc"
+                      style="color: #f570ff"
                       >0.0%</span
                     >
                     <span class="panel-desc-text-below"
@@ -1781,7 +1882,7 @@
                     <span
                       class="panel-sign-value-large"
                       id="txt-roa-val"
-                      style="color: #22d3ee"
+                      style="color: #62f0ff"
                       >0.0%</span
                     >
                     <span class="panel-desc-text-below"
@@ -1795,7 +1896,7 @@
                     <span
                       class="panel-sign-value-large"
                       id="txt-per-val"
-                      style="color: #10b981"
+                      style="color: #00e676"
                       >0.0倍</span
                     >
                     <span class="panel-desc-text-below" id="txt-per-status"
@@ -1809,7 +1910,7 @@
                     <span
                       class="panel-sign-value-large"
                       id="txt-pbr-val"
-                      style="color: #3b82f6"
+                      style="color: #38bdf8"
                       >0.0倍</span
                     >
                     <span class="panel-desc-text-below" id="txt-pbr-status"
@@ -2076,10 +2177,10 @@
 
       // セクターアクセントカラー (名前ハッシュで一意の色を割り当て)
       const SECTOR_ACCENT_COLORS = [
-        "#6366f1","#3b82f6","#10b981","#f59e0b","#ef4444",
-        "#8b5cf6","#06b6d4","#ec4899","#84cc16","#f97316",
-        "#14b8a6","#a855f7","#0ea5e9","#22c55e","#d97706",
-        "#60a5fa","#c084fc","#34d399","#fbbf24","#f87171"
+        "#5d6dff","#2f9dff","#00e676","#ff9e00","#ff1744",
+        "#b45cff","#00b8d4","#ff4db8","#9be600","#ff7a1a",
+        "#00d6b0","#cf4dff","#00c4e6","#2bff77","#cc7600",
+        "#38bdf8","#f570ff","#39ff8b","#ffca3a","#ff5c7a"
       ];
       function getSectorColor(sector) {
         let h = 0;
@@ -2146,7 +2247,7 @@
       let compareSet = new Set();
       let comparePeriodMonths = 12;
       let compareChart = null;
-      const COMPARE_COLORS = ["#60a5fa","#c084fc","#34d399","#fbbf24","#f87171","#818cf8","#fb923c","#2dd4bf"];
+      const COMPARE_COLORS = ["#38bdf8","#f570ff","#00e676","#ffd60a","#ff5c7a","#8a7bff","#ff8a2a","#2fe6c4"];
 
       function openCompareModal() {
         compareSet = new Set([currentTicker]);
@@ -2402,7 +2503,7 @@
         });
 
         if (Object.keys(groups).length === 0) {
-          container.innerHTML = `<div style="text-align:center; color:#64748b; padding:40px;">該当する企業が見つかりません</div>`;
+          container.innerHTML = `<div style="text-align:center; color:#6b7d8a; padding:40px;">該当する企業が見つかりません</div>`;
           return;
         }
 
@@ -2448,22 +2549,22 @@
             const tr = document.createElement("tr");
             tr.onclick = () => navigateToDetail(item.ticker);
 
-            let perStyle = "color: #64748b;";
+            let perStyle = "color: #6b7d8a;";
             let perText = item.per > 0 ? item.per.toFixed(1) + "x" : "--";
             let perBadge = "";
             if (item.per > 0) {
-              if (item.per <= 15.0) { perStyle = "color: #10b981; font-weight: bold;"; perBadge = '<span class="val-badge cheap">割安</span>'; }
+              if (item.per <= 15.0) { perStyle = "color: #00e676; font-weight: bold;"; perBadge = '<span class="val-badge cheap">割安</span>'; }
               else if (item.per <= 28.0) { perBadge = '<span class="val-badge fair">標準</span>'; }
-              else { perStyle = "color: #f87171;"; perBadge = '<span class="val-badge exp">割高</span>'; }
+              else { perStyle = "color: #ff5c7a;"; perBadge = '<span class="val-badge exp">割高</span>'; }
             }
 
-            let pbrStyle = "color: #64748b;";
+            let pbrStyle = "color: #6b7d8a;";
             let pbrText = item.pbr > 0 ? item.pbr.toFixed(2) + "x" : "--";
             let pbrBadge = "";
             if (item.pbr > 0) {
-              if (item.pbr <= 1.0) { pbrStyle = "color: #d97706; font-weight: bold;"; pbrBadge = '<span class="val-badge gold">解散値以下</span>'; }
+              if (item.pbr <= 1.0) { pbrStyle = "color: #ff9e00; font-weight: bold;"; pbrBadge = '<span class="val-badge gold">解散値以下</span>'; }
               else if (item.pbr <= 3.0) { pbrBadge = '<span class="val-badge fair">標準</span>'; }
-              else { pbrStyle = "color: #f87171;"; pbrBadge = '<span class="val-badge exp">高評価</span>'; }
+              else { pbrStyle = "color: #ff5c7a;"; pbrBadge = '<span class="val-badge exp">高評価</span>'; }
             }
 
             // 健全性スコア (0-100): 自己資本比率40% + 流動比率30% + ROE30%
@@ -2472,25 +2573,25 @@
               (Math.min(item.curRatio, 200) / 200) * 30 +
               (Math.min(Math.max(item.roe, 0), 20) / 20) * 30
             )) : null;
-            const safetyColor = safetyScore === null ? "#334155" : safetyScore >= 70 ? "#10b981" : safetyScore >= 40 ? "#fbbf24" : "#f87171";
+            const safetyColor = safetyScore === null ? "#2a3a44" : safetyScore >= 70 ? "#00e676" : safetyScore >= 40 ? "#ffca3a" : "#ff5c7a";
 
-            let opStyle = "color: #64748b;";
+            let opStyle = "color: #6b7d8a;";
             let opText = item.opMargin !== null ? item.opMargin.toFixed(1) + "%" : "--";
             if (item.opMargin > 0) {
-              if (item.opMargin >= 25) { opStyle = "color: #eab308; font-weight: bold;"; opText += " ✦"; }
-              else if (item.opMargin >= 15) { opStyle = "color: #10b981; font-weight: bold;"; }
-              else if (item.opMargin >= 5) { opStyle = "color: #94a3b8;"; }
+              if (item.opMargin >= 25) { opStyle = "color: #ffd60a; font-weight: bold;"; opText += " ✦"; }
+              else if (item.opMargin >= 15) { opStyle = "color: #00e676; font-weight: bold;"; }
+              else if (item.opMargin >= 5) { opStyle = "color: #8ba2af;"; }
             }
 
-            let roeStyle = "color: #64748b;";
+            let roeStyle = "color: #6b7d8a;";
             let roeText = item.roe !== null ? item.roe.toFixed(1) + "%" : "--";
-            if (item.roe < 0) { roeStyle = "color: #f43f5e;"; }
-            else if (item.roe >= 15) { roeStyle = "color: #eab308; font-weight: bold;"; roeText += " ✦"; }
-            else if (item.roe >= 8) { roeStyle = "color: #10b981; font-weight: bold;"; }
+            if (item.roe < 0) { roeStyle = "color: #ff1744;"; }
+            else if (item.roe >= 15) { roeStyle = "color: #ffd60a; font-weight: bold;"; roeText += " ✦"; }
+            else if (item.roe >= 8) { roeStyle = "color: #00e676; font-weight: bold;"; }
 
             const isUSD = item.currency === "USD";
             const currBadge = isUSD
-              ? `<span style="font-size:0.6rem;background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.4);padding:1px 5px;border-radius:8px;margin-left:4px;">USD</span>`
+              ? `<span style="font-size:0.6rem;background:rgba(255,202,58,0.15);color:#ffca3a;border:1px solid rgba(255,202,58,0.4);padding:1px 5px;border-radius:2px;margin-left:4px;">USD</span>`
               : "";
             const capString = item.marketCap > 0
               ? isUSD
@@ -2499,7 +2600,7 @@
               : "--";
             const salesText = item.hasFinData
               ? item.sales.toLocaleString() + (isUSD ? " 百万ドル" : " 百万円")
-              : "<span style='color:#475569'>-- (ETF)</span>";
+              : "<span style='color:#5a6c78'>-- (ETF)</span>";
 
             const cleanTicker = item.ticker.replace(".", "_");
             tr.innerHTML = `
@@ -2509,13 +2610,13 @@
                         onclick="event.stopPropagation(); toggleWatchlist('${item.ticker}')">${isWatched(item.ticker) ? "★" : "☆"}</button>
                       <span class="company-clickable" title="${item.name}">${item.name}</span>${currBadge}
                     </td>
-                    <td style="font-weight: bold; color: #10b981;">${salesText}</td>
+                    <td style="font-weight: bold; color: #00e676;">${salesText}</td>
                     <td>
                         <div class="sparkline-wrapper">
                             <canvas id="spark-${cleanTicker}"></canvas>
                         </div>
                     </td>
-                    <td style="font-weight: bold; color: #94a3b8;">${capString}</td>
+                    <td style="font-weight: bold; color: #8ba2af;">${capString}</td>
                     <td style="${perStyle}">${perText}${perBadge}</td>
                     <td style="${pbrStyle}">${pbrText}${pbrBadge}</td>
                     <td>
@@ -2523,7 +2624,7 @@
                         <div class="safety-bar-wrap">
                           <span class="safety-score-num" style="color:${safetyColor};">${safetyScore}</span>
                           <div class="safety-bar-track"><div class="safety-bar-fill" style="width:${safetyScore}%;background:${safetyColor};"></div></div>
-                        </div>` : '<span style="color:#334155">--</span>'}
+                        </div>` : '<span style="color:#2a3a44">--</span>'}
                     </td>
                     <td style="${opStyle}">${item.hasFinData ? opText : "--"}</td>
                     <td style="${roeStyle}">${item.hasFinData ? roeText : "--"}</td>
@@ -2533,7 +2634,7 @@
 
           // 横スクロール対応のラッパーで囲む（背景色をテーブルに合わせて暗転防止）
           const scrollWrap = document.createElement("div");
-          scrollWrap.style.cssText = "overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; background-color: #161d2b; border-radius: 10px;";
+          scrollWrap.style.cssText = "overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; background-color: #0a0f17; border-radius: 10px;";
           scrollWrap.appendChild(table);
           sectorDiv.appendChild(scrollWrap);
           container.appendChild(sectorDiv);
@@ -2750,13 +2851,13 @@
         const { resistance, support } = detectSR(prices);
         resistance.forEach(({ price, count }) => {
           srLines.push(candleSeries.createPriceLine({
-            price, color: "rgba(244,63,94,0.85)", lineWidth: 1,
+            price, color: "rgba(255,23,68,0.85)", lineWidth: 1,
             lineStyle: 2, axisLabelVisible: true, title: `R×${count}`,
           }));
         });
         support.forEach(({ price, count }) => {
           srLines.push(candleSeries.createPriceLine({
-            price, color: "rgba(16,185,129,0.85)", lineWidth: 1,
+            price, color: "rgba(0,230,118,0.85)", lineWidth: 1,
             lineStyle: 2, axisLabelVisible: true, title: `S×${count}`,
           }));
         });
@@ -2847,7 +2948,7 @@
           macdLine.push({ time: t, value: mv });
           signalLine.push({ time: t, value: sv });
           histogram.push({ time: t, value: parseFloat((mv - sv).toFixed(4)),
-            color: (mv - sv) >= 0 ? "rgba(239,68,68,0.7)" : "rgba(34,197,94,0.7)" });
+            color: (mv - sv) >= 0 ? "rgba(255,23,68,0.7)" : "rgba(0,230,118,0.7)" });
         }
         return { macdLine, signalLine, histogram };
       }
@@ -2890,7 +2991,7 @@
             { ...baseOpts, timeScale: { borderColor: "#2d3748", visible: false } }
           );
           rsiSeries = rsiChart.addLineSeries({
-            color: "#f59e0b", lineWidth: 1.5,
+            color: "#ffca3a", lineWidth: 1.5,
             priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: true,
           });
           rsiSeries.createPriceLine({ price: 70, color: "rgba(244,63,94,0.45)",  lineWidth: 1, lineStyle: 2, title: "70" });
@@ -2907,7 +3008,7 @@
             priceLineVisible: false, lastValueVisible: false,
           });
           macdLineSeries = macdChart.addLineSeries({
-            color: "#c084fc", lineWidth: 1.5,
+            color: "#f570ff", lineWidth: 1.5,
             priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
           });
           macdSignalSeries = macdChart.addLineSeries({
@@ -3038,7 +3139,7 @@
             }
             [hi, lo].forEach(val => {
               const s = priceChart.addLineSeries({
-                color: "rgba(251,191,36,0.85)", lineWidth: 1.5, lineStyle: 2,
+                color: "rgba(255,214,10,0.85)", lineWidth: 1.5, lineStyle: 2,
                 priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
               });
               const data = [];
@@ -3203,7 +3304,7 @@
         const volData = displayPrices.map((p) => ({
           time: p.time,
           value: p.volume || 0,
-          color: p.close >= p.open ? "rgba(220,38,38,0.35)" : "rgba(22,163,74,0.35)",
+          color: p.close >= p.open ? "rgba(255,23,68,0.30)" : "rgba(0,230,118,0.30)",
         }));
         volumeSeries.setData(volData);
 
@@ -3272,7 +3373,7 @@
         });
 
         ma5Series = priceChart.addLineSeries({
-          color: "#c084fc", lineWidth: 1, visible: false,
+          color: "#f570ff", lineWidth: 1, visible: false,
           priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
         });
         ma25Series = priceChart.addLineSeries({
@@ -3280,21 +3381,21 @@
           priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
         });
         ma75Series = priceChart.addLineSeries({
-          color: "#818cf8", lineWidth: 1, visible: false,
+          color: "#8a7bff", lineWidth: 1, visible: false,
           priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
         });
 
         // ── ボリンジャーバンド シリーズ (初期は非表示) ──
         bbUpperSeries = priceChart.addLineSeries({
-          color: "rgba(14,165,233,0.55)", lineWidth: 1, lineStyle: 2, visible: false,
+          color: "rgba(0,229,255,0.55)", lineWidth: 1, lineStyle: 2, visible: false,
           priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
         });
         bbMidSeries = priceChart.addLineSeries({
-          color: "rgba(14,165,233,0.75)", lineWidth: 1, visible: false,
+          color: "rgba(0,229,255,0.75)", lineWidth: 1, visible: false,
           priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
         });
         bbLowerSeries = priceChart.addLineSeries({
-          color: "rgba(14,165,233,0.55)", lineWidth: 1, lineStyle: 2, visible: false,
+          color: "rgba(0,229,255,0.55)", lineWidth: 1, lineStyle: 2, visible: false,
           priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
         });
       }
@@ -3519,10 +3620,10 @@
 
         if (hasNegativeEquity) {
           document.getElementById("equity-ratio").innerText = "マイナス";
-          document.getElementById("equity-ratio").style.color = "#f87171";
+          document.getElementById("equity-ratio").style.color = "#ff5c7a";
           document.getElementById("desc-equity-ratio").innerText = "▶ 純資産マイナス（積極的な自社株買い等による）";
         } else {
-          document.getElementById("equity-ratio").style.color = "#eab308";
+          document.getElementById("equity-ratio").style.color = "#ffd60a";
           animateNumber(document.getElementById("equity-ratio"), equityRatio, "%", 1, 900);
         }
         animateNumber(document.getElementById("current-ratio"), currentRatio, "%", 1, 900);
@@ -3719,9 +3820,9 @@
         animateNumber(document.getElementById("txt-roa-val"), roa, "%", 1, 900);
 
         document.getElementById("txt-roe-val").style.color =
-          roe >= 0 ? "#c084fc" : "#f43f5e";
+          roe >= 0 ? "#f570ff" : "#ff1744";
         document.getElementById("txt-roa-val").style.color =
-          roa >= 0 ? "#22d3ee" : "#f43f5e";
+          roa >= 0 ? "#62f0ff" : "#ff1744";
 
         const score = (val, min, max) =>
           Math.min(100, Math.max(0, ((val - min) / (max - min)) * 100));
@@ -3954,12 +4055,12 @@
         if (opCf >= 0) {
           oCard.className = "status-card green";
           oSign.innerText = "プラス";
-          oSign.style.color = "#10b981";
+          oSign.style.color = "#00e676";
           oDesc.innerText = "【本業が順調】";
         } else {
           oCard.className = "status-card red";
           oSign.innerText = "マイナス";
-          oSign.style.color = "#ef4444";
+          oSign.style.color = "#ff1744";
           oDesc.innerText = "【本業が苦戦】";
         }
 
@@ -3969,12 +4070,12 @@
         if (invCf < 0) {
           iCard.className = "status-card red";
           iSign.innerText = "マイナス";
-          iSign.style.color = "#ef4444";
+          iSign.style.color = "#ff1744";
           iDesc.innerText = "【攻めの経営】";
         } else {
           iCard.className = "status-card green";
           iSign.innerText = "プラス";
-          iSign.style.color = "#10b981";
+          iSign.style.color = "#00e676";
           iDesc.innerText = "【守りの経営】";
         }
 
@@ -3984,31 +4085,31 @@
         if (finCf >= 0) {
           fCard.className = "status-card green";
           fSign.innerText = "プラス";
-          fSign.style.color = "#10b981";
+          fSign.style.color = "#00e676";
           fDesc.innerText = "【導入・成長期】";
         } else {
           fCard.className = "status-card red";
           fSign.innerText = "マイナス";
-          fSign.style.color = "#ef4444";
+          fSign.style.color = "#ff1744";
           fDesc.innerText = "【成熟・衰退期】";
         }
 
         const badge = document.getElementById("cf-type-badge");
         if (opCf >= 0 && invCf < 0 && finCf < 0) {
           badge.innerText = "👑 優良企業タイプ";
-          badge.style.background = "linear-gradient(135deg, #10b981, #059669)";
+          badge.style.background = "linear-gradient(135deg, #00e676, #00b85e)";
         } else if (opCf >= 0 && invCf < 0 && finCf >= 0) {
           badge.innerText = "🚀 積極投資タイプ";
-          badge.style.background = "linear-gradient(135deg, #3b82f6, #2563eb)";
+          badge.style.background = "linear-gradient(135deg, #38bdf8, #1f7fe0)";
         } else if (opCf < 0 && invCf < 0 && finCf >= 0) {
           badge.innerText = "🧪 ベンチャータイプ";
-          badge.style.background = "linear-gradient(135deg, #a855f7, #7c3aed)";
+          badge.style.background = "linear-gradient(135deg, #cf4dff, #a020f0)";
         } else if (opCf < 0 && invCf >= 0 && finCf >= 0) {
           badge.innerText = "⚠️ ジリ脚タイプ";
-          badge.style.background = "linear-gradient(135deg, #ef4444, #dc2626)";
+          badge.style.background = "linear-gradient(135deg, #ff1744, #c0002b)";
         } else {
           badge.innerText = "📊 転換期・変革タイプ";
-          badge.style.background = "linear-gradient(135deg, #64748b, #475569)";
+          badge.style.background = "linear-gradient(135deg, #6e8492, #334155)";
         }
 
         const startCash = fin.cf_cash_start || 6524000;

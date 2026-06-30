@@ -88,3 +88,25 @@ CREATE TABLE IF NOT EXISTS me.cashflow_snapshots (
   pulled_at        TIMESTAMPTZ NOT NULL DEFAULT now()-- 鮮度(UIバッジ/Mode A staleDays算出元)
 );
 CREATE INDEX IF NOT EXISTS idx_cashflow_period ON me.cashflow_snapshots (period DESC);
+
+-- データ基盤Phase2 投資台帳 — 月次投資スナップショット（機械書込専用・etl_investment.py のみ INSERT/UPDATE）。
+-- 二目的会計（plan 2026-06-29 §2）: 投資の1取引が「現金追跡」と「規律(元本/実現益分離)」の二目的に効く。
+--   invest_cash_flow = 現金影響（購入 −全額 / 売却 +proceeds全額 / 配当 +額 / 期初保有 0=基準日前取得は anchor 内包）。
+--   principal_core_delta / principal_sat_delta = 元本(取得原価)増減（戦略区分別・売却は移動平均の按分原価を控除）。
+--   realized_gain = 実現益（売却(proceeds−按分原価)+配当）=金融所得 windfall。経常median から除外し netWorth/金融所得で別表示。
+-- cashflow_snapshots と別 source_hash・別失敗ドメイン（etl_investment.py は cashflow pull を巻き込まない）。
+-- 純関数 investmentDerived がこの per-period delta を累積し principal/investable/realizedGainTtm を導出（移動平均はETL側）。
+-- 生額は cashflow_snapshots / mcc_state と同じ信頼境界（認証必須・非公開）。LLM へは production=Mode A集約のみ／personal のみ生額。
+CREATE TABLE IF NOT EXISTS me.investment_snapshots (
+  period               DATE PRIMARY KEY,                 -- 月初(YYYY-MM-01)・冪等 upsert の自然キー
+  invest_cash_flow     NUMERIC(16,0) NOT NULL DEFAULT 0, -- 現金影響: −購入 +売却proceeds +配当（期初保有=0）
+  principal_core_delta NUMERIC(16,0) NOT NULL DEFAULT 0, -- コア元本(取得原価)増減
+  principal_sat_delta  NUMERIC(16,0) NOT NULL DEFAULT 0, -- サテライト元本増減
+  realized_gain        NUMERIC(16,0) NOT NULL DEFAULT 0, -- 実現益(売却益+配当)・windfall（負=損失あり）
+  is_complete          BOOLEAN NOT NULL DEFAULT true,    -- 当月(部分月)は false で確定累積/TTMから除外（元本累積は全期間）
+  holdings             JSONB,                            -- 期末の移動平均状態 {ticker:{qty,avg_cost,strategy}}（Slice5 時価join用・任意）
+  source               TEXT NOT NULL DEFAULT 'investment-notion',
+  source_hash          TEXT,                             -- sha256(正規化済元行)=無変化skip/改ざん検知
+  pulled_at            TIMESTAMPTZ NOT NULL DEFAULT now()-- 鮮度（UIバッジ/Mode A staleDays算出元）
+);
+CREATE INDEX IF NOT EXISTS idx_investment_period ON me.investment_snapshots (period DESC);

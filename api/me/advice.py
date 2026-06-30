@@ -29,8 +29,10 @@ DISCLAIMER_VERSION = "disc-v1"
 SCHEMA_VERSION = 2  # v2: Slice4 cashflow（収支連携→投資余力）集約を facts に追加
 RULES_VERSION = 2  # money-rules.js CURRENT_VERSION（版ずれ監査）
 NEXT_TARGETS = ["setup", "buffer", "rebalance", "core"]
-_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-_GOAL_ID_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+# 終端は \Z（$ ではない）。Python の $ は『末尾の直前の改行』にもマッチし JS `.test` の $ と不一致になるため、
+# "YYYY-MM-DD\n" 等の末尾改行を両言語で同様に弾く（deadline/period/id のパリティ）。
+_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}\Z")
+_GOAL_ID_RE = re.compile(r"^[A-Za-z0-9_-]+\Z")
 
 
 def _envint(name, default):
@@ -173,6 +175,44 @@ def _normalize_goal(g, i):
     }
 
 
+def _normalize_reserve(rv, i):
+    """Slice4.5: 確保枠の安全正規化（money-rules.js normalizeReserve の鏡像）。配列順＝優先順位。"""
+    rid = rv.get("id") if isinstance(rv, dict) else None
+    label = rv.get("label") if isinstance(rv, dict) else None
+    deadline = rv.get("deadline") if isinstance(rv, dict) else None
+    return {
+        "id": rid if isinstance(rid, str) and _GOAL_ID_RE.match(rid) else "reserve-%d" % i,
+        "label": label if isinstance(label, str) else "",
+        "target": _num(rv.get("target") if isinstance(rv, dict) else 0),
+        "saved": _num(rv.get("saved") if isinstance(rv, dict) else 0),
+        "deadline": deadline if isinstance(deadline, str) and _DATE_RE.match(deadline) else "",
+        "monthlyOverride": _num(rv.get("monthlyOverride") if isinstance(rv, dict) else 0),
+    }
+
+
+def _reserve_monthly(rv, now_ms):
+    """確保枠の月次積立提案額（money-rules.js reserveMonthly の鏡像）。完了/残0は0。
+    monthlyOverride>0 は固定（残額cap）。else 期日逆算 ceil(残額/残カレンダー月・min 1）。期日もoverrideも無ければ0。"""
+    remaining = max(0.0, _num(rv.get("target")) - _num(rv.get("saved")))
+    if remaining == 0:
+        return 0
+    if _num(rv.get("monthlyOverride")) > 0:
+        return min(_num(rv.get("monthlyOverride")), remaining)
+    deadline = rv.get("deadline")
+    if not deadline or not _DATE_RE.match(deadline) or not (_num(now_ms) > 0):
+        return 0
+    try:
+        nd = datetime.fromtimestamp(_num(now_ms) / 1000.0, tz=timezone.utc)
+    except (OverflowError, OSError, ValueError):
+        return 0  # 巨大/不正 now_ms は JS(Invalid Date→0)と揃え 0 へ degrade（500 を防ぐ）
+    now_ym = nd.year * 12 + (nd.month - 1)  # JS getUTCMonth() は0始まり
+    dl_ym = int(deadline[0:4]) * 12 + (int(deadline[5:7]) - 1)
+    months_left = dl_ym - now_ym
+    if months_left < 1:
+        months_left = 1  # 期日切迫/超過 → 満額を今月
+    return int(math.ceil(remaining / months_left))
+
+
 def _migrate(raw):
     if not isinstance(raw, dict):
         raw = {}
@@ -197,6 +237,11 @@ def _migrate(raw):
     filtered = [g for g in goals_raw if isinstance(g, dict)] if isinstance(goals_raw, list) else []
     goals = [_normalize_goal(g, i) for i, g in enumerate(filtered)]
 
+    reserves_raw = raw.get("reserves")
+    reserves_filtered = ([rv for rv in reserves_raw if isinstance(rv, dict)][:50]
+                         if isinstance(reserves_raw, list) else [])
+    reserves = [_normalize_reserve(rv, i) for i, rv in enumerate(reserves_filtered)]
+
     return {
         "version": 2,
         "currency": raw.get("currency") if isinstance(raw.get("currency"), str) else "JPY",
@@ -208,6 +253,7 @@ def _migrate(raw):
             "satellite": {"amount": _amt("satellite")},
         },
         "satelliteCapPct": sat_cap_pct,
+        "reserves": reserves,
         "goals": goals,
         "updatedAt": _num(raw.get("updatedAt")),
     }
@@ -388,7 +434,35 @@ def _cashflow_derived(rows, s, now_ms):
     buffer_achieved = buffer_configured and buffer_rem == 0
     # 規律芯=バッファ→コア。サテライトへ自動配分しない(cf-1)。丸めは to_buffer に集約(par-2)。
     to_buffer = _r(min(monthly_surplus, buffer_rem))
-    investable_surplus = max(0, monthly_surplus - to_buffer)
+    # Slice4.5: バッファ控除後の余剰を確保枠へ優先順位順（配列順）に充当 → 残りがコア（money-rules.js cashflowDerived の鏡像）。
+    # 確保枠が空なら to_reserves=0 で旧挙動（investable_surplus=after_buffer）と完全一致＝既存パリティ不変。
+    after_buffer = max(0, monthly_surplus - to_buffer)
+    reserves_arr = s["reserves"] if isinstance(s.get("reserves"), list) else []
+    remain_for_reserves = after_buffer
+    to_reserves = 0
+    reserves_total_saved = 0
+    reserves_total_target = 0
+    reserves_funded_saved = 0
+    reserves_active = 0
+    reserves_shortfall = False
+    for rv in reserves_arr:
+        want = _r(_reserve_monthly(rv, now_ms))  # 整数化（override の float を排し investableSurplus を整数に保つ＝par-2）
+        give = max(0, min(want, remain_for_reserves))
+        remain_for_reserves -= give
+        to_reserves += give
+        tgt = _num(rv.get("target"))
+        sv = _num(rv.get("saved"))
+        reserves_total_saved += sv
+        reserves_total_target += tgt
+        # fundedPct 用は per-reserve で target に cap（超過貯蓄/target=0 saved が他枠の不足を相殺する誤りを排除）。
+        if tgt > 0:
+            reserves_funded_saved += min(sv, tgt)
+        rv_complete = bool(tgt > 0 and sv >= tgt)  # 確定月リスト complete を上書きしない（変数名衝突回避）
+        if tgt > 0 and not rv_complete:
+            reserves_active += 1
+        if give < want:
+            reserves_shortfall = True
+    investable_surplus = remain_for_reserves  # バッファ→確保枠→残り＝コア
     to_core = investable_surplus
     to_satellite = 0
     if buffer_achieved:
@@ -431,6 +505,9 @@ def _cashflow_derived(rows, s, now_ms):
         "bufferRemaining": buffer_rem, "bufferAchieved": buffer_achieved,
         "toBuffer": to_buffer, "investableSurplus": investable_surplus,
         "toSatellite": to_satellite, "toCore": to_core,
+        "toReserves": to_reserves, "reservesTotalSaved": reserves_total_saved,
+        "reservesTotalTarget": reserves_total_target, "reservesFundedSaved": reserves_funded_saved,
+        "reservesActive": reserves_active, "reservesShortfall": reserves_shortfall,
         "monthsToBufferComplete": months_to_buffer, "destination": destination,
         "savingsRatePctRaw": savings_rate_raw, "fixedBurdenRaw": fixed_burden_raw, "trend": trend,
         "deficitMonths": deficit_months, "windfallTtm": windfall_ttm, "windfallPresent": windfall_ttm > 0,
@@ -527,6 +604,13 @@ def mode_a_facts(raw_state, include_raw, now_ms, cashflow=None):
             "dataFresh": cd["dataFresh"],
             "currencyMismatch": cd["currencyMismatch"],
         }
+        # Slice4.5: 確保枠の補足advisory（集約のみ・NEXT_TARGETS は4据え置き）。設定時のみ付与＝既存パリティ不変。
+        if cd["reservesTotalTarget"] > 0:
+            facts["cashflow"]["reserves"] = {
+                "active": _clamp(cd["reservesActive"], 0, 50),
+                "fundedPct": _clamp(_r(cd["reservesFundedSaved"] / cd["reservesTotalTarget"] * 100), 0, 100),
+                "shortfall": cd["reservesShortfall"],
+            }
         if include_raw:
             facts.setdefault("raw", {})
             facts["raw"]["cashflow"] = {
@@ -541,6 +625,10 @@ def mode_a_facts(raw_state, include_raw, now_ms, cashflow=None):
                 "monthsToBufferComplete": cd["monthsToBufferComplete"],
                 "windfallTtm": cd["windfallTtm"],
             }
+            if cd["reservesTotalTarget"] > 0:  # personal のみ：確保枠の生額（本人合意）
+                facts["raw"]["cashflow"]["toReserves"] = cd["toReserves"]
+                facts["raw"]["cashflow"]["reservesTotalSaved"] = cd["reservesTotalSaved"]
+                facts["raw"]["cashflow"]["reservesTotalTarget"] = cd["reservesTotalTarget"]
     return facts
 
 
@@ -618,6 +706,11 @@ def coarsen_facts(facts):
         for k in ("savingsRatePct", "surplusToExpensePct"):
             if isinstance(cf.get(k), (int, float)) and not isinstance(cf.get(k), bool):
                 cf[k] = _bucket25(cf[k])
+        if isinstance(cf.get("reserves"), dict):  # 確保枠の充足率も粗バケツ化（指紋解像度を下げる）
+            rsv = dict(cf["reserves"])
+            if isinstance(rsv.get("fundedPct"), (int, float)) and not isinstance(rsv.get("fundedPct"), bool):
+                rsv["fundedPct"] = _bucket25(rsv["fundedPct"])
+            cf["reserves"] = rsv
         out["cashflow"] = cf
     return out
 

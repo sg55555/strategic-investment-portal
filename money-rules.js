@@ -17,6 +17,18 @@
   var DISCLAIMER = "本コーチが示す決定論ルールおよび AI の補足はいずれも、資産規律の維持・教育・判断支援を目的とした一般的な情報提供であり、特定の金融商品の売買や投資配分・タイミングを推奨する投資助言ではありません。当ツールは金融商品取引業者・投資助言代理業者として登録された者による助言ではなく、特定の金融商品の勧誘を目的としたものでもありません。将来の利益や成果を保証するものではありません（過去の実績は将来を示しません）。最終的な投資判断はご自身の責任で行ってください。";
   var DISCLAIMER_VERSION = "disc-v1";
 
+  // 用語集（node↔browser 単一源・DISCLAIMER 同型）。? ツールチップ／各セクション一行説明／用語集ブロックが参照。
+  var GLOSSARY = [
+    { term: "バッファ", read: "生活防衛資金（現金）", def: "急な出費や収入減に備える、すぐ使える現金。生活費の数ヶ月分を確保します。" },
+    { term: "コア", read: "長期の積立投資", def: "資産の中心。インデックス投資などで長期にコツコツ積み立てる「守り」のお金です。" },
+    { term: "サテライト", read: "個別株など攻めの投資", def: "値動きの大きい「攻め」の投資。投資元本に対する割合に上限を設け、入れすぎを防ぎます。" },
+    { term: "確保枠", read: "目的別の取り置き", def: "新居・登記費用など、使う予定が決まったお金を投資より先に取り置く目的別の貯金です。" },
+    { term: "投資余力", read: "毎月投資に回せる額", def: "毎月の収支から無理なく投資に回せる額。数ヶ月の平均でならした値です。" },
+    { term: "経常余剰", read: "毎月コンスタントに残るお金", def: "賞与などの臨時収入を除いた、毎月安定して残るお金です。" },
+    { term: "規律配分", read: "ルール順の自動振り分け", def: "バッファ→確保枠→コアの順に、決めたルールどおり自動で振り分けます。" },
+    { term: "基準（アンカー）", read: "貯蓄額の起点", def: "ある月のはじめの貯蓄額。これに以降の収支を足して、今の貯蓄額を自動計算します。" },
+  ];
+
   function num(v) { var n = Number(v); return isFinite(n) && n >= 0 ? n : 0; }
   function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
   function r(x) { return Math.floor(num(x) + 0.5); } // half-up（全値非負前提・Python 還元器とパリティ）
@@ -24,6 +36,7 @@
   function yenSigned(n) { var x = Math.round(Number(n) || 0); return (x < 0 ? "-¥" : "¥") + Math.abs(x).toLocaleString("ja-JP"); } // 収支(負あり)表示用（cf-balance-zero）
 
   var _DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+  var _MONTH_RE = /^\d{4}-\d{2}$/;
   // goal の安全な正規化（migrate と新規追加の両方で使う・純粋）。
   function normalizeGoal(g, i) {
     return {
@@ -32,6 +45,36 @@
       targetAmount: num(g && g.targetAmount),
       deadline: (g && typeof g.deadline === "string" && _DATE_RE.test(g.deadline)) ? g.deadline : "",
     };
+  }
+
+  // Slice4.5: 確保枠（sinking fund）の安全正規化（純粋）。配列順＝優先順位。
+  // monthlyOverride>0 なら逆算を上書き（固定月額）。deadline で期日逆算・無ければ手動まとめ入れ専用。
+  function normalizeReserve(rv, i) {
+    return {
+      id: (rv && typeof rv.id === "string" && /^[A-Za-z0-9_-]+$/.test(rv.id)) ? rv.id : "reserve-" + i,
+      label: (rv && typeof rv.label === "string") ? rv.label : "",
+      target: num(rv && rv.target),
+      saved: num(rv && rv.saved),
+      deadline: (rv && typeof rv.deadline === "string" && _DATE_RE.test(rv.deadline)) ? rv.deadline : "",
+      monthlyOverride: num(rv && rv.monthlyOverride),
+    };
+  }
+
+  // Slice4.5: 確保枠の月次積立提案額（純粋）。完了/残0は0。monthlyOverride>0 なら固定（残額でcap）。
+  // else 期日逆算 ceil(残額/残カレンダー月)。残月は (deadline月 − now月) で算出し min 1（期日切迫/超過は満額を今月）。
+  // 期日も override も無ければ0（手動まとめ入れ専用）。残カレンダー月＝直感的（「30万を5ヶ月で→月6万」）。
+  function reserveMonthly(rv, nowMs) {
+    var remaining = Math.max(0, num(rv.target) - num(rv.saved));
+    if (remaining === 0) return 0;
+    if (num(rv.monthlyOverride) > 0) return Math.min(num(rv.monthlyOverride), remaining);
+    if (!rv.deadline || !_DATE_RE.test(rv.deadline) || !(num(nowMs) > 0)) return 0;
+    var nd = new Date(num(nowMs));
+    if (!isFinite(nd.getTime())) return 0; // 巨大/不正 nowMs は Python(fromtimestamp 例外)と揃え 0 へ degrade
+    var nowYM = nd.getUTCFullYear() * 12 + nd.getUTCMonth(); // 月は0始まり
+    var dlYM = parseInt(rv.deadline.slice(0, 4), 10) * 12 + (parseInt(rv.deadline.slice(5, 7), 10) - 1);
+    var monthsLeft = dlYM - nowYM;
+    if (monthsLeft < 1) monthsLeft = 1; // 期日切迫/超過 → 満額を今月
+    return Math.ceil(remaining / monthsLeft);
   }
 
   function defaultState() {
@@ -45,17 +88,23 @@
       goals: [],
       lastAppliedCashflowPeriod: "", // Slice4: 直近で applySurplus 済みの確定 period（多重計上ガード・クラウド同期）
       anchor: { date: "", amount: 0 }, // データ基盤Phase1: 定点アンカー（基準月初の現金）。現在現金を kakeibo balance 累積で導出
+      reserves: [], // Slice4.5: 目的別確保枠（sinking fund・新居/登記等）。独立プール・ファンド別saved・自動分配なし。投資余力から差引
+      cashSource: "manual",       // データ基盤Phase2 二軸: "anchor"=導出cash / "manual"=buckets.buffer 直入力（既定=後方互換）
+      investmentSource: "manual", // 二軸: "ledger"=投資台帳ETL派生の元本 / "manual"=buckets.core+satellite 直入力（既定=後方互換）
       updatedAt: 0, // last-write-wins 用の epoch ms（刻むのは money.js・ここは受け渡しのみ）
       history: [],
     };
   }
 
-  // アンカー（基準日の現金）の安全正規化（純粋）。date は月初前提だが任意日も受け、cashDerived は月で比較。
+  // アンカー（基準月の月初現金）の安全正規化（純粋）。日付は月単位＝常に月初(YYYY-MM-01)へスナップ。
+  // 「その月のはじめの貯蓄額」に一意化し、月中の日を入れた時の二重計上の曖昧さを構造的に消す。
+  // 後方互換: 既存の YYYY-MM-DD は月初へ丸める（cashDerived は元々月比較なので導出額は不変）。YYYY-MM も受理。
   function normalizeAnchor(a) {
-    return {
-      date: (a && typeof a.date === "string" && _DATE_RE.test(a.date)) ? a.date : "",
-      amount: num(a && a.amount),
-    };
+    var raw = (a && typeof a.date === "string") ? a.date : "";
+    var date = _DATE_RE.test(raw) ? raw.slice(0, 7) + "-01"
+             : _MONTH_RE.test(raw) ? raw + "-01"
+             : "";
+    return { date: date, amount: num(a && a.amount) };
   }
 
   function migrate(raw) {
@@ -74,7 +123,12 @@
       },
       satelliteCapPct: Number(raw.satelliteCapPct) >= 0 ? num(raw.satelliteCapPct) : d.satelliteCapPct,
       lastAppliedCashflowPeriod: (typeof raw.lastAppliedCashflowPeriod === "string" && _DATE_RE.test(raw.lastAppliedCashflowPeriod)) ? raw.lastAppliedCashflowPeriod : "",
+      cashSource: raw.cashSource === "anchor" ? "anchor" : "manual",          // 二軸（既定 manual＝後方互換）
+      investmentSource: raw.investmentSource === "ledger" ? "ledger" : "manual",
       anchor: normalizeAnchor(raw.anchor),
+      reserves: Array.isArray(raw.reserves)
+        ? raw.reserves.filter(function (rv) { return rv && typeof rv === "object" && !Array.isArray(rv); }).slice(0, 50).map(normalizeReserve)
+        : [],
       goals: Array.isArray(raw.goals)
         ? raw.goals.filter(function (g) { return g && typeof g === "object" && !Array.isArray(g); }).map(normalizeGoal)
         : [],
@@ -125,6 +179,27 @@
       message: "バッファ達成。次の余剰はコア（長期）へ。サテライトは上限 " + yen(satelliteCap(s)) + " の余剰内のみ" };
   }
 
+  // 初回オンボーディングのステッパー（純粋・表示専用）。setup 完了度を4段で返し「今ここ」＝最初の未完了。
+  // loggedIn/hasCashflow は sync（副作用源）由来のため money.js から渡す。業務 math でなく状態判定。
+  function onboardingSteps(s, loggedIn, hasCashflow) {
+    var b = (s && s.buckets) || {};
+    var bucketsTouched = (num(b.buffer && b.buffer.amount) + num(b.core && b.core.amount) + num(b.satellite && b.satellite.amount)) > 0;
+    var steps = [
+      { key: "expense", label: "月の生活費", optional: false, done: num(s && s.monthlyExpense) > 0,
+        action: "「設定」を開いて月の生活費を入力（バッファ目標が決まります）" },
+      { key: "buckets", label: "今ある金額", optional: false, done: bucketsTouched,
+        action: "バッファ・コア・サテライトに、今ある金額を入力" },
+      { key: "login", label: "ログイン", optional: true, done: !!loggedIn,
+        action: "ログインするとクラウド同期＝複数端末で共有できます（任意）" },
+      { key: "cashflow", label: "収支連携", optional: true, done: !!hasCashflow,
+        action: "家計（kakeibo）を連携すると毎月の投資余力が表示されます（任意）" },
+    ];
+    var current = -1, doneCount = 0;
+    for (var i = 0; i < steps.length; i++) { if (!steps[i].done && current === -1) current = i; if (steps[i].done) doneCount++; }
+    return { steps: steps, currentIndex: current, allDone: current === -1,
+      nextAction: current === -1 ? "" : steps[current].action, doneCount: doneCount, total: steps.length };
+  }
+
   function viewModel(s) {
     var cap = satelliteCap(s);
     var sat = num(s.buckets.satellite.amount);
@@ -159,6 +234,11 @@
     if (!deadline || !_DATE_RE.test(deadline) || !(num(nowMs) > 0)) return null;
     var t = Date.parse(deadline + "T00:00:00Z");
     if (!isFinite(t)) return null;
+    // カレンダー妥当性: Date.parse のロールオーバー(2026-02-30→3-02 等)を弾き Python strptime(拒否)と一致させる。
+    var dchk = new Date(t);
+    if (dchk.getUTCFullYear() !== parseInt(deadline.slice(0, 4), 10) ||
+        dchk.getUTCMonth() + 1 !== parseInt(deadline.slice(5, 7), 10) ||
+        dchk.getUTCDate() !== parseInt(deadline.slice(8, 10), 10)) return null;
     var months = (t - num(nowMs)) / (30.44 * 86400000);
     if (months < 0) return "overdue";
     if (months < 3) return "under_3m";
@@ -245,9 +325,35 @@
     var bufferConfigured = requiredBuffer > 0;
     var bufferAchieved = bufferConfigured && bufferRem === 0;
     var toBuffer = r(Math.min(monthlySurplus, bufferRem));
-    var investableSurplus = Math.max(0, monthlySurplus - toBuffer);
+    // Slice4.5: バッファ控除後の余剰を確保枠へ優先順位順（配列順）に充当→残りがコア。確保枠が空なら
+    // toReserves=0 で旧挙動（investableSurplus=afterBuffer）と完全一致＝既存パリティ不変。全値整数で par-2 二重丸めなし。
+    var afterBuffer = Math.max(0, monthlySurplus - toBuffer);
+    var reservesArr = Array.isArray(s.reserves) ? s.reserves : [];
+    var remainForReserves = afterBuffer, toReserves = 0;
+    var reserveAlloc = reservesArr.map(function (rv) {
+      var want = r(reserveMonthly(rv, nowMs)); // 整数化（override の float を排し toReserves/investableSurplus を整数に保つ＝par-2）
+      var give = Math.max(0, Math.min(want, remainForReserves));
+      remainForReserves -= give; toReserves += give;
+      var tgt = num(rv.target), sv = num(rv.saved);
+      return {
+        id: rv.id, label: rv.label, target: tgt, saved: sv, deadline: rv.deadline,
+        suggestedMonthly: want, allocated: give,
+        progress: tgt > 0 ? clamp(sv / tgt, 0, 1) : (sv > 0 ? 1 : 0),
+        complete: tgt > 0 && sv >= tgt,
+        shortfall: give < want, // 今月の提案を余剰で満たせない
+      };
+    });
+    var investableSurplus = remainForReserves; // バッファ→確保枠→残り＝コア
     var toCore = investableSurplus;   // 既定は全額コア（サテライトは上限内リバランス操作限定）
     var toSatellite = 0;
+    var reservesTotalSaved = 0, reservesTotalTarget = 0, reservesFundedSaved = 0, reservesActive = 0, reservesShortfall = false;
+    reserveAlloc.forEach(function (ra) {
+      reservesTotalSaved += ra.saved; reservesTotalTarget += ra.target;
+      // fundedPct 用は per-reserve で target に cap（超過貯蓄/target=0 saved が他枠の不足を相殺して 100% に見える誤りを排除）。
+      if (ra.target > 0) reservesFundedSaved += Math.min(ra.saved, ra.target);
+      if (ra.target > 0 && !ra.complete) reservesActive++;
+      if (ra.shortfall) reservesShortfall = true;
+    });
     var monthsToBufferComplete = bufferAchieved ? 0
       : (monthlySurplus > 0 && bufferRem > 0 ? Math.ceil(bufferRem / monthlySurplus) : null);
     var destination = nextAllocation(s).target;  // nextTarget と単一源で一致（同画面の自己矛盾を排除）
@@ -287,6 +393,9 @@
       requiredBuffer: requiredBuffer, bufferRemaining: bufferRem,
       bufferConfigured: bufferConfigured, bufferAchieved: bufferAchieved,
       toBuffer: toBuffer, investableSurplus: investableSurplus, toSatellite: toSatellite, toCore: toCore,
+      toReserves: toReserves, reserveAlloc: reserveAlloc, reservesTotalSaved: reservesTotalSaved,
+      reservesTotalTarget: reservesTotalTarget, reservesFundedSaved: reservesFundedSaved,
+      reservesActive: reservesActive, reservesShortfall: reservesShortfall,
       monthsToBufferComplete: monthsToBufferComplete, destination: destination,
       savingsRatePctRaw: savingsRatePctRaw, fixedBurdenRaw: fixedBurdenRaw, trend: trend,
       deficitMonths: deficitMonths, windfallTtm: windfallTtm, windfallPresent: windfallTtm > 0,
@@ -323,6 +432,52 @@
       derivedCash: a.amount + sumComplete,   // 権威（確定月のみ）
       derivedCashLive: a.amount + sumLive,    // 参考（当月部分含む）
       monthsCovered: monthsCovered,
+    };
+  }
+
+  // データ基盤Phase2: 生 投資snapshot 行 → 正規化（period 昇順・不正行は捨てる・cashflowRows と同流儀）。
+  function investmentRows(rows) {
+    if (!Array.isArray(rows)) return [];
+    var out = rows.filter(function (r) {
+      return r && typeof r === "object" && typeof r.period === "string" && _DATE_RE.test(r.period);
+    }).map(function (r) {
+      return {
+        period: r.period,
+        investCashFlow: cfNum(r.invest_cash_flow),       // 現金影響（符号付き）
+        principalCoreDelta: cfNum(r.principal_core_delta),
+        principalSatDelta: cfNum(r.principal_sat_delta),
+        realizedGain: cfNum(r.realized_gain),            // 実現益（負=損失あり）
+        isComplete: r.is_complete !== false,
+        pulledAt: typeof r.pulled_at === "string" ? r.pulled_at : "",
+      };
+    });
+    out.sort(function (a, b) { return a.period < b.period ? -1 : (a.period > b.period ? 1 : 0); });
+    return out;
+  }
+
+  // データ基盤Phase2: 投資台帳の per-period delta を累積し principal/investable/実現益(TTM)を導出（純粋）。
+  // 二目的会計（plan §2）: 元本(取得原価)は全期間累積（期初保有=基準日前取得を含む・現金には載らない）／
+  //   実現益は直近12確定月のTTM（windfall・経常medianから別建て・売却月にスパイクさせない）。
+  // 現金導出は cashDerived が invest_cash_flow を別途畳み込む（ここは元本/実現益の単一責務＝二重計上しない）。
+  // 元本は通常非負だが記帳誤りで負化し得る → 表示は max(0,..)、生値(*Raw)も返してドリフト点検に供する。
+  function investmentDerived(rows_in, nowMs) {
+    var rows = investmentRows(rows_in);
+    var principalCore = 0, principalSat = 0;
+    rows.forEach(function (rr) { principalCore += rr.principalCoreDelta; principalSat += rr.principalSatDelta; });
+    var complete = rows.filter(function (rr) { return rr.isComplete; });
+    var last12 = complete.slice(-12);
+    var realizedGainTtm = last12.reduce(function (acc, rr) { return acc + rr.realizedGain; }, 0);
+    var coreSafe = Math.max(0, principalCore), satSafe = Math.max(0, principalSat);
+    var investable = coreSafe + satSafe;
+    return {
+      investmentConfigured: rows.length > 0,
+      principalCore: coreSafe, principalSat: satSafe, investable: investable,
+      principalCoreRaw: principalCore, principalSatRaw: principalSat, investableRaw: principalCore + principalSat,
+      coreSharePct: investable > 0 ? (coreSafe / investable) * 100 : 0,
+      satelliteSharePct: investable > 0 ? (satSafe / investable) * 100 : 0,
+      realizedGainTtm: realizedGainTtm,                 // 符号付き（損失は負）
+      realizedGainPresent: realizedGainTtm !== 0,
+      rows: rows,
     };
   }
 
@@ -419,6 +574,16 @@
         dataFresh: cd.dataFresh,
         currencyMismatch: cd.currencyMismatch,
       };
+      // Slice4.5: 確保枠の補足advisory（NEXT_TARGETS は4据え置き＝新カテゴリにしない）。
+      // reserves 設定時のみ付与（未設定 state は既存 facts.cashflow をバイト不変に保つ＝既存パリティ維持）。
+      // 集約のみ（active=件数/fundedPct=比率/shortfall=bool）＝production でも生 yen を出さない。
+      if (cd.reservesTotalTarget > 0) {
+        facts.cashflow.reserves = {
+          active: clamp(cd.reservesActive, 0, 50),
+          fundedPct: clamp(r(cd.reservesFundedSaved / cd.reservesTotalTarget * 100), 0, 100),
+          shortfall: cd.reservesShortfall,
+        };
+      }
       if (includeRaw) {
         facts.raw = facts.raw || {};
         facts.raw.cashflow = {
@@ -433,6 +598,11 @@
           monthsToBufferComplete: cd.monthsToBufferComplete,
           windfallTtm: cd.windfallTtm,
         };
+        if (cd.reservesTotalTarget > 0) {  // personal のみ：確保枠の生額（本人合意）
+          facts.raw.cashflow.toReserves = cd.toReserves;
+          facts.raw.cashflow.reservesTotalSaved = cd.reservesTotalSaved;
+          facts.raw.cashflow.reservesTotalTarget = cd.reservesTotalTarget;
+        }
       }
     }
     return facts;
@@ -462,6 +632,8 @@
       categories: (disp.breakdown && Array.isArray(disp.breakdown.categories)) ? disp.breakdown.categories.slice(0, 8) : [],
       monthlySurplus: cd.monthlySurplus, investableSurplus: cd.investableSurplus,
       toBuffer: cd.toBuffer, toCore: cd.toCore, toSatellite: cd.toSatellite,
+      toReserves: cd.toReserves, reserves: cd.reserveAlloc, reservesShortfall: cd.reservesShortfall,
+      reservesTotalSaved: cd.reservesTotalSaved, reservesTotalTarget: cd.reservesTotalTarget, reservesActive: cd.reservesActive,
       surplusPositive: cd.surplusPositive, bufferAchieved: cd.bufferAchieved,
       bufferRemaining: r(cd.bufferRemaining), monthsToBufferComplete: cd.monthsToBufferComplete,
       destination: cd.destination, windfallTtm: cd.windfallTtm, windfallPresent: cd.windfallPresent,
@@ -478,7 +650,9 @@
     STORAGE_KEY: STORAGE_KEY, CURRENT_VERSION: CURRENT_VERSION,
     NEXT_TARGETS: NEXT_TARGETS, FACTS_SCHEMA_VERSION: FACTS_SCHEMA_VERSION,
     DISCLAIMER: DISCLAIMER, DISCLAIMER_VERSION: DISCLAIMER_VERSION,
+    GLOSSARY: GLOSSARY, onboardingSteps: onboardingSteps,
     defaultState: defaultState, migrate: migrate, normalizeGoal: normalizeGoal,
+    normalizeReserve: normalizeReserve, reserveMonthly: reserveMonthly,
     bufferTarget: bufferTarget, bufferProgress: bufferProgress, bufferRemaining: bufferRemaining,
     investable: investable, satelliteCap: satelliteCap, satelliteOver: satelliteOver,
     totalAssets: totalAssets, goalProgress: goalProgress,
@@ -486,5 +660,6 @@
     deadlineBucket: deadlineBucket, modeAFacts: modeAFacts,
     cashflowDerived: cashflowDerived, cashflowViewModel: cashflowViewModel,
     normalizeAnchor: normalizeAnchor, cashDerived: cashDerived,
+    investmentDerived: investmentDerived,
   };
 });

@@ -206,7 +206,9 @@ CF_ALLOW = {
     "available", "monthsCovered", "insufficientData", "savingsRatePct", "surplusPositive",
     "surplusToExpensePct", "investableSurplusPositive", "nextDestination", "monthsToBufferBucket",
     "surplusTrend", "deficitMonthsInLast6", "fixedBurdenBucket", "windfallPresent", "dataFresh", "currencyMismatch",
+    "reserves",  # Slice4.5: 確保枠の補足advisory（nested {active,fundedPct,shortfall}・集約のみ）
 }
+CF_RESERVES_ALLOW = {"active", "fundedPct", "shortfall"}
 
 
 def test_schema_version_2():
@@ -222,11 +224,18 @@ def test_cashflow_production_safety():
         assert "raw" not in f, c["name"]  # production は raw 無し
         for k in f["cashflow"]:
             assert k in CF_ALLOW, ("unexpected cashflow key", c["name"], k)
-        for v in f["cashflow"].values():
-            if isinstance(v, bool):
+        for k, v in f["cashflow"].items():
+            if isinstance(v, bool) or k == "reserves":
                 continue
             if isinstance(v, (int, float)):
                 assert 0 <= v <= 999, ("raw-magnitude number", c["name"], v)  # 生 yen は混ざらない
+        rsv = f["cashflow"].get("reserves")
+        if isinstance(rsv, dict):  # nested reserves も集約のみ（active=件数/fundedPct=比率・生 yen 無し）
+            for k in rsv:
+                assert k in CF_RESERVES_ALLOW, ("unexpected reserves key", c["name"], k)
+            assert 0 <= rsv["active"] <= 50, c["name"]
+            assert 0 <= rsv["fundedPct"] <= 100, c["name"]
+            assert isinstance(rsv["shortfall"], bool), c["name"]
         assert "70000" not in json.dumps(f["cashflow"], ensure_ascii=False), c["name"]
 
 
@@ -279,6 +288,95 @@ def test_cashflow_par2_single_rounding():
     c = next(x for x in CASES if x["name"] == "cashflow-bufferrem-half")
     rc = advice.mode_a_facts(c["state"], True, _case_now(c), c["cashflow"])["raw"]["cashflow"]
     assert rc["toBuffer"] + rc["investableSurplus"] == rc["monthlySurplus"]  # par-2: 保存則維持
+
+
+# --- Slice4.5: 確保枠（sinking fund）reserves のウォーターフォール鏡像 ---
+
+def test_reserve_monthly_mirrors_js():
+    import datetime as dt
+
+    def ms(y, m, d):
+        return dt.datetime(y, m, d, tzinfo=dt.timezone.utc).timestamp() * 1000
+    now = ms(2026, 6, 1)
+    assert advice._reserve_monthly({"target": 300000, "saved": 0, "deadline": "2026-11-01"}, now) == 60000  # 5ヶ月逆算
+    assert advice._reserve_monthly({"target": 300000, "saved": 0, "deadline": "2026-06-01"}, ms(2026, 6, 15)) == 300000  # 当月→満額
+    assert advice._reserve_monthly({"target": 500000, "saved": 470000, "monthlyOverride": 60000}, 0) == 30000  # 残額cap
+    assert advice._reserve_monthly({"target": 100000, "saved": 100000, "deadline": "2026-11-01"}, now) == 0  # 完了
+    assert advice._reserve_monthly({"target": 100000, "saved": 0}, 0) == 0  # 期日もoverrideも無し
+
+
+def test_cashflow_reserves_waterfall_priority():
+    c = next(x for x in CASES if x["name"] == "cashflow-reserves-priority")
+    f = advice.mode_a_facts(c["state"], False, _case_now(c), c["cashflow"])
+    rsv = f["cashflow"]["reserves"]
+    assert rsv == {"active": 2, "fundedPct": 0, "shortfall": True}  # r2が余剰切れ→shortfall
+    assert f["cashflow"]["investableSurplusPositive"] is False     # 確保枠で食い尽くす
+    p = advice.mode_a_facts(c["state"], True, _case_now(c), c["cashflow"])
+    assert p["raw"]["cashflow"]["toReserves"] == 100000            # 60000+40000
+    assert p["raw"]["cashflow"]["investableSurplus"] == 0
+    assert p["raw"]["cashflow"]["reservesTotalTarget"] == 800000
+
+
+def test_cashflow_reserves_buffer_first():
+    # 規律芯: バッファ未達なら余剰は全額バッファ→確保枠は0配分でshortfall（cf-1 と整合）。
+    c = next(x for x in CASES if x["name"] == "cashflow-reserves-buffer-first")
+    f = advice.mode_a_facts(c["state"], False, _case_now(c), c["cashflow"])
+    assert f["cashflow"]["nextDestination"] == "buffer"
+    assert f["cashflow"]["reserves"]["shortfall"] is True
+    p = advice.mode_a_facts(c["state"], True, _case_now(c), c["cashflow"])
+    assert p["raw"]["cashflow"]["toBuffer"] == 100000
+    assert p["raw"]["cashflow"]["toReserves"] == 0
+
+
+def test_cashflow_reserves_absent_when_unset():
+    c = next(x for x in CASES if x["name"] == "cashflow-smoothed")  # reserves 無し
+    f = advice.mode_a_facts(c["state"], False, _case_now(c), c["cashflow"])
+    assert "reserves" not in f["cashflow"]
+    p = advice.mode_a_facts(c["state"], True, _case_now(c), c["cashflow"])
+    assert "toReserves" not in p["raw"]["cashflow"]
+
+
+def test_cashflow_reserves_coarsen_buckets_fundedpct():
+    c = next(x for x in CASES if x["name"] == "cashflow-reserves-deadline")  # fundedPct=20
+    f = advice.mode_a_facts(c["state"], True, _case_now(c), c["cashflow"])
+    assert f["cashflow"]["reserves"]["fundedPct"] == 20
+    cf = advice.coarsen_facts(f)
+    assert cf["cashflow"]["reserves"]["fundedPct"] == 25  # 20→25バケツ（指紋解像度↓）
+    assert cf["cashflow"]["reserves"]["active"] == 1       # active/shortfall は coarsen 不変で通過
+    assert cf["cashflow"]["reserves"]["shortfall"] is False
+    assert "raw" not in cf
+
+
+def test_cashflow_reserves_complete():
+    c = next(x for x in CASES if x["name"] == "cashflow-reserves-complete")
+    f = advice.mode_a_facts(c["state"], False, _case_now(c), c["cashflow"])
+    assert f["cashflow"]["reserves"] == {"active": 0, "fundedPct": 100, "shortfall": False}
+    p = advice.mode_a_facts(c["state"], True, _case_now(c), c["cashflow"])
+    assert p["raw"]["cashflow"]["investableSurplus"] == 100000  # 完了→余剰は全額コア
+    assert p["raw"]["cashflow"]["toReserves"] == 0
+
+
+def test_cashflow_reserves_oversaved_capped_fundedpct():
+    # 超過貯蓄(完了枠)が未完了枠の0%をマスクしない＝fundedPct は per-reserve cap で50（100でない）。
+    c = next(x for x in CASES if x["name"] == "cashflow-reserves-oversaved")
+    f = advice.mode_a_facts(c["state"], False, _case_now(c), c["cashflow"])
+    assert f["cashflow"]["reserves"] == {"active": 1, "fundedPct": 50, "shortfall": False}
+    p = advice.mode_a_facts(c["state"], True, _case_now(c), c["cashflow"])
+    assert p["raw"]["cashflow"]["reservesTotalSaved"] == 400000  # 生表示は uncapped（UI 用）
+
+
+def test_date_re_rejects_trailing_newline():
+    # JS `.test` の $ と一致: 末尾改行は不正（deadline/period/id のパリティ）。
+    assert advice._DATE_RE.match("2026-11-01\n") is None
+    assert advice._DATE_RE.match("2026-11-01") is not None
+    assert advice._GOAL_ID_RE.match("abc\n") is None
+
+
+def test_deadline_bucket_invalid_calendar_day():
+    import datetime as dt
+    now = dt.datetime(2026, 6, 28, tzinfo=dt.timezone.utc).timestamp() * 1000
+    assert advice._deadline_bucket("2026-02-30", now) is None      # 2/30 は実在せず（JS round-trip 検証と一致）
+    assert advice._deadline_bucket("2026-08-31", now) == "under_3m"  # 8/31 は実在
 
 
 if __name__ == "__main__":
