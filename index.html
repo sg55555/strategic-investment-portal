@@ -2152,6 +2152,10 @@
     <script src="finance-rules.js"></script>
     <script>
       Chart.register(ChartDataLabels);
+      // テーマD調和: Chart.js の既定フォント=等幅(mono) / 既定テキスト色 / 既定グリッド色（個別 override は各チャートで上書き）
+      Chart.defaults.font.family = "ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace";
+      Chart.defaults.color = "#a8bcc6";
+      Chart.defaults.borderColor = "rgba(0,229,255,0.07)";
 
       // XSS対策: サーバ由来文字列(社名/業種等)を innerHTML/属性に入れる前に必ず通す（money.js の esc() と同型）。
       function esc(s) {
@@ -2390,10 +2394,10 @@
         if (compareSet.size === 0) return;
 
         compareChart = LightweightCharts.createChart(container, {
-          layout: { background: { type: "solid", color: "#0b0f1a" }, textColor: "#64748b" },
-          grid: { vertLines: { color: "#1e293b" }, horzLines: { color: "#1e293b" } },
-          timeScale: { borderColor: "#1e293b" },
-          rightPriceScale: { borderColor: "#1e293b" },
+          layout: { background: { type: "solid", color: "#05080e" }, textColor: "#a8bcc6" },
+          grid: { vertLines: { color: "rgba(0,229,255,0.06)" }, horzLines: { color: "rgba(0,229,255,0.06)" } },
+          timeScale: { borderColor: "#2a3a44" },
+          rightPriceScale: { borderColor: "#2a3a44" },
         });
 
         const legendEl = document.getElementById("compare-legend");
@@ -3097,9 +3101,9 @@
       // ── サブチャート 初期化 ────────────────────────────────────────
       function initSubCharts() {
         const baseOpts = {
-          layout: { background: { type: "solid", color: "#0d1520" }, textColor: "#64748b" },
-          grid: { vertLines: { color: "#1a2332" }, horzLines: { color: "#1a2332" } },
-          rightPriceScale: { borderColor: "#2d3748", scaleMargins: { top: 0.1, bottom: 0.1 } },
+          layout: { background: { type: "solid", color: "#05080e" }, textColor: "#a8bcc6" },
+          grid: { vertLines: { color: "rgba(0,229,255,0.06)" }, horzLines: { color: "rgba(0,229,255,0.06)" } },
+          rightPriceScale: { borderColor: "#2a3a44", scaleMargins: { top: 0.1, bottom: 0.1 } },
           crosshair: { mode: 1 },
           handleScale: false,
           handleScroll: false,
@@ -3108,7 +3112,7 @@
         if (!rsiChart) {
           rsiChart = LightweightCharts.createChart(
             document.getElementById("rsi-container"),
-            { ...baseOpts, timeScale: { borderColor: "#2d3748", visible: false } }
+            { ...baseOpts, timeScale: { borderColor: "#2a3a44", visible: false } }
           );
           rsiSeries = rsiChart.addLineSeries({
             color: "#ffca3a", lineWidth: 1.5,
@@ -3122,7 +3126,7 @@
         if (!macdChart) {
           macdChart = LightweightCharts.createChart(
             document.getElementById("macd-container"),
-            { ...baseOpts, timeScale: { borderColor: "#2d3748", visible: true } }
+            { ...baseOpts, timeScale: { borderColor: "#2a3a44", visible: true } }
           );
           macdHistSeries = macdChart.addHistogramSeries({
             priceLineVisible: false, lastValueVisible: false,
@@ -3450,29 +3454,30 @@
         const container = document.getElementById("chart-container");
         priceChart = LightweightCharts.createChart(container, {
           layout: {
-            background: { type: "solid", color: "#161d2b" },
-            textColor: "#94a3b8",
+            background: { type: "solid", color: "#05080e" },
+            textColor: "#a8bcc6",
           },
           grid: {
-            vertLines: { color: "#2d3748" },
-            horzLines: { color: "#2d3748" },
+            vertLines: { color: "rgba(0,229,255,0.06)" },
+            horzLines: { color: "rgba(0,229,255,0.06)" },
           },
-          timeScale: { borderColor: "#2d3748" },
-          rightPriceScale: { borderColor: "#2d3748" },
+          timeScale: { borderColor: "#2a3a44" },
+          rightPriceScale: { borderColor: "#2a3a44" },
         });
 
         priceChart.priceScale("right").applyOptions({
           scaleMargins: { top: 0.05, bottom: 0.25 },
         });
 
-        // ⚠️不可侵（F5除外）: ローソク足確定色6色。canvasデータ意味色のため --ix-* トークン化しない（値固定）。
+        // ローソク足の色（テーマD調和でネオン化・up=赤/down=緑 の意味は維持）。
+        //  canvas色は CSS の --ix-* 自動トークン化(F5)の対象外＝ここで直接管理（値で更新）。
         candleSeries = priceChart.addCandlestickSeries({
-          upColor:        "#ff003d",   // ピュア原色レッド（本体）
-          downColor:      "#00f573",   // ピュア原色グリーン（本体）
-          borderUpColor:  "#ff7a9d",   // 明るいピンクハイライト → グラデーション風
-          borderDownColor:"#88ffc4",   // 明るいミントハイライト → グラデーション風
-          wickUpColor:    "#ff7a9d",
-          wickDownColor:  "#88ffc4",
+          upColor:        "#ff1744",   // テーマDネオン レッド（本体・up=赤）
+          downColor:      "#00e676",   // テーマDネオン グリーン（本体・down=緑）
+          borderUpColor:  "#ff5c7a",   // 明るいレッドハイライト
+          borderDownColor:"#39ff8b",   // 明るいグリーンハイライト
+          wickUpColor:    "#ff5c7a",
+          wickDownColor:  "#39ff8b",
         });
 
         volumeSeries = priceChart.addHistogramSeries({
@@ -3777,7 +3782,7 @@
               {
                 label: "純資産",
                 data: [0, displayNetAssets],
-                backgroundColor: "#d97706",
+                backgroundColor: "#ffca3a",
                 stack: "Stack0",
                 categoryPercentage: 1.0,
                 barPercentage: 1.0,
@@ -3785,7 +3790,7 @@
               {
                 label: "固定負債",
                 data: [0, fin.non_current_liabilities],
-                backgroundColor: "#b91c1c",
+                backgroundColor: "#ff2d63",
                 stack: "Stack0",
                 categoryPercentage: 1.0,
                 barPercentage: 1.0,
@@ -3793,7 +3798,7 @@
               {
                 label: "流動負債",
                 data: [0, fin.current_liabilities],
-                backgroundColor: "#dc2626",
+                backgroundColor: "#ff5c7a",
                 stack: "Stack0",
                 categoryPercentage: 1.0,
                 barPercentage: 1.0,
@@ -3801,7 +3806,7 @@
               {
                 label: "固定資産",
                 data: [fin.non_current_assets, 0],
-                backgroundColor: "#4f46e5",
+                backgroundColor: "#5d6dff",
                 stack: "Stack0",
                 categoryPercentage: 1.0,
                 barPercentage: 1.0,
@@ -3809,7 +3814,7 @@
               {
                 label: "流動資産",
                 data: [fin.current_assets, 0],
-                backgroundColor: "#2563eb",
+                backgroundColor: "#38bdf8",
                 stack: "Stack0",
                 categoryPercentage: 1.0,
                 barPercentage: 1.0,
@@ -3838,12 +3843,12 @@
                 backgroundColor: function (context) {
                   const val = context.dataset.data[context.dataIndex];
                   if (val === 0) return null;
-                  return val / totalAssets < 0.12 ? "#1e293b" : null;
+                  return val / totalAssets < 0.12 ? "#0a0f17" : null;
                 },
                 borderColor: function (context) {
                   const val = context.dataset.data[context.dataIndex];
                   if (val === 0) return null;
-                  return val / totalAssets < 0.12 ? "#6366f1" : null;
+                  return val / totalAssets < 0.12 ? "#00e5ff" : null;
                 },
                 borderWidth: function (context) {
                   const val = context.dataset.data[context.dataIndex];
@@ -3914,13 +3919,13 @@
               x: {
                 stacked: true,
                 grid: { display: false },
-                ticks: { color: "#a0aec0", font: { size: 15, weight: "bold" } },
+                ticks: { color: "#a8bcc6", font: { size: 15, weight: "bold" } },
               },
               y: {
                 stacked: true,
-                grid: { color: "#2d3748" },
+                grid: { color: "rgba(0,229,255,0.07)" },
                 ticks: {
-                  color: "#718096",
+                  color: "#8ba2af",
                   font: { size: 13 },
                   callback: (v) => FinanceRules.fmtAxis(v, STOCK_DATA[currentTicker]?.currency),
                 },
@@ -3983,13 +3988,13 @@
                   score_equity,
                   score_current,
                 ],
-                backgroundColor: "rgba(99, 102, 241, 0.18)",
-                borderColor: "#6366f1",
+                backgroundColor: "rgba(0,229,255,0.16)",
+                borderColor: "#00e5ff",
                 borderWidth: 2,
-                pointBackgroundColor: "#818cf8",
-                pointBorderColor: "#1e293b",
-                pointHoverBackgroundColor: "#c084fc",
-                pointHoverBorderColor: "#6366f1",
+                pointBackgroundColor: "#62f0ff",
+                pointBorderColor: "#05080e",
+                pointHoverBackgroundColor: "#f570ff",
+                pointHoverBorderColor: "#00e5ff",
               },
             ],
           },
@@ -4000,17 +4005,17 @@
             plugins: {
               legend: { display: false },
               datalabels: {
-                color: "#94a3b8",
+                color: "#a8bcc6",
                 font: { weight: "bold", size: 11 },
                 formatter: (v) => Math.round(v) + "点",
               },
             },
             scales: {
               r: {
-                angleLines: { color: "#2d3748" },
-                grid: { color: "#2d3748" },
+                angleLines: { color: "rgba(0,229,255,0.07)" },
+                grid: { color: "rgba(0,229,255,0.07)" },
                 pointLabels: {
-                  color: "#cbd5e1",
+                  color: "#a8bcc6",
                   font: { size: 13, weight: "bold" },
                 },
                 ticks: { display: false },
@@ -4043,12 +4048,12 @@
         //  現データでは gross_profit が全社欠損のため売上総利益の段は常に省略され、
         //  経常利益/税金等調整前は米国株含め全レコードで提供されるため常に描画される。
         const plSteps = [
-          { label: "当期純利益", val: netIncome, color: "#7c3aed", core: true },
-          { label: "税金等調整前当期純利益", key: "income_before_taxes", val: fin.income_before_taxes, color: "#6366f1" },
-          { label: "経常利益", key: "ordinary_income", val: fin.ordinary_income, color: "#3b82f6" },
-          { label: "営業利益", val: opIncome, color: "#0ea5e9", core: true },
-          { label: "売上総利益", key: "gross_profit", val: fin.gross_profit, color: "#14b8a6" },
-          { label: "売上高", val: sales, color: "#334155", core: true },
+          { label: "当期純利益", val: netIncome, color: "#f570ff", core: true },
+          { label: "税金等調整前当期純利益", key: "income_before_taxes", val: fin.income_before_taxes, color: "#8a7bff" },
+          { label: "経常利益", key: "ordinary_income", val: fin.ordinary_income, color: "#5d6dff" },
+          { label: "営業利益", val: opIncome, color: "#38bdf8", core: true },
+          { label: "売上総利益", key: "gross_profit", val: fin.gross_profit, color: "#00d6b0" },
+          { label: "売上高", val: sales, color: "#6e8492", core: true },
         ].filter((s) => s.core || FinanceRules.hasValue(fin, s.key));
         const plLabels = plSteps.map((s) => s.label);
         const plData = plSteps.map((s) => s.val);
@@ -4126,13 +4131,13 @@
             scales: {
               x: {
                 grid: { display: false },
-                ticks: { color: "#a0aec0", font: { weight: "bold", size: isMobile ? 9 : 15 } },
+                ticks: { color: "#a8bcc6", font: { weight: "bold", size: isMobile ? 9 : 15 } },
               },
               y: {
                 grace: "35%",
-                grid: { color: "#2d3748" },
+                grid: { color: "rgba(0,229,255,0.07)" },
                 ticks: {
-                  color: "#718096",
+                  color: "#8ba2af",
                   font: { size: 13 },
                   callback: (v) => FinanceRules.fmtAxis(v, STOCK_DATA[currentTicker]?.currency),
                 },
@@ -4251,11 +4256,11 @@
               {
                 data: waterfallData,
                 backgroundColor: [
-                  "#2563eb",
-                  opCf >= 0 ? "#0d9488" : "#b91c1c",
-                  invCf >= 0 ? "#0d9488" : "#b91c1c",
-                  finCf >= 0 ? "#0d9488" : "#b91c1c",
-                  "#4f46e5",
+                  "#38bdf8",
+                  opCf >= 0 ? "#00d6b0" : "#ff2d63",
+                  invCf >= 0 ? "#00d6b0" : "#ff2d63",
+                  finCf >= 0 ? "#00d6b0" : "#ff2d63",
+                  "#5d6dff",
                 ],
                 categoryPercentage: 0.99,
                 barPercentage: 0.9,
@@ -4333,14 +4338,14 @@
             },
             scales: {
               x: {
-                grid: { color: "#2d3748" },
-                ticks: { color: "#a0aec0", font: { weight: "bold", size: isMobile ? 9 : 14 } },
+                grid: { color: "rgba(0,229,255,0.07)" },
+                ticks: { color: "#a8bcc6", font: { weight: "bold", size: isMobile ? 9 : 14 } },
               },
               y: {
                 grace: "40%",
-                grid: { color: "#2d3748" },
+                grid: { color: "rgba(0,229,255,0.07)" },
                 ticks: {
-                  color: "#718096",
+                  color: "#8ba2af",
                   font: { size: 12 },
                   callback: (v) => FinanceRules.fmtAxis(v, STOCK_DATA[currentTicker]?.currency),
                 },
