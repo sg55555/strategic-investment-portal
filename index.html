@@ -2157,6 +2157,45 @@
       Chart.defaults.color = "#a8bcc6";
       Chart.defaults.borderColor = "rgba(0,229,255,0.07)";
 
+      // ── ネオン発光バー（漆黒に発光する世界観・べた塗り回避） ──
+      function _hexRgba(hex, a) {
+        const h = hex.replace("#", "");
+        const f = h.length === 3 ? h.split("").map(c => c + c).join("") : h;
+        const n = parseInt(f, 16);
+        return "rgba(" + ((n >> 16) & 255) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + a + ")";
+      }
+      // 各バー自身の範囲で「上=明 → 下=やや沈む」軽い艶グラデ（鮮やかさは保ち発光して立ち上がる質感・濁らせない）。
+      //  context.element があれば bar 自身の y 範囲で、無ければ chartArea で代替。chartArea 未確定時は base 色。
+      function neonBarBg(baseHex) {
+        return function (context) {
+          const chart = context.chart, ca = chart.chartArea;
+          const el = context.element;
+          let y0, y1;
+          if (el && typeof el.y === "number" && typeof el.base === "number") { y0 = Math.min(el.y, el.base); y1 = Math.max(el.y, el.base); }
+          else if (ca) { y0 = ca.top; y1 = ca.bottom; }
+          else return _hexRgba(baseHex, 0.9);
+          if (y1 - y0 < 1) y1 = y0 + 1;
+          const g = chart.ctx.createLinearGradient(0, y0, 0, y1);
+          g.addColorStop(0, _hexRgba(baseHex, 1.0));
+          g.addColorStop(1, _hexRgba(baseHex, 0.62));
+          return g;
+        };
+      }
+      // 配列色（CF/PL のように bar ごとに色が違う）用: dataIndex で base 色を引いてグラデ化。
+      function neonBarBgByIndex(baseColors) {
+        return function (context) { return neonBarBg(baseColors[context.dataIndex])(context); };
+      }
+      // バー描画時にネオン・グロー（発光ブルーム）を付与。
+      const neonGlowPlugin = {
+        id: "neonGlow",
+        beforeDatasetsDraw(chart) {
+          const c = chart.ctx; c.save();
+          c.shadowBlur = 16; c.shadowColor = "rgba(0,229,255,0.42)";
+        },
+        afterDatasetsDraw(chart) { chart.ctx.restore(); },
+      };
+      Chart.register(neonGlowPlugin);
+
       // XSS対策: サーバ由来文字列(社名/業種等)を innerHTML/属性に入れる前に必ず通す（money.js の esc() と同型）。
       function esc(s) {
         return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -3782,7 +3821,7 @@
               {
                 label: "純資産",
                 data: [0, displayNetAssets],
-                backgroundColor: "#ffca3a",
+                backgroundColor: neonBarBg("#ffd60a"),
                 stack: "Stack0",
                 categoryPercentage: 1.0,
                 barPercentage: 1.0,
@@ -3790,7 +3829,7 @@
               {
                 label: "固定負債",
                 data: [0, fin.non_current_liabilities],
-                backgroundColor: "#ff2d63",
+                backgroundColor: neonBarBg("#ff2d63"),
                 stack: "Stack0",
                 categoryPercentage: 1.0,
                 barPercentage: 1.0,
@@ -3798,7 +3837,7 @@
               {
                 label: "流動負債",
                 data: [0, fin.current_liabilities],
-                backgroundColor: "#ff5c7a",
+                backgroundColor: neonBarBg("#ff5c7a"),
                 stack: "Stack0",
                 categoryPercentage: 1.0,
                 barPercentage: 1.0,
@@ -3806,7 +3845,7 @@
               {
                 label: "固定資産",
                 data: [fin.non_current_assets, 0],
-                backgroundColor: "#5d6dff",
+                backgroundColor: neonBarBg("#38bdf8"),
                 stack: "Stack0",
                 categoryPercentage: 1.0,
                 barPercentage: 1.0,
@@ -3814,7 +3853,7 @@
               {
                 label: "流動資産",
                 data: [fin.current_assets, 0],
-                backgroundColor: "#38bdf8",
+                backgroundColor: neonBarBg("#00e5ff"),
                 stack: "Stack0",
                 categoryPercentage: 1.0,
                 barPercentage: 1.0,
@@ -4066,7 +4105,7 @@
             datasets: [
               {
                 data: plData,
-                backgroundColor: plColors,
+                backgroundColor: neonBarBgByIndex(plColors),
                 categoryPercentage: 0.99,
                 barPercentage: 0.92,
               },
@@ -4255,13 +4294,13 @@
             datasets: [
               {
                 data: waterfallData,
-                backgroundColor: [
+                backgroundColor: neonBarBgByIndex([
                   "#38bdf8",
-                  opCf >= 0 ? "#00d6b0" : "#ff2d63",
-                  invCf >= 0 ? "#00d6b0" : "#ff2d63",
-                  finCf >= 0 ? "#00d6b0" : "#ff2d63",
-                  "#5d6dff",
-                ],
+                  opCf >= 0 ? "#00e676" : "#ff2d63",
+                  invCf >= 0 ? "#00e676" : "#ff2d63",
+                  finCf >= 0 ? "#00e676" : "#ff2d63",
+                  "#8a7bff",
+                ]),
                 categoryPercentage: 0.99,
                 barPercentage: 0.9,
               },
