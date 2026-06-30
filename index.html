@@ -283,6 +283,33 @@
         font-size: 1.1rem;
       }
 
+      /* C2: データ読込の状態表示（読込中スピナー / 取得失敗パネル + 再試行） */
+      .portal-status { text-align: center; padding: 56px 20px; color: var(--ix-text-dim); }
+      .portal-spinner {
+        width: 34px; height: 34px; margin: 0 auto;
+        border: 2px solid var(--ix-border-mid);
+        border-top-color: var(--ix-cyan);
+        border-radius: 50%;
+        animation: portal-spin 0.8s linear infinite;
+      }
+      @keyframes portal-spin { to { transform: rotate(360deg); } }
+      .portal-status-msg { margin-top: 14px; font-size: 0.9rem; letter-spacing: 0.5px; }
+      .portal-status-title { font-size: 1.05rem; color: var(--ix-red-soft); margin-bottom: 8px; font-weight: bold; }
+      .retry-btn {
+        margin-top: 18px;
+        background: transparent;
+        border: 1px solid var(--ix-cyan);
+        color: var(--ix-cyan);
+        padding: 8px 22px;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        font-weight: bold;
+        letter-spacing: 0.5px;
+        transition: all 0.2s;
+      }
+      .retry-btn:hover { background: rgba(0,229,255,0.12); box-shadow: 0 0 12px rgba(0,229,255,0.3); }
+
       .legend-bar {
         display: flex;
         justify-content: center;
@@ -1666,7 +1693,7 @@
             id="portal-search"
             class="search-input"
             placeholder="企業名、コード、またはセクターで絞り込み..."
-            oninput="filterAndRenderPortal()"
+            oninput="onPortalSearchInput()"
           />
         </div>
 
@@ -2101,6 +2128,7 @@
     </div>
 
     <script src="dataClient.js"></script>
+    <script src="finance-rules.js"></script>
     <script>
       Chart.register(ChartDataLabels);
 
@@ -2121,6 +2149,13 @@
       let sortKey = "ticker";
       let sortAsc = true;
       let sparklineInstances = [];
+      let sparklineRenderTimer = null;   // C3: 遅延スパークライン描画の二重発火を防ぐ
+      let portalSearchTimer = null;      // C3: 検索入力のデバウンス
+      let dataLoadState = "loading";     // C2: "loading" | "ready" | "error"（取得失敗を0件と区別）
+
+      // F3: 中央ビュールーター。散在していた .view-section の active 付替を単一ソース化（+ hash 同期）。
+      const VIEW_IDS = { portal: "portal-view", detail: "detail-view", money: "money-view" };
+      let currentView = "portal";   // 既定（#portal-view が active）
 
       let ma5Series = null, ma25Series = null, ma75Series = null;
       let volumeSeries = null;
@@ -2382,12 +2417,42 @@
         }
       }
 
-      window.onload = async function () {
-        initFreemium();
-        const dateEl = document.getElementById("portal-date");
-        if (dateEl) dateEl.innerText = new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "2-digit", day: "2-digit" });
-        // v2 Slice1: データ供給を dataClient(shim) 経由に。grid 描画前に必ず完了させる。
-        if (typeof bootData === "function") { try { await bootData(); } catch (e) { console.error("bootData failed", e); } }
+      // C2: ポータルのデータ読込。loading→ready/error を管理し、取得失敗を「該当0件」と取り違えない。
+      function renderPortalStatus() {
+        const c = document.getElementById("portal-container");
+        if (!c) return;
+        if (dataLoadState === "loading") {
+          c.innerHTML = `<div class="portal-status"><div class="portal-spinner"></div>
+            <div class="portal-status-msg">市場データを読み込み中…</div></div>`;
+        } else if (dataLoadState === "error") {
+          c.innerHTML = `<div class="portal-status">
+            <div class="portal-status-title">⚠ データを取得できませんでした</div>
+            <div class="portal-status-msg">ネットワークまたはサーバー側の一時的な問題の可能性があります。</div>
+            <button class="retry-btn" onclick="retryLoadData()">↻ 再試行</button></div>`;
+        }
+      }
+
+      async function loadPortalData() {
+        dataLoadState = "loading";
+        renderPortalStatus();
+        try {
+          // v2 Slice1: データ供給を dataClient(shim) 経由に。grid 描画前に必ず完了させる。
+          if (typeof bootData === "function") await bootData();
+        } catch (e) {
+          console.error("bootData failed", e);
+          dataLoadState = "error";
+          renderPortalStatus();
+          return;
+        }
+        // C2: HTTP200 だが中身が空(STOCK_DATA={})は「取得成功だが空」=データ異常。
+        //  本ポータルは常に多数銘柄を持つため空リストは正当でなく、フィルタ0件と区別してエラー扱いにする。
+        if (!STOCK_DATA || Object.keys(STOCK_DATA).length === 0) {
+          console.error("bootData returned empty STOCK_DATA");
+          dataLoadState = "error";
+          renderPortalStatus();
+          return;
+        }
+        dataLoadState = "ready";
         // データ最終更新日時の表示
         const updEl = document.getElementById("data-updated-at");
         if (updEl && typeof DATA_UPDATED_AT !== "undefined") updEl.innerText = "Data: " + DATA_UPDATED_AT + " 更新";
@@ -2397,15 +2462,43 @@
         const sectorEl = document.getElementById("portal-sector-count");
         if (countEl) countEl.innerText = companies.length + " 銘柄";
         if (sectorEl) sectorEl.innerText = sectors.size + " セクター";
-
         initSectorFilter();
         filterAndRenderPortal();
+      }
+
+      function retryLoadData() { loadPortalData(); }
+
+      window.onload = async function () {
+        initFreemium();
+        const dateEl = document.getElementById("portal-date");
+        if (dateEl) dateEl.innerText = new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "2-digit", day: "2-digit" });
+        // F3: deep-link は採らない方針。stale な #detail/#money で開かれたら hash を除去し portal で開始。
+        if (location.hash && location.hash !== "#portal") {
+          history.replaceState(null, "", location.pathname + location.search);
+        }
+        window.addEventListener("hashchange", onHashChange);
+        await loadPortalData();
         initPriceChart();
       };
 
+      // C3: 検索入力は毎キー全DOM再構築+84スパークライン再生成で重い → デバウンス。
+      //  セクター/ソート等の他トリガは即時のまま filterAndRenderPortal を直接呼ぶ。
+      function onPortalSearchInput() {
+        if (portalSearchTimer) clearTimeout(portalSearchTimer);
+        portalSearchTimer = setTimeout(filterAndRenderPortal, 180);
+      }
+
       function filterAndRenderPortal() {
+        // C3: 保留中の遅延処理を取消。この関数は常に live な検索値/フィルタ/ソートを読むため、
+        //  保留中の検索デバウンス(portalSearchTimer)は取消して良い（即時トリガ時の冗長な後発再描画を防ぐ・結果は同一）。
+        if (portalSearchTimer) { clearTimeout(portalSearchTimer); portalSearchTimer = null; }
+        // 前回の遅延スパークライン描画が未発火なら取消（二重 new Chart=Canvas再利用例外を防ぐ）。
+        if (sparklineRenderTimer) { clearTimeout(sparklineRenderTimer); sparklineRenderTimer = null; }
         sparklineInstances.forEach((ins) => ins.destroy());
         sparklineInstances = [];
+
+        // C2: データ未ロード/失敗中は状態UIを維持（フィルタ"0件"と取得失敗を取り違えない）。
+        if (dataLoadState !== "ready") { renderPortalStatus(); return; }
 
         const container = document.getElementById("portal-container");
         container.innerHTML = "";
@@ -2426,10 +2519,8 @@
           const fin = latestFin || {};
           const hasFinData = latestFin !== null && (latestFin.net_sales > 0 || latestFin.net_assets > 0);
 
-          const totalAssets = (fin.current_assets || 0) + (fin.non_current_assets || 0);
-          const eqRatio = totalAssets > 0 ? ((fin.net_assets || 0) / totalAssets) * 100 : 0;
-          const curRatio = (fin.current_liabilities || 0) > 0
-            ? ((fin.current_assets || 0) / (fin.current_liabilities || 0)) * 100 : 0;
+          const eqRatio = FinanceRules.equityRatio(fin);   // F1: 純関数へ集約
+          const curRatio = FinanceRules.currentRatio(fin);
 
           const assetType = company.type || "stock";
           if (activeSectorFilter === "stock_only" && assetType === "etf") continue;
@@ -2456,10 +2547,8 @@
             trendSales.push(company.financials_trend[yr].net_sales || 0);
           });
 
-          const opMargin = (fin.net_sales || 0) > 0
-            ? ((fin.operating_income || 0) / fin.net_sales) * 100 : 0;
-          const roe = (fin.net_assets || 0) > 0
-            ? ((fin.net_income || 0) / fin.net_assets) * 100 : 0;
+          const opMargin = FinanceRules.opMargin(fin);     // F1: 純関数へ集約
+          const roe = FinanceRules.roe(fin);
 
           const item = {
             ticker: ticker,
@@ -2604,7 +2693,7 @@
                 : (item.marketCap / 1e12).toFixed(1) + " 兆円"
               : "--";
             const salesText = item.hasFinData
-              ? item.sales.toLocaleString() + (isUSD ? " 百万ドル" : " 百万円")
+              ? item.sales.toLocaleString() + " " + FinanceRules.fmtUnit(isUSD ? "USD" : "JPY")
               : "<span style='color:#5a6c78'>-- (ETF)</span>";
 
             const cleanTicker = item.ticker.replace(".", "_");
@@ -2646,7 +2735,8 @@
         }
 
         // 💡 描画の完了を少し待ってから、確実にCSSアニメーション（シュルっと動く）を発動させます！
-        setTimeout(() => {
+        sparklineRenderTimer = setTimeout(() => {
+          sparklineRenderTimer = null;
           list.forEach((item) => {
             const cleanTicker = item.ticker.replace(".", "_");
             const canvasEl = document.getElementById(`spark-${cleanTicker}`);
@@ -3181,7 +3271,7 @@
         const data = STOCK_DATA[currentTicker];
         if (!data) return;
         const currency = data.currency || "JPY";
-        const unit = currency === "USD" ? "百万ドル" : "百万円";
+        const unit = FinanceRules.fmtUnit(currency);
         const years = Object.keys(data.financials_trend).sort();
         const rows = [
           ["指標", "単位", ...years],
@@ -3228,11 +3318,8 @@
       }
 
       function fmtBillion(val, currency) {
-        const cur = currency === "USD" ? "ドル" : "円";
-        if (val === 0) return "--";
-        if (Math.abs(val) >= 1000000) return (val / 1000000).toFixed(2) + " 兆" + cur;
-        if (Math.abs(val) >= 1000) return (val / 1000).toFixed(1) + " 十億" + cur;
-        return val.toLocaleString() + " 百万" + cur;
+        // F1: 単位整形は finance-rules.js に集約（旧 inline と同挙動）。
+        return FinanceRules.fmtMagnitude(val, currency);
       }
 
       function renderKpiCompare(data) {
@@ -3247,8 +3334,8 @@
           const prevFin = idx > 0 ? data.financials_trend[years[idx - 1]] : null;
           const isActive = String(yr) === String(selectedYear);
 
-          const opMargin = fin.net_sales > 0 ? (fin.operating_income / fin.net_sales * 100) : 0;
-          const roe = fin.net_assets > 0 ? (fin.net_income / fin.net_assets * 100) : 0;
+          const opMargin = FinanceRules.opMargin(fin);     // F1: 純関数へ集約
+          const roe = FinanceRules.roe(fin);
 
           function yoyBadge(curr, prev) {
             if (!prev || prev === 0) return "";
@@ -3270,7 +3357,7 @@
             </div>
             <div class="kpi-row">
               <span class="kpi-row-label">営業利益率</span>
-              <span class="kpi-row-value kpi-pct" data-val="${opMargin.toFixed(3)}" data-suffix="%">0.0%${yoyBadge(opMargin, prevFin && prevFin.net_sales > 0 ? prevFin.operating_income / prevFin.net_sales * 100 : null)}</span>
+              <span class="kpi-row-value kpi-pct" data-val="${opMargin.toFixed(3)}" data-suffix="%">0.0%${yoyBadge(opMargin, prevFin ? FinanceRules.opMargin(prevFin) : null)}</span>
             </div>
             <hr class="kpi-divider">
             <div class="kpi-row">
@@ -3279,7 +3366,7 @@
             </div>
             <div class="kpi-row">
               <span class="kpi-row-label">ROE</span>
-              <span class="kpi-row-value kpi-pct" data-val="${roe.toFixed(3)}" data-suffix="%">0.0%${yoyBadge(roe, prevFin && prevFin.net_assets > 0 ? prevFin.net_income / prevFin.net_assets * 100 : null)}</span>
+              <span class="kpi-row-value kpi-pct" data-val="${roe.toFixed(3)}" data-suffix="%">0.0%${yoyBadge(roe, prevFin ? FinanceRules.roe(prevFin) : null)}</span>
             </div>
           `;
           grid.appendChild(col);
@@ -3428,8 +3515,7 @@
           ctrlBox.appendChild(btn);
         });
 
-        document.getElementById("portal-view").classList.remove("active");
-        document.getElementById("detail-view").classList.add("active");
+        showView("detail");
 
         // カードフェードインアニメーション起動
         const stack = document.querySelector(".dashboard-stack");
@@ -3461,10 +3547,11 @@
         if (!data) return;
 
         const fin = data.financials_trend[selectedYear];
-        if (!fin) return;
+        // C1: ここで早期 return せず、価格チャート/PER/PBR/ETF 判定まで進める。
+        //  ETF(financials_trend={})や財務欠損年でもローソク足は描画する（財務固有の描画のみ後段で fin ガード）。
 
         const isUSD = data.currency === "USD";
-        const unitLabel = isUSD ? "百万ドル" : "百万円";
+        const unitLabel = FinanceRules.fmtUnit(data.currency);
         const currBadgeHtml = isUSD
           ? `<span style="font-size:0.7rem;background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.4);padding:2px 8px;border-radius:10px;margin-left:6px;">USD</span>`
           : "";
@@ -3579,6 +3666,10 @@
           return;
         }
 
+        // C1: 非ETFで当該年度の財務が欠損なら、価格チャートまでは描画済みなので
+        //  財務固有の描画(KPI/BS/PL/CF/レーダー)だけをスキップする。
+        if (!fin) return;
+
         // AI財務分析コメントの表示
         const aiCard = document.getElementById("ai-analysis-card");
         const aiText = document.getElementById("ai-analysis-text");
@@ -3599,9 +3690,34 @@
         renderCFChart(fin);
       }
 
+      // F3: クラス適用のみ（hash は書かない）。onhashchange と showView の共通土台。
+      function _applyView(name) {
+        if (!VIEW_IDS[name]) name = "portal";
+        currentView = name;
+        document.querySelectorAll(".view-section").forEach((v) => v.classList.remove("active"));
+        const el = document.getElementById(VIEW_IDS[name]);
+        if (el) el.classList.add("active");
+        window.scrollTo(0, 0);
+      }
+      // F3: アプリ操作からの遷移＝ビュー適用 + hash 反映（履歴に積む）。money.js からも window.showView で呼ぶ。
+      function showView(name) {
+        if (!VIEW_IDS[name]) name = "portal";
+        _applyView(name);
+        const h = "#" + name;
+        if (location.hash !== h) location.hash = h;
+      }
+      // F3: 戻る/進む（hashchange）＝hash からビュー適用（hash は書き戻さず履歴を汚さない）。
+      function onHashChange() {
+        let name = (location.hash || "").replace("#", "") || "portal";
+        if (!VIEW_IDS[name]) name = "portal";
+        if (name === currentView) return;                 // showView 由来の hash 書込なら何もしない
+        if (name === "detail" && !currentTicker) { _applyView("portal"); return; }  // 文脈無しの detail は portal
+        if (name === "money") { if (window.MCC) window.MCC.show(); else _applyView("portal"); return; }
+        _applyView(name);
+      }
+
       function navigateToPortal() {
-        document.getElementById("detail-view").classList.remove("active");
-        document.getElementById("portal-view").classList.add("active");
+        showView("portal");
         document.querySelector(".dashboard-stack").classList.remove("animate-cards");
         setTimeout(() => {
           filterAndRenderPortal();
@@ -3610,18 +3726,14 @@
 
       // 📊 1. BS (極太2.5倍 & 吹き出しエスケープ)
       function renderBSChart(fin) {
-        const unitStr = (STOCK_DATA[currentTicker]?.currency || "JPY") === "USD" ? "百万ドル" : "百万円";
+        const unitStr = FinanceRules.fmtUnit(STOCK_DATA[currentTicker]?.currency);
         const isMobile = window.innerWidth < 768;
-        const totalAssets = fin.current_assets + fin.non_current_assets;
+        const totalAssets = FinanceRules.totalAssets(fin);   // F1: 純関数へ集約（欠損は0扱い）
         const hasNegativeEquity = fin.net_assets < 0;
         // 負の純資産の場合はチャート用に0を使用（自社株買い等による）
         const displayNetAssets = hasNegativeEquity ? 0 : fin.net_assets;
-        const equityRatio =
-          totalAssets > 0 ? (fin.net_assets / totalAssets) * 100 : 0;
-        const currentRatio =
-          fin.current_liabilities > 0
-            ? (fin.current_assets / fin.current_liabilities) * 100
-            : 0;
+        const equityRatio = FinanceRules.equityRatio(fin);   // F1: 純関数へ集約
+        const currentRatio = FinanceRules.currentRatio(fin);
 
         if (hasNegativeEquity) {
           document.getElementById("equity-ratio").innerText = "マイナス";
@@ -3792,7 +3904,7 @@
                 ticks: {
                   color: "#718096",
                   font: { size: 13 },
-                  callback: (v) => v / 1000000 + "兆円",
+                  callback: (v) => FinanceRules.fmtAxis(v, STOCK_DATA[currentTicker]?.currency),
                 },
               },
             },
@@ -3802,24 +3914,17 @@
 
       // 🕸️ 2. レーダー
       function renderRadarChart(fin) {
-        const totalAssets = fin.current_assets + fin.non_current_assets;
-        const sales = fin.net_sales || 1;
+        const roe = FinanceRules.roe(fin);          // F1: 純関数へ集約
+        const roa = FinanceRules.roa(fin);
+        const equityRatio = FinanceRules.equityRatio(fin);
+        const currentRatio = FinanceRules.currentRatio(fin);
 
-        const roe =
-          fin.net_assets > 0 ? (fin.net_income / fin.net_assets) * 100 : 0;
-        const roa = totalAssets > 0 ? (fin.net_income / totalAssets) * 100 : 0;
-        const equityRatio =
-          totalAssets > 0 ? (fin.net_assets / totalAssets) * 100 : 0;
-        const currentRatio =
-          fin.current_liabilities > 0
-            ? (fin.current_assets / fin.current_liabilities) * 100
-            : 0;
-
+        // 9984.T（ソフトバンクG）は持株会社のため、営業利益に代えて税引前利益で収益性を評価
         const targetOp =
           currentTicker === "9984.T"
             ? fin.income_before_taxes
             : fin.operating_income;
-        const opMargin = (targetOp / sales) * 100;
+        const opMargin = FinanceRules.ratio(targetOp, fin.net_sales);
 
         animateNumber(document.getElementById("txt-roe-val"), roe, "%", 1, 900);
         animateNumber(document.getElementById("txt-roa-val"), roa, "%", 1, 900);
@@ -3829,8 +3934,7 @@
         document.getElementById("txt-roa-val").style.color =
           roa >= 0 ? "#62f0ff" : "#ff1744";
 
-        const score = (val, min, max) =>
-          Math.min(100, Math.max(0, ((val - min) / (max - min)) * 100));
+        const score = (val, min, max) => FinanceRules.clampScore(val, min, max);  // F1
 
         const score_roe = score(roe, -5, 15);
         const score_roa = score(roa, -2, 8);
@@ -3903,7 +4007,7 @@
 
       // 📈 3. PL
       function renderPLChart(fin) {
-        const unitStr = (STOCK_DATA[currentTicker]?.currency || "JPY") === "USD" ? "百万ドル" : "百万円";
+        const unitStr = FinanceRules.fmtUnit(STOCK_DATA[currentTicker]?.currency);
         const isMobile = window.innerWidth < 768;
         const ctx = document.getElementById("plChart").getContext("2d");
         if (plChartInstance) {
@@ -3913,37 +4017,25 @@
         const sales = fin.net_sales || 0;
         const opIncome = fin.operating_income || 0;
         const netIncome = fin.net_income || 0;
-        const grossProfit = fin.gross_profit || Math.round(sales * 0.2);
-        const ordIncome = fin.ordinary_income || opIncome;
-        const preTaxIncome = fin.income_before_taxes || opIncome;
 
-        const opMargin = sales > 0 ? (opIncome / sales) * 100 : 0;
-        const netMargin = sales > 0 ? (netIncome / sales) * 100 : 0;
+        const opMargin = FinanceRules.opMargin(fin);   // F1
+        const netMargin = FinanceRules.netMargin(fin);
 
-        const plLabels = [
-          "当期純利益",
-          "税金等調整前当期純利益",
-          "経常利益",
-          "営業利益",
-          "売上総利益",
-          "売上高",
-        ];
-        const plData = [
-          netIncome,
-          preTaxIncome,
-          ordIncome,
-          opIncome,
-          grossProfit,
-          sales,
-        ];
-        const plColors = [
-          "#7c3aed",
-          "#6366f1",
-          "#3b82f6",
-          "#0ea5e9",
-          "#14b8a6",
-          "#334155",
-        ];
+        // C4: 欠損項目は捏造せず、実データがある時だけ段を出す（hasValue ゲート）。
+        //  売上高・営業利益・当期純利益は中核として常に表示。
+        //  現データでは gross_profit が全社欠損のため売上総利益の段は常に省略され、
+        //  経常利益/税金等調整前は米国株含め全レコードで提供されるため常に描画される。
+        const plSteps = [
+          { label: "当期純利益", val: netIncome, color: "#7c3aed", core: true },
+          { label: "税金等調整前当期純利益", key: "income_before_taxes", val: fin.income_before_taxes, color: "#6366f1" },
+          { label: "経常利益", key: "ordinary_income", val: fin.ordinary_income, color: "#3b82f6" },
+          { label: "営業利益", val: opIncome, color: "#0ea5e9", core: true },
+          { label: "売上総利益", key: "gross_profit", val: fin.gross_profit, color: "#14b8a6" },
+          { label: "売上高", val: sales, color: "#334155", core: true },
+        ].filter((s) => s.core || FinanceRules.hasValue(fin, s.key));
+        const plLabels = plSteps.map((s) => s.label);
+        const plData = plSteps.map((s) => s.val);
+        const plColors = plSteps.map((s) => s.color);
 
         plChartInstance = new Chart(ctx, {
           type: "bar",
@@ -3974,8 +4066,8 @@
                   return "#ffffff";
                 },
                 display: isMobile ? function(ctx) {
-                  // モバイルでは売上高と純利益のみ表示
-                  return ctx.dataIndex === 0 || ctx.dataIndex === 5;
+                  // モバイルでは当期純利益（先頭）と売上高（末尾）のみ表示（段の省略に追従）
+                  return ctx.dataIndex === 0 || ctx.dataIndex === ctx.chart.data.labels.length - 1;
                 } : true,
                 font: { weight: "bold", size: isMobile ? 9 : 14 },
                 anchor: "end",
@@ -4033,7 +4125,7 @@
                 ticks: {
                   color: "#718096",
                   font: { size: 13 },
-                  callback: (v) => v / 1000000 + "兆円",
+                  callback: (v) => FinanceRules.fmtAxis(v, STOCK_DATA[currentTicker]?.currency),
                 },
               },
             },
@@ -4043,7 +4135,7 @@
 
       // 💸 4. CF
       function renderCFChart(fin) {
-        const unitStr = (STOCK_DATA[currentTicker]?.currency || "JPY") === "USD" ? "百万ドル" : "百万円";
+        const unitStr = FinanceRules.fmtUnit(STOCK_DATA[currentTicker]?.currency);
         const isMobile = window.innerWidth < 768;
         const ctx = document.getElementById("cfChart").getContext("2d");
         if (cfChartInstance) {
@@ -4117,10 +4209,13 @@
           badge.style.background = "linear-gradient(135deg, #6e8492, #334155)";
         }
 
-        const startCash = fin.cf_cash_start || 6524000;
+        // C4: 期首現金が無い銘柄に特定企業のマジック定数(6524000)を流用していたのを廃止。
+        //  実残高が無ければ捏造せず 0 基準にし、ウォーターフォールは実フロー（増減）を表示する。
+        const hasStartCash = FinanceRules.hasValue(fin, "cf_cash_start");
+        const startCash = hasStartCash ? fin.cf_cash_start : 0;
         const step1 = startCash + opCf;
         const step2 = step1 + invCf;
-        const endCash = fin.cf_cash_end || step2 + finCf;
+        const endCash = FinanceRules.hasValue(fin, "cf_cash_end") ? fin.cf_cash_end : step2 + finCf;
 
         const waterfallData = [
           [0, startCash],
@@ -4130,11 +4225,11 @@
           [0, endCash],
         ];
         const cfLabels = [
-          "期首現金残高",
+          hasStartCash ? "期首現金残高" : "期首（0基準）",
           "営業活動CF",
           "投資活動CF",
           "財務活動CF",
-          "期末現金残高",
+          hasStartCash ? "期末現金残高" : "純増減",
         ];
 
         const maxCfScale = Math.max(startCash, step1, step2, endCash);
@@ -4238,7 +4333,7 @@
                 ticks: {
                   color: "#718096",
                   font: { size: 12 },
-                  callback: (v) => v / 1000000 + "兆円",
+                  callback: (v) => FinanceRules.fmtAxis(v, STOCK_DATA[currentTicker]?.currency),
                 },
               },
             },

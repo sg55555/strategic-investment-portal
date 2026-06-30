@@ -350,10 +350,15 @@ window.MCC = (function () {
 
   // ---- 画面遷移 ----
   function show() {
-    var views = document.querySelectorAll(".view-section");
-    for (var i = 0; i < views.length; i++) views[i].classList.remove("active");
-    document.getElementById("money-view").classList.add("active");
-    window.scrollTo(0, 0);
+    // F3: 中央ルーター経由でビュー切替（hash 同期・戻るボタン対応）。index.html の window.showView。
+    if (window.showView) {
+      window.showView("money");
+    } else {
+      var views = document.querySelectorAll(".view-section");
+      for (var i = 0; i < views.length; i++) views[i].classList.remove("active");
+      document.getElementById("money-view").classList.add("active");
+      window.scrollTo(0, 0);
+    }
     // 司令室を初めて開いた時だけセッションを確認（市場ビューでは auth DB を打たない）。
     if (!_sessionChecked) {
       _sessionChecked = true;
@@ -365,9 +370,13 @@ window.MCC = (function () {
   }
 
   function backToPortal() {
-    document.getElementById("money-view").classList.remove("active");
-    document.getElementById("portal-view").classList.add("active");
-    window.scrollTo(0, 0);
+    if (window.showView) {
+      window.showView("portal");
+    } else {
+      document.getElementById("money-view").classList.remove("active");
+      document.getElementById("portal-view").classList.add("active");
+      window.scrollTo(0, 0);
+    }
   }
 
   function moneyInput(label, path, value) {
