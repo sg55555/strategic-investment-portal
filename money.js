@@ -779,7 +779,7 @@ window.MCC = (function () {
     var satWarn = vm.satelliteIsOver
       ? '<div class="mcc-sat-warn">⚠ 上限超過 ' + vm.fmt(vm.satelliteOver) + '</div>' : '';
     var buckets =
-      '<div class="mcc-section-title">いま持っている資産の内訳（保有額）</div>' +
+      '<div class="mcc-section-title mcc-section-title-gap">いま持っている資産の内訳（保有額）</div>' +
       '<div class="mcc-section-desc">いま各バケツに入っている<b>現在の残高</b>を入力します（これから振り分ける予定額ではありません）。3つの合計が総資産になります。</div>' +
       '<div class="mcc-buckets" id="mcc-sec-buckets">' +
         '<div class="mcc-bucket"><div class="mcc-bucket-name">バッファ（現金）' + termHelp("バッファ") + '</div>' +

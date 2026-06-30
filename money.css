@@ -29,7 +29,7 @@
 }
 .mcc-nav-btn:hover { background: rgba(79,70,229,0.25); }
 .mcc-placeholder { color: var(--c-text-dim); text-align: center; padding: 40px; }
-.mcc-gauge-card { background: rgba(15,20,34,0.6); border: 1px solid rgba(129,140,248,0.25); border-radius: 12px; padding: 18px; margin-bottom: 14px; box-shadow: 0 0 40px rgba(79,70,229,0.15) inset; }
+.mcc-gauge-card { background: rgba(15,20,34,0.6); border: 1px solid rgba(129,140,248,0.25); border-radius: 12px; padding: 18px; margin-bottom: 16px; box-shadow: 0 0 40px rgba(79,70,229,0.15) inset; }
 .mcc-gauge-label { color: var(--c-text-dim); font-size: 0.78rem; letter-spacing: 1px; margin-bottom: 10px; }
 .mcc-gauge-bar { height: 14px; background: rgba(255,255,255,0.06); border-radius: 8px; overflow: hidden; }
 .mcc-gauge-fill { height: 100%; background: linear-gradient(90deg, var(--c-indigo), var(--c-indigo-bright), var(--c-emerald)); transition: width 0.4s ease; }
@@ -94,6 +94,8 @@
 /* --- v2: 資産目標(goals) --- */
 .mcc-goals { margin-top: 18px; }
 .mcc-section-title { color: var(--c-text-bright); font-size: 0.8rem; letter-spacing: 1.5px; font-weight: 700; margin-bottom: 10px; }
+/* カード外の素のセクション（バケツ等）が直前の要素に密着しないよう上余白を付与（カード内の見出しには付けない） */
+.mcc-section-title-gap { margin-top: 20px; }
 .mcc-section-desc { color: var(--c-text-faint); font-size: 0.68rem; line-height: 1.5; margin: -4px 0 12px; }
 
 /* --- ① 用語ヘルプ(? ツールチップ) --- */
@@ -146,10 +148,11 @@
 }
 .mcc-glo-title { color: var(--c-text-dim); font-size: 0.72rem; font-weight: 700; letter-spacing: 1px; margin: 14px 0 6px; }
 .mcc-glossary { display: grid; gap: 6px; }
-.mcc-glo-item { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: baseline; background: rgba(255,255,255,0.03); border-radius: 6px; padding: 7px 10px; }
-.mcc-glo-term { grid-row: 1 / span 2; color: var(--c-indigo-soft); font-size: 0.78rem; font-weight: 700; align-self: center; }
-.mcc-glo-read { color: var(--c-text-dim); font-size: 0.66rem; }
-.mcc-glo-def { color: var(--c-text-bright); font-size: 0.7rem; line-height: 1.5; }
+/* term＋読みを1行目（inline）、定義は下に block＝定義の開始位置が常にカード左端に揃う（語長非依存） */
+.mcc-glo-item { background: rgba(255,255,255,0.03); border-radius: 6px; padding: 8px 11px; }
+.mcc-glo-term { color: var(--c-indigo-soft); font-size: 0.78rem; font-weight: 700; }
+.mcc-glo-read { color: var(--c-text-dim); font-size: 0.66rem; margin-left: 8px; }
+.mcc-glo-def { display: block; color: var(--c-text-bright); font-size: 0.7rem; line-height: 1.5; margin-top: 4px; }
 .mcc-guide-privacy { color: var(--c-text-faint); font-size: 0.68rem; line-height: 1.5; margin-top: 12px; border-top: 1px solid rgba(129,140,248,0.12); padding-top: 8px; }
 
 /* --- ① 初回ステッパー(今ここ＋残ステップ) --- */
