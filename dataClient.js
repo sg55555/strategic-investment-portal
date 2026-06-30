@@ -37,7 +37,14 @@ function _mktLoadScript(src) {
 /* boot 時に1回。grid 描画に必要なデータを用意する（remote=軽量list / fallback=旧データ一括）。 */
 async function bootData() {
   if (REMOTE_ENABLED) {
-    STOCK_DATA = await _mktJSON(_MKT_API + "/list");
+    const raw = await _mktJSON(_MKT_API + "/list");
+    // 新形 {stocks, updated_at}。旧フラット辞書も後方互換で受ける（stocks が無ければ全体を辞書とみなす）。
+    if (raw && raw.stocks) {
+      STOCK_DATA = raw.stocks;
+      DATA_UPDATED_AT = raw.updated_at || "";
+    } else {
+      STOCK_DATA = raw;
+    }
   } else {
     await _mktLoadScript("data-bundle.js"); // DATA_UPDATED_AT / STOCK_DATA を一括代入
   }
