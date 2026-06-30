@@ -480,7 +480,7 @@ window.MCC = (function () {
   // 収支推移のスパークライン（balance バー・正=緑/負=赤・当月は半透明）。isolated SVG＝Chart.js を持ち込まない。
   function sparkline(history) {
     if (!history || history.length < 2) return "";
-    var w = 280, h = 44, n = history.length, bw = w / n, mid = h / 2;
+    var w = 280, h = 56, n = history.length, bw = w / n, mid = h / 2;
     var maxAbs = 1;
     history.forEach(function (d) { maxAbs = Math.max(maxAbs, Math.abs(Number(d.balance) || 0)); });
     var bars = history.map(function (d, i) {
@@ -508,9 +508,12 @@ window.MCC = (function () {
       return '<div class="mcc-cashflow" id="mcc-sec-cashflow">' + title +
         '<div class="mcc-cashflow-empty">通貨が JPY 以外のため投資余力は表示しません（収支連携は JPY 前提）。</div></div>';
     }
-    var partial = cv.latestIsPartial ? '<span class="mcc-cf-partial">（進行中・暫定）</span>' : "";
+    var partial = cv.latestIsPartial
+      ? '<span class="mcc-cf-partial">（進行中・暫定）</span>'
+      : '<span class="mcc-cf-latest">（最新の確定月）</span>';
     var head =
-      '<div class="mcc-cf-head"><span class="mcc-cf-period">' + esc(cv.latestPeriod) + ' の収支</span>' + partial + '</div>' +
+      '<div class="mcc-cf-head"><span class="mcc-cf-period">' + fmtAnchorMonth(cv.latestPeriod) + 'の収支</span>' + partial + '</div>' +
+      (cv.latestIsPartial ? '' : '<div class="mcc-cf-monthnote">今月の収支は月末締め後（翌月初の自動更新）に反映されます。「最新に更新」はクラウドの再取得です。</div>') +
       '<div class="mcc-cf-stats">' +
         '<div class="mcc-cf-stat"><span>収入</span><strong>' + cv.fmt(cv.income) + '</strong></div>' +
         '<div class="mcc-cf-stat"><span>支出</span><strong>' + cv.fmt(cv.expense) + '</strong></div>' +
@@ -536,7 +539,7 @@ window.MCC = (function () {
           '<div class="mcc-cf-dest">' + esc(toMsg) + '</div>' +
         '</div>';
       applyBtn = cv.alreadyApplied
-        ? '<button class="mcc-cf-apply" disabled>' + esc(cv.latestPeriod) + ' の余剰は反映済み</button>'
+        ? '<button class="mcc-cf-apply" disabled>' + fmtAnchorMonth(cv.latestPeriod) + 'の余剰は反映済み</button>'
         : '<button class="mcc-cf-apply" onclick="MCC.applySurplus()">今月の余剰 ' + cv.fmt(cv.monthlySurplus) + ' を規律配分（バッファ→確保枠→コア）で反映</button>';
     } else {
       var defMsg = cv.deficitMonths > 0
@@ -562,7 +565,7 @@ window.MCC = (function () {
     var fresh =
       '<div class="mcc-cf-fresh' + (cv.dataFresh === false ? " stale" : "") + '">' +
         '<span class="mcc-cf-fresh-txt">' + esc(freshTxt) + ' ｜ 自動更新 毎月2日ごろ</span>' +
-        '<button class="mcc-cf-refresh" onclick="MCC.refreshData()"' + (_refreshing ? " disabled" : "") + '>' +
+        '<button class="mcc-cf-refresh" title="クラウド（保存済みデータ）を再取得します。新しい月は毎月の自動更新で増えます。" onclick="MCC.refreshData()"' + (_refreshing ? " disabled" : "") + '>' +
           (_refreshing ? "更新中…" : "↻ 最新に更新") + '</button>' +
       '</div>';
 
@@ -768,14 +771,16 @@ window.MCC = (function () {
     var satWarn = vm.satelliteIsOver
       ? '<div class="mcc-sat-warn">⚠ 上限超過 ' + vm.fmt(vm.satelliteOver) + '</div>' : '';
     var buckets =
+      '<div class="mcc-section-title">いま持っている資産の内訳（保有額）</div>' +
+      '<div class="mcc-section-desc">いま各バケツに入っている<b>現在の残高</b>を入力します（これから振り分ける予定額ではありません）。3つの合計が総資産になります。</div>' +
       '<div class="mcc-buckets" id="mcc-sec-buckets">' +
         '<div class="mcc-bucket"><div class="mcc-bucket-name">バッファ（現金）' + termHelp("バッファ") + '</div>' +
-          moneyInput("金額", "buckets.buffer.amount", vm.bufferAmount) + '</div>' +
+          moneyInput("保有額", "buckets.buffer.amount", vm.bufferAmount) + '</div>' +
         '<div class="mcc-bucket"><div class="mcc-bucket-name">コア（長期）' + termHelp("コア") + '</div>' +
-          moneyInput("金額", "buckets.core.amount", vm.coreAmount) + '</div>' +
+          moneyInput("保有額", "buckets.core.amount", vm.coreAmount) + '</div>' +
         '<div class="mcc-bucket' + (vm.satelliteIsOver ? ' mcc-bucket-over' : '') + '">' +
           '<div class="mcc-bucket-name">サテライト（個別株/短期）' + termHelp("サテライト") + '</div>' +
-          moneyInput("金額", "buckets.satellite.amount", vm.satelliteAmount) +
+          moneyInput("保有額", "buckets.satellite.amount", vm.satelliteAmount) +
           '<div class="mcc-sat-bar"><div class="mcc-sat-fill' + (vm.satelliteIsOver ? " over" : "") +
             '" style="width:' + Math.min(100, vm.satelliteFillPct) + '%"></div></div>' +
           '<div class="mcc-sat-cap">上限 ' + vm.fmt(vm.satelliteCap) + '（investable比 ' + vm.satelliteCapPct + '%）</div>' +

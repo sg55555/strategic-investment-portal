@@ -15,7 +15,7 @@
   --c-tint-emerald: #e8f8f1; --c-tint-indigo: #e8edff; --c-tint-danger: #ffe2ea; --c-tint-cyan: #dbeafe;
 }
 
-#money-view .mcc-wrap { max-width: 960px; margin: 0 auto; padding: 16px 14px 60px; }
+#money-view .mcc-wrap { max-width: 1280px; margin: 0 auto; padding: 16px 18px 60px; }
 .mcc-topbar { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
 .mcc-title {
   font-size: 1.05rem; letter-spacing: 2px; font-weight: 700; margin: 0;
@@ -128,11 +128,13 @@
 /* ① セクション参照ジャンプリンク（ガイド/ステッパー内）。--c-cyan は theme D で neon に上書きされる。 */
 .mcc-jump { display: inline; background: none; border: none; padding: 0; margin: 0; font: inherit; color: var(--c-cyan); cursor: pointer; text-decoration: underline; text-decoration-color: rgba(56,189,248,0.5); text-underline-offset: 2px; }
 .mcc-jump:hover, .mcc-jump:focus-visible { color: var(--c-cyan-bright); text-decoration-color: var(--c-cyan-bright); outline: none; }
-.mcc-jump-flash { animation: mcc-jump-flash 1.2s ease-out; }
+/* 飛んだ先を数回点滅（脈動）して明示。~2.4秒で3回。box-shadow のみ＝レイアウト非破壊。 */
+.mcc-jump-flash { animation: mcc-jump-flash 2.4s ease-in-out; border-radius: 3px; }
 @keyframes mcc-jump-flash {
-  0%   { box-shadow: 0 0 0 2px var(--c-cyan), 0 0 18px rgba(56,189,248,0.55); }
-  60%  { box-shadow: 0 0 0 2px var(--c-cyan), 0 0 18px rgba(56,189,248,0.55); }
-  100% { box-shadow: 0 0 0 0 rgba(56,189,248,0); }
+  0%, 100%        { box-shadow: 0 0 0 0 rgba(0,229,255,0); }
+  8%, 33%, 58%    { box-shadow: 0 0 0 2px var(--c-cyan), 0 0 22px rgba(0,229,255,0.72); }
+  20%, 45%, 70%   { box-shadow: 0 0 0 1px rgba(0,229,255,0.18), 0 0 6px rgba(0,229,255,0.12); }
+  85%             { box-shadow: 0 0 0 0 rgba(0,229,255,0); }
 }
 .mcc-glo-title { color: var(--c-text-dim); font-size: 0.72rem; font-weight: 700; letter-spacing: 1px; margin: 14px 0 6px; }
 .mcc-glossary { display: grid; gap: 6px; }
@@ -221,17 +223,19 @@
 
 /* --- Slice4: 収支連携（投資余力）--- */
 .mcc-cashflow {
-  margin-top: 18px; padding: 14px 16px; border-radius: 12px;
+  margin-top: 18px; padding: 18px 22px; border-radius: 12px;
   background: rgba(15,20,34,0.55); border: 1px solid rgba(45,212,191,0.18);
 }
 .mcc-cashflow-empty { color: var(--c-slate); font-size: 0.78rem; line-height: 1.6; }
-.mcc-cf-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
-.mcc-cf-period { color: var(--c-text-bright); font-size: 0.82rem; font-weight: 700; }
+.mcc-cf-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+.mcc-cf-period { color: var(--c-text-bright); font-size: 0.94rem; font-weight: 700; }
 .mcc-cf-partial { color: var(--c-amber); font-size: 0.66rem; }
-.mcc-cf-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
-.mcc-cf-stat { display: flex; flex-direction: column; gap: 2px; }
-.mcc-cf-stat span { color: var(--c-slate); font-size: 0.64rem; }
-.mcc-cf-stat strong { color: var(--c-text); font-size: 0.84rem; font-weight: 700; }
+.mcc-cf-latest { color: var(--c-emerald-soft); font-size: 0.66rem; }
+.mcc-cf-monthnote { color: var(--c-slate); font-size: 0.68rem; line-height: 1.5; margin: 0 0 12px; }
+.mcc-cf-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+.mcc-cf-stat { display: flex; flex-direction: column; gap: 3px; }
+.mcc-cf-stat span { color: var(--c-slate); font-size: 0.7rem; }
+.mcc-cf-stat strong { color: var(--c-text); font-size: 1.02rem; font-weight: 700; }
 .mcc-cf-stat strong.pos { color: var(--c-emerald-bright); }
 .mcc-cf-stat strong.neg { color: var(--c-danger-soft); }
 .mcc-cf-surplus {
