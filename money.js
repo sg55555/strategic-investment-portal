@@ -390,14 +390,14 @@ window.MCC = (function () {
   // ---- 描画 ----
   function syncBar() {
     if (sync.loggedIn) {
-      return '<div class="mcc-sync mcc-sync-on">' +
+      return '<div class="mcc-sync mcc-sync-on" id="mcc-sec-sync">' +
         '<span class="mcc-sync-status" id="mcc-sync-status">' + syncStatusText() + '</span>' +
         '<button class="mcc-sync-btn" onclick="MCC.logout()">ログアウト</button>' +
       '</div>';
     }
     var err = sync.lastError ? '<span class="mcc-sync-err">' + esc(sync.lastError) + '</span>' : '';
     var dis = sync.busy ? ' disabled' : '';
-    return '<div class="mcc-sync">' +
+    return '<div class="mcc-sync" id="mcc-sec-sync">' +
       '<span class="mcc-sync-status" id="mcc-sync-status">' + syncStatusText() + '</span>' +
       '<span class="mcc-sync-form">' +
         '<input type="password" id="mcc-pw" placeholder="パスワード" autocomplete="current-password"' + dis +
@@ -501,11 +501,11 @@ window.MCC = (function () {
     if (!sync.loggedIn) return "";  // 認証データ＝未ログインでは出さない
     var title = '<div class="mcc-section-title">収支と投資余力' + termHelp("投資余力") + '</div><div class="mcc-section-desc">毎月の収支から、無理なく投資に回せる額を出します。</div>';
     if (!cv.hasData) {
-      return '<div class="mcc-cashflow">' + title +
+      return '<div class="mcc-cashflow" id="mcc-sec-cashflow">' + title +
         '<div class="mcc-cashflow-empty">収支データが未連携です。kakeibo（家計）の月次収支を取り込むと、毎月いくら投資に回せるか（投資余力）が表示されます。</div></div>';
     }
     if (cv.currencyMismatch) {
-      return '<div class="mcc-cashflow">' + title +
+      return '<div class="mcc-cashflow" id="mcc-sec-cashflow">' + title +
         '<div class="mcc-cashflow-empty">通貨が JPY 以外のため投資余力は表示しません（収支連携は JPY 前提）。</div></div>';
     }
     var partial = cv.latestIsPartial ? '<span class="mcc-cf-partial">（進行中・暫定）</span>' : "";
@@ -555,7 +555,7 @@ window.MCC = (function () {
     var insuf = cv.insufficientData
       ? '<div class="mcc-cf-note">確定月が ' + cv.monthsCovered + 'ヶ月分のみ＝暫定値です（3ヶ月で安定します）。</div>' : "";
     var divNote = cv.expenseDivergence
-      ? '<div class="mcc-cf-note">実支出の平均（' + cv.fmt(cv.avgExpense) + '/月）が設定の月の生活費と乖離しています。「設定」の見直しを検討してください。</div>' : "";
+      ? '<div class="mcc-cf-note">実支出の平均（' + cv.fmt(cv.avgExpense) + '/月）が設定の月の生活費と乖離しています。' + jumpLink("settings", "「設定」") + 'の見直しを検討してください。</div>' : "";
     // 鮮度＋「今すぐ最新化」。月次自動更新（毎月2日）を待たずにユーザー任意で取り直せる（Neon 再取得のみ）。
     var freshTxt = cv.staleDays == null ? "クラウドの最新データを表示中"
       : ("最終取得 " + cv.staleDays + "日前" + (cv.dataFresh ? "" : "・更新が止まっている可能性"));
@@ -588,7 +588,7 @@ window.MCC = (function () {
         '</div>';
     }
 
-    return '<div class="mcc-cashflow">' + title + head + anchorBlock + surplus + applyBtn + sparkline(cv.history) + cats + insuf + divNote + fresh + '</div>';
+    return '<div class="mcc-cashflow" id="mcc-sec-cashflow">' + title + head + anchorBlock + surplus + applyBtn + sparkline(cv.history) + cats + insuf + divNote + fresh + '</div>';
   }
 
   // Slice4.5: 確保枠（目的別の取り置き）。cv.reserves（reserveAlloc・純関数算出）を描くのみ。
@@ -671,6 +671,25 @@ window.MCC = (function () {
       '" aria-label="' + esc(term + "とは：" + g.def) + '">?</span>';
   }
 
+  // ① ガイド/ステッパー内の「設定」等のセクション参照 → 該当セクションへスクロール（折りたたみは開く）。
+  var _JUMP_TARGETS = { settings: "mcc-sec-settings", buckets: "mcc-sec-buckets", sync: "mcc-sec-sync", cashflow: "mcc-sec-cashflow" };
+  // 収支セクションは未ログインだと描画されない（認証データ）。連携にはログインが前提なので login 欄へフォールバック。
+  var _JUMP_FALLBACK = { cashflow: "sync" };
+  function jumpLink(key, label) {
+    return '<button type="button" class="mcc-jump" onclick="MCC.jumpTo(\'' + key + '\')">' + esc(label) + '</button>';
+  }
+  function jumpTo(key) {
+    var el = document.getElementById(_JUMP_TARGETS[key]);
+    if (!el && _JUMP_FALLBACK[key]) el = document.getElementById(_JUMP_TARGETS[_JUMP_FALLBACK[key]]);
+    if (!el) return;
+    // <details>（設定など）は開いてから見せる＝「開いて入力」を1クリックで完結。
+    if (el.tagName === "DETAILS") { el.open = true; }
+    else { var det = el.closest ? el.closest("details") : null; if (det) det.open = true; }
+    if (el.scrollIntoView) { el.scrollIntoView({ behavior: "smooth", block: "center" }); }
+    // 一瞬ハイライト（CSS アニメ）で「ここだよ」を提示。再クリックでも再発火するよう一度外して reflow。
+    el.classList.remove("mcc-jump-flash"); void el.offsetWidth; el.classList.add("mcc-jump-flash");
+  }
+
   // ① 常駐「はじめに / 使い方」（空状態に依存せず常時・折りたたみ・後から見返せる）。用語集も同梱。
   function guideSection() {
     var glossary = (R.GLOSSARY || []).map(function (g) {
@@ -683,10 +702,10 @@ window.MCC = (function () {
         '<p class="mcc-guide-lead">このビューは、お金を <b>守る（バッファ）</b>・<b>育てる（コア）</b>・<b>攻める（サテライト）</b> の3つに分け、規律よく管理・判断支援するための画面です。投機ではなく「ルールを守る・学ぶ」ための道具です。</p>' +
         '<div class="mcc-guide-rule">配分の芯：<b>バッファ → 確保枠 → コア →（余剰のみ上限内）サテライト</b> の順に満たします。</div>' +
         '<ol class="mcc-guide-steps">' +
-          '<li>「設定」で<b>月の生活費</b>を入力（バッファ目標が決まります）</li>' +
-          '<li>バッファ・コア・サテライトに<b>今ある金額</b>を入力</li>' +
-          '<li>（任意）ログインで<b>クラウド同期</b>＝複数端末で共有</li>' +
-          '<li>（任意）家計（kakeibo）を連携すると<b>毎月の投資余力</b>が出ます</li>' +
+          '<li>' + jumpLink("settings", "「設定」") + 'で<b>月の生活費</b>を入力（バッファ目標が決まります）</li>' +
+          '<li>' + jumpLink("buckets", "バッファ・コア・サテライト") + 'に<b>今ある金額</b>を入力</li>' +
+          '<li>（任意）' + jumpLink("sync", "ログイン") + 'で<b>クラウド同期</b>＝複数端末で共有</li>' +
+          '<li>（任意）' + jumpLink("cashflow", "家計（kakeibo）を連携") + 'すると<b>毎月の投資余力</b>が出ます</li>' +
         '</ol>' +
         '<div class="mcc-glo-title">用語集</div>' +
         '<div class="mcc-glossary">' + glossary + '</div>' +
@@ -706,9 +725,18 @@ window.MCC = (function () {
         '<span class="mcc-step-label">' + esc(st.label) + (st.optional ? '<span class="mcc-step-opt">任意</span>' : '') + '</span>' +
       '</div>';
     }).join('<span class="mcc-step-sep"></span>');
+    var nextHtml = '';
+    if (ob.currentIndex >= 0) {
+      var st = ob.steps[ob.currentIndex];
+      var actionHtml = esc(st.action);
+      // action 内のセクション参照語(linkLabel)だけをジャンプリンク化（残りは素のテキスト）。
+      if (st.linkLabel && st.target) {
+        actionHtml = actionHtml.replace(esc(st.linkLabel), function () { return jumpLink(st.target, st.linkLabel); });
+      }
+      nextHtml = '<div class="mcc-stepper-next">次：' + actionHtml + '</div>';
+    }
     return '<div class="mcc-stepper">' +
-      '<div class="mcc-stepper-track">' + dots + '</div>' +
-      (ob.nextAction ? '<div class="mcc-stepper-next">次：' + esc(ob.nextAction) + '</div>' : '') +
+      '<div class="mcc-stepper-track">' + dots + '</div>' + nextHtml +
     '</div>';
   }
 
@@ -723,7 +751,7 @@ window.MCC = (function () {
       ? ('<strong>' + vm.bufferProgressPct + '%</strong> ' +
           '（' + vm.fmt(vm.bufferAmount) + ' / ' + vm.fmt(vm.bufferTarget) + '）' +
           (vm.bufferRemaining > 0 ? ' ・あと ' + vm.fmt(vm.bufferRemaining) : ' ・達成'))
-      : '未設定 — 「設定」で月の生活費を入力するとバッファ目標が決まります';
+      : '未設定 — ' + jumpLink("settings", "「設定」") + 'で月の生活費を入力するとバッファ目標が決まります';
     var gauge =
       '<div class="mcc-gauge-card">' +
         '<div class="mcc-gauge-label">バッファ目標（生活防衛資金）' + termHelp("バッファ") + '</div>' +
@@ -740,7 +768,7 @@ window.MCC = (function () {
     var satWarn = vm.satelliteIsOver
       ? '<div class="mcc-sat-warn">⚠ 上限超過 ' + vm.fmt(vm.satelliteOver) + '</div>' : '';
     var buckets =
-      '<div class="mcc-buckets">' +
+      '<div class="mcc-buckets" id="mcc-sec-buckets">' +
         '<div class="mcc-bucket"><div class="mcc-bucket-name">バッファ（現金）' + termHelp("バッファ") + '</div>' +
           moneyInput("金額", "buckets.buffer.amount", vm.bufferAmount) + '</div>' +
         '<div class="mcc-bucket"><div class="mcc-bucket-name">コア（長期）' + termHelp("コア") + '</div>' +
@@ -756,7 +784,7 @@ window.MCC = (function () {
       '</div>';
 
     var settings =
-      '<details class="mcc-settings"><summary>設定</summary>' +
+      '<details class="mcc-settings" id="mcc-sec-settings"><summary>設定</summary>' +
         moneyInput("月の生活費", "monthlyExpense", vm.monthlyExpense) +
         moneyInput("バッファ目標（ヶ月）", "bufferMonths", vm.bufferMonths) +
         moneyInput("サテライト上限（%）", "satelliteCapPct", vm.satelliteCapPct) +
@@ -819,7 +847,7 @@ window.MCC = (function () {
     load: load, save: save, render: render, exportJSON: exportJSON, importJSON: importJSON,
     doLogin: doLogin, logout: logout, addGoal: addGoal, removeGoal: removeGoal,
     requestAdvice: requestAdvice, applySurplus: applySurplus,
-    saveAnchor: saveAnchor, editAnchor: editAnchor, refreshData: refreshData,
+    saveAnchor: saveAnchor, editAnchor: editAnchor, refreshData: refreshData, jumpTo: jumpTo,
     addReserve: addReserve, removeReserve: removeReserve, fundReserve: fundReserve, setReserveField: setReserveField,
   };
 })();

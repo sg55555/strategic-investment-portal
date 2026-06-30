@@ -125,6 +125,15 @@
 .mcc-guide-rule b { color: var(--c-violet); }
 .mcc-guide-steps { margin: 10px 0 4px; padding-left: 1.3em; color: var(--c-text-bright); font-size: 0.76rem; line-height: 1.9; }
 .mcc-guide-steps b { color: var(--c-indigo-soft); }
+/* ① セクション参照ジャンプリンク（ガイド/ステッパー内）。--c-cyan は theme D で neon に上書きされる。 */
+.mcc-jump { display: inline; background: none; border: none; padding: 0; margin: 0; font: inherit; color: var(--c-cyan); cursor: pointer; text-decoration: underline; text-decoration-color: rgba(56,189,248,0.5); text-underline-offset: 2px; }
+.mcc-jump:hover, .mcc-jump:focus-visible { color: var(--c-cyan-bright); text-decoration-color: var(--c-cyan-bright); outline: none; }
+.mcc-jump-flash { animation: mcc-jump-flash 1.2s ease-out; }
+@keyframes mcc-jump-flash {
+  0%   { box-shadow: 0 0 0 2px var(--c-cyan), 0 0 18px rgba(56,189,248,0.55); }
+  60%  { box-shadow: 0 0 0 2px var(--c-cyan), 0 0 18px rgba(56,189,248,0.55); }
+  100% { box-shadow: 0 0 0 0 rgba(56,189,248,0); }
+}
 .mcc-glo-title { color: var(--c-text-dim); font-size: 0.72rem; font-weight: 700; letter-spacing: 1px; margin: 14px 0 6px; }
 .mcc-glossary { display: grid; gap: 6px; }
 .mcc-glo-item { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: baseline; background: rgba(255,255,255,0.03); border-radius: 6px; padding: 7px 10px; }

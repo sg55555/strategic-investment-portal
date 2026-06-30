@@ -184,14 +184,15 @@
   function onboardingSteps(s, loggedIn, hasCashflow) {
     var b = (s && s.buckets) || {};
     var bucketsTouched = (num(b.buffer && b.buffer.amount) + num(b.core && b.core.amount) + num(b.satellite && b.satellite.amount)) > 0;
+    // target=ジャンプ先セクションの論理キー / linkLabel=action 内でリンク化する語（DOM層が解釈・純データ）。
     var steps = [
-      { key: "expense", label: "月の生活費", optional: false, done: num(s && s.monthlyExpense) > 0,
+      { key: "expense", target: "settings", linkLabel: "「設定」", label: "月の生活費", optional: false, done: num(s && s.monthlyExpense) > 0,
         action: "「設定」を開いて月の生活費を入力（バッファ目標が決まります）" },
-      { key: "buckets", label: "今ある金額", optional: false, done: bucketsTouched,
+      { key: "buckets", target: "buckets", linkLabel: "バッファ・コア・サテライト", label: "今ある金額", optional: false, done: bucketsTouched,
         action: "バッファ・コア・サテライトに、今ある金額を入力" },
-      { key: "login", label: "ログイン", optional: true, done: !!loggedIn,
+      { key: "login", target: "sync", linkLabel: "ログイン", label: "ログイン", optional: true, done: !!loggedIn,
         action: "ログインするとクラウド同期＝複数端末で共有できます（任意）" },
-      { key: "cashflow", label: "収支連携", optional: true, done: !!hasCashflow,
+      { key: "cashflow", target: "cashflow", linkLabel: "家計（kakeibo）を連携", label: "収支連携", optional: true, done: !!hasCashflow,
         action: "家計（kakeibo）を連携すると毎月の投資余力が表示されます（任意）" },
     ];
     var current = -1, doneCount = 0;
