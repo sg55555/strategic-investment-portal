@@ -2181,6 +2181,7 @@
 
     <script src="dataClient.js"></script>
     <script src="finance-rules.js"></script>
+    <script src="detail-rules.js"></script>
     <script>
       Chart.register(ChartDataLabels);
       // テーマD調和: Chart.js の既定フォント=等幅(mono) / 既定テキスト色 / 既定グリッド色（個別 override は各チャートで上書き）
@@ -3496,13 +3497,7 @@
           const opMargin = FinanceRules.opMargin(fin);     // F1: 純関数へ集約
           const roe = FinanceRules.roe(fin);
 
-          function yoyBadge(curr, prev) {
-            if (!prev || prev === 0) return "";
-            const pct = ((curr - prev) / Math.abs(prev)) * 100;
-            const cls = pct > 0.5 ? "up" : pct < -0.5 ? "down" : "flat";
-            const sign = pct > 0 ? "▲" : pct < 0 ? "▼" : "─";
-            return `<span class="kpi-yoy ${cls}">${sign}${Math.abs(pct).toFixed(1)}%</span>`;
-          }
+          const yoyBadge = DetailRules.yoyBadge;   // 前年比バッジ計算は detail-rules.js へ集約（挙動不変）
 
           const col = document.createElement("div");
           col.className = "kpi-year-col" + (isActive ? " active-year" : "");
@@ -3777,15 +3772,7 @@
 
         // Batch C: 会社規模で1単位を選定し、ヘッダ・全チャート軸・全ラベルで統一表示する。
         //  軸の 兆/十億 混在と「単位: 百万円」表記の不整合（投資判断時の読みづらさ）を構造的に解消。
-        let _maxAbs = 0;
-        if (fin) {
-          [FinanceRules.totalAssets(fin), fin.net_sales, fin.gross_profit, fin.operating_income,
-           fin.ordinary_income, fin.income_before_taxes, fin.net_income, fin.net_assets,
-           fin.current_liabilities, fin.non_current_liabilities, fin.cf_cash_start, fin.cf_cash_end,
-           fin.operating_cf, fin.investing_cf, fin.financing_cf].forEach((v) => {
-            const a = Math.abs(FinanceRules.n(v)); if (a > _maxAbs) _maxAbs = a;
-          });
-        }
+        const _maxAbs = fin ? DetailRules.financialMaxAbs(fin) : 0;
         pageUnit = FinanceRules.pickUnit(_maxAbs, data.currency);
         const unitLabel = FinanceRules.unitLabel(pageUnit);
         const currBadgeHtml = currencyBadge(data.currency);
@@ -3801,25 +3788,11 @@
         `;
         document.getElementById("selected-year-display").innerText = selectedYear + " FY";
 
-        // 米国株は暦年、日本株は4月〜翌3月の決算期でフィルタ
+        // 米国株は暦年、日本株は4月〜翌3月の決算期でフィルタ（priceWindow で単一ソース化）
         const isUS = data.country === "US";
-        const startDate = isUS ? `${selectedYear}-01-01` : `${selectedYear - 1}-04-01`;
-        const endDate   = isUS ? `${selectedYear}-12-31` : `${selectedYear}-03-31`;
-        const filteredPrices = data.prices.filter(
-          (p) => p.time >= startDate && p.time <= endDate,
-        );
-
-        const displayPrices = filteredPrices.length > 0 ? filteredPrices : data.prices.slice(-200);
-        if (filteredPrices.length > 0) {
-          const periodLabel = isUS
-            ? `${selectedYear}年1月 〜 ${selectedYear}年12月 経営期間トレンド`
-            : `${selectedYear - 1}年4月 〜 ${selectedYear}年3月 経営期間トレンド`;
-          document.getElementById("stock-title").innerText =
-            `${data.company_name} (${currentTicker}) - 歴史的ローソク足時系列 [${periodLabel}]`;
-        } else {
-          document.getElementById("stock-title").innerText =
-            `${data.company_name} (${currentTicker}) - 直近市場ローソク足時系列`;
-        }
+        const { filteredPrices, displayPrices } = DetailRules.priceWindow(data.prices, selectedYear, isUS);
+        document.getElementById("stock-title").innerText =
+          DetailRules.periodLabel(data.company_name, currentTicker, selectedYear, isUS, filteredPrices.length > 0);
         candleSeries.setData(displayPrices);
         updateMaAndVolume(displayPrices, data.prices);
 
@@ -3835,11 +3808,8 @@
         const rawPer = data.per || 0;
         const rawPbr = data.pbr || 0;
 
-        // 米国株は市場慣行を反映した別基準を適用（MARKET_BASIS 定数表で単一ソース化）
-        const basis = MARKET_BASIS[isUS ? "US" : "JP"];
-        const perLow = basis.perLow, perHigh = basis.perHigh;
-        const pbrLow = basis.pbrLow, pbrHigh = basis.pbrHigh;
-        const market = basis.label;
+        // 米国株は市場慣行を反映した別基準を適用（marketBasisFor で単一ソース化）
+        const basis = DetailRules.marketBasisFor(isUS);
 
         if (rawPer > 0) {
           animateNumber(document.getElementById("txt-per-val"), rawPer, "倍", 1, 900);
@@ -3852,59 +3822,29 @@
           document.getElementById("txt-pbr-val").innerText = "--";
         }
 
+        // PER 評価カード: 計算は detail-rules.js（descriptor）、DOM 書込はここで適用（挙動不変）。
         const pCard = document.getElementById("card-per");
         const pStatus = document.getElementById("txt-per-status");
         const pVal = document.getElementById("txt-per-val");
-        if (rawPer === 0) {
-          pCard.className = "status-card";
-          pVal.style.color = "#cfe0f5";
-          pStatus.innerText = "▶ 収益評価: データなし";
-        } else if (rawPer <= perLow) {
-          pCard.className = "status-card green";
-          pVal.style.color = "#00e676";   // 割安＝緑（カードと一致）
-          pStatus.innerText = `▶ 収益評価: 割安圏 (${market}: ${perLow}倍以下)`;
-        } else if (rawPer >= perHigh) {
-          pCard.className = "status-card red";
-          pVal.style.color = "#ff5c7a";   // 割高・過熱＝赤（数値もカードに追従）
-          pStatus.innerText = `▶ 収益評価: 割高・過熱圏 (${market}: ${perHigh}倍以上)`;
-        } else {
-          pCard.className = "status-card";
-          pVal.style.color = "#cfe0f5";   // 適正＝中立
-          pStatus.innerText = "▶ 収益評価: 適正水準 (標準レンジ内)";
-        }
+        const perDesc = DetailRules.perStatus(rawPer, basis);
+        pCard.className = perDesc.cardClass ? `status-card ${perDesc.cardClass}` : "status-card";
+        pVal.style.color = perDesc.valColor;
+        pStatus.innerText = perDesc.statusText;
 
+        // PBR 評価カード: 同上（gold/red/blue・中間 blue は US/JP 分岐を descriptor が保持）。
         const bCard = document.getElementById("card-pbr");
         const bStatus = document.getElementById("txt-pbr-status");
         const bVal = document.getElementById("txt-pbr-val");
-        if (rawPbr === 0) {
-          bCard.className = "status-card";
-          bVal.style.color = "#cfe0f5";
-          bStatus.innerText = "▶ 資産評価: データなし";
-        } else if (rawPbr <= pbrLow) {
-          bCard.className = "status-card gold";
-          bVal.style.color = "#ffd84d";   // 解散価値以下＝gold（カードと一致）
-          bStatus.innerText = `▶ 資産評価: 解散価値以下 (${market}: ${pbrLow}倍以下)`;
-        } else if (rawPbr >= pbrHigh) {
-          bCard.className = "status-card red";
-          bVal.style.color = "#ff5c7a";   // 高プレミアム＝赤
-          bStatus.innerText = `▶ 資産評価: 高プレミアム評価 (${market}: ${pbrHigh}倍以上)`;
-        } else {
-          bCard.className = "status-card blue";
-          bVal.style.color = "#38bdf8";   // 適正＝blue（カードと一致）
-          bStatus.innerText = isUS
-            ? "▶ 資産評価: 米国成長株水準 (標準レンジ内)"
-            : "▶ 資産評価: 適正な資産評価水準";
-        }
+        const pbrDesc = DetailRules.pbrStatus(rawPbr, basis, isUS);
+        bCard.className = pbrDesc.cardClass ? `status-card ${pbrDesc.cardClass}` : "status-card";
+        bVal.style.color = pbrDesc.valColor;
+        bStatus.innerText = pbrDesc.statusText;
 
-        // 自己資本比率・流動比率の基準テキストを市場に合わせて更新
+        // 自己資本比率・流動比率の基準テキストを市場に合わせて更新（文言は detail-rules.js へ集約）
         const eqDesc = document.getElementById("desc-equity-ratio");
         const crDesc = document.getElementById("desc-current-ratio");
-        if (eqDesc) eqDesc.innerText = isUS
-          ? "▶ 米国基準: 30.0% 以上 (自社株買い等で低下しやすい)"
-          : "▶ 中長期安全性基準: 40.0% 以上で健全企業水準";
-        if (crDesc) crDesc.innerText = isUS
-          ? "▶ 短期支払能力基準: 150.0% 以上で安全圏 (米国基準)"
-          : "▶ 短期支払能力基準: 100.0% 〜 150.0% 以上で安全圏";
+        if (eqDesc) eqDesc.innerText = DetailRules.equityRatioDesc(isUS);
+        if (crDesc) crDesc.innerText = DetailRules.currentRatioDesc(isUS);
 
         // ETF・財務データなしの場合はチャートカードを非表示
         const isEtf = data.type === "etf";
@@ -4183,16 +4123,11 @@
 
       // 🕸️ 2. レーダー
       function renderRadarChart(fin) {
-        const roe = FinanceRules.roe(fin);          // F1: 純関数へ集約
-        const roa = FinanceRules.roa(fin);
-        const equityRatio = FinanceRules.equityRatio(fin);
-        const currentRatio = FinanceRules.currentRatio(fin);
-
-        // 持株会社（9984.T 等）は営業利益に代えて税引前利益で収益性を評価（HOLDING_COMPANIES で定義）
-        const targetOp = HOLDING_COMPANIES.has(currentTicker)
-          ? fin.income_before_taxes
-          : fin.operating_income;
-        const opMargin = FinanceRules.ratio(targetOp, fin.net_sales);
+        // スコア/roe/roa の計算は detail-rules.js（radarScores・持株会社の税引前利益特例を含む）へ集約。
+        //  DOM 書込（数値カウントアップ/色）とチャート描画はここに残す（挙動不変）。
+        const rs = DetailRules.radarScores(fin, currentTicker);
+        const roe = rs.roe, roa = rs.roa;
+        const [score_roe, score_roa, score_margin, score_equity, score_current] = rs.scores;
 
         animateNumber(document.getElementById("txt-roe-val"), roe, "%", 1, 900);
         animateNumber(document.getElementById("txt-roa-val"), roa, "%", 1, 900);
@@ -4201,14 +4136,6 @@
           roe >= 0 ? "#f570ff" : "#ff1744";
         document.getElementById("txt-roa-val").style.color =
           roa >= 0 ? "#62f0ff" : "#ff1744";
-
-        const score = (val, min, max) => FinanceRules.clampScore(val, min, max);  // F1
-
-        const score_roe = score(roe, -5, 15);
-        const score_roa = score(roa, -2, 8);
-        const score_margin = score(opMargin, 0, 12);
-        const score_equity = score(equityRatio, 0, 50);
-        const score_current = score(currentRatio, 50, 160);
 
         const ctx = document.getElementById("radarChart").getContext("2d");
         if (radarChartInstance) {
@@ -4285,25 +4212,12 @@
           plChartInstance.destroy();
         }
 
-        const sales = fin.net_sales || 0;
-        const opIncome = fin.operating_income || 0;
-        const netIncome = fin.net_income || 0;
+        const opMargin = FinanceRules.opMargin(fin);   // F1（datalabels の営業利益率表示で使用）
+        const netMargin = FinanceRules.netMargin(fin); //     （datalabels の当期純利益率表示で使用）
 
-        const opMargin = FinanceRules.opMargin(fin);   // F1
-        const netMargin = FinanceRules.netMargin(fin);
-
-        // C4: 欠損項目は捏造せず、実データがある時だけ段を出す（hasValue ゲート）。
-        //  売上高・営業利益・当期純利益は中核として常に表示。
-        //  現データでは gross_profit が全社欠損のため売上総利益の段は常に省略され、
-        //  経常利益/税金等調整前は米国株含め全レコードで提供されるため常に描画される。
-        const plSteps = [
-          { label: "当期純利益", val: netIncome, color: FIN_COLORS.pl[0], core: true },
-          { label: "税金等調整前当期純利益", key: "income_before_taxes", val: fin.income_before_taxes, color: FIN_COLORS.pl[1] },
-          { label: "経常利益", key: "ordinary_income", val: fin.ordinary_income, color: FIN_COLORS.pl[2] },
-          { label: "営業利益", val: opIncome, color: FIN_COLORS.pl[3], core: true },
-          { label: "売上総利益", key: "gross_profit", val: fin.gross_profit, color: FIN_COLORS.pl[4] },
-          { label: "売上高", val: sales, color: FIN_COLORS.pl[5], core: true },
-        ].filter((s) => s.core || FinanceRules.hasValue(fin, s.key));
+        // C4: 欠損項目は捏造せず実データがある時だけ段を出す（hasValue ゲート）。
+        //  段の構築（色/hasValue フィルタ）は detail-rules.js（plSteps）へ集約。描画はここに残す（挙動不変）。
+        const plSteps = DetailRules.plSteps(fin);
         const plLabels = plSteps.map((s) => s.label);
         const plData = plSteps.map((s) => s.val);
         const plColors = plSteps.map((s) => s.color);
@@ -4415,99 +4329,44 @@
         const invCf = FinanceRules.n(fin.investing_cf);
         const finCf = FinanceRules.n(fin.financing_cf);
 
+        // CF カード状態（符号→クラス/文言/色）は detail-rules.js（cfFlowStatus）へ集約。DOM 書込はここで適用。
         const oCard = document.getElementById("card-ope");
         const oSign = document.getElementById("txt-ope-sign");
         const oDesc = document.getElementById("txt-ope-desc");
-        if (opCf >= 0) {
-          oCard.className = "status-card green";
-          oSign.innerText = "プラス";
-          oSign.style.color = "#00e676";
-          oDesc.innerText = "【本業が順調】";
-        } else {
-          oCard.className = "status-card red";
-          oSign.innerText = "マイナス";
-          oSign.style.color = "#ff1744";
-          oDesc.innerText = "【本業が苦戦】";
-        }
+        const oStatus = DetailRules.cfFlowStatus(opCf, "operating");
+        oCard.className = "status-card " + oStatus.cardClass;
+        oSign.innerText = oStatus.signText;
+        oSign.style.color = oStatus.signColor;
+        oDesc.innerText = oStatus.descText;
 
         const iCard = document.getElementById("card-inv");
         const iSign = document.getElementById("txt-inv-sign");
         const iDesc = document.getElementById("txt-inv-desc");
-        if (invCf < 0) {
-          iCard.className = "status-card red";
-          iSign.innerText = "マイナス";
-          iSign.style.color = "#ff1744";
-          iDesc.innerText = "【攻めの経営】";
-        } else {
-          iCard.className = "status-card green";
-          iSign.innerText = "プラス";
-          iSign.style.color = "#00e676";
-          iDesc.innerText = "【守りの経営】";
-        }
+        const iStatus = DetailRules.cfFlowStatus(invCf, "investing");   // 投資は緑赤の意味が反転
+        iCard.className = "status-card " + iStatus.cardClass;
+        iSign.innerText = iStatus.signText;
+        iSign.style.color = iStatus.signColor;
+        iDesc.innerText = iStatus.descText;
 
         const fCard = document.getElementById("card-fin");
         const fSign = document.getElementById("txt-fin-sign");
         const fDesc = document.getElementById("txt-fin-desc");
-        if (finCf >= 0) {
-          fCard.className = "status-card green";
-          fSign.innerText = "プラス";
-          fSign.style.color = "#00e676";
-          fDesc.innerText = "【導入・成長期】";
-        } else {
-          fCard.className = "status-card red";
-          fSign.innerText = "マイナス";
-          fSign.style.color = "#ff1744";
-          fDesc.innerText = "【成熟・衰退期】";
-        }
+        const fStatus = DetailRules.cfFlowStatus(finCf, "financing");
+        fCard.className = "status-card " + fStatus.cardClass;
+        fSign.innerText = fStatus.signText;
+        fSign.style.color = fStatus.signColor;
+        fDesc.innerText = fStatus.descText;
 
+        // 3CF 符号の組合せ→企業タイプ（type/icon/label）は detail-rules.js（cfCompanyType）へ集約。
         const badge = document.getElementById("cf-type-badge");
-        let cfType;
-        if (opCf >= 0 && invCf < 0 && finCf < 0) {
-          badge.innerHTML = ICO.crown + " 優良企業タイプ"; cfType = "excellent";   // 優良＝プレミアム gold
-        } else if (opCf >= 0 && invCf < 0 && finCf >= 0) {
-          badge.innerHTML = ICO.rocket + " 積極投資タイプ"; cfType = "aggressive";  // 積極＝azure
-        } else if (opCf < 0 && invCf < 0 && finCf >= 0) {
-          badge.innerHTML = ICO.flask + " ベンチャータイプ"; cfType = "venture";    // ベンチャー＝violet
-        } else if (opCf < 0 && invCf >= 0 && finCf >= 0) {
-          badge.innerHTML = ICO.warn + " ジリ脚タイプ"; cfType = "warn";            // 警戒＝red-pink
-        } else {
-          badge.innerHTML = ICO.bars + " 転換期・変革タイプ"; cfType = "pivot";      // 中立＝slate-cyan
-        }
-        applyCfTypeBadge(badge, cfType);   // 塗り由来ガラス（発光＋シャドウ＋フロート）を type 別に適用
+        const cfType = DetailRules.cfCompanyType(opCf, invCf, finCf);
+        badge.innerHTML = ICO[cfType.icon] + " " + cfType.label;
+        applyCfTypeBadge(badge, cfType.cfType);   // 塗り由来ガラス（発光＋シャドウ＋フロート）を type 別に適用
 
-        // C4: 期首現金が無い銘柄に特定企業のマジック定数(6524000)を流用していたのを廃止。
-        //  実残高が無ければ捏造せず 0 基準にし、ウォーターフォールは実フロー（増減）を表示する。
-        const hasStartCash = FinanceRules.hasValue(fin, "cf_cash_start");
-        const startCash = hasStartCash ? fin.cf_cash_start : 0;
-        const step1 = startCash + opCf;       // 営業後
-        const step2 = step1 + invCf;          // 投資後
-        const step3 = step2 + finCf;          // 財務後（純フロー）
-        const hasEndCash = FinanceRules.hasValue(fin, "cf_cash_end");
-        // 期末実残高は「期首実残高がある」場合のみ信頼（0基準モードでは純フロー=期末＝相対表示）。
-        const endCash = (hasStartCash && hasEndCash) ? fin.cf_cash_end : step3;
-        const fxOther = endCash - step3;      // 期末実残高と純フローの差＝その他・調整（為替換算差額／データ差異等）
-
-        // 各段は「直前の積み上げ位置」から増減する正しいウォーターフォール（財務CFは投資CF下端から始まる）。
-        const cfSegs = [
-          { label: hasStartCash ? "期首現金残高" : "期首（0基準）", data: [0, startCash], diff: startCash, spec: FIN_COLORS.cf.start },
-          { label: "営業活動CF", data: [startCash, step1], diff: opCf, spec: opCf >= 0 ? FIN_COLORS.cf.pos : FIN_COLORS.cf.neg },
-          { label: "投資活動CF", data: [step1, step2], diff: invCf, spec: invCf >= 0 ? FIN_COLORS.cf.pos : FIN_COLORS.cf.neg },
-          { label: "財務活動CF", data: [step2, step3], diff: finCf, spec: finCf >= 0 ? FIN_COLORS.cf.pos : FIN_COLORS.cf.neg },
-        ];
-        // 純フローと期末実残高の差（為替換算差額やデータ差異）が無視できない大きさのときだけ中立ラベルの段を追加。
-        //  残差は為替換算差額に限らずデータ不整合も含むため「その他・調整」と中立表記（過剰断定を避ける）。
-        const cfScale = Math.max(Math.abs(startCash), Math.abs(step1), Math.abs(step2), Math.abs(step3), Math.abs(endCash), 1);
-        if (hasStartCash && hasEndCash && Math.abs(fxOther) > cfScale * 0.005) {
-          cfSegs.push({ label: "その他・調整", data: [step3, endCash], diff: fxOther, spec: FIN_COLORS.cf.fx });
-        }
-        cfSegs.push({ label: hasStartCash ? "期末現金残高" : "純増減", data: [0, endCash], diff: endCash, spec: FIN_COLORS.cf.end });
-
-        const waterfallData = cfSegs.map((s) => s.data);
-        const cfLabels = cfSegs.map((s) => s.label);
-        const cfSpecs = cfSegs.map((s) => s.spec);
-        const cfDiffs = cfSegs.map((s) => s.diff);
-        const cfLastIdx = cfSegs.length - 1;
-        const maxCfScale = cfScale;
+        // C4: 期首現金が無い銘柄に特定企業のマジック定数(6524000)を流用していたのを廃止（0基準で実フロー表示）。
+        //  ウォーターフォールの段構築（期首→営業→投資→財務→(その他調整)→期末/純増減）は
+        //  detail-rules.js（cfWaterfall）へ集約。描画はここに残す（挙動不変）。
+        const { waterfallData, cfLabels, cfSpecs, cfDiffs, cfLastIdx } = DetailRules.cfWaterfall(fin);
 
         cfChartInstance = new Chart(ctx, {
           type: "bar",
