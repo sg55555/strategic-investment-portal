@@ -434,7 +434,7 @@
       .safety-bar-wrap { display: flex; flex-direction: column; gap: 2px; }
       .safety-bar-track { height: 3px; background: var(--ix-border); border-radius: 2px; width: 100%; }
       .safety-bar-fill  { height: 3px; border-radius: 2px; transition: width 0.4s; }
-      .safety-score-num { font-size: 0.75rem; font-weight: bold; }
+      .safety-score-num { font-size: 0.75rem; font-weight: bold; text-shadow: 0 0 5px currentColor; }  /* リデザイン: 健全性スコアにネオン発光（詳細ヒーロー数値と統一） */
       .portal-table tbody tr:nth-child(even) {
         background-color: rgba(0, 229, 255, 0.03);
       }
@@ -489,6 +489,9 @@
         height: 100%;
         filter: drop-shadow(0 0 1.5px rgba(52, 245, 207, 0.7));  /* リデザイン: 一覧スパークラインにネオン微発光 */
       }
+      /* 絵文字→SVG化: HUDネオン・ラインアイコン（currentColor 継承で周囲の色に追従・1em サイズ）。 */
+      .hud-ico { width: 1em; height: 1em; vertical-align: -0.14em; display: inline-block; flex: 0 0 auto; }
+      .flag-tag { font-size: 0.82em; font-weight: bold; letter-spacing: 0.5px; color: var(--ix-cyan-light); margin-right: 3px; }
       .currency-badge {
         font-size: 0.62rem;
         background: rgba(255, 202, 58, 0.15);
@@ -569,14 +572,26 @@
         gap: 25px;
       }
       .card {
-        background: linear-gradient(135deg, rgba(10, 15, 23, 0.74) 0%, rgba(7, 10, 17, 0.74) 100%);
+        position: relative;
+        isolation: isolate;
+        background: transparent;
         border-radius: 3px;
         padding: 24px;
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 229, 255, 0.05) inset;
         border: 1px solid rgba(0, 229, 255, 0.16);
+        transition: box-shadow 0.3s, border-color 0.3s;
+      }
+      /* FHD等で backdrop-filter が初回描画されずホバーまで透明にならない Chromium バグ対策:
+         フィルタ＋半透明背景を疑似要素の専用レイヤ(z-index:-1)へ隔離し、初回から確実に合成させる。 */
+      .card::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        border-radius: inherit;
+        background: linear-gradient(135deg, rgba(10, 15, 23, 0.74) 0%, rgba(7, 10, 17, 0.74) 100%);
         backdrop-filter: blur(8px);
         -webkit-backdrop-filter: blur(8px);
-        transition: box-shadow 0.3s, border-color 0.3s;
       }
       .card:hover {
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.62), 0 0 18px rgba(0, 229, 255, 0.10) inset;
@@ -760,6 +775,8 @@
       }
 
       .type-badge {
+        position: relative;
+        isolation: isolate;
         background: linear-gradient(135deg, var(--ix-blue-bright), var(--ix-indigo-accent));
         color: var(--ix-white);
         padding: 18px;
@@ -772,6 +789,20 @@
         margin-bottom: 12px;
         text-transform: uppercase;
         font-family: var(--ix-mono);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+      }
+      /* 透明感: 背後（グラスカード）をぼかすフロスト層を疑似要素へ隔離（FHD初回描画バグ回避・半透明グラデと重ねてガラス化）。 */
+      .type-badge::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        border-radius: inherit;
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
       }
 
       .full-width-area {
@@ -1703,7 +1734,7 @@
           <span class="live-dot"></span>
           <span class="portal-title">Strategic Investment Portal</span>
           <span class="portal-header-date" id="portal-date"></span>
-          <button class="mcc-nav-btn" onclick="MCC.show()" title="お金の司令塔">◎ 司令塔</button>
+          <button class="mcc-nav-btn" onclick="MCC.show()" title="お金の司令塔"><svg class="hud-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="2.3" fill="currentColor" stroke="none"/></svg> 司令塔</button>
         </div>
         <div class="portal-subtitle-row">
           <span class="portal-subtitle-text">Financial Intelligence Terminal</span>
@@ -1716,7 +1747,7 @@
 
       <div id="portal-view" class="view-section active">
         <div class="search-container">
-          <span class="search-icon">🔍</span>
+          <span class="search-icon"><svg class="hud-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="4.2"/><path d="M10.2 10.2 14 14"/></svg></span>
           <input
             type="text"
             id="portal-search"
@@ -1777,12 +1808,12 @@
         <div class="legend-bar">
           <div class="legend-item">
             <span style="color: #00e676; font-weight: bold"
-              >🌟 PER 15.0倍以下</span
+              ><svg class="hud-ico" viewBox="0 0 16 16" fill="currentColor" stroke="currentColor" stroke-width="0.8" stroke-linejoin="round"><path d="M8 1.6 9.9 5.9 14.6 6.3 11 9.4 12.1 14 8 11.5 3.9 14 5 9.4 1.4 6.3 6.1 5.9Z"/></svg> PER 15.0倍以下</span
             >：収益割安圏
           </div>
           <div class="legend-item">
             <span style="color: #ffd60a; font-weight: bold"
-              >💎 PBR 1.0倍以下</span
+              ><svg class="hud-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"><path d="M4 2.5h8l3 3.5-7 7.5-7-7.5Z"/><path d="M1 6h14M5.5 2.5 4 6l4 7.5M10.5 2.5 12 6 8 13.5"/></svg> PBR 1.0倍以下</span
             >：解散価値以下（割安圏）
           </div>
           <div class="legend-item">
@@ -1806,7 +1837,7 @@
 
         <div class="time-control-bar">
           <div class="time-control-left">
-            <span class="time-period-icon">📅</span>
+            <span class="time-period-icon"><svg class="hud-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><rect x="2.2" y="3.2" width="11.6" height="10.6" rx="1.4"/><path d="M2.2 6.2h11.6M5.2 1.8v2.8M10.8 1.8v2.8"/></svg></span>
             <span class="time-label">Fiscal Year</span>
             <span class="time-selected-year" id="selected-year-display">----</span>
           </div>
@@ -1815,7 +1846,7 @@
 
         <div class="ai-analysis-card" id="ai-analysis-card" style="display:none;">
           <div class="ai-analysis-year-label" id="ai-analysis-year"></div>
-          <div class="ai-analysis-title"><span class="ai-analysis-icon">✦</span> AI Financial Analysis</div>
+          <div class="ai-analysis-title"><span class="ai-analysis-icon"><svg class="hud-ico" viewBox="0 0 16 16" fill="currentColor" stroke="none"><path d="M8 1.5 9.3 6.7 14.5 8 9.3 9.3 8 14.5 6.7 9.3 1.5 8 6.7 6.7Z"/></svg></span> AI Financial Analysis</div>
           <div class="ai-analysis-text" id="ai-analysis-text"></div>
         </div>
 
@@ -2048,7 +2079,7 @@
           <button class="modal-close" onclick="closeModal('compare-modal')">✕</button>
         </div>
         <div class="compare-controls" style="position:relative;">
-          <input class="compare-search" id="compare-search-input" type="text" placeholder="🔍 銘柄名またはコードで追加..." oninput="compareSearchInput()" onfocus="compareSearchInput()">
+          <input class="compare-search" id="compare-search-input" type="text" placeholder="銘柄名またはコードで追加..." oninput="compareSearchInput()" onfocus="compareSearchInput()">
           <div class="compare-search-list" id="compare-search-list" style="display:none;"></div>
         </div>
         <div class="compare-chips" id="compare-chips"></div>
@@ -2100,7 +2131,7 @@
           </div>
           <button class="contact-submit" type="submit">送信 →</button>
           <div class="contact-success" id="contact-success">✓ 送信が完了しました。ありがとうございます。</div>
-          <div class="contact-error" id="contact-error" style="display:none;color:var(--ix-red-soft,#ff5c7a);margin-top:8px;font-size:0.85rem;">⚠ 送信に失敗しました。通信状況をご確認のうえ、時間をおいて再度お試しください。</div>
+          <div class="contact-error" id="contact-error" style="display:none;color:var(--ix-red-soft,#ff5c7a);margin-top:8px;font-size:0.85rem;"><svg class="hud-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.2 14.5 13.5H1.5Z"/><path d="M8 6.6v3.1"/><circle cx="8" cy="11.5" r="0.75" fill="currentColor" stroke="none"/></svg> 送信に失敗しました。通信状況をご確認のうえ、時間をおいて再度お試しください。</div>
         </form>
       </div>
     </div>
@@ -2239,6 +2270,19 @@
         return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
       }
 
+      // 絵文字→SVG化: JS から挿入する HUD ネオン・ラインアイコン（currentColor で周囲の色を継承）。static HTML 箇所は直接 inline。
+      const ICO = {
+        crown: '<svg class="hud-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12.4 2 5.4 5.6 8.4 8 3.9 10.4 8.4 14 5.4 13.5 12.4Z"/><path d="M3 13.4h10"/></svg>',
+        rocket: '<svg class="hud-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.6c2.3 1.6 3.3 4.1 3.3 6.5 0 1.4-.5 2.8-1.3 3.9H6c-.8-1.1-1.3-2.5-1.3-3.9 0-2.4 1-4.9 3.3-6.5Z"/><circle cx="8" cy="6.3" r="1.3"/><path d="M5.6 10.6 3.2 12l1.5.5M10.4 10.6 12.8 12l-1.5.5M6.9 12.2 8 14.4l1.1-2.2"/></svg>',
+        flask: '<svg class="hud-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h4"/><path d="M6.6 2v4.3L3.5 12a1.4 1.4 0 0 0 1.2 2.1h6.6A1.4 1.4 0 0 0 12.5 12L9.4 6.3V2"/><path d="M5.4 9.6h5.2"/></svg>',
+        bars: '<svg class="hud-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 14h12"/><path d="M4.5 14V8.2M8 14V4.6M11.5 14V6.6"/></svg>',
+        warn: '<svg class="hud-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.2 14.5 13.5H1.5Z"/><path d="M8 6.6v3.1"/><circle cx="8" cy="11.5" r="0.75" fill="currentColor" stroke="none"/></svg>',
+        refresh: '<svg class="hud-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 4.6A6 6 0 1 0 14 8"/><path d="M13.3 1.9V4.7H10.5"/></svg>',
+        sparkle: '<svg class="hud-ico" viewBox="0 0 16 16" fill="currentColor" stroke="none"><path d="M8 1.5 9.3 6.7 14.5 8 9.3 9.3 8 14.5 6.7 9.3 1.5 8 6.7 6.7Z"/></svg>',
+        starFill: '<svg class="hud-ico" viewBox="0 0 16 16" fill="currentColor" stroke="currentColor" stroke-width="0.8" stroke-linejoin="round"><path d="M8 1.6 9.9 5.9 14.6 6.3 11 9.4 12.1 14 8 11.5 3.9 14 5 9.4 1.4 6.3 6.1 5.9Z"/></svg>',
+        starOutline: '<svg class="hud-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"><path d="M8 1.6 9.9 5.9 14.6 6.3 11 9.4 12.1 14 8 11.5 3.9 14 5 9.4 1.4 6.3 6.1 5.9Z"/></svg>',
+      };
+
       // ── P3: 既定値・市場別バリュエーション基準・銘柄特例を定数として単一ソース化 ──
       const DEFAULT_CURRENCY = "JPY";
       const DEFAULT_COUNTRY = "JP";
@@ -2372,7 +2416,7 @@
       function isWatched(ticker) { return watchlist.has(ticker); }
       // P5(c): ウォッチ件数チップのラベル（initSectorFilter と toggleWatchlist の単一ソース）
       function watchChipLabel() {
-        return "⭐ ウォッチ" + (watchlist.size > 0 ? " (" + watchlist.size + ")" : "");
+        return ICO.starFill + " ウォッチ" + (watchlist.size > 0 ? " (" + watchlist.size + ")" : "");
       }
       function toggleWatchlist(ticker) {
         if (watchlist.has(ticker)) { watchlist.delete(ticker); }
@@ -2381,13 +2425,13 @@
         // 一覧画面のスター更新
         const cleanTicker = ticker.replace(".", "_");
         const starEl = document.getElementById("star-" + cleanTicker);
-        if (starEl) { starEl.className = "star-btn" + (isWatched(ticker) ? " watched" : ""); starEl.innerText = isWatched(ticker) ? "★" : "☆"; }
+        if (starEl) { starEl.className = "star-btn" + (isWatched(ticker) ? " watched" : ""); starEl.innerHTML = isWatched(ticker) ? ICO.starFill : ICO.starOutline; }
         // 詳細画面のスター更新
         const detailStar = document.getElementById("detail-star-btn");
-        if (detailStar && currentTicker === ticker) { detailStar.className = "detail-star-btn" + (isWatched(ticker) ? " watched" : ""); detailStar.innerText = isWatched(ticker) ? "★ ウォッチ中" : "☆ ウォッチ"; }
+        if (detailStar && currentTicker === ticker) { detailStar.className = "detail-star-btn" + (isWatched(ticker) ? " watched" : ""); detailStar.innerHTML = isWatched(ticker) ? ICO.starFill + " ウォッチ中" : ICO.starOutline + " ウォッチ"; }
         // P5(c): ウォッチ件数チップをその場更新（セクターバー全再構築を避けピンポイント書換）
         const watchChip = document.getElementById("quick-filter-watch_only");
-        if (watchChip) watchChip.innerText = watchChipLabel();
+        if (watchChip) watchChip.innerHTML = watchChipLabel();
         // ウォッチフィルター中なら再描画
         if (activeSectorFilter === "watch_only") filterAndRenderPortal();
       }
@@ -2552,9 +2596,9 @@
             <div class="portal-status-msg">市場データを読み込み中…</div></div>`;
         } else if (dataLoadState === "error") {
           c.innerHTML = `<div class="portal-status">
-            <div class="portal-status-title">⚠ データを取得できませんでした</div>
+            <div class="portal-status-title">${ICO.warn} データを取得できませんでした</div>
             <div class="portal-status-msg">ネットワークまたはサーバー側の一時的な問題の可能性があります。</div>
-            <button class="retry-btn" onclick="retryLoadData()">↻ 再試行</button></div>`;
+            <button class="retry-btn" onclick="retryLoadData()">${ICO.refresh} 再試行</button></div>`;
         }
       }
 
@@ -2759,7 +2803,7 @@
           title.style.borderLeftColor = sectorColor;
           title.style.background = `linear-gradient(90deg, ${sectorColor}08, transparent)`;
           title.innerHTML = `
-            <span style="color:${sectorColor}88;">${esc(ind.replace("US - ", "🇺🇸 ").replace("国内ETF", "🇯🇵 ETF"))}</span>
+            <span style="color:${sectorColor}88;">${esc(ind.replace("US - ", "US ").replace("国内ETF", "JP ETF"))}</span>
             <span class="sector-count-badge" style="border-color:${sectorColor}33;color:${sectorColor}99;">${groups[ind].length}社</span>
             <span class="sector-title-line" style="background:linear-gradient(90deg,${sectorColor}22,transparent)"></span>
           `;
@@ -2820,7 +2864,7 @@
             let opStyle = "color: #6b7d8a;";
             let opText = item.opMargin !== null ? item.opMargin.toFixed(1) + "%" : "--";
             if (item.opMargin > 0) {
-              if (item.opMargin >= 25) { opStyle = "color: #ffd84d; font-weight: bold;"; opText += " ✦"; }
+              if (item.opMargin >= 25) { opStyle = "color: #ffd84d; font-weight: bold;"; opText += " " + ICO.sparkle; }
               else if (item.opMargin >= 15) { opStyle = "color: #00e676; font-weight: bold;"; }
               else if (item.opMargin >= 5) { opStyle = "color: #8ba2af;"; }
             }
@@ -2828,7 +2872,7 @@
             let roeStyle = "color: #6b7d8a;";
             let roeText = item.roe !== null ? item.roe.toFixed(1) + "%" : "--";
             if (item.roe < 0) { roeStyle = "color: #ff1744;"; }
-            else if (item.roe >= 15) { roeStyle = "color: #ffd60a; font-weight: bold;"; roeText += " ✦"; }
+            else if (item.roe >= 15) { roeStyle = "color: #ffd60a; font-weight: bold;"; roeText += " " + ICO.sparkle; }
             else if (item.roe >= 8) { roeStyle = "color: #00e676; font-weight: bold;"; }
 
             const isUSD = item.currency === "USD";
@@ -2843,7 +2887,7 @@
                     <td><span class="ticker-code">${item.ticker}</span></td>
                     <td style="white-space: nowrap;">
                       <button class="star-btn${isWatched(item.ticker) ? " watched" : ""}" id="star-${cleanTicker}"
-                        onclick="event.stopPropagation(); toggleWatchlist('${item.ticker}')">${isWatched(item.ticker) ? "★" : "☆"}</button>
+                        onclick="event.stopPropagation(); toggleWatchlist('${item.ticker}')">${isWatched(item.ticker) ? ICO.starFill : ICO.starOutline}</button>
                       <span class="company-clickable" title="${esc(item.name)}">${esc(item.name)}</span>${currBadge}
                     </td>
                     <td style="font-weight: bold; color: #00e676;">${salesText}</td>
@@ -2923,17 +2967,17 @@
         // 大分類クイックフィルター
         const quickFilters = [
           { key: "stock_only", label: "株式のみ" },
-          { key: "jp_only",    label: "🇯🇵 日本株" },
-          { key: "us_only",    label: "🇺🇸 米国株" },
+          { key: "jp_only",    label: "日本株" },
+          { key: "us_only",    label: "米国株" },
           { key: "etf_only",   label: "ETF" },
-          { key: "watch_only", label: watchChipLabel() },
+          { key: "watch_only", label: watchChipLabel(), html: true },
           { key: "all",        label: "すべて" },
         ];
         quickFilters.forEach((f, i) => {
           const btn = document.createElement("button");
           btn.id = "quick-filter-" + f.key;   // P5(c): toggleWatchlist からチップを直接更新するため
           btn.className = "sector-btn" + (f.key === activeSectorFilter ? " active" : "");
-          btn.innerText = f.label;
+          if (f.html) btn.innerHTML = f.label; else btn.innerText = f.label;
           btn.style.animationDelay = `${i * 35}ms`;
           btn.onclick = () => setSectorFilter(f.key);
           bar.appendChild(btn);
@@ -3716,7 +3760,7 @@
           <span class="sector-badge">${esc(data.industry)}</span>${currBadgeHtml}
           <span style="font-size:0.7rem;color:#8ba2af;margin-left:4px;">単位: ${unitLabel}</span>
           <button class="detail-star-btn${isWatched(currentTicker) ? " watched" : ""}" id="detail-star-btn"
-            onclick="toggleWatchlist('${currentTicker}')">${isWatched(currentTicker) ? "★ ウォッチ中" : "☆ ウォッチ"}</button>
+            onclick="toggleWatchlist('${currentTicker}')">${isWatched(currentTicker) ? ICO.starFill + " ウォッチ中" : ICO.starOutline + " ウォッチ"}</button>
           <button class="open-compare-btn" onclick="openCompareModal()">⊕ 比較チャート</button>
         `;
         document.getElementById("selected-year-display").innerText = selectedYear + " FY";
@@ -3851,16 +3895,6 @@
         renderRadarChart(fin);
         renderPLChart(fin);
         renderCFChart(fin);
-
-        // 一部GPU/解像度(FHD等)で backdrop-filter が初回描画されず、カーソルを当てるまでガラス感が出ない
-        //  Chromium のバグ対策：詳細ビューのカードを次フレームで一度だけリペイントさせ初回から反映する。
-        requestAnimationFrame(() => {
-          document.querySelectorAll("#detail-view .card").forEach((el) => {
-            el.style.backdropFilter = "none";
-            void el.offsetHeight;           // 強制リフロー（none 状態は同フレーム内で描画されない）
-            el.style.backdropFilter = "";   // CSS の blur(8px) へ復帰＝リペイント誘発
-          });
-        });
       }
 
       // F3: クラス適用のみ（hash は書かない）。onhashchange と showView の共通土台。
@@ -4289,12 +4323,12 @@
                   if (label === "営業利益") {
                     return (
                       baseStr +
-                      `\n📈 営業利益率: ${opMargin.toFixed(1)}%\n(基準値4-5%前後)`
+                      `\n営業利益率: ${opMargin.toFixed(1)}%\n(基準値4-5%前後)`
                     );
                   } else if (label === "当期純利益") {
                     return (
                       baseStr +
-                      `\n💰 当期純利益率: ${netMargin.toFixed(1)}%\n(基準値3-4%前後)`
+                      `\n当期純利益率: ${netMargin.toFixed(1)}%\n(基準値3-4%前後)`
                     );
                   }
                   return baseStr;
@@ -4382,20 +4416,20 @@
 
         const badge = document.getElementById("cf-type-badge");
         if (opCf >= 0 && invCf < 0 && finCf < 0) {
-          badge.innerText = "👑 優良企業タイプ";
-          badge.style.background = "linear-gradient(135deg, #ffd84d, #e0910f)";   // 優良＝プレミアム gold
+          badge.innerHTML = ICO.crown + " 優良企業タイプ";
+          badge.style.background = "linear-gradient(135deg, rgba(255,216,77,0.82), rgba(224,145,15,0.82))";   // 優良＝プレミアム gold（半透明）
         } else if (opCf >= 0 && invCf < 0 && finCf >= 0) {
-          badge.innerText = "🚀 積極投資タイプ";
-          badge.style.background = "linear-gradient(135deg, #3aa6ff, #1f4fd0)";   // 積極＝azure
+          badge.innerHTML = ICO.rocket + " 積極投資タイプ";
+          badge.style.background = "linear-gradient(135deg, rgba(58,166,255,0.82), rgba(31,79,208,0.82))";   // 積極＝azure（半透明）
         } else if (opCf < 0 && invCf < 0 && finCf >= 0) {
-          badge.innerText = "🧪 ベンチャータイプ";
-          badge.style.background = "linear-gradient(135deg, #a35cff, #6414d8)";   // ベンチャー＝violet
+          badge.innerHTML = ICO.flask + " ベンチャータイプ";
+          badge.style.background = "linear-gradient(135deg, rgba(163,92,255,0.82), rgba(100,20,216,0.82))";   // ベンチャー＝violet（半透明）
         } else if (opCf < 0 && invCf >= 0 && finCf >= 0) {
-          badge.innerText = "⚠️ ジリ脚タイプ";
-          badge.style.background = "linear-gradient(135deg, #ff4d6d, #cc0038)";   // 警戒＝red-pink
+          badge.innerHTML = ICO.warn + " ジリ脚タイプ";
+          badge.style.background = "linear-gradient(135deg, rgba(255,77,109,0.82), rgba(204,0,56,0.82))";   // 警戒＝red-pink（半透明）
         } else {
-          badge.innerText = "📊 転換期・変革タイプ";
-          badge.style.background = "linear-gradient(135deg, #5a8fb0, #2a3a44)";   // 中立＝slate-cyan
+          badge.innerHTML = ICO.bars + " 転換期・変革タイプ";
+          badge.style.background = "linear-gradient(135deg, rgba(90,143,176,0.82), rgba(42,58,68,0.82))";   // 中立＝slate-cyan（半透明）
         }
 
         // C4: 期首現金が無い銘柄に特定企業のマジック定数(6524000)を流用していたのを廃止。
