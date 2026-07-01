@@ -571,33 +571,29 @@
         flex-direction: column;
         gap: 25px;
       }
+      /* ガラスは「色付き半透明の塗り」で出す（BS/PL/CF バーと同処方）＝backdrop-filter 非依存で
+         FHD 初回描画バグ（初期表示で透けずカーソルで透明化する Chromium 合成バグ）を構造的に回避。
+         色付き軽い塗り＋上部ハイライト＋明るいネオン縁＋外グロー。疑似要素/backdrop-filter は廃止。 */
       .card {
         position: relative;
-        isolation: isolate;
-        background: transparent;
         border-radius: 3px;
         padding: 24px;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 229, 255, 0.05) inset;
-        border: 1px solid rgba(0, 229, 255, 0.16);
+        background: linear-gradient(160deg, rgba(22, 44, 64, 0.34) 0%, rgba(10, 20, 34, 0.40) 55%, rgba(6, 12, 22, 0.44) 100%);
+        border: 1px solid rgba(0, 229, 255, 0.42);
+        box-shadow:
+          0 0 22px rgba(0, 229, 255, 0.10),        /* 外側ブルーム（チャートの外グローと呼応） */
+          0 8px 26px rgba(0, 0, 0, 0.55),          /* 奥行きのドロップ影 */
+          inset 0 1px 0 rgba(150, 230, 255, 0.22), /* 上部ガラスハイライト（光が当たる縁） */
+          inset 0 0 0 1px rgba(0, 229, 255, 0.05); /* 内側の微リム */
         transition: box-shadow 0.3s, border-color 0.3s;
       }
-      /* FHD等で backdrop-filter が初回描画されずホバーまで透明にならない Chromium バグ対策:
-         フィルタ＋半透明背景を疑似要素の専用レイヤ(z-index:-1)へ隔離し、初回から確実に合成させる。 */
-      .card::before {
-        content: "";
-        position: absolute;
-        inset: 0;
-        z-index: -1;
-        border-radius: inherit;
-        /* 透明感は「半透明の塗り」から出す（BS/PL/CFバーと同じ発想）＝初回描画バグの影響を受けず初期表示から透ける。
-           白でない微グラデ（上=わずかに明・下=深）＋backdrop-filterは効くGPUでの上乗せフロスト。 */
-        background: linear-gradient(160deg, rgba(16, 26, 40, 0.46) 0%, rgba(8, 12, 22, 0.52) 55%, rgba(5, 9, 16, 0.5) 100%);
-        backdrop-filter: blur(7px);
-        -webkit-backdrop-filter: blur(7px);
-      }
       .card:hover {
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.62), 0 0 18px rgba(0, 229, 255, 0.10) inset;
-        border-color: rgba(0, 229, 255, 0.28);
+        box-shadow:
+          0 0 26px rgba(0, 229, 255, 0.16),
+          0 10px 30px rgba(0, 0, 0, 0.62),
+          inset 0 1px 0 rgba(150, 230, 255, 0.28),
+          inset 0 0 0 1px rgba(0, 229, 255, 0.08);
+        border-color: rgba(0, 229, 255, 0.55);
       }
       .card-title {
         font-size: 0.8rem;
@@ -776,12 +772,15 @@
         letter-spacing: 0.5px;
       }
 
+      /* CF 企業タイプ バッジ＝実際の配色/発光は JS(applyCfTypeBadge) が type 別にインライン設定。
+         ここは既定（解析中フォールバック）＋レイアウトのみ。ガラスは塗り由来＝backdrop-filter 非依存。
+         border は色を JS が差すため幅だけ確保（transparent）。 */
       .type-badge {
         position: relative;
-        isolation: isolate;
         background: linear-gradient(135deg, var(--ix-blue-bright), var(--ix-indigo-accent));
         color: var(--ix-white);
         padding: 18px;
+        border: 1px solid transparent;
         border-radius: 3px;
         text-align: center;
         font-weight: bold;
@@ -795,16 +794,6 @@
         align-items: center;
         justify-content: center;
         gap: 10px;
-      }
-      /* 透明感: 背後（グラスカード）をぼかすフロスト層を疑似要素へ隔離（FHD初回描画バグ回避・半透明グラデと重ねてガラス化）。 */
-      .type-badge::before {
-        content: "";
-        position: absolute;
-        inset: 0;
-        z-index: -1;
-        border-radius: inherit;
-        backdrop-filter: blur(6px);
-        -webkit-backdrop-filter: blur(6px);
       }
 
       .full-width-area {
@@ -2205,6 +2194,25 @@
         const f = h.length === 3 ? h.split("").map(c => c + c).join("") : h;
         const n = parseInt(f, 16);
         return "rgba(" + ((n >> 16) & 255) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + a + ")";
+      }
+      // CF 企業タイプ バッジのネオン・ガラス処方（チャートのバー1本と同じ発想）＝[top明, bottom深] ペアで
+      // 明→深グラデ＋固有色の外グロー＋下方向ドロップ影で浮遊感＋上部ハイライト。塗り由来＝backdrop-filter 非依存。
+      const CF_BADGE_PAIR = {
+        excellent: ["#ffd84d", "#c87600"], aggressive: ["#3aa6ff", "#1f4fd0"], venture: ["#a35cff", "#6414d8"],
+        warn: ["#ff4d6d", "#cc0038"], pivot: ["#5a8fb0", "#2a3a44"],
+      };
+      function applyCfTypeBadge(el, type) {
+        const pair = CF_BADGE_PAIR[type] || CF_BADGE_PAIR.pivot;
+        const t = pair[0], d = pair[1];
+        el.style.background = `linear-gradient(160deg, ${_hexRgba(t, 0.72)} 0%, ${_hexRgba(t, 0.52)} 55%, ${_hexRgba(d, 0.42)} 100%)`;
+        el.style.borderColor = _hexRgba(t, 0.95);
+        el.style.boxShadow = [
+          `0 0 22px ${_hexRgba(t, 0.55)}`, `0 0 48px ${_hexRgba(t, 0.24)}`,
+          "0 13px 30px rgba(0,0,0,0.55)", "0 3px 7px rgba(0,0,0,0.42)",
+          `inset 0 1px 0 ${_hexRgba("#ffffff", 0.38)}`, `inset 0 -10px 22px ${_hexRgba(d, 0.30)}`,
+        ].join(",");
+        el.style.color = "#fbfdff";
+        el.style.textShadow = `0 0 10px ${_hexRgba(t, 0.7)}`;
       }
       // 財務チャート用ネオン・ガラス パレット（[top明, bottom深] のグラデペア／単色も可）
       const FIN_COLORS = {
@@ -4417,22 +4425,19 @@
         }
 
         const badge = document.getElementById("cf-type-badge");
+        let cfType;
         if (opCf >= 0 && invCf < 0 && finCf < 0) {
-          badge.innerHTML = ICO.crown + " 優良企業タイプ";
-          badge.style.background = "linear-gradient(135deg, rgba(255,216,77,0.62), rgba(224,145,15,0.62))";   // 優良＝プレミアム gold（半透明）
+          badge.innerHTML = ICO.crown + " 優良企業タイプ"; cfType = "excellent";   // 優良＝プレミアム gold
         } else if (opCf >= 0 && invCf < 0 && finCf >= 0) {
-          badge.innerHTML = ICO.rocket + " 積極投資タイプ";
-          badge.style.background = "linear-gradient(135deg, rgba(58,166,255,0.62), rgba(31,79,208,0.62))";   // 積極＝azure（半透明）
+          badge.innerHTML = ICO.rocket + " 積極投資タイプ"; cfType = "aggressive";  // 積極＝azure
         } else if (opCf < 0 && invCf < 0 && finCf >= 0) {
-          badge.innerHTML = ICO.flask + " ベンチャータイプ";
-          badge.style.background = "linear-gradient(135deg, rgba(163,92,255,0.62), rgba(100,20,216,0.62))";   // ベンチャー＝violet（半透明）
+          badge.innerHTML = ICO.flask + " ベンチャータイプ"; cfType = "venture";    // ベンチャー＝violet
         } else if (opCf < 0 && invCf >= 0 && finCf >= 0) {
-          badge.innerHTML = ICO.warn + " ジリ脚タイプ";
-          badge.style.background = "linear-gradient(135deg, rgba(255,77,109,0.62), rgba(204,0,56,0.62))";   // 警戒＝red-pink（半透明）
+          badge.innerHTML = ICO.warn + " ジリ脚タイプ"; cfType = "warn";            // 警戒＝red-pink
         } else {
-          badge.innerHTML = ICO.bars + " 転換期・変革タイプ";
-          badge.style.background = "linear-gradient(135deg, rgba(90,143,176,0.62), rgba(42,58,68,0.62))";   // 中立＝slate-cyan（半透明）
+          badge.innerHTML = ICO.bars + " 転換期・変革タイプ"; cfType = "pivot";      // 中立＝slate-cyan
         }
+        applyCfTypeBadge(badge, cfType);   // 塗り由来ガラス（発光＋シャドウ＋フロート）を type 別に適用
 
         // C4: 期首現金が無い銘柄に特定企業のマジック定数(6524000)を流用していたのを廃止。
         //  実残高が無ければ捏造せず 0 基準にし、ウォーターフォールは実フロー（増減）を表示する。
