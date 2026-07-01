@@ -586,10 +586,6 @@
           inset 0 1px 0 rgba(150, 230, 255, 0.22), /* 上部ガラスハイライト（光が当たる縁） */
           inset 0 0 0 1px rgba(0, 229, 255, 0.05); /* 内側の微リム */
         transition: box-shadow 0.3s, border-color 0.3s;
-        /* FHD 初回描画バグの正式修正：GPU 合成レイヤを明示・安定化し、半透明の塗り由来ガラスを
-           初回ペイントから正しく合成させる（実機 FHD で translateZ(0) を実証）。entrance アニメ
-           cardFadeInUp の forwards 確定状態にも同 Z を持たせて全タイミングで維持する。 */
-        transform: translateZ(0);
       }
       .card:hover {
         box-shadow:
@@ -1697,10 +1693,8 @@
 
       /* ── カードフェードインアニメーション ── */
       @keyframes cardFadeInUp {
-        /* translateZ(0) を全キーフレームに保持＝forwards 確定後も GPU 合成レイヤを安定化し
-           塗り由来ガラスを FHD 初回ペイントから正しく合成させる（entrance の動きは translateY のみで不変）。 */
-        from { opacity: 0; transform: translateY(16px) translateZ(0); }
-        to   { opacity: 1; transform: translateY(0) translateZ(0); }
+        from { opacity: 0; transform: translateY(16px); }
+        to   { opacity: 1; transform: translateY(0); }
       }
       .dashboard-stack.animate-cards .card {
         opacity: 0;
@@ -3747,6 +3741,32 @@
         updateFinancialViews();
       }
 
+      // ★FHD 初回ペイント黒面バグの正式修正で使うヘルパ（診断 diag=redraw で全カード黒→正常を実証）。
+      //  真因: FHD(DPR=1)実GPUで detail を開くと、entrance アニメ cardFadeInUp（遅延最大0.57s＋
+      //   0.45s≒1.02s）の間に各カードが opacity/transform で合成レイヤへ昇格し、その時点の「黒面
+      //   canvas テクスチャ」がレイヤにキャッシュされる。アニメ中に canvas を再描画してもレイヤの
+      //   黒キャッシュは差し替わらず、アニメ完了後まで再描画を続けて初めて黒が消える。
+      //   4K(DPR>=1.5)/headless では非発生だが呼んでも無害。
+      //  実測(probe-fcr): 再描画 183/350ms のみ=黒のまま / 〜1205ms まで継続=黒→正常。→完了後まで延長。
+      //  ※ カード層の再ラスタ(box-shadow/border/translateZ)では効かず canvas 自体の再描画のみ有効。
+      //  ⚠️0x0罠回避: 各コンテナ clientWidth>0 を確認（非表示時 resize は 0x0 に陥る）。
+      function forceChartRepaint() {
+        const run = () => {
+          const cc = document.getElementById("chart-container");
+          if (priceChart && cc && cc.clientWidth > 0) priceChart.resize(cc.clientWidth, cc.clientHeight);
+          const rc = document.getElementById("rsi-container");
+          if (rsiChart && rsiState && rc && rc.clientWidth > 0) rsiChart.resize(rc.clientWidth, rc.clientHeight);
+          const mc = document.getElementById("macd-container");
+          if (macdChart && macdState && mc && mc.clientWidth > 0) macdChart.resize(mc.clientWidth, mc.clientHeight);
+          [bsChartInstance, plChartInstance, cfChartInstance, radarChartInstance].forEach((ch) => {
+            if (ch) { try { ch.resize(); ch.update("none"); } catch (e) {} }
+          });
+        };
+        // 次フレーム＋entrance アニメ完了(≒1.02s)後まで複数時刻で再描画。update('none')は冪等で無害。
+        requestAnimationFrame(() => requestAnimationFrame(run));
+        [300, 700, 1100].forEach((ms) => setTimeout(run, ms));
+      }
+
       function updateFinancialViews() {
         const data = STOCK_DATA[currentTicker];
         if (!data) return;
@@ -3802,6 +3822,15 @@
         }
         candleSeries.setData(displayPrices);
         updateMaAndVolume(displayPrices, data.prices);
+
+        // ★FHD 初回ペイント黒面バグの正式修正（diag=redraw で全カード黒→正常を実証）：
+        //  価格チャート描画直後・かつ ETF/財務欠損の early-return より前で強制再描画をスケジュールする。
+        //  ⚠️ここに置く理由: ETF(financials_trend={})や財務欠損年でも MARKET CHART カード(priceChart)は
+        //   常に表示され entrance アニメで合成レイヤ黒キャッシュを起こすが、下段(isEtf/!fin)の early-return
+        //   で後方の呼び出しに到達しないため（レビューで確定した欠陥）。ここなら全経路で無条件に走る。
+        //  実処理は rAF＋[300,700,1100]ms 遅延で走り、後続で同期描画される財務チャート(bs/pl/cf/radar)も
+        //  実行時に最新インスタンスを読むため、株式経路の再描画も従来どおり効く（検証済み挙動を保存）。
+        forceChartRepaint();
 
         const rawPer = data.per || 0;
         const rawPbr = data.pbr || 0;
@@ -3911,6 +3940,7 @@
         renderRadarChart(fin);
         renderPLChart(fin);
         renderCFChart(fin);
+        // forceChartRepaint() は価格チャート描画直後（early-return より前）へ移設済（上記参照）。
       }
 
       // F3: クラス適用のみ（hash は書かない）。onhashchange と showView の共通土台。
