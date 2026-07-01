@@ -138,7 +138,9 @@
         return filtered.map(p => ({ time: p.time, value: parseFloat((((p.close - base) / base) * 100).toFixed(2)) }));
       }
 
-      function renderCompareChart() {
+      // cross-module state seam: compareSet/comparePeriodMonths は detail.js の closure 私有につき
+      //  detail.js から引数で受ける（旧 index.html global の free-var 参照を置換・描画本体は不変）。
+      function renderCompareChart(compareSet, comparePeriodMonths) {
         const container = document.getElementById("compare-chart-container");
         if (compareChart) { compareChart.remove(); compareChart = null; }
         if (compareSet.size === 0) return;
@@ -577,7 +579,8 @@
 
   // ── 財務チャート（BS/PL/CF/Radar・index.html から verbatim relocate）──
       // 📊 1. BS (極太2.5倍 & 吹き出しエスケープ)
-      function renderBSChart(fin) {
+      // cross-module state seam: pageUnit は detail.js の closure 私有につき引数で受ける（本体不変）。
+      function renderBSChart(fin, pageUnit) {
         const unitStr = FinanceRules.fmtUnit(STOCK_DATA[currentTicker]?.currency);
         const isMobile = window.innerWidth < 768;
         const totalAssets = FinanceRules.totalAssets(fin);   // F1: 純関数へ集約（欠損は0扱い）
@@ -861,7 +864,8 @@
         radarChartInstance.$lineGlow = true;
       }
       // 📈 3. PL
-      function renderPLChart(fin) {
+      // cross-module state seam: pageUnit を detail.js から引数で受ける（本体不変）。
+      function renderPLChart(fin, pageUnit) {
         const unitStr = FinanceRules.fmtUnit(STOCK_DATA[currentTicker]?.currency);
         const isMobile = window.innerWidth < 768;
         const ctx = document.getElementById("plChart").getContext("2d");
@@ -973,7 +977,8 @@
         plChartInstance.$neonSpecs = [plColors];
       }
       // 💸 4. CF
-      function renderCFChart(fin) {
+      // cross-module state seam: pageUnit を detail.js から引数で受ける（本体不変）。
+      function renderCFChart(fin, pageUnit) {
         const unitStr = FinanceRules.fmtUnit(STOCK_DATA[currentTicker]?.currency);
         const isMobile = window.innerWidth < 768;
         const ctx = document.getElementById("cfChart").getContext("2d");
