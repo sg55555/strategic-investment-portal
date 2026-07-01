@@ -1467,11 +1467,6 @@
       const DEFAULT_CURRENCY = "JPY";
       const DEFAULT_COUNTRY = "JP";
       const DEFAULT_TICKER = "7203.T";
-      // 市場別バリュエーション基準（PER/PBR の割安・割高ライン。米国株は市場慣行で別基準）
-      const MARKET_BASIS = {
-        US: { perLow: 20.0, perHigh: 40.0, pbrLow: 2.0, pbrHigh: 15.0, label: "米国市場基準" },
-        JP: { perLow: 15.0, perHigh: 28.0, pbrLow: 1.0, pbrHigh: 3.0,  label: "プロ基準" },
-      };
 
       let currentTicker = DEFAULT_TICKER;   // 共有: portal/watchlist が読むため index.html global 維持（detail.js は free-var 参照）。
       // Task3: selectedYear / pageUnit は detail.js の closure へ private 化（移設済）。
