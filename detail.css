@@ -1,0 +1,764 @@
+/* detail.css — 詳細ビュー専用スタイル（index.html <style> から verbatim 抽出・Task4）。
+   値・順序・トークン参照(var(--ix-*)) は index.html 原本と不変。:root トークンは index.html
+   に残置し後読みで解決する。⚠️ 移動元の相対順序を厳密保持＝@media 上書きが後続 base 定義より
+   前に来る原本のカスケード（例: .time-control-bar / .ma-control-bar / .sector-badge）も温存する。 */
+
+      .back-bar {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 0;
+        background: linear-gradient(135deg, var(--ix-surface-0), var(--ix-surface-2));
+        border-radius: 3px;
+        border: 1px solid var(--ix-surface-blue);
+        margin-bottom: 14px;
+        overflow: hidden;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+      }
+      .time-btn-group {
+        display: flex;
+        gap: 4px;
+        padding: 2px;
+      }
+      .time-btn {
+        background: transparent;
+        color: var(--ix-slate-line);
+        border: 1px solid var(--ix-border);
+        padding: 6px 18px;
+        font-weight: bold;
+        font-size: 0.85rem;
+        border-radius: 3px;
+        cursor: pointer;
+        letter-spacing: 1px;
+        transition: all 0.2s;
+        font-family: var(--ix-mono);
+      }
+      .time-btn:hover {
+        border-color: var(--ix-slate-line);
+        color: var(--ix-text-dim);
+      }
+      .time-btn.active {
+        background: linear-gradient(135deg, var(--ix-surface-blue), var(--ix-border));
+        border-color: var(--ix-blue-bright);
+        color: var(--ix-cyan-bright2);
+        box-shadow: 0 0 8px rgba(0,229,255,0.3);
+        font-family: var(--ix-mono);
+      }
+
+      .dashboard-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 25px;
+      }
+
+      #chart-container {
+        width: 100%;
+        height: 450px;
+      }
+      .grid-layout {
+        display: flex;
+        flex-direction: column;
+        gap: 30px;
+        align-items: center;
+        justify-content: center;
+      }
+      @media (min-width: 1024px) {
+        .grid-layout {
+          flex-direction: row;
+          align-items: stretch;
+        }
+      }
+
+      .chart-main-area {
+        flex: 1;
+        height: 530px;
+        min-width: 320px;
+        width: 100%;
+      }
+
+      .side-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        width: 100%;
+      }
+      @media (min-width: 1024px) {
+        .side-panel {
+          width: 440px;
+          padding-top: 0px;
+        }
+      }
+
+      .status-card {
+        background: linear-gradient(135deg, var(--ix-surface-2), var(--ix-surface-1));
+        border: 1px solid rgba(0,229,255,0.08);
+        border-radius: 3px;
+        padding: 14px 20px;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .status-card.gold::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 6px;
+        background-color: var(--ix-gold);
+      }
+      .status-card.blue::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 6px;
+        background-color: var(--ix-blue-bright);
+      }
+      .status-card.green::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 6px;
+        background-color: var(--ix-emerald);
+      }
+      .status-card.red::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 6px;
+        background-color: var(--ix-red);
+      }
+      .status-card.purple::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 6px;
+        background-color: var(--ix-purple);
+      }
+      .status-card.cyan::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 6px;
+        background-color: var(--ix-cyan-deep);
+      }
+      /* Batch D: アクセントバーをネオン発光させ、チャートの発光質感と統一。 */
+      .status-card.gold::before   { box-shadow: 0 0 12px var(--ix-gold); }
+      .status-card.blue::before   { box-shadow: 0 0 12px var(--ix-blue-bright); }
+      .status-card.green::before  { box-shadow: 0 0 12px var(--ix-emerald); }
+      .status-card.red::before    { box-shadow: 0 0 12px var(--ix-red); }
+      .status-card.purple::before { box-shadow: 0 0 12px var(--ix-purple); }
+      .status-card.cyan::before   { box-shadow: 0 0 12px var(--ix-cyan-deep); }
+
+      .panel-label {
+        font-size: 0.85rem;
+        color: var(--ix-text-dim);
+        font-weight: bold;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+      }
+
+      .panel-body-vertical {
+        display: flex;
+        flex-direction: column;
+        margin-top: 4px;
+      }
+      .panel-sign-value-large {
+        font-size: 2.8rem;
+        font-weight: bold;
+        font-family: var(--ix-mono);
+        line-height: 1;
+        letter-spacing: 1px;
+        text-shadow: 0 0 12px currentColor;
+      }
+
+      .panel-body-grid {
+        display: grid;
+        grid-template-columns: 180px 1fr;
+        align-items: center;
+        margin-top: 10px;
+        white-space: nowrap;
+      }
+      .panel-sign-value-cf {
+        font-size: 2.6rem;
+        font-weight: bold;
+        font-family: var(--ix-mono);
+        line-height: 1;
+        letter-spacing: 1px;
+        text-shadow: 0 0 12px currentColor;
+      }
+      .panel-desc-text-cf {
+        font-size: 1.3rem;
+        font-weight: bold;
+        color: var(--ix-text-hi);
+        letter-spacing: 0.5px;
+      }
+
+      .panel-desc-text-below {
+        font-size: 0.85rem;
+        font-weight: bold;
+        color: var(--ix-text-dim);
+        margin-top: 4px;
+        letter-spacing: 0.5px;
+      }
+
+      /* CF 企業タイプ バッジ＝実際の配色/発光は JS(applyCfTypeBadge) が type 別にインライン設定。
+         ここは既定（解析中フォールバック）＋レイアウトのみ。ガラスは塗り由来＝backdrop-filter 非依存。
+         border は色を JS が差すため幅だけ確保（transparent）。 */
+      .type-badge {
+        position: relative;
+        background: linear-gradient(135deg, var(--ix-blue-bright), var(--ix-indigo-accent));
+        color: var(--ix-white);
+        padding: 18px;
+        border: 1px solid transparent;
+        border-radius: 3px;
+        text-align: center;
+        font-weight: bold;
+        font-size: 1.8rem;
+        letter-spacing: 3px;
+        box-shadow: 0 6px 18px rgba(77, 93, 255, 0.45);
+        margin-bottom: 12px;
+        text-transform: uppercase;
+        font-family: var(--ix-mono);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+      }
+
+      .full-width-area {
+        width: 100%;
+        height: 500px;
+      }
+
+      .detail-star-btn {
+        background: transparent;
+        border: 1px solid var(--ix-border);
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 1rem;
+        padding: 4px 10px;
+        color: var(--ix-border-mid);
+        transition: all 0.2s;
+        margin-left: 8px;
+      }
+      .detail-star-btn:hover { border-color: var(--ix-amber); color: var(--ix-amber); }
+      .detail-star-btn.watched { border-color: var(--ix-amber); color: var(--ix-amber); background: rgba(251,191,36,0.08); }
+
+      /* ── 比較チャートモーダル ── */
+      .compare-modal-box {
+        background: linear-gradient(135deg, rgba(8, 12, 20, 0.92), rgba(5, 8, 14, 0.92));
+        border: 1px solid rgba(0, 229, 255, 0.22);
+        border-radius: 3px;
+        padding: 24px 28px;
+        max-width: 1100px;
+        width: 95%;
+        max-height: 90vh;
+        overflow-y: auto;
+        position: relative;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        box-shadow: 0 20px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(0, 229, 255, 0.05) inset;
+      }
+      .compare-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+      .compare-title {
+        font-size: 0.85rem;
+        font-weight: bold;
+        color: var(--ix-cyan-light);
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        border-left: 3px solid var(--ix-cyan);
+        padding-left: 10px;
+        text-shadow: 0 0 10px rgba(0, 229, 255, 0.35);
+      }
+      .compare-controls {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        margin-bottom: 14px;
+        flex-wrap: wrap;
+      }
+      .compare-search {
+        background: var(--ix-bg);
+        border: 1px solid var(--ix-border);
+        color: var(--ix-text-dim);
+        padding: 7px 14px;
+        border-radius: 3px;
+        font-size: 0.82rem;
+        min-width: 220px;
+        flex: 1;
+      }
+      .compare-search:focus { outline: none; border-color: var(--ix-cyan); }
+      .compare-search-list {
+        position: absolute;
+        background: var(--ix-surface-2);
+        border: 1px solid var(--ix-border);
+        border-radius: 6px;
+        max-height: 200px;
+        overflow-y: auto;
+        z-index: 100;
+        width: 280px;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+      }
+      .compare-search-item {
+        padding: 7px 14px;
+        cursor: pointer;
+        font-size: 0.8rem;
+        color: var(--ix-text-dim);
+        transition: background 0.1s;
+      }
+      .compare-search-item:hover { background: var(--ix-border); color: var(--ix-text-hi); }
+      .compare-chips {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
+      }
+      .compare-chip {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 10px;
+        border-radius: 3px;
+        font-size: 0.76rem;
+        font-weight: bold;
+        border: 1px solid;
+        cursor: default;
+      }
+      .compare-chip-remove {
+        cursor: pointer;
+        opacity: 0.6;
+        font-size: 0.7rem;
+        margin-left: 2px;
+      }
+      .compare-chip-remove:hover { opacity: 1; }
+      .compare-period-bar {
+        display: flex;
+        gap: 4px;
+        margin-bottom: 14px;
+      }
+      .compare-period-btn {
+        background: transparent;
+        border: 1px solid var(--ix-border);
+        color: var(--ix-slate-line);
+        padding: 4px 12px;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 0.72rem;
+        font-weight: bold;
+        font-family: var(--ix-mono);
+        transition: all 0.2s;
+      }
+      .compare-period-btn:hover { border-color: var(--ix-cyan); color: var(--ix-cyan); }
+      .compare-period-btn.active { border-color: var(--ix-cyan); color: var(--ix-cyan); background: rgba(0,229,255,0.12); }
+      #compare-chart-container { width: 100%; height: 400px; border-radius: 3px; overflow: hidden; }
+      .compare-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 10px;
+      }
+      .compare-legend-item {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 0.76rem;
+        color: var(--ix-text-dim);
+      }
+      .compare-legend-dot {
+        width: 10px;
+        height: 3px;
+        border-radius: 2px;
+      }
+      .open-compare-btn {
+        background: rgba(0,229,255,0.1);
+        border: 1px solid rgba(0,229,255,0.3);
+        color: var(--ix-cyan-light);
+        padding: 4px 12px;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 0.72rem;
+        font-weight: bold;
+        letter-spacing: 1px;
+        transition: all 0.2s;
+        margin-left: 8px;
+      }
+      .open-compare-btn:hover { background: rgba(0,229,255,0.2); }
+
+      @media (max-width: 768px) {
+        .panel-sign-value-large { font-size: 1.8rem !important; }
+        .panel-desc-text-below { font-size: 0.72rem; }
+        .panel-label { font-size: 0.75rem; }
+        .type-badge { font-size: 1rem; padding: 10px; letter-spacing: 1px; }
+        .panel-sign-value-cf { font-size: 1.5rem !important; }
+        .panel-desc-text-cf { font-size: 0.9rem !important; }
+        /* 詳細チャート高さ削減 */
+        #chart-container { height: 260px; }
+        .chart-main-area { height: 320px; }
+        .full-width-area { height: 300px; }
+        /* 時系列コントロール縦積み */
+        .time-control-bar { flex-direction: column; gap: 8px; align-items: flex-start; padding: 12px 14px; }
+        /* グリッドを縦積みに */
+        .grid-layout { gap: 12px; }
+        .side-panel { width: 100% !important; }
+        /* KPI比較カードを1列に */
+        .kpi-compare-grid { grid-template-columns: 1fr !important; }
+        .dashboard-stack { gap: 14px; }
+        .panel-sign-value-large { font-size: 2.2rem; }
+        .back-bar { grid-template-columns: auto 1fr; }
+        .active-company-title { padding: 8px 12px; flex-wrap: nowrap; overflow: hidden; gap: 4px; }
+        .company-title-main { font-size: 0.95rem; }
+        .sector-badge { display: none; }  /* スマホではセクターバッジを非表示 */
+        .detail-star-btn, .open-compare-btn { display: none; }  /* スマホではボタン非表示 */
+        .company-title-year { display: none; }
+      }
+
+      @media (max-width: 480px) {
+        #chart-container { height: 220px; }
+        .full-width-area { height: 260px; }
+        .chart-main-area { height: 280px; }
+        .time-selected-year { font-size: 1rem; }
+        .ma-control-bar { flex-wrap: wrap; gap: 6px; }
+      }
+      @media (max-width: 375px) {
+        /* チャートさらに縮小 */
+        #chart-container { height: 190px; }
+        .chart-main-area { height: 240px; }
+        .full-width-area { height: 220px; }
+        /* 詳細パネル */
+        .panel-sign-value-large { font-size: 1.4rem !important; }
+        /* インジケーターバー折り返し */
+        .ma-control-bar { gap: 4px; }
+        .time-control-bar { padding: 10px 10px; }
+      }
+
+      /* ── インジケーターコントロールバー ── */
+      .ma-control-bar {
+        display: flex;
+        align-items: center;
+        gap: 0;
+        margin-bottom: 10px;
+        padding: 8px 0;
+        border-bottom: 1px solid var(--ix-border);
+        flex-wrap: wrap;
+        row-gap: 6px;
+      }
+      .ctrl-group {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        padding: 0 10px;
+      }
+      .ctrl-group:first-child { padding-left: 0; }
+      .ctrl-separator {
+        width: 1px;
+        height: 18px;
+        background: var(--ix-border-strong);
+        flex-shrink: 0;
+      }
+      .ma-label {
+        font-size: 0.68rem;
+        color: var(--ix-slate);
+        font-weight: bold;
+        letter-spacing: 0.8px;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+      .ma-btn {
+        background: transparent;
+        border: 1px solid var(--ix-border-mid);
+        padding: 3px 11px;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 0.75rem;
+        font-weight: bold;
+        letter-spacing: 0.5px;
+        color: var(--ix-slate-line);
+        transition: all 0.2s;
+        white-space: nowrap;
+      }
+      .ma-btn:hover { border-color: var(--ix-slate); color: var(--ix-text-dim); }
+      /* Batch B: チップ色を新ライン色に一致（MA5=ピンク/MA25=青/MA75=紫/BB=シアン/MACD=ピンク/RSI=ゴールド）。 */
+      #ma-btn-5.active  { border-color: #ff5ca8; color: #ff5ca8; background: rgba(255,92,168,0.12); }
+      #ma-btn-25.active { border-color: #3aa6ff; color: #3aa6ff; background: rgba(58,166,255,0.12); }
+      #ma-btn-75.active { border-color: #a35cff; color: #a35cff; background: rgba(163,92,255,0.12); }
+      #ind-btn-bb.active   { border-color: #5cf0ff; color: #5cf0ff; background: rgba(92,240,255,0.12); }
+      #ind-btn-sr.active   { border-color: #ff6699; color: #ff6699; background: rgba(255,102,153,0.12); }
+      #ind-btn-rsi.active  { border-color: #ffd84d; color: #ffd84d; background: rgba(255,216,77,0.12); }
+      #ind-btn-macd.active { border-color: #ff5ca8; color: #ff5ca8; background: rgba(255,92,168,0.12); }
+      #ind-btn-tr.active   { border-color: var(--ix-amber); color: var(--ix-amber); background: rgba(251,191,36,0.12); }
+      .vol-label {
+        font-size: 0.68rem;
+        color: var(--ix-slate);
+        padding-left: 10px;
+        white-space: nowrap;
+      }
+      /* ── サブチャートパネル (RSI / MACD) ── */
+      .sub-chart-wrap {
+        display: none;
+        width: 100%;
+        border-top: 1px solid var(--ix-border);
+        position: relative;
+      }
+      .sub-chart-wrap.visible { display: block; }
+      #rsi-container  { height: 100px; }
+      #macd-container { height: 110px; }
+      .sub-chart-label {
+        position: absolute;
+        top: 5px;
+        left: 10px;
+        font-size: 0.65rem;
+        color: var(--ix-border-mid);
+        z-index: 10;
+        pointer-events: none;
+        font-weight: bold;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+      }
+
+      /* ── ヘッダーセクターバッジ ── */
+      .sector-badge {
+        display: inline-block;
+        background: rgba(99, 102, 241, 0.15);
+        color: var(--ix-indigo-bright);
+        border: 1px solid rgba(99, 102, 241, 0.35);
+        padding: 3px 10px;
+        border-radius: 20px;
+        font-size: 0.72rem;
+        font-weight: bold;
+        letter-spacing: 0.5px;
+        margin-left: 10px;
+        vertical-align: middle;
+        white-space: nowrap;
+      }
+      .active-company-title {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 14px 20px;
+      }
+      .company-title-main {
+        font-size: 1.15rem;
+        font-weight: 600;
+        background: linear-gradient(90deg, var(--ix-text-hi), var(--ix-text-dim));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        letter-spacing: 0.5px;
+      }
+      .company-title-year {
+        font-size: 0.78rem;
+        color: var(--ix-border-mid);
+        font-weight: normal;
+        letter-spacing: 0.5px;
+      }
+
+      /* ── タイムコントロールバー ── */
+      .time-control-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: rgba(4,8,13,0.6);
+        padding: 10px 20px;
+        border-radius: 3px;
+        border: 1px solid var(--ix-border);
+        border-top: none;
+        border-top-left-radius: 0;
+        border-top-right-radius: 0;
+        margin-bottom: 20px;
+        margin-top: -2px;
+      }
+      .time-control-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .time-period-icon {
+        font-size: 0.9rem;
+        opacity: 0.4;
+      }
+      .time-label {
+        font-size: 0.74rem;
+        color: var(--ix-border-mid);
+        font-weight: bold;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+      }
+      .time-selected-year {
+        font-size: 1.3rem;
+        font-weight: bold;
+        font-family: var(--ix-mono);
+        background: linear-gradient(90deg, var(--ix-blue), var(--ix-indigo-bright));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        letter-spacing: 2px;
+        min-width: 80px;
+        text-align: center;
+      }
+
+      /* ── AI財務分析カード ── */
+      .ai-analysis-card {
+        background: linear-gradient(135deg, var(--ix-surface-0), var(--ix-surface-2));
+        border: 1px solid rgba(0,229,255,0.2);
+        border-radius: 3px;
+        padding: 16px 20px;
+        margin-bottom: 20px;
+        position: relative;
+      }
+      .ai-analysis-title {
+        font-size: 0.72rem;
+        font-weight: bold;
+        color: var(--ix-indigo-accent);
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 10px;
+      }
+      .ai-analysis-icon {
+        display: inline-block;
+        font-size: 0.9rem;
+        opacity: 0.8;
+      }
+      .ai-analysis-text {
+        font-size: 0.84rem;
+        color: var(--ix-text-dim);
+        line-height: 1.75;
+        font-style: italic;
+      }
+      .ai-analysis-year-label {
+        font-size: 0.7rem;
+        color: var(--ix-slate);
+        position: absolute;
+        top: 14px;
+        right: 16px;
+        font-family: var(--ix-mono);
+        letter-spacing: 0.5px;
+      }
+
+      /* ── KPI年度比較カード ── */
+      .kpi-compare-card {
+        background-color: var(--ix-surface-1);
+        border-radius: 3px;
+        padding: 16px 20px;
+        border: 1px solid var(--ix-surface-blue);
+        margin-bottom: 20px;
+      }
+      .kpi-compare-title {
+        font-size: 0.77rem;
+        color: var(--ix-slate-line);
+        font-weight: bold;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        border-left: 3px solid var(--ix-blue-bright);
+        padding-left: 8px;
+        margin-bottom: 14px;
+      }
+      .kpi-compare-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+      }
+      .kpi-year-col {
+        background-color: var(--ix-surface-panel);
+        border-radius: 3px;
+        padding: 12px 14px;
+        border: 1px solid var(--ix-border-strong);
+        transition: border-color 0.2s;
+      }
+      .kpi-year-col.active-year {
+        border-color: var(--ix-blue-bright);
+        box-shadow: 0 0 10px rgba(0,229,255,0.15);
+      }
+      .kpi-year-label {
+        font-size: 0.8rem;
+        font-weight: bold;
+        color: var(--ix-slate);
+        margin-bottom: 10px;
+        letter-spacing: 1px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .kpi-year-col.active-year .kpi-year-label { color: var(--ix-blue-bright); }
+      .kpi-active-badge {
+        font-size: 0.6rem;
+        background: var(--ix-blue-bright);
+        color: var(--ix-white);
+        padding: 1px 6px;
+        border-radius: 2px;
+      }
+      .kpi-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 6px;
+        gap: 6px;
+      }
+      .kpi-row-label {
+        font-size: 0.76rem;
+        color: var(--ix-slate-light);
+        letter-spacing: 0.5px;
+        white-space: nowrap;
+      }
+      .kpi-row-value {
+        font-size: 0.88rem;
+        font-weight: bold;
+        color: var(--ix-text);
+        text-align: right;
+        flex-shrink: 0;
+      }
+      .kpi-yoy {
+        font-size: 0.72rem;
+        font-weight: bold;
+        margin-left: 4px;
+      }
+      .kpi-yoy.up   { color: var(--ix-red-soft); }
+      .kpi-yoy.down { color: var(--ix-green-bright); }
+      .kpi-yoy.flat { color: var(--ix-slate); }
+      .kpi-divider { border: none; border-top: 1px solid var(--ix-border); margin: 6px 0; }
+
+      /* ── KPIカード数値のリビールアニメーション ── */
+      @keyframes kpiReveal {
+        from { opacity: 0; transform: translateY(6px); filter: blur(3px); }
+        to   { opacity: 1; transform: translateY(0); filter: blur(0); }
+      }
+      .kpi-row-value.reveal {
+        animation: kpiReveal 0.5s ease-out forwards;
+      }
+
+      /* ── カードフェードインアニメーション ── */
+      @keyframes cardFadeInUp {
+        from { opacity: 0; transform: translateY(16px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+      .dashboard-stack.animate-cards .card {
+        opacity: 0;
+        animation: cardFadeInUp 0.45s ease-out forwards;
+      }
+      .dashboard-stack.animate-cards .card:nth-child(1) { animation-delay: 0.05s; }
+      .dashboard-stack.animate-cards .card:nth-child(2) { animation-delay: 0.18s; }
+      .dashboard-stack.animate-cards .card:nth-child(3) { animation-delay: 0.31s; }
+      .dashboard-stack.animate-cards .card:nth-child(4) { animation-delay: 0.44s; }
+      .dashboard-stack.animate-cards .card:nth-child(5) { animation-delay: 0.57s; }
