@@ -586,6 +586,10 @@
           inset 0 1px 0 rgba(150, 230, 255, 0.22), /* 上部ガラスハイライト（光が当たる縁） */
           inset 0 0 0 1px rgba(0, 229, 255, 0.05); /* 内側の微リム */
         transition: box-shadow 0.3s, border-color 0.3s;
+        /* FHD 初回描画バグの正式修正：GPU 合成レイヤを明示・安定化し、半透明の塗り由来ガラスを
+           初回ペイントから正しく合成させる（実機 FHD で translateZ(0) を実証）。entrance アニメ
+           cardFadeInUp の forwards 確定状態にも同 Z を持たせて全タイミングで維持する。 */
+        transform: translateZ(0);
       }
       .card:hover {
         box-shadow:
@@ -1693,8 +1697,10 @@
 
       /* ── カードフェードインアニメーション ── */
       @keyframes cardFadeInUp {
-        from { opacity: 0; transform: translateY(16px); }
-        to   { opacity: 1; transform: translateY(0); }
+        /* translateZ(0) を全キーフレームに保持＝forwards 確定後も GPU 合成レイヤを安定化し
+           塗り由来ガラスを FHD 初回ペイントから正しく合成させる（entrance の動きは translateY のみで不変）。 */
+        from { opacity: 0; transform: translateY(16px) translateZ(0); }
+        to   { opacity: 1; transform: translateY(0) translateZ(0); }
       }
       .dashboard-stack.animate-cards .card {
         opacity: 0;
