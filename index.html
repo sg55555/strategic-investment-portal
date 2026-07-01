@@ -2192,9 +2192,9 @@
           else return _hexRgba(_specTop(spec), 0.7);
           if (y1 - y0 < 1) y1 = y0 + 1;
           const g = chart.ctx.createLinearGradient(0, y0, 0, y1);
-          g.addColorStop(0, _hexRgba(_specTop(spec), 0.85));
-          g.addColorStop(0.55, _hexRgba(_specTop(spec), 0.66));
-          g.addColorStop(1, _hexRgba(_specBot(spec), 0.42));
+          g.addColorStop(0, _hexRgba(_specTop(spec), 0.90));
+          g.addColorStop(0.55, _hexRgba(_specTop(spec), 0.70));
+          g.addColorStop(1, _hexRgba(_specBot(spec), 0.46));
           return g;
         };
       }
@@ -3589,8 +3589,8 @@
         //  本体ボディは半透明、縁/ヒゲは明色。各足の発光は makeCandleGlowPrimitive が同フレーム描画。
         //  canvas色は CSS の --ix-* 自動トークン化(F5)の対象外＝ここで直接管理（値で更新）。
         candleSeries = priceChart.addCandlestickSeries({
-          upColor:        "rgba(255,20,64,0.44)",   // up=赤（半透明グラス・一段鮮やか）
-          downColor:      "rgba(0,132,255,0.44)",   // down=スカイブルー（半透明グラス・一段鮮やか）
+          upColor:        "rgba(255,18,62,0.54)",    // up=赤（半透明グラス・さらに鮮やか）
+          downColor:      "rgba(0,128,255,0.54)",    // down=スカイブルー（半透明グラス・さらに鮮やか）
           borderUpColor:  "#ff5c7a",   // 明るいレッドのネオン縁
           borderDownColor:"#5ab8ff",   // 明るいブルーのネオン縁
           wickUpColor:    "#ff5c7a",
