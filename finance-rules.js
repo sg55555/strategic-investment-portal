@@ -93,8 +93,46 @@
     return Math.round(v) + "百万" + cur;
   }
 
+  // ── 会社規模で「1単位」を選定し、詳細ページ内（全チャート/ラベル）で統一表示する。
+  //  軸ラベルの 兆/十億 混在と「単位: 百万円」表記の不整合（投資判断時の読みづらさ）を解消。
+  //  値は百万単位。maxAbs = そのページの最大絶対値（百万単位）。JPY=兆円/億円/百万円、USD=兆ドル/十億ドル/百万ドル。
+  //  しきい値: 1兆(=1e6百万)以上で兆。JPYは100億(=1e4百万)以上の億は整数、1〜100億は小数1桁にし「0.数兆」の見づらさを回避。
+  function pickUnit(maxAbs, currency) {
+    var a = Math.abs(n(maxAbs));
+    var usd = currency === "USD";
+    var cur = unitWord(currency);
+    if (a >= 1000000) return { div: 1000000, suffix: "兆" + cur, dec: 1 };
+    if (usd) {
+      if (a >= 1000) return { div: 1000, suffix: "十億" + cur, dec: 1 };
+      return { div: 1, suffix: "百万" + cur, dec: 0 };
+    }
+    if (a >= 100) return { div: 100, suffix: "億" + cur, dec: a >= 10000 ? 0 : 1 }; // 1億=100百万
+    return { div: 1, suffix: "百万" + cur, dec: 0 };
+  }
+
+  // pickUnit で得た unit で値を整形。0点は単位なしで揃える。
+  //  非0が指定桁で 0 に丸まる小さな値は、有効数字が出るまで小数桁を増やす（売上高基準の兆円ページで
+  //  小さな CF を「0.0兆円」に潰さない＝ページ単位統一を保ちつつ精度退行と符号付き0を回避）。
+  function fmtUnitValue(val, unit) {
+    var v = n(val);
+    if (!unit) return String(v);
+    if (v === 0) return "0";
+    var x = v / unit.div;
+    var dec = unit.dec;
+    while (parseFloat(x.toFixed(dec)) === 0 && dec < 4) dec++;
+    if (parseFloat(x.toFixed(dec)) === 0) return "0";   // 4桁でも0 ≒ 実質0（符号付き0も回避）
+    var s = dec === 0 ? Math.round(x).toLocaleString() : x.toFixed(dec); // 整数桁は千区切り
+    return s + unit.suffix;
+  }
+
+  // 単位ラベル（ヘッダ「単位: 兆円」等）。
+  function unitLabel(unit) { return unit ? unit.suffix : ""; }
+
   return {
     n: n,
+    pickUnit: pickUnit,
+    fmtUnitValue: fmtUnitValue,
+    unitLabel: unitLabel,
     ratio: ratio,
     totalAssets: totalAssets,
     equityRatio: equityRatio,

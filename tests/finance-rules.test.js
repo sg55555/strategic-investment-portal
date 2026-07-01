@@ -89,3 +89,49 @@ test("fmtUnit: 百万＋通貨語（6箇所の重複を集約・undefined は百
   assert.equal(F.fmtUnit("JPY"), "百万円");
   assert.equal(F.fmtUnit(undefined), "百万円");
 });
+
+test("pickUnit: 会社規模で1単位を選定（JPY 兆/億/百万・USD 兆/十億/百万）", () => {
+  // JPY: 1兆(=1e6百万)以上で兆円（小数1桁）
+  assert.deepEqual(F.pickUnit(48036704, "JPY"), { div: 1000000, suffix: "兆円", dec: 1 });
+  assert.deepEqual(F.pickUnit(1000000, "JPY"), { div: 1000000, suffix: "兆円", dec: 1 });
+  // JPY: 100億(=1e4百万)以上の億は整数
+  assert.deepEqual(F.pickUnit(520000, "JPY"), { div: 100, suffix: "億円", dec: 0 });
+  // JPY: 1〜100億は小数1桁（0.数兆の見づらさ回避）
+  assert.deepEqual(F.pickUnit(5000, "JPY"), { div: 100, suffix: "億円", dec: 1 });
+  // JPY: 1億未満は百万円
+  assert.deepEqual(F.pickUnit(50, "JPY"), { div: 1, suffix: "百万円", dec: 0 });
+  // USD: 兆ドル / 十億ドル / 百万ドル（億は使わない）
+  assert.deepEqual(F.pickUnit(416161, "USD"), { div: 1000, suffix: "十億ドル", dec: 1 });
+  assert.deepEqual(F.pickUnit(1500000, "USD"), { div: 1000000, suffix: "兆ドル", dec: 1 });
+  assert.deepEqual(F.pickUnit(500, "USD"), { div: 1, suffix: "百万ドル", dec: 0 });
+});
+
+test("fmtUnitValue: pickUnit の単位でページ統一整形（千区切り／0点は単位なし）", () => {
+  var jpyT = F.pickUnit(48036704, "JPY");      // 兆円
+  assert.equal(F.fmtUnitValue(48036704, jpyT), "48.0兆円");
+  assert.equal(F.fmtUnitValue(6524000, jpyT), "6.5兆円");  // 同ページの小さめ値も同単位
+  assert.equal(F.fmtUnitValue(0, jpyT), "0");
+  var jpyOku = F.pickUnit(520000, "JPY");        // 億円(整数)
+  assert.equal(F.fmtUnitValue(520000, jpyOku), "5,200億円");
+  var jpyOku1 = F.pickUnit(5000, "JPY");         // 億円(小数1桁)
+  assert.equal(F.fmtUnitValue(5000, jpyOku1), "50.0億円");
+  var usdB = F.pickUnit(416161, "USD");          // 十億ドル
+  assert.equal(F.fmtUnitValue(416161, usdB), "416.2十億ドル");
+});
+
+test("fmtUnitValue: 小さな値の適応精度（兆円ページでCFを0.0に潰さない・符号付き0回避）", () => {
+  var jpyT = F.pickUnit(48036704, "JPY");  // 兆円(dec1)
+  assert.equal(F.fmtUnitValue(15000, jpyT), "0.01兆円");   // 150億 → 桁を増やし有効数字（0.015→toFixed(2)）
+  assert.equal(F.fmtUnitValue(-15000, jpyT), "-0.01兆円"); // 符号付き0でなく実値
+  assert.equal(F.fmtUnitValue(300000, jpyT), "0.3兆円");   // 3000億 → そのまま
+  assert.equal(F.fmtUnitValue(1, jpyT), "0");              // 100万 ≒ 実質0（兆円スケール）
+  var jpyOku = F.pickUnit(520000, "JPY");  // 億円(dec0)
+  assert.equal(F.fmtUnitValue(-40, jpyOku), "-0.4億円");   // 40百万 → 符号付き0でなく小数で
+  assert.equal(F.fmtUnitValue(300, jpyOku), "3億円");
+});
+
+test("unitLabel: ヘッダ用の単位文字列", () => {
+  assert.equal(F.unitLabel(F.pickUnit(48036704, "JPY")), "兆円");
+  assert.equal(F.unitLabel(F.pickUnit(520000, "JPY")), "億円");
+  assert.equal(F.unitLabel(null), "");
+});

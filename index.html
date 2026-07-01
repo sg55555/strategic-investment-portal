@@ -698,6 +698,13 @@
         width: 6px;
         background-color: var(--ix-cyan-deep);
       }
+      /* Batch D: アクセントバーをネオン発光させ、チャートの発光質感と統一。 */
+      .status-card.gold::before   { box-shadow: 0 0 12px var(--ix-gold); }
+      .status-card.blue::before   { box-shadow: 0 0 12px var(--ix-blue-bright); }
+      .status-card.green::before  { box-shadow: 0 0 12px var(--ix-emerald); }
+      .status-card.red::before    { box-shadow: 0 0 12px var(--ix-red); }
+      .status-card.purple::before { box-shadow: 0 0 12px var(--ix-purple); }
+      .status-card.cyan::before   { box-shadow: 0 0 12px var(--ix-cyan-deep); }
 
       .panel-label {
         font-size: 0.85rem;
@@ -1356,13 +1363,14 @@
         white-space: nowrap;
       }
       .ma-btn:hover { border-color: var(--ix-slate); color: var(--ix-text-dim); }
-      #ma-btn-5.active  { border-color: var(--ix-violet); color: var(--ix-violet); background: rgba(192,132,252,0.12); }
-      #ma-btn-25.active { border-color: var(--ix-cyan); color: var(--ix-cyan); background: rgba(56,189,248,0.12); }
-      #ma-btn-75.active { border-color: var(--ix-indigo-bright); color: var(--ix-indigo-bright); background: rgba(129,140,248,0.12); }
-      #ind-btn-bb.active   { border-color: var(--ix-sky); color: var(--ix-sky); background: rgba(0,229,255,0.12); }
-      #ind-btn-sr.active   { border-color: var(--ix-rose); color: var(--ix-rose); background: rgba(244,63,94,0.12); }
-      #ind-btn-rsi.active  { border-color: var(--ix-amber-deep); color: var(--ix-amber-deep); background: rgba(245,158,11,0.12); }
-      #ind-btn-macd.active { border-color: var(--ix-violet); color: var(--ix-violet); background: rgba(192,132,252,0.12); }
+      /* Batch B: チップ色を新ライン色に一致（MA5=ピンク/MA25=青/MA75=紫/BB=シアン/MACD=ピンク/RSI=ゴールド）。 */
+      #ma-btn-5.active  { border-color: #ff5ca8; color: #ff5ca8; background: rgba(255,92,168,0.12); }
+      #ma-btn-25.active { border-color: #3aa6ff; color: #3aa6ff; background: rgba(58,166,255,0.12); }
+      #ma-btn-75.active { border-color: #a35cff; color: #a35cff; background: rgba(163,92,255,0.12); }
+      #ind-btn-bb.active   { border-color: #5cf0ff; color: #5cf0ff; background: rgba(92,240,255,0.12); }
+      #ind-btn-sr.active   { border-color: #ff6699; color: #ff6699; background: rgba(255,102,153,0.12); }
+      #ind-btn-rsi.active  { border-color: #ffd84d; color: #ffd84d; background: rgba(255,216,77,0.12); }
+      #ind-btn-macd.active { border-color: #ff5ca8; color: #ff5ca8; background: rgba(255,92,168,0.12); }
       #ind-btn-tr.active   { border-color: var(--ix-amber); color: var(--ix-amber); background: rgba(251,191,36,0.12); }
       .vol-label {
         font-size: 0.68rem;
@@ -2164,37 +2172,66 @@
         const n = parseInt(f, 16);
         return "rgba(" + ((n >> 16) & 255) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + a + ")";
       }
-      // 各バー自身の範囲で「上=明 → 下=やや沈む」軽い艶グラデ（鮮やかさは保ち発光して立ち上がる質感・濁らせない）。
+      // 財務チャート用ネオン・ガラス パレット（[top明, bottom深] のグラデペア／単色も可）
+      const FIN_COLORS = {
+        bs: { ca: ["#5cf0ff", "#048ab0"], nca: ["#34f5cf", "#048070"], cl: ["#ff6699", "#cc0038"], ncl: ["#a35cff", "#4a0fb0"], eq: ["#ffd84d", "#c87600"] },
+        cf: { start: ["#5a9bff", "#16379e"], pos: ["#5cf0ff", "#048ab0"], neg: ["#ff6699", "#cc0038"], fx: ["#8f86e0", "#352a7a"], end: ["#ffd84d", "#c87600"] },
+        pl: [["#ff5ca8", "#cc0050"], ["#a35cff", "#4a0fb0"], ["#6f7bff", "#1f28c8"], ["#3aa6ff", "#0a52b8"], ["#34f5cf", "#048070"], ["#22ccf0", "#066a92"]],
+      };
+      function _specTop(s) { return Array.isArray(s) ? s[0] : s; }
+      function _specBot(s) { return Array.isArray(s) ? s[1] : s; }
+      // 半透明グラスのグラデ（背景＝チャートのグリッドが透ける）。bar 自身の y 範囲で 上=明 → 下=深。
       //  context.element があれば bar 自身の y 範囲で、無ければ chartArea で代替。chartArea 未確定時は base 色。
-      function neonBarBg(baseHex) {
+      function neonBarBg(spec) {
         return function (context) {
-          const chart = context.chart, ca = chart.chartArea;
-          const el = context.element;
+          const chart = context.chart, ca = chart.chartArea, el = context.element;
           let y0, y1;
           if (el && typeof el.y === "number" && typeof el.base === "number") { y0 = Math.min(el.y, el.base); y1 = Math.max(el.y, el.base); }
           else if (ca) { y0 = ca.top; y1 = ca.bottom; }
-          else return _hexRgba(baseHex, 0.9);
+          else return _hexRgba(_specTop(spec), 0.7);
           if (y1 - y0 < 1) y1 = y0 + 1;
           const g = chart.ctx.createLinearGradient(0, y0, 0, y1);
-          g.addColorStop(0, _hexRgba(baseHex, 1.0));
-          g.addColorStop(1, _hexRgba(baseHex, 0.62));
+          g.addColorStop(0, _hexRgba(_specTop(spec), 0.78));
+          g.addColorStop(0.55, _hexRgba(_specTop(spec), 0.58));
+          g.addColorStop(1, _hexRgba(_specBot(spec), 0.34));
           return g;
         };
       }
-      // 配列色（CF/PL のように bar ごとに色が違う）用: dataIndex で base 色を引いてグラデ化。
-      function neonBarBgByIndex(baseColors) {
-        return function (context) { return neonBarBg(baseColors[context.dataIndex])(context); };
+      // 配列色（CF/PL のように bar ごとに色が違う）用: dataIndex で spec を引いてグラデ化。
+      function neonBarBgByIndex(specs) {
+        return function (context) { return neonBarBg(specs[context.dataIndex])(context); };
       }
-      // バー描画時にネオン・グロー（発光ブルーム）を付与。
+      // バーごとの固有色ネオン縁
+      function neonEdge(spec) { return _hexRgba(_specTop(spec), 0.9); }
+      function neonEdgeByIndex(specs) { return function (context) { return _hexRgba(_specTop(specs[context.dataIndex]), 0.9); }; }
+      // 各バー外周に固有色の発光ブルーム（縁くっきり＝ストローク多層）。chart.$neonSpecs=[dataset毎の[bar毎spec]] を設定したチャートのみ。
       const neonGlowPlugin = {
         id: "neonGlow",
         beforeDatasetsDraw(chart) {
-          const c = chart.ctx; c.save();
-          c.shadowBlur = 16; c.shadowColor = "rgba(0,229,255,0.42)";
+          if (chart.$lineGlow) { const c = chart.ctx; c.save(); c.shadowBlur = 14; c.shadowColor = "rgba(92,240,255,0.5)"; return; }
+          const specs = chart.$neonSpecs; if (!specs) return;
+          const ctx = chart.ctx; ctx.save();
+          chart.data.datasets.forEach((ds, di) => {
+            const meta = chart.getDatasetMeta(di); if (meta.hidden) return;
+            meta.data.forEach((bar, bi) => {
+              const sp = (specs[di] && specs[di][bi]) || specs[di] || null; if (!sp) return;
+              const col = _specTop(sp);
+              const p = bar.getProps(["x", "y", "base", "width"], true);
+              const w = p.width, x = p.x - w / 2, yTop = Math.min(p.y, p.base), h = Math.abs(p.base - p.y);
+              if (h < 0.5) return;
+              ctx.lineWidth = 2.5; ctx.strokeStyle = _hexRgba(col, 0.95);
+              ctx.shadowColor = _hexRgba(col, 0.85); ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
+              ctx.shadowBlur = 30; ctx.strokeRect(x + 1.4, yTop + 1.4, Math.max(w - 2.8, 1), Math.max(h - 2.8, 1));
+              ctx.shadowBlur = 14; ctx.strokeRect(x + 1.4, yTop + 1.4, Math.max(w - 2.8, 1), Math.max(h - 2.8, 1));
+            });
+          });
+          ctx.restore();
         },
-        afterDatasetsDraw(chart) { chart.ctx.restore(); },
+        afterDatasetsDraw(chart) { if (chart.$lineGlow) chart.ctx.restore(); },
       };
       Chart.register(neonGlowPlugin);
+      // 数値ラベルのネオン・テキストグロー（各 datalabels に展開）
+      const NEON_TEXT_GLOW = { textShadowBlur: 6, textShadowColor: "rgba(120,210,255,0.6)" };
 
       // XSS対策: サーバ由来文字列(社名/業種等)を innerHTML/属性に入れる前に必ず通す（money.js の esc() と同型）。
       function esc(s) {
@@ -2215,6 +2252,7 @@
 
       let currentTicker = DEFAULT_TICKER;
       let selectedYear = 2025;
+      let pageUnit = null;   // Batch C: 会社規模で選定した「ページ統一単位」（pickUnit の結果）。
       let priceChart = null;
       let candleSeries = null;
       let bsChartInstance = null;
@@ -2357,7 +2395,7 @@
       let compareSet = new Set();
       let comparePeriodMonths = 12;
       let compareChart = null;
-      const COMPARE_COLORS = ["#38bdf8","#f570ff","#00e676","#ffd60a","#ff5c7a","#8a7bff","#ff8a2a","#2fe6c4"];
+      const COMPARE_COLORS = ["#5cf0ff","#ff5ca8","#ffd84d","#a35cff","#34f5cf","#ff8a2a","#3aa6ff","#ff4d6d"];
 
       function openCompareModal() {
         compareSet = new Set([currentTicker]);
@@ -2433,8 +2471,9 @@
         if (compareSet.size === 0) return;
 
         compareChart = LightweightCharts.createChart(container, {
-          layout: { background: { type: "solid", color: "#05080e" }, textColor: "#a8bcc6" },
+          layout: { background: { type: "solid", color: "#05080f" }, textColor: "#a8bcc6" },
           grid: { vertLines: { color: "rgba(0,229,255,0.06)" }, horzLines: { color: "rgba(0,229,255,0.06)" } },
+          crosshair: { vertLine: { color: "rgba(92,240,255,0.45)", labelBackgroundColor: "#0a3a4a" }, horzLine: { color: "rgba(92,240,255,0.45)", labelBackgroundColor: "#0a3a4a" } },
           timeScale: { borderColor: "#2a3a44" },
           rightPriceScale: { borderColor: "#2a3a44" },
         });
@@ -3014,13 +3053,13 @@
         const { resistance, support } = detectSR(prices);
         resistance.forEach(({ price, count }) => {
           srLines.push(candleSeries.createPriceLine({
-            price, color: "rgba(255,23,68,0.85)", lineWidth: 1,
+            price, color: "rgba(255,102,153,0.85)", lineWidth: 1,
             lineStyle: 2, axisLabelVisible: true, title: `R×${count}`,
           }));
         });
         support.forEach(({ price, count }) => {
           srLines.push(candleSeries.createPriceLine({
-            price, color: "rgba(0,230,118,0.85)", lineWidth: 1,
+            price, color: "rgba(52,245,207,0.85)", lineWidth: 1,
             lineStyle: 2, axisLabelVisible: true, title: `S×${count}`,
           }));
         });
@@ -3111,7 +3150,7 @@
           macdLine.push({ time: t, value: mv });
           signalLine.push({ time: t, value: sv });
           histogram.push({ time: t, value: parseFloat((mv - sv).toFixed(4)),
-            color: (mv - sv) >= 0 ? "rgba(255,23,68,0.7)" : "rgba(0,230,118,0.7)" });
+            color: (mv - sv) >= 0 ? "rgba(255,23,68,0.7)" : "rgba(10,142,255,0.7)" });
         }
         return { macdLine, signalLine, histogram };
       }
@@ -3140,10 +3179,10 @@
       // ── サブチャート 初期化 ────────────────────────────────────────
       function initSubCharts() {
         const baseOpts = {
-          layout: { background: { type: "solid", color: "#05080e" }, textColor: "#a8bcc6" },
+          layout: { background: { type: "solid", color: "#05080f" }, textColor: "#a8bcc6" },
           grid: { vertLines: { color: "rgba(0,229,255,0.06)" }, horzLines: { color: "rgba(0,229,255,0.06)" } },
           rightPriceScale: { borderColor: "#2a3a44", scaleMargins: { top: 0.1, bottom: 0.1 } },
-          crosshair: { mode: 1 },
+          crosshair: { mode: 1, vertLine: { color: "rgba(92,240,255,0.45)", labelBackgroundColor: "#0a3a4a" }, horzLine: { color: "rgba(92,240,255,0.45)", labelBackgroundColor: "#0a3a4a" } },
           handleScale: false,
           handleScroll: false,
         };
@@ -3154,12 +3193,12 @@
             { ...baseOpts, timeScale: { borderColor: "#2a3a44", visible: false } }
           );
           rsiSeries = rsiChart.addLineSeries({
-            color: "#ffca3a", lineWidth: 1.5,
+            color: "#ffd84d", lineWidth: 1.5,
             priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: true,
           });
-          rsiSeries.createPriceLine({ price: 70, color: "rgba(244,63,94,0.45)",  lineWidth: 1, lineStyle: 2, title: "70" });
+          rsiSeries.createPriceLine({ price: 70, color: "rgba(255,102,153,0.5)", lineWidth: 1, lineStyle: 2, title: "70" });
           rsiSeries.createPriceLine({ price: 50, color: "rgba(148,163,184,0.2)", lineWidth: 1, lineStyle: 3 });
-          rsiSeries.createPriceLine({ price: 30, color: "rgba(16,185,129,0.45)", lineWidth: 1, lineStyle: 2, title: "30" });
+          rsiSeries.createPriceLine({ price: 30, color: "rgba(52,245,207,0.5)",  lineWidth: 1, lineStyle: 2, title: "30" });
         }
 
         if (!macdChart) {
@@ -3171,11 +3210,11 @@
             priceLineVisible: false, lastValueVisible: false,
           });
           macdLineSeries = macdChart.addLineSeries({
-            color: "#f570ff", lineWidth: 1.5,
+            color: "#ff5ca8", lineWidth: 1.5,
             priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
           });
           macdSignalSeries = macdChart.addLineSeries({
-            color: "#38bdf8", lineWidth: 1.5,
+            color: "#3aa6ff", lineWidth: 1.5,
             priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
           });
           macdHistSeries.createPriceLine({ price: 0, color: "rgba(148,163,184,0.2)", lineWidth: 1, lineStyle: 0 });
@@ -3278,7 +3317,8 @@
           if (absChange >= 0.03) {
             // ── トレンドセグメント: 始点ピボット → 終点ピボット の斜めライン ──
             const isUp  = change > 0;
-            const color = isUp ? "rgba(16,185,129,0.9)" : "rgba(244,63,94,0.9)";
+            // ZigZag 逆規約（up=緑/down=赤＝トレーダーが手で引くトレンド可視化）の意味は維持し、色のみネオン化。
+            const color = isUp ? "rgba(52,245,207,0.9)" : "rgba(255,102,153,0.9)";
             const s = priceChart.addLineSeries({
               color, lineWidth: 2, lineStyle: 0,
               priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
@@ -3300,7 +3340,7 @@
             }
             [hi, lo].forEach(val => {
               const s = priceChart.addLineSeries({
-                color: "rgba(255,214,10,0.85)", lineWidth: 1.5, lineStyle: 2,
+                color: "rgba(255,216,77,0.85)", lineWidth: 1.5, lineStyle: 2,
                 priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
               });
               const data = [];
@@ -3460,7 +3500,7 @@
         const volData = displayPrices.map((p) => ({
           time: p.time,
           value: p.volume || 0,
-          color: p.close >= p.open ? "rgba(255,23,68,0.30)" : "rgba(0,230,118,0.30)",
+          color: p.close >= p.open ? "rgba(255,23,68,0.30)" : "rgba(10,142,255,0.30)",
         }));
         volumeSeries.setData(volData);
 
@@ -3489,16 +3529,52 @@
         updateSubCharts(displayPrices, base);
       }
 
+      // ローソク足のネオン発光（各足をその色で発光・本体と同フレーム描画＝ズーム/パン時もズレない）。
+      //  lightweight-charts の Series Primitive を candleSeries に attach し、currentDisplayPrices を読む。
+      function makeCandleGlowPrimitive() {
+        const renderer = {
+          draw(target) {
+            target.useMediaCoordinateSpace((scope) => {
+              const data = currentDisplayPrices;
+              if (!data || !data.length || !priceChart || !candleSeries) return;
+              const ctx = scope.context;
+              const ts = priceChart.timeScale();
+              const bw = Math.max((ts.options().barSpacing || 6) * 0.72, 1.2);
+              for (const c of data) {
+                const x = ts.timeToCoordinate(c.time); if (x == null) continue;
+                if (x < -bw || x > scope.mediaSize.width + bw) continue;  // 視野外のローソクはスキップ（カリング）
+                const yO = candleSeries.priceToCoordinate(c.open), yC = candleSeries.priceToCoordinate(c.close);
+                const yH = candleSeries.priceToCoordinate(c.high), yL = candleSeries.priceToCoordinate(c.low);
+                if (yO == null || yC == null) continue;
+                const up = c.close >= c.open;
+                const col = up ? "#ff1744" : "#0a8eff";   // up=赤 / down=スカイブルー
+                const top = Math.min(yO, yC), h = Math.max(Math.abs(yC - yO), 1.2);
+                ctx.save(); ctx.shadowColor = col; ctx.shadowBlur = 9;
+                if (yH != null && yL != null) { ctx.strokeStyle = _hexRgba(col, 0.6); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, Math.min(yH, yL)); ctx.lineTo(x, Math.max(yH, yL)); ctx.stroke(); }
+                ctx.strokeStyle = _hexRgba(col, 0.85); ctx.lineWidth = 1.4; ctx.strokeRect(x - bw / 2, top, bw, h);
+                ctx.restore();
+              }
+            });
+          },
+        };
+        const paneView = { renderer() { return renderer; }, zOrder() { return "bottom"; } };
+        return { paneViews() { return [paneView]; } };
+      }
+
       function initPriceChart() {
         const container = document.getElementById("chart-container");
         priceChart = LightweightCharts.createChart(container, {
           layout: {
-            background: { type: "solid", color: "#05080e" },
+            background: { type: "solid", color: "#05080f" },
             textColor: "#a8bcc6",
           },
           grid: {
             vertLines: { color: "rgba(0,229,255,0.06)" },
             horzLines: { color: "rgba(0,229,255,0.06)" },
+          },
+          crosshair: {
+            vertLine: { color: "rgba(92,240,255,0.5)", labelBackgroundColor: "#0a3a4a" },
+            horzLine: { color: "rgba(92,240,255,0.5)", labelBackgroundColor: "#0a3a4a" },
           },
           timeScale: { borderColor: "#2a3a44" },
           rightPriceScale: { borderColor: "#2a3a44" },
@@ -3508,16 +3584,18 @@
           scaleMargins: { top: 0.05, bottom: 0.25 },
         });
 
-        // ローソク足の色（テーマD調和でネオン化・up=赤/down=緑 の意味は維持）。
+        // ローソク足の色（ネオン・ガラス＝半透明ボディで背景が透ける＋明るいネオン縁／up=赤・down=青）。
+        //  本体ボディは半透明、縁/ヒゲは明色。各足の発光は makeCandleGlowPrimitive が同フレーム描画。
         //  canvas色は CSS の --ix-* 自動トークン化(F5)の対象外＝ここで直接管理（値で更新）。
         candleSeries = priceChart.addCandlestickSeries({
-          upColor:        "#ff1744",   // テーマDネオン レッド（本体・up=赤）
-          downColor:      "#00e676",   // テーマDネオン グリーン（本体・down=緑）
-          borderUpColor:  "#ff5c7a",   // 明るいレッドハイライト
-          borderDownColor:"#39ff8b",   // 明るいグリーンハイライト
+          upColor:        "rgba(255,23,68,0.34)",   // up=赤（半透明グラス）
+          downColor:      "rgba(10,142,255,0.34)",  // down=スカイブルー（半透明グラス・緑→青）
+          borderUpColor:  "#ff5c7a",   // 明るいレッドのネオン縁
+          borderDownColor:"#5ab8ff",   // 明るいブルーのネオン縁
           wickUpColor:    "#ff5c7a",
-          wickDownColor:  "#39ff8b",
+          wickDownColor:  "#5ab8ff",
         });
+        candleSeries.attachPrimitive(makeCandleGlowPrimitive());
 
         volumeSeries = priceChart.addHistogramSeries({
           priceFormat: { type: "volume" },
@@ -3531,29 +3609,29 @@
         });
 
         ma5Series = priceChart.addLineSeries({
-          color: "#f570ff", lineWidth: 1, visible: false,
+          color: "#ff5ca8", lineWidth: 1, visible: false,
           priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
         });
         ma25Series = priceChart.addLineSeries({
-          color: "#38bdf8", lineWidth: 1, visible: false,
+          color: "#3aa6ff", lineWidth: 1, visible: false,
           priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
         });
         ma75Series = priceChart.addLineSeries({
-          color: "#8a7bff", lineWidth: 1, visible: false,
+          color: "#a35cff", lineWidth: 1, visible: false,
           priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
         });
 
         // ── ボリンジャーバンド シリーズ (初期は非表示) ──
         bbUpperSeries = priceChart.addLineSeries({
-          color: "rgba(0,229,255,0.55)", lineWidth: 1, lineStyle: 2, visible: false,
+          color: "rgba(92,240,255,0.5)", lineWidth: 1, lineStyle: 2, visible: false,
           priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
         });
         bbMidSeries = priceChart.addLineSeries({
-          color: "rgba(0,229,255,0.75)", lineWidth: 1, visible: false,
+          color: "rgba(92,240,255,0.78)", lineWidth: 1, visible: false,
           priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
         });
         bbLowerSeries = priceChart.addLineSeries({
-          color: "rgba(0,229,255,0.55)", lineWidth: 1, lineStyle: 2, visible: false,
+          color: "rgba(92,240,255,0.5)", lineWidth: 1, lineStyle: 2, visible: false,
           priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
         });
       }
@@ -3616,14 +3694,26 @@
         // C1: ここで早期 return せず、価格チャート/PER/PBR/ETF 判定まで進める。
         //  ETF(financials_trend={})や財務欠損年でもローソク足は描画する（財務固有の描画のみ後段で fin ガード）。
 
-        const unitLabel = FinanceRules.fmtUnit(data.currency);
+        // Batch C: 会社規模で1単位を選定し、ヘッダ・全チャート軸・全ラベルで統一表示する。
+        //  軸の 兆/十億 混在と「単位: 百万円」表記の不整合（投資判断時の読みづらさ）を構造的に解消。
+        let _maxAbs = 0;
+        if (fin) {
+          [FinanceRules.totalAssets(fin), fin.net_sales, fin.gross_profit, fin.operating_income,
+           fin.ordinary_income, fin.income_before_taxes, fin.net_income, fin.net_assets,
+           fin.current_liabilities, fin.non_current_liabilities, fin.cf_cash_start, fin.cf_cash_end,
+           fin.operating_cf, fin.investing_cf, fin.financing_cf].forEach((v) => {
+            const a = Math.abs(FinanceRules.n(v)); if (a > _maxAbs) _maxAbs = a;
+          });
+        }
+        pageUnit = FinanceRules.pickUnit(_maxAbs, data.currency);
+        const unitLabel = FinanceRules.unitLabel(pageUnit);
         const currBadgeHtml = currencyBadge(data.currency);
 
         const headerEl = document.getElementById("active-company-header");
         headerEl.innerHTML = `
           <span class="company-title-main">${esc(data.company_name)} <span style="color:#475569;font-size:0.9rem;">(${currentTicker})</span></span>
           <span class="sector-badge">${esc(data.industry)}</span>${currBadgeHtml}
-          <span style="font-size:0.7rem;color:#334155;margin-left:4px;">単位: ${unitLabel}</span>
+          <span style="font-size:0.7rem;color:#8ba2af;margin-left:4px;">単位: ${unitLabel}</span>
           <button class="detail-star-btn${isWatched(currentTicker) ? " watched" : ""}" id="detail-star-btn"
             onclick="toggleWatchlist('${currentTicker}')">${isWatched(currentTicker) ? "★ ウォッチ中" : "☆ ウォッチ"}</button>
           <button class="open-compare-btn" onclick="openCompareModal()">⊕ 比較チャート</button>
@@ -3674,33 +3764,43 @@
 
         const pCard = document.getElementById("card-per");
         const pStatus = document.getElementById("txt-per-status");
+        const pVal = document.getElementById("txt-per-val");
         if (rawPer === 0) {
           pCard.className = "status-card";
+          pVal.style.color = "#cfe0f5";
           pStatus.innerText = "▶ 収益評価: データなし";
         } else if (rawPer <= perLow) {
           pCard.className = "status-card green";
+          pVal.style.color = "#00e676";   // 割安＝緑（カードと一致）
           pStatus.innerText = `▶ 収益評価: 割安圏 (${market}: ${perLow}倍以下)`;
         } else if (rawPer >= perHigh) {
           pCard.className = "status-card red";
+          pVal.style.color = "#ff5c7a";   // 割高・過熱＝赤（数値もカードに追従）
           pStatus.innerText = `▶ 収益評価: 割高・過熱圏 (${market}: ${perHigh}倍以上)`;
         } else {
           pCard.className = "status-card";
+          pVal.style.color = "#cfe0f5";   // 適正＝中立
           pStatus.innerText = "▶ 収益評価: 適正水準 (標準レンジ内)";
         }
 
         const bCard = document.getElementById("card-pbr");
         const bStatus = document.getElementById("txt-pbr-status");
+        const bVal = document.getElementById("txt-pbr-val");
         if (rawPbr === 0) {
           bCard.className = "status-card";
+          bVal.style.color = "#cfe0f5";
           bStatus.innerText = "▶ 資産評価: データなし";
         } else if (rawPbr <= pbrLow) {
           bCard.className = "status-card gold";
+          bVal.style.color = "#ffd84d";   // 解散価値以下＝gold（カードと一致）
           bStatus.innerText = `▶ 資産評価: 解散価値以下 (${market}: ${pbrLow}倍以下)`;
         } else if (rawPbr >= pbrHigh) {
           bCard.className = "status-card red";
+          bVal.style.color = "#ff5c7a";   // 高プレミアム＝赤
           bStatus.innerText = `▶ 資産評価: 高プレミアム評価 (${market}: ${pbrHigh}倍以上)`;
         } else {
           bCard.className = "status-card blue";
+          bVal.style.color = "#38bdf8";   // 適正＝blue（カードと一致）
           bStatus.innerText = isUS
             ? "▶ 資産評価: 米国成長株水準 (標準レンジ内)"
             : "▶ 資産評価: 適正な資産評価水準";
@@ -3821,7 +3921,10 @@
               {
                 label: "純資産",
                 data: [0, displayNetAssets],
-                backgroundColor: neonBarBg("#ffd60a"),
+                backgroundColor: neonBarBg(FIN_COLORS.bs.eq),
+                borderColor: neonEdge(FIN_COLORS.bs.eq),
+                borderWidth: 1.4,
+                borderRadius: 2,
                 stack: "Stack0",
                 categoryPercentage: 1.0,
                 barPercentage: 1.0,
@@ -3829,7 +3932,10 @@
               {
                 label: "固定負債",
                 data: [0, fin.non_current_liabilities],
-                backgroundColor: neonBarBg("#ff2d63"),
+                backgroundColor: neonBarBg(FIN_COLORS.bs.ncl),
+                borderColor: neonEdge(FIN_COLORS.bs.ncl),
+                borderWidth: 1.4,
+                borderRadius: 2,
                 stack: "Stack0",
                 categoryPercentage: 1.0,
                 barPercentage: 1.0,
@@ -3837,7 +3943,10 @@
               {
                 label: "流動負債",
                 data: [0, fin.current_liabilities],
-                backgroundColor: neonBarBg("#ff5c7a"),
+                backgroundColor: neonBarBg(FIN_COLORS.bs.cl),
+                borderColor: neonEdge(FIN_COLORS.bs.cl),
+                borderWidth: 1.4,
+                borderRadius: 2,
                 stack: "Stack0",
                 categoryPercentage: 1.0,
                 barPercentage: 1.0,
@@ -3845,7 +3954,10 @@
               {
                 label: "固定資産",
                 data: [fin.non_current_assets, 0],
-                backgroundColor: neonBarBg("#38bdf8"),
+                backgroundColor: neonBarBg(FIN_COLORS.bs.nca),
+                borderColor: neonEdge(FIN_COLORS.bs.nca),
+                borderWidth: 1.4,
+                borderRadius: 2,
                 stack: "Stack0",
                 categoryPercentage: 1.0,
                 barPercentage: 1.0,
@@ -3853,7 +3965,10 @@
               {
                 label: "流動資産",
                 data: [fin.current_assets, 0],
-                backgroundColor: neonBarBg("#00e5ff"),
+                backgroundColor: neonBarBg(FIN_COLORS.bs.ca),
+                borderColor: neonEdge(FIN_COLORS.bs.ca),
+                borderWidth: 1.4,
+                borderRadius: 2,
                 stack: "Stack0",
                 categoryPercentage: 1.0,
                 barPercentage: 1.0,
@@ -3877,7 +3992,9 @@
                   return val > 0 && val / totalAssets >= 0.15;
                 } : true,
                 clamp: true,  // ラベルがチャートエリア外に出ないよう制限
-                color: "#fff",
+                color: "#eaf4ff",
+                textShadowBlur: 6,
+                textShadowColor: "rgba(120,210,255,0.6)",
                 font: { weight: "bold", size: isMobile ? 10 : 14 },
                 backgroundColor: function (context) {
                   const val = context.dataset.data[context.dataIndex];
@@ -3902,7 +4019,6 @@
                     ? { top: 6, bottom: 6, left: 10, right: 10 }
                     : 0;
                 },
-                color: "#ffffff",
                 anchor: function (context) {
                   const val = context.dataset.data[context.dataIndex];
                   const label = context.dataset.label;
@@ -3947,8 +4063,7 @@
                   return (
                     context.dataset.label +
                     "\n" +
-                    value.toLocaleString() +
-                    " " + unitStr
+                    FinanceRules.fmtUnitValue(value, pageUnit)
                   );
                 },
                 textAlign: "center",
@@ -3966,12 +4081,13 @@
                 ticks: {
                   color: "#8ba2af",
                   font: { size: 13 },
-                  callback: (v) => FinanceRules.fmtAxis(v, STOCK_DATA[currentTicker]?.currency),
+                  callback: (v) => FinanceRules.fmtUnitValue(v, pageUnit),
                 },
               },
             },
           },
         });
+        bsChartInstance.$neonSpecs = [FIN_COLORS.bs.eq, FIN_COLORS.bs.ncl, FIN_COLORS.bs.cl, FIN_COLORS.bs.nca, FIN_COLORS.bs.ca].map((s) => [s, s]);
       }
 
       // 🕸️ 2. レーダー
@@ -4027,13 +4143,13 @@
                   score_equity,
                   score_current,
                 ],
-                backgroundColor: "rgba(0,229,255,0.16)",
-                borderColor: "#00e5ff",
+                backgroundColor: "rgba(92,240,255,0.13)",
+                borderColor: "#5cf0ff",
                 borderWidth: 2,
-                pointBackgroundColor: "#62f0ff",
-                pointBorderColor: "#05080e",
-                pointHoverBackgroundColor: "#f570ff",
-                pointHoverBorderColor: "#00e5ff",
+                pointBackgroundColor: "#5cf0ff",
+                pointBorderColor: "#05080f",
+                pointHoverBackgroundColor: "#ff5ca8",
+                pointHoverBorderColor: "#5cf0ff",
               },
             ],
           },
@@ -4044,7 +4160,9 @@
             plugins: {
               legend: { display: false },
               datalabels: {
-                color: "#a8bcc6",
+                color: "#cfe0f5",
+                textShadowBlur: 6,
+                textShadowColor: "rgba(120,210,255,0.55)",
                 font: { weight: "bold", size: 11 },
                 formatter: (v) => Math.round(v) + "点",
               },
@@ -4064,6 +4182,7 @@
             },
           },
         });
+        radarChartInstance.$lineGlow = true;
       }
 
       // 📈 3. PL
@@ -4087,12 +4206,12 @@
         //  現データでは gross_profit が全社欠損のため売上総利益の段は常に省略され、
         //  経常利益/税金等調整前は米国株含め全レコードで提供されるため常に描画される。
         const plSteps = [
-          { label: "当期純利益", val: netIncome, color: "#f570ff", core: true },
-          { label: "税金等調整前当期純利益", key: "income_before_taxes", val: fin.income_before_taxes, color: "#8a7bff" },
-          { label: "経常利益", key: "ordinary_income", val: fin.ordinary_income, color: "#5d6dff" },
-          { label: "営業利益", val: opIncome, color: "#38bdf8", core: true },
-          { label: "売上総利益", key: "gross_profit", val: fin.gross_profit, color: "#00d6b0" },
-          { label: "売上高", val: sales, color: "#6e8492", core: true },
+          { label: "当期純利益", val: netIncome, color: FIN_COLORS.pl[0], core: true },
+          { label: "税金等調整前当期純利益", key: "income_before_taxes", val: fin.income_before_taxes, color: FIN_COLORS.pl[1] },
+          { label: "経常利益", key: "ordinary_income", val: fin.ordinary_income, color: FIN_COLORS.pl[2] },
+          { label: "営業利益", val: opIncome, color: FIN_COLORS.pl[3], core: true },
+          { label: "売上総利益", key: "gross_profit", val: fin.gross_profit, color: FIN_COLORS.pl[4] },
+          { label: "売上高", val: sales, color: FIN_COLORS.pl[5], core: true },
         ].filter((s) => s.core || FinanceRules.hasValue(fin, s.key));
         const plLabels = plSteps.map((s) => s.label);
         const plData = plSteps.map((s) => s.val);
@@ -4106,6 +4225,9 @@
               {
                 data: plData,
                 backgroundColor: neonBarBgByIndex(plColors),
+                borderColor: neonEdgeByIndex(plColors),
+                borderWidth: 1.4,
+                borderRadius: 2,
                 categoryPercentage: 0.99,
                 barPercentage: 0.92,
               },
@@ -4124,8 +4246,10 @@
                   let label = context.chart.data.labels[context.dataIndex];
                   if (label === "営業利益") return "#fde047";
                   if (label === "当期純利益") return "#67e8f9";
-                  return "#ffffff";
+                  return "#eaf4ff";
                 },
+                textShadowBlur: 6,
+                textShadowColor: "rgba(120,210,255,0.6)",
                 display: isMobile ? function(ctx) {
                   // モバイルでは当期純利益（先頭）と売上高（末尾）のみ表示（段の省略に追従）
                   return ctx.dataIndex === 0 || ctx.dataIndex === ctx.chart.data.labels.length - 1;
@@ -4150,7 +4274,7 @@
                   if (value === 0 && label === "営業利益" && HOLDING_COMPANIES.has(currentTicker)) {
                     return `N/A\n(持株会社仕様)`;
                   }
-                  let baseStr = value.toLocaleString() + "\n" + unitStr;
+                  let baseStr = FinanceRules.fmtUnitValue(value, pageUnit);
                   if (label === "営業利益") {
                     return (
                       baseStr +
@@ -4178,12 +4302,13 @@
                 ticks: {
                   color: "#8ba2af",
                   font: { size: 13 },
-                  callback: (v) => FinanceRules.fmtAxis(v, STOCK_DATA[currentTicker]?.currency),
+                  callback: (v) => FinanceRules.fmtUnitValue(v, pageUnit),
                 },
               },
             },
           },
         });
+        plChartInstance.$neonSpecs = [plColors];
       }
 
       // 💸 4. CF
@@ -4195,9 +4320,9 @@
           cfChartInstance.destroy();
         }
 
-        const opCf = fin.operating_cf;
-        const invCf = fin.investing_cf;
-        const finCf = fin.financing_cf;
+        const opCf = FinanceRules.n(fin.operating_cf);
+        const invCf = FinanceRules.n(fin.investing_cf);
+        const finCf = FinanceRules.n(fin.financing_cf);
 
         const oCard = document.getElementById("card-ope");
         const oSign = document.getElementById("txt-ope-sign");
@@ -4266,26 +4391,35 @@
         //  実残高が無ければ捏造せず 0 基準にし、ウォーターフォールは実フロー（増減）を表示する。
         const hasStartCash = FinanceRules.hasValue(fin, "cf_cash_start");
         const startCash = hasStartCash ? fin.cf_cash_start : 0;
-        const step1 = startCash + opCf;
-        const step2 = step1 + invCf;
-        const endCash = FinanceRules.hasValue(fin, "cf_cash_end") ? fin.cf_cash_end : step2 + finCf;
+        const step1 = startCash + opCf;       // 営業後
+        const step2 = step1 + invCf;          // 投資後
+        const step3 = step2 + finCf;          // 財務後（純フロー）
+        const hasEndCash = FinanceRules.hasValue(fin, "cf_cash_end");
+        // 期末実残高は「期首実残高がある」場合のみ信頼（0基準モードでは純フロー=期末＝相対表示）。
+        const endCash = (hasStartCash && hasEndCash) ? fin.cf_cash_end : step3;
+        const fxOther = endCash - step3;      // 期末実残高と純フローの差＝その他・調整（為替換算差額／データ差異等）
 
-        const waterfallData = [
-          [0, startCash],
-          [startCash, step1],
-          [step1, step2],
-          [step2, endCash],
-          [0, endCash],
+        // 各段は「直前の積み上げ位置」から増減する正しいウォーターフォール（財務CFは投資CF下端から始まる）。
+        const cfSegs = [
+          { label: hasStartCash ? "期首現金残高" : "期首（0基準）", data: [0, startCash], diff: startCash, spec: FIN_COLORS.cf.start },
+          { label: "営業活動CF", data: [startCash, step1], diff: opCf, spec: opCf >= 0 ? FIN_COLORS.cf.pos : FIN_COLORS.cf.neg },
+          { label: "投資活動CF", data: [step1, step2], diff: invCf, spec: invCf >= 0 ? FIN_COLORS.cf.pos : FIN_COLORS.cf.neg },
+          { label: "財務活動CF", data: [step2, step3], diff: finCf, spec: finCf >= 0 ? FIN_COLORS.cf.pos : FIN_COLORS.cf.neg },
         ];
-        const cfLabels = [
-          hasStartCash ? "期首現金残高" : "期首（0基準）",
-          "営業活動CF",
-          "投資活動CF",
-          "財務活動CF",
-          hasStartCash ? "期末現金残高" : "純増減",
-        ];
+        // 純フローと期末実残高の差（為替換算差額やデータ差異）が無視できない大きさのときだけ中立ラベルの段を追加。
+        //  残差は為替換算差額に限らずデータ不整合も含むため「その他・調整」と中立表記（過剰断定を避ける）。
+        const cfScale = Math.max(Math.abs(startCash), Math.abs(step1), Math.abs(step2), Math.abs(step3), Math.abs(endCash), 1);
+        if (hasStartCash && hasEndCash && Math.abs(fxOther) > cfScale * 0.005) {
+          cfSegs.push({ label: "その他・調整", data: [step3, endCash], diff: fxOther, spec: FIN_COLORS.cf.fx });
+        }
+        cfSegs.push({ label: hasStartCash ? "期末現金残高" : "純増減", data: [0, endCash], diff: endCash, spec: FIN_COLORS.cf.end });
 
-        const maxCfScale = Math.max(startCash, step1, step2, endCash);
+        const waterfallData = cfSegs.map((s) => s.data);
+        const cfLabels = cfSegs.map((s) => s.label);
+        const cfSpecs = cfSegs.map((s) => s.spec);
+        const cfDiffs = cfSegs.map((s) => s.diff);
+        const cfLastIdx = cfSegs.length - 1;
+        const maxCfScale = cfScale;
 
         cfChartInstance = new Chart(ctx, {
           type: "bar",
@@ -4294,13 +4428,10 @@
             datasets: [
               {
                 data: waterfallData,
-                backgroundColor: neonBarBgByIndex([
-                  "#38bdf8",
-                  opCf >= 0 ? "#00e676" : "#ff2d63",
-                  invCf >= 0 ? "#00e676" : "#ff2d63",
-                  finCf >= 0 ? "#00e676" : "#ff2d63",
-                  "#8a7bff",
-                ]),
+                backgroundColor: neonBarBgByIndex(cfSpecs),
+                borderColor: neonEdgeByIndex(cfSpecs),
+                borderWidth: 1.4,
+                borderRadius: 2,
                 categoryPercentage: 0.99,
                 barPercentage: 0.9,
               },
@@ -4315,22 +4446,15 @@
               legend: { display: false },
               datalabels: {
                 display: isMobile ? false : true,  /* モバイルは数値省略（サイドパネルで確認可） */
-                color: "#fff",
+                color: "#eaf4ff",
+                textShadowBlur: 6,
+                textShadowColor: "rgba(120,210,255,0.6)",
                 font: { weight: "bold", size: 14 },
                 position: "center",
                 anchor: function (context) {
                   const idx = context.dataIndex;
-                  let diff =
-                    idx === 0
-                      ? startCash
-                      : idx === 1
-                        ? opCf
-                        : idx === 2
-                          ? invCf
-                          : idx === 3
-                            ? finCf
-                            : endCash;
-                  return idx === 0 || idx === 4
+                  const diff = cfDiffs[idx];
+                  return idx === 0 || idx === cfLastIdx
                     ? "end"
                     : diff >= 0
                       ? "end"
@@ -4338,38 +4462,19 @@
                 },
                 align: function (context) {
                   const idx = context.dataIndex;
-                  let diff =
-                    idx === 0
-                      ? startCash
-                      : idx === 1
-                        ? opCf
-                        : idx === 2
-                          ? invCf
-                          : idx === 3
-                            ? finCf
-                            : endCash;
+                  const diff = cfDiffs[idx];
                   return diff >= 0 ? "top" : "bottom";
                 },
                 offset: 15,
                 formatter: function (value, context) {
                   const idx = context.dataIndex;
-                  let diff =
-                    idx === 0
-                      ? startCash
-                      : idx === 1
-                        ? opCf
-                        : idx === 2
-                          ? invCf
-                          : idx === 3
-                            ? finCf
-                            : endCash;
-                  let sign = diff > 0 && idx !== 0 && idx !== 4 ? "+" : "";
+                  const diff = cfDiffs[idx];
+                  const sign = diff > 0 && idx !== 0 && idx !== cfLastIdx ? "+" : "";
                   return (
                     cfLabels[idx] +
                     "\n" +
                     sign +
-                    diff.toLocaleString() +
-                    "\n" + unitStr
+                    FinanceRules.fmtUnitValue(diff, pageUnit)
                   );
                 },
                 textAlign: "center",
@@ -4386,12 +4491,13 @@
                 ticks: {
                   color: "#8ba2af",
                   font: { size: 12 },
-                  callback: (v) => FinanceRules.fmtAxis(v, STOCK_DATA[currentTicker]?.currency),
+                  callback: (v) => FinanceRules.fmtUnitValue(v, pageUnit),
                 },
               },
             },
           },
         });
+        cfChartInstance.$neonSpecs = [cfSpecs];
       }
     </script>
     <script src="money-rules.js"></script>
