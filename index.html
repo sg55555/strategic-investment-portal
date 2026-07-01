@@ -589,9 +589,11 @@
         inset: 0;
         z-index: -1;
         border-radius: inherit;
-        background: linear-gradient(135deg, rgba(10, 15, 23, 0.74) 0%, rgba(7, 10, 17, 0.74) 100%);
-        backdrop-filter: blur(8px);
-        -webkit-backdrop-filter: blur(8px);
+        /* 透明感は「半透明の塗り」から出す（BS/PL/CFバーと同じ発想）＝初回描画バグの影響を受けず初期表示から透ける。
+           白でない微グラデ（上=わずかに明・下=深）＋backdrop-filterは効くGPUでの上乗せフロスト。 */
+        background: linear-gradient(160deg, rgba(16, 26, 40, 0.46) 0%, rgba(8, 12, 22, 0.52) 55%, rgba(5, 9, 16, 0.5) 100%);
+        backdrop-filter: blur(7px);
+        -webkit-backdrop-filter: blur(7px);
       }
       .card:hover {
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.62), 0 0 18px rgba(0, 229, 255, 0.10) inset;
@@ -3545,7 +3547,7 @@
         const volData = displayPrices.map((p) => ({
           time: p.time,
           value: p.volume || 0,
-          color: p.close >= p.open ? "rgba(255,23,68,0.30)" : "rgba(10,142,255,0.30)",
+          color: p.close >= p.open ? "rgba(218,10,55,0.32)" : "rgba(20,80,215,0.32)",
         }));
         volumeSeries.setData(volData);
 
@@ -3592,7 +3594,7 @@
                 const yH = candleSeries.priceToCoordinate(c.high), yL = candleSeries.priceToCoordinate(c.low);
                 if (yO == null || yC == null) continue;
                 const up = c.close >= c.open;
-                const col = up ? "#ff1744" : "#0a8eff";   // up=赤 / down=スカイブルー
+                const col = up ? "#ff2d55" : "#2a66ff";   // 発光ハロー: up=赤(≒#DA0133明) / down=ロイヤルブルー(≒#0033AD明)
                 const top = Math.min(yO, yC), h = Math.max(Math.abs(yC - yO), 1.2);
                 ctx.save(); ctx.shadowColor = col; ctx.shadowBlur = 9;
                 if (yH != null && yL != null) { ctx.strokeStyle = _hexRgba(col, 0.6); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, Math.min(yH, yL)); ctx.lineTo(x, Math.max(yH, yL)); ctx.stroke(); }
@@ -3633,12 +3635,12 @@
         //  本体ボディは半透明、縁/ヒゲは明色。各足の発光は makeCandleGlowPrimitive が同フレーム描画。
         //  canvas色は CSS の --ix-* 自動トークン化(F5)の対象外＝ここで直接管理（値で更新）。
         candleSeries = priceChart.addCandlestickSeries({
-          upColor:        "rgba(255,18,62,0.54)",    // up=赤（半透明グラス・さらに鮮やか）
-          downColor:      "rgba(0,128,255,0.54)",    // down=スカイブルー（半透明グラス・さらに鮮やか）
+          upColor:        "rgba(218,10,55,0.56)",    // up=赤（≒#DA0133 クリムゾン・半透明グラス）
+          downColor:      "rgba(12,62,195,0.56)",    // down=青（≒#0033AD ロイヤルブルー・半透明グラス）
           borderUpColor:  "#ff5c7a",   // 明るいレッドのネオン縁
-          borderDownColor:"#5ab8ff",   // 明るいブルーのネオン縁
+          borderDownColor:"#4d80ff",   // 明るいロイヤルブルーのネオン縁
           wickUpColor:    "#ff5c7a",
-          wickDownColor:  "#5ab8ff",
+          wickDownColor:  "#4d80ff",
         });
         candleSeries.attachPrimitive(makeCandleGlowPrimitive());
 
@@ -4417,19 +4419,19 @@
         const badge = document.getElementById("cf-type-badge");
         if (opCf >= 0 && invCf < 0 && finCf < 0) {
           badge.innerHTML = ICO.crown + " 優良企業タイプ";
-          badge.style.background = "linear-gradient(135deg, rgba(255,216,77,0.82), rgba(224,145,15,0.82))";   // 優良＝プレミアム gold（半透明）
+          badge.style.background = "linear-gradient(135deg, rgba(255,216,77,0.62), rgba(224,145,15,0.62))";   // 優良＝プレミアム gold（半透明）
         } else if (opCf >= 0 && invCf < 0 && finCf >= 0) {
           badge.innerHTML = ICO.rocket + " 積極投資タイプ";
-          badge.style.background = "linear-gradient(135deg, rgba(58,166,255,0.82), rgba(31,79,208,0.82))";   // 積極＝azure（半透明）
+          badge.style.background = "linear-gradient(135deg, rgba(58,166,255,0.62), rgba(31,79,208,0.62))";   // 積極＝azure（半透明）
         } else if (opCf < 0 && invCf < 0 && finCf >= 0) {
           badge.innerHTML = ICO.flask + " ベンチャータイプ";
-          badge.style.background = "linear-gradient(135deg, rgba(163,92,255,0.82), rgba(100,20,216,0.82))";   // ベンチャー＝violet（半透明）
+          badge.style.background = "linear-gradient(135deg, rgba(163,92,255,0.62), rgba(100,20,216,0.62))";   // ベンチャー＝violet（半透明）
         } else if (opCf < 0 && invCf >= 0 && finCf >= 0) {
           badge.innerHTML = ICO.warn + " ジリ脚タイプ";
-          badge.style.background = "linear-gradient(135deg, rgba(255,77,109,0.82), rgba(204,0,56,0.82))";   // 警戒＝red-pink（半透明）
+          badge.style.background = "linear-gradient(135deg, rgba(255,77,109,0.62), rgba(204,0,56,0.62))";   // 警戒＝red-pink（半透明）
         } else {
           badge.innerHTML = ICO.bars + " 転換期・変革タイプ";
-          badge.style.background = "linear-gradient(135deg, rgba(90,143,176,0.82), rgba(42,58,68,0.82))";   // 中立＝slate-cyan（半透明）
+          badge.style.background = "linear-gradient(135deg, rgba(90,143,176,0.62), rgba(42,58,68,0.62))";   // 中立＝slate-cyan（半透明）
         }
 
         // C4: 期首現金が無い銘柄に特定企業のマジック定数(6524000)を流用していたのを廃止。
