@@ -1438,6 +1438,12 @@
     <script src="finance-rules.js"></script>
     <script src="detail-rules.js"></script>
     <script>
+      // F2: 生きた cross-script 共有束縛。detail.js の "use strict" bare 代入(currentTicker = ticker)と
+      // detail-charts.js の bare read が依存するため、IIFE の外へ「宣言だけ」を hoist する（トップレベル let
+      // ＝現状のグローバル字句束縛を保持・window プロパティは作らない）。初期化子(= DEFAULT_TICKER 参照)は
+      // IIFE 内に残す（宣言ごと外へ出すと IIFE 内 const DEFAULT_TICKER が見えず load 時 ReferenceError で全滅する）。
+      let currentTicker, currentView;
+      (function () {
       Chart.register(ChartDataLabels);
       // テーマD調和: Chart.js の既定フォント=等幅(mono) / 既定テキスト色 / 既定グリッド色（個別 override は各チャートで上書き）
       Chart.defaults.font.family = "ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace";
@@ -1468,7 +1474,7 @@
       const DEFAULT_COUNTRY = "JP";
       const DEFAULT_TICKER = "7203.T";
 
-      let currentTicker = DEFAULT_TICKER;   // 共有: portal/watchlist が読むため index.html global 維持（detail.js は free-var 参照）。
+      currentTicker = DEFAULT_TICKER;   // 共有生束縛（宣言は IIFE 外へ hoist・初期化のみここ）。detail.js は free-var で読み書き。
       // Task3: selectedYear / pageUnit は detail.js の closure へ private 化（移設済）。
 
       let sortKey = "ticker";
@@ -1478,7 +1484,7 @@
 
       // F3: 中央ビュールーター。散在していた .view-section の active 付替を単一ソース化（+ hash 同期）。
       const VIEW_IDS = { portal: "portal-view", detail: "detail-view", money: "money-view" };
-      let currentView = "portal";   // 既定（#portal-view が active）
+      currentView = "portal";   // 共有生束縛（宣言は IIFE 外へ hoist）。既定（#portal-view が active・detail-charts.js が呼出時 read）
 
 
 
@@ -2102,6 +2108,17 @@
           filterAndRenderPortal();
         }, 100);
       }
+
+      // F2: IIFE 末尾で公開面を一括。inline HTML handler / cross-script(detail-charts/detail.js) free-var が
+      // 依存する18名（関数16＋const ICO/DEFAULT_CURRENCY）のみ公開。currentTicker/currentView は生束縛ゆえ
+      // 含めない（IIFE 外 let）。関数宣言は hoist 済・const も定義済でここに確実到達（try の外・IIFE 最終行）。
+      // 以降 detail.js 等の bare 参照（esc/ICO/DEFAULT_CURRENCY 等）は window プロパティへフォールバックして解決する。
+      Object.assign(window, {
+        esc, ICO, DEFAULT_CURRENCY, currencyBadge, isWatched, trackEvent, showView,
+        toggleScreening, applyScreening, resetScreening, toggleWatchlist, handleContactSubmit,
+        openModal, closeModal, retryLoadData, onPortalSearchInput, setSort, navigateToPortal,
+      });
+    })();
 
 
 
