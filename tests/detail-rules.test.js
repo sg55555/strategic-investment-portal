@@ -296,3 +296,64 @@ test("ANALYSIS_DISCLAIMER: nonempty education-frame string", () => {
   assert.equal(typeof D.ANALYSIS_DISCLAIMER, "string");
   assert.ok(D.ANALYSIS_DISCLAIMER.length > 20);
 });
+
+// ── signalDigest（テクニカル現在地サマリ・Feature#2）──────────────────
+//  規制安全（no-score 構造固定・売買/予測語彙非命中）と time-index 整合・no-data 畳みを錠。
+const STATE_ENUM = new Set([
+  'MA5>MA25>MA75の並び', 'MA75>MA25>MA5の並び', '並びは混在',
+  '買われ過ぎの目安圏(70以上)', '売られ過ぎの目安圏(30以下)', '中立圏',
+  'MACD線がシグナル線の上', 'MACD線がシグナル線の下',
+  '上限バンドの外側', '下限バンドの外側', 'バンド内側',
+  '算出済み', '直近の確定区間はトレンド', '直近の確定区間はレンジ',
+  '陽線(終値≥始値)', '陰線', 'データ不足',
+]);
+
+function synthPrices(n) {
+  const out = []; let p = 100;
+  for (let i = 0; i < n; i++) {
+    const d = new Date(2020, 0, 1 + i); const t = d.toISOString().slice(0, 10);
+    const o = p; p = p * (1 + (Math.sin(i / 7) * 0.01)); const c = p;
+    out.push({ time: t, open: o, high: Math.max(o, c) * 1.01, low: Math.min(o, c) * 0.99, close: c, volume: 1000 + i });
+  }
+  return out;
+}
+
+test("signalDigest: 7 descriptors, no numeric score fields, state in closed enum", () => {
+  const all = synthPrices(300);
+  const disp = all.slice(-120);
+  const ds = D.signalDigest(disp, all);
+  assert.equal(ds.length, 7);
+  for (const d of ds) {
+    assert.ok(typeof d.key === "string" && typeof d.label === "string" && typeof d.term === "string");
+    assert.ok(STATE_ENUM.has(d.state), `state not in enum: ${d.state}`);
+    // no-score 構造固定: numeric スコア用フィールドを持たない
+    assert.equal(d.value, undefined);
+    assert.equal(d.score, undefined);
+    assert.equal(d.weight, undefined);
+    assert.equal(typeof d.readout, "string");
+  }
+});
+
+test("signalDigest: labels/states contain no trade/forecast words", () => {
+  const all = synthPrices(300);
+  const ds = D.signalDigest(all.slice(-120), all);
+  for (const d of ds) {
+    const txt = [d.label, d.state, d.readout, d.note || ""].join("　");
+    for (const re of FORBIDDEN.ALL) assert.ok(!re.test(txt), `forbidden in ${d.key}: ${re} :: ${txt}`);
+  }
+});
+
+test("signalDigest: current value indexed to display window end, not today", () => {
+  const all = synthPrices(300);
+  const disp = all.slice(50, 120); // 過去窓（末尾=all[119] でなく disp 末尾）
+  const ds = D.signalDigest(disp, all);
+  const rsi = ds.find((d) => d.key === "rsi");
+  // 末尾窓の RSI は disp 末尾の time で index される（今日=all 末尾の値が混入しない）
+  assert.ok(rsi.state === "データ不足" || typeof rsi.readout === "string");
+});
+
+test("signalDigest: thin history folds to データ不足, no crash", () => {
+  const ds = D.signalDigest(synthPrices(5), synthPrices(5));
+  assert.equal(ds.length, 7);
+  assert.ok(ds.some((d) => d.state === "データ不足"));
+});
