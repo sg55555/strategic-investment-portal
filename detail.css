@@ -762,3 +762,28 @@
       .dashboard-stack.animate-cards .card:nth-child(3) { animation-delay: 0.31s; }
       .dashboard-stack.animate-cards .card:nth-child(4) { animation-delay: 0.44s; }
       .dashboard-stack.animate-cards .card:nth-child(5) { animation-delay: 0.57s; }
+
+      /* ── term-help ポップオーバー（純CSS・--ix-* トークンで自己完結／money.css .mcc-help 非依存） ── */
+      .term-help {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 14px; height: 14px; margin-left: 5px; border-radius: 50%;
+        font-size: 10px; line-height: 1; cursor: help; position: relative;
+        color: var(--ix-cyan, #62f0ff);
+        border: 1px solid color-mix(in srgb, var(--ix-cyan, #62f0ff) 55%, transparent);
+        background: color-mix(in srgb, var(--ix-cyan, #62f0ff) 12%, transparent);
+      }
+      .term-help:focus { outline: none; box-shadow: 0 0 0 2px color-mix(in srgb, var(--ix-cyan, #62f0ff) 45%, transparent); }
+      .term-help::after {
+        content: attr(data-def);
+        position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%);
+        width: max-content; max-width: 240px; padding: 8px 10px; border-radius: 6px;
+        font-size: 11px; line-height: 1.5; text-align: left; white-space: normal;
+        color: var(--ix-text, #e8eefc);
+        background: var(--ix-surface-2, rgba(10,16,32,.96));
+        border: 1px solid color-mix(in srgb, var(--ix-cyan, #62f0ff) 40%, transparent);
+        opacity: 0; pointer-events: none; z-index: 60; transition: opacity .12s;
+      }
+      .term-help:hover::after, .term-help:focus::after { opacity: 1; }
+      [data-theme="D"] .term-help::after {
+        box-shadow: 0 0 12px color-mix(in srgb, var(--ix-cyan, #62f0ff) 35%, transparent);
+      }
