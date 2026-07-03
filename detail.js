@@ -323,6 +323,11 @@
     //  実行時に最新インスタンスを読むため、株式経路の再描画も従来どおり効く（検証済み挙動を保存）。
     DetailCharts.repaint();
 
+    // Task4: 静的指標ラベルへの用語ヘルプ「?」注入。isEtf/!fin の early-return より前に置き、
+    //  ETF（financials_trend={}）でも ma-control-bar の「?」が確実に注入されるようにする。
+    //  冪等ガード（injectTermHelp 内）があるため switchYear 等での再呼び出しも安全。
+    injectTermHelp(document.getElementById("detail-view"));
+
     const rawPer = data.per || 0;
     const rawPbr = data.pbr || 0;
 

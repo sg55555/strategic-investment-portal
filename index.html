@@ -1112,26 +1112,26 @@
                 <span class="ma-label">移動平均</span>
                 <button class="ma-btn" id="ma-btn-5"  onclick="toggleMA(5)">MA 5</button>
                 <button class="ma-btn" id="ma-btn-25" onclick="toggleMA(25)">MA 25</button>
-                <button class="ma-btn" id="ma-btn-75" onclick="toggleMA(75)">MA 75</button>
+                <button class="ma-btn" id="ma-btn-75" onclick="toggleMA(75)">MA 75</button><span class="ma-label" data-term="ma"></span>
               </div>
               <div class="ctrl-separator"></div>
               <div class="ctrl-group">
-                <span class="ma-label">エンベロープ</span>
+                <span class="ma-label" data-term="bb">エンベロープ</span>
                 <button class="ma-btn" id="ind-btn-bb" onclick="toggleBB()">BB 20</button>
               </div>
               <div class="ctrl-separator"></div>
               <div class="ctrl-group">
                 <span class="ma-label">分析</span>
-                <button class="ma-btn" id="ind-btn-sr" onclick="toggleSR()">S/R線</button>
-                <button class="ma-btn" id="ind-btn-tr" onclick="toggleTR()">T/R線</button>
+                <button class="ma-btn" id="ind-btn-sr" onclick="toggleSR()">S/R線</button><span class="ma-label" data-term="sr"></span>
+                <button class="ma-btn" id="ind-btn-tr" onclick="toggleTR()">T/R線</button><span class="ma-label" data-term="zigzag"></span>
               </div>
               <div class="ctrl-separator"></div>
               <div class="ctrl-group">
                 <span class="ma-label">オシレーター</span>
-                <button class="ma-btn" id="ind-btn-rsi"  onclick="toggleRSI()">RSI</button>
-                <button class="ma-btn" id="ind-btn-macd" onclick="toggleMACD()">MACD</button>
+                <button class="ma-btn" id="ind-btn-rsi"  onclick="toggleRSI()">RSI</button><span class="ma-label" data-term="rsi"></span>
+                <button class="ma-btn" id="ind-btn-macd" onclick="toggleMACD()">MACD</button><span class="ma-label" data-term="macd"></span>
               </div>
-              <span class="vol-label">▌ 出来高: 下段</span>
+              <span class="vol-label" data-term="volume">▌ 出来高: 下段</span>
             </div>
             <div id="chart-container"></div>
             <div id="rsi-container" class="sub-chart-wrap">
@@ -1143,7 +1143,7 @@
           </div>
 
           <div class="card">
-            <div class="card-title" id="bs-title">BALANCE SHEET ANALYSIS</div>
+            <div class="card-title" id="bs-title">BALANCE SHEET ANALYSIS<span data-term="equity-ratio"></span><span data-term="current-ratio"></span></div>
             <div class="grid-layout">
               <div
                 class="chart-main-area"
@@ -1188,7 +1188,7 @@
 
           <div class="card">
             <div class="card-title" id="radar-title">
-              FINANCIAL COMPASS & VALUATION METRICS
+              FINANCIAL COMPASS & VALUATION METRICS<span data-term="roe"></span><span data-term="roa"></span><span data-term="per"></span><span data-term="pbr"></span>
             </div>
             <div class="grid-layout">
               <div class="chart-main-area">
@@ -1256,7 +1256,7 @@
           </div>
 
           <div class="card">
-            <div class="card-title" id="pl-title">PROFIT & LOSS STATEMENT</div>
+            <div class="card-title" id="pl-title">PROFIT & LOSS STATEMENT<span data-term="op-margin"></span><span data-term="net-margin"></span></div>
             <div class="full-width-area">
               <canvas id="plChart"></canvas>
             </div>
