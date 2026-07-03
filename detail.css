@@ -762,6 +762,23 @@
       .dashboard-stack.animate-cards .card:nth-child(3) { animation-delay: 0.31s; }
       .dashboard-stack.animate-cards .card:nth-child(4) { animation-delay: 0.44s; }
       .dashboard-stack.animate-cards .card:nth-child(5) { animation-delay: 0.57s; }
+      /* Feature#2/#3 でカードが 6→7 枚に増える（signalDigest を先頭挿入・健全性を追加）ため、
+         nth-child 遅延を (7) まで拡張し末尾カードが delay:0 の即時発火にならないようにする（spec §4.3 M10）。
+         7 番目は健全性カード追加まで inert（未マッチ）で forward-safe。 */
+      .dashboard-stack.animate-cards .card:nth-child(6) { animation-delay: 0.70s; }
+      .dashboard-stack.animate-cards .card:nth-child(7) { animation-delay: 0.83s; }
+
+      /* ── テクニカル現在地サマリ signalDigest カード（Feature#2）── */
+      /* ポップオーバー（?）が見切れないよう overflow:visible（status-card と異なり切らない） */
+      .sig-digest-card { overflow: visible; }
+      .sig-body { display: flex; flex-direction: column; gap: 6px; }
+      .sig-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; font-size: 13px; }
+      .sig-label { color: var(--ix-text-dim, #9fb0d0); min-width: 9em; }
+      .sig-state { color: var(--ix-text, #e8eefc); font-family: var(--ix-mono, monospace); }
+      .sig-readout { color: var(--ix-cyan, #62f0ff); font-family: var(--ix-mono, monospace); }
+      .sig-note { color: var(--ix-text-dim, #9fb0d0); font-size: 11px; }
+      .sig-asof { color: var(--ix-text-dim, #9fb0d0); font-size: 11px; font-weight: normal; }
+      .sig-disclaimer { margin-top: 8px; font-size: 10px; color: var(--ix-text-dim, #9fb0d0); line-height: 1.5; }
 
       /* ── term-help ポップオーバー（純CSS・--ix-* トークンで自己完結／money.css .mcc-help 非依存） ── */
       .term-help {

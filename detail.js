@@ -170,6 +170,35 @@
     }
   }
 
+  // ── テクニカル現在地サマリ signalDigest カード（Feature#2）──────────────────
+  //  純計算は DetailRules.signalDigest（no-score 中立閉集合）。ここは DOM 書込のみ（window.esc でエスケープ）。
+  //  固定 id カードへ innerHTML 置換＝冪等（switchYear/navigate で複数回呼ばれても増殖しない）。
+  //  免責が取得できなければフェイルセーフ非描画。価格のみで成立するので ETF でも表示される。
+  function renderSignalDigest(displayPrices, allPrices) {
+    var card = document.getElementById("signal-digest-card");
+    if (!card) return;
+    var disc = window.DetailRules && window.DetailRules.ANALYSIS_DISCLAIMER;
+    if (!disc) { card.style.display = "none"; return; } // 免責取得不可=フェイルセーフ非描画
+    var ds = (window.DetailRules && window.DetailRules.signalDigest(displayPrices, allPrices)) || [];
+    if (!ds.length) { card.style.display = "none"; return; }
+    var endBar = displayPrices && displayPrices.length ? displayPrices[displayPrices.length - 1] : null;
+    var asOf = endBar ? endBar.time : "";
+    var rows = ds.map(function (d) {
+      var note = d.note ? '<span class="sig-note">' + window.esc(d.note) + "</span>" : "";
+      var ro = d.readout ? '<span class="sig-readout">' + window.esc(d.readout) + "</span>" : "";
+      return '<div class="sig-row"><span class="sig-label" data-term="' + window.esc(d.term) + '">' +
+        window.esc(d.label) + '</span><span class="sig-state">' + window.esc(d.state) + "</span>" +
+        ro + note + "</div>";
+    }).join("");
+    card.innerHTML =
+      '<div class="card-title">テクニカル現在地サマリ' +
+      (asOf ? ' <span class="sig-asof">（表示期間の最新：' + window.esc(asOf) + " 時点）</span>" : "") + "</div>" +
+      '<div class="sig-body">' + rows + "</div>" +
+      '<div class="sig-disclaimer">' + window.esc(disc) + "</div>";
+    card.style.display = "";
+    injectTermHelp(card);
+  }
+
   function renderKpiCompare(data) {
     const grid = document.getElementById("kpi-compare-grid");
     if (!grid) return;
@@ -328,6 +357,10 @@
     //  冪等ガード（injectTermHelp 内）があるため switchYear 等での再呼び出しも安全。
     injectTermHelp(document.getElementById("detail-view"));
 
+    // Feature#2: テクニカル現在地サマリ。価格のみで成立するので isEtf/!fin early-return より前で無条件に描画。
+    //  カード自身の「?」注入は renderSignalDigest 内の injectTermHelp(card) が行う（冪等）。
+    renderSignalDigest(displayPrices, data.prices);
+
     const rawPer = data.per || 0;
     const rawPbr = data.pbr || 0;
 
@@ -421,5 +454,5 @@
   //  detail-charts.js 側の bare 参照を解決させる（純ヘルパゆえ状態 seam と異なり引数化でなく shared global）。
   window.animateNumber = animateNumber;
   // 内部/将来用（switchYear は navigateToDetail 内 closure ゆえ bare 露出不要）。
-  window.Detail = { navigateToDetail, updateFinancialViews, switchYear, termHelp, injectTermHelp };
+  window.Detail = { navigateToDetail, updateFinancialViews, switchYear, termHelp, injectTermHelp, renderSignalDigest };
 })();
