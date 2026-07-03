@@ -6,6 +6,7 @@ const assert = require("node:assert/strict");
 const FinanceRules = require("../finance-rules.js");
 global.FinanceRules = FinanceRules;
 const D = require("../detail-rules.js");
+const FORBIDDEN = require("./fixtures/forbidden_terms.js");
 
 // ── priceWindow: 表示期間の絞り込み（US=暦年 / JP=前年4月〜当年3月 / 0件は末尾200件）──
 test("priceWindow: US は暦年で絞る", () => {
@@ -265,4 +266,33 @@ test("定数を verbatim で同梱 export する", () => {
   assert.ok(D.HOLDING_COMPANIES instanceof Set && D.HOLDING_COMPANIES.has("9984.T"));
   assert.deepEqual(D.FIN_COLORS.bs.eq, ["#ffd84d", "#c87600"]);
   assert.deepEqual(D.CF_BADGE_PAIR.excellent, ["#ffd84d", "#c87600"]);
+});
+
+// ── INDICATOR_GLOSSARY / ANALYSIS_DISCLAIMER: 分析グロッサリ・免責データ（規制安全＝中立・売買/予測語なし）──
+test("INDICATOR_GLOSSARY: shape and required terms", () => {
+  assert.ok(Array.isArray(D.INDICATOR_GLOSSARY));
+  const required = ["ma", "bb", "rsi", "macd", "sr", "zigzag", "volume", "percent-b",
+    "equity-ratio", "current-ratio", "roe", "roa", "op-margin", "net-margin", "per", "pbr"];
+  const terms = new Set(D.INDICATOR_GLOSSARY.map((g) => g.term));
+  for (const t of required) assert.ok(terms.has(t), `missing term: ${t}`);
+  assert.equal(terms.size, D.INDICATOR_GLOSSARY.length, "duplicate term");
+  for (const g of D.INDICATOR_GLOSSARY) {
+    assert.equal(typeof g.term, "string");
+    assert.ok(g.read && typeof g.read === "string");
+    assert.ok(g.def && typeof g.def === "string");
+  }
+});
+
+test("INDICATOR_GLOSSARY: def/read contain no trade/forecast words", () => {
+  for (const g of D.INDICATOR_GLOSSARY) {
+    const txt = g.read + "　" + g.def;
+    for (const re of FORBIDDEN.ALL) {
+      assert.ok(!re.test(txt), `forbidden word in "${g.term}": ${re} :: ${txt}`);
+    }
+  }
+});
+
+test("ANALYSIS_DISCLAIMER: nonempty education-frame string", () => {
+  assert.equal(typeof D.ANALYSIS_DISCLAIMER, "string");
+  assert.ok(D.ANALYSIS_DISCLAIMER.length > 20);
 });
