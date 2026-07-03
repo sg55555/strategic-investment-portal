@@ -141,6 +141,35 @@
     return FinanceRules.fmtMagnitude(val, currency);
   }
 
+  // ── 分析グロッサリ用語ヘルプ（Task2: 純CSSポップオーバー・inline onclick 不使用＝CSP フレンドリー）──
+  //  データは DetailRules.INDICATOR_GLOSSARY（Task1）。エスケープは window.esc（F2 公開・money.js 私有 esc は跨がない）。
+  var _indGloMap = null;
+  function _indGlo() {
+    if (_indGloMap) return _indGloMap;
+    _indGloMap = {};
+    var arr = (window.DetailRules && window.DetailRules.INDICATOR_GLOSSARY) || [];
+    for (var i = 0; i < arr.length; i++) _indGloMap[arr[i].term] = arr[i];
+    return _indGloMap;
+  }
+  function termHelp(term) {
+    var g = _indGlo()[term];
+    if (!g) return ""; // 未知 term は no-op（安全側）
+    var def = window.esc(g.read + "：" + g.def);
+    var aria = window.esc(g.read + "とは：" + g.def);
+    return '<span class="term-help" tabindex="0" role="note" data-def="' + def +
+           '" aria-label="' + aria + '">?</span>';
+  }
+  function injectTermHelp(root) {
+    if (!root) return;
+    var nodes = root.querySelectorAll("[data-term]");
+    for (var i = 0; i < nodes.length; i++) {
+      var el = nodes[i];
+      if (el.querySelector(":scope > .term-help")) continue; // 重複注入ガード（冪等）
+      var html = termHelp(el.dataset.term);
+      if (html) el.insertAdjacentHTML("beforeend", html);
+    }
+  }
+
   function renderKpiCompare(data) {
     const grid = document.getElementById("kpi-compare-grid");
     if (!grid) return;
@@ -387,5 +416,5 @@
   //  detail-charts.js 側の bare 参照を解決させる（純ヘルパゆえ状態 seam と異なり引数化でなく shared global）。
   window.animateNumber = animateNumber;
   // 内部/将来用（switchYear は navigateToDetail 内 closure ゆえ bare 露出不要）。
-  window.Detail = { navigateToDetail, updateFinancialViews, switchYear };
+  window.Detail = { navigateToDetail, updateFinancialViews, switchYear, termHelp, injectTermHelp };
 })();
