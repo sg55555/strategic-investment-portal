@@ -418,9 +418,135 @@
     };
   }
 
+  // ── テクニカル現在地サマリ signalDigest（Feature#2）──────────────────
+  //  「今どの状態か」を1枚で示す descriptor 配列。numeric スコアフィールド（value/score/weight）を
+  //  一切持たず、state は符号スカラに写像不能な中立状態語の閉集合。売買語・予測語を出さない（規制安全）。
+  //  ⚠️ 同モジュール radarScores（意図的な 0-100 スコア）とは役割が別。ここは横断合成・結論を出さない。
+  //  計算はフル履歴 allPrices、現在地値は displayPrices 末尾 time で各系列を index（今日の値を混入させない）。
+  function _atDisplayEnd(series, endTime) {
+    if (!series || !series.length || !endTime) return null;
+    for (var i = series.length - 1; i >= 0; i--) if (series[i].time === endTime) return series[i];
+    return null;
+  }
+  function signalDigest(displayPrices, allPrices) {
+    var out = [];
+    var dp = displayPrices || [];
+    var ap = (allPrices && allPrices.length) ? allPrices : dp;
+    var endBar = dp.length ? dp[dp.length - 1] : null;
+    var endTime = endBar ? endBar.time : null;
+    var close = endBar ? endBar.close : null;
+
+    // 1) MA 整列
+    (function () {
+      var m5 = _atDisplayEnd(calcMA(ap, 5), endTime);
+      var m25 = _atDisplayEnd(calcMA(ap, 25), endTime);
+      var m75 = _atDisplayEnd(calcMA(ap, 75), endTime);
+      var state = 'データ不足', readout = '';
+      if (m5 && m25 && m75) {
+        var a = m5.value, b = m25.value, c = m75.value;
+        if (a > b && b > c) state = 'MA5>MA25>MA75の並び';
+        else if (c > b && b > a) state = 'MA75>MA25>MA5の並び';
+        else state = '並びは混在';
+        if (close != null) readout = '終値はMA25の' + (close >= b ? '上' : '下');
+      }
+      out.push({ key: 'ma', label: '移動平均の並び', term: 'ma', state: state, readout: readout });
+    })();
+
+    // 2) RSI ゾーン
+    (function () {
+      var r = _atDisplayEnd(calcRSI(ap, 14), endTime);
+      var state = 'データ不足', readout = '';
+      if (r) {
+        var v = r.value;
+        state = v >= 70 ? '買われ過ぎの目安圏(70以上)' : v <= 30 ? '売られ過ぎの目安圏(30以下)' : '中立圏';
+        readout = 'RSI ' + v;
+      }
+      out.push({ key: 'rsi', label: 'RSI', term: 'rsi', state: state, readout: readout });
+    })();
+
+    // 3) MACD 位置・交差（売買語なし＝位置関係と交差有無の純事実）
+    (function () {
+      var mac = calcMACD(ap, 12, 26, 9);
+      var hist = (mac && mac.histogram) || [];
+      var state = 'データ不足', note = '';
+      var end = _atDisplayEnd(hist, endTime);
+      if (end) {
+        state = end.value >= 0 ? 'MACD線がシグナル線の上' : 'MACD線がシグナル線の下';
+        var idx = hist.indexOf(end);
+        if (idx > 0) {
+          var prev = hist[idx - 1];
+          note = (prev && ((prev.value >= 0) !== (end.value >= 0))) ? '直近でシグナル線と交差あり' : '交差なし';
+        }
+      }
+      out.push({ key: 'macd', label: 'MACD', term: 'macd', state: state, readout: '', note: note });
+    })();
+
+    // 4) BB %B
+    (function () {
+      var bb = calcBB(ap, 20, 2);
+      var u = _atDisplayEnd(bb && bb.upper, endTime);
+      var l = _atDisplayEnd(bb && bb.lower, endTime);
+      var state = 'データ不足', readout = '';
+      if (u && l && close != null && (u.value - l.value) !== 0) {
+        var pb = (close - l.value) / (u.value - l.value);
+        state = pb > 1 ? '上限バンドの外側' : pb < 0 ? '下限バンドの外側' : 'バンド内側';
+        readout = '%B ' + pb.toFixed(2);
+      }
+      out.push({ key: 'percent-b', label: 'ボリンジャー%B', term: 'percent-b', state: state, readout: readout });
+    })();
+
+    // 5) S/R 最寄り（全クラスタを close で上下分割し価格差最小を選ぶ）
+    (function () {
+      var sr = detectSR(ap) || { resistance: [], support: [] };
+      var all = (sr.resistance || []).concat(sr.support || []);
+      var up = null, dn = null;
+      if (close != null) {
+        for (var i = 0; i < all.length; i++) {
+          var lv = all[i];
+          if (lv.price >= close) { if (!up || (lv.price - close) < (up.price - close)) up = lv; }
+          else { if (!dn || (close - lv.price) < (close - dn.price)) dn = lv; }
+        }
+      }
+      var parts = [];
+      if (up) parts.push('直近の抵抗まで +' + (((up.price - close) / close) * 100).toFixed(1) + '%（強度' + up.count + '）');
+      if (dn) parts.push('直近の支持まで −' + (((close - dn.price) / close) * 100).toFixed(1) + '%（強度' + dn.count + '）');
+      out.push({ key: 'sr', label: '支持線・抵抗線', term: 'sr', state: parts.length ? '算出済み' : 'データ不足', readout: parts.join('／') });
+    })();
+
+    // 6) ZigZag：確定済み直近2ピボット間の change（末尾は未確定）
+    (function () {
+      var piv = calcZigZag(dp, autoZigZagDeviation(dp)) || [];
+      var state = 'データ不足', readout = '', note = '';
+      if (piv.length >= 3) {
+        var p1 = piv[piv.length - 3], p2 = piv[piv.length - 2]; // 末尾=暫定なので手前2点
+        var ch = ((p2.value - p1.value) / p1.value) * 100;
+        var isTrend = Math.abs(ch) >= 3;
+        state = isTrend ? '直近の確定区間はトレンド' : '直近の確定区間はレンジ';
+        readout = (ch >= 0 ? '+' : '') + ch.toFixed(1) + '%';
+        note = '末尾ピボットは未確定';
+      }
+      out.push({ key: 'zigzag', label: 'ZigZag区間', term: 'zigzag', state: state, readout: readout, note: note });
+    })();
+
+    // 7) 出来高（陽/陰のみ）
+    (function () {
+      var vc = volumeColorData(dp) || [];
+      var end = vc.length ? vc[vc.length - 1] : null;
+      var state = 'データ不足', readout = '';
+      if (end && endBar) {
+        state = (endBar.close >= endBar.open) ? '陽線(終値≥始値)' : '陰線';
+        readout = '出来高 ' + (end.value || 0);
+      }
+      out.push({ key: 'volume', label: '出来高', term: 'volume', state: state, readout: readout });
+    })();
+
+    return out;
+  }
+
   return {
     // テクニカル純関数
     calcMA, calcBB, detectSR, calcRSI, calcEMA, calcMACD, calcZigZag, autoZigZagDeviation, volumeColorData,
+    signalDigest,
     // 財務ディスクリプタ純関数
     priceWindow, periodLabel, financialMaxAbs, marketBasisFor, perStatus, pbrStatus,
     equityRatioDesc, currentRatioDesc, yoyBadge, plSteps, cfFlowStatus, cfCompanyType, cfWaterfall, radarScores,
