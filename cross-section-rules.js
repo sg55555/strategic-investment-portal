@@ -65,23 +65,23 @@
 
   // ---- 指標レジストリ ----
   var METRIC_REGISTRY = [
-    { key: "per", label: "PER", read: "ピーイーアール", unit: "倍", currencyNeutral: true, higherIsBetter: false, termKey: "PER",
+    { key: "per", label: "PER", read: "ピーイーアール", unit: "倍", currencyNeutral: true, higherIsBetter: false, termKey: "per",
       getter: function (fin, raw) { return _rawPositive(raw, "per"); } },
-    { key: "pbr", label: "PBR", read: "ピービーアール", unit: "倍", currencyNeutral: true, higherIsBetter: false, termKey: "PBR",
+    { key: "pbr", label: "PBR", read: "ピービーアール", unit: "倍", currencyNeutral: true, higherIsBetter: false, termKey: "pbr",
       getter: function (fin, raw) { return _rawPositive(raw, "pbr"); } },
-    { key: "roe", label: "ROE", read: "アールオーイー", unit: "%", currencyNeutral: true, higherIsBetter: true, termKey: "ROE",
+    { key: "roe", label: "ROE", read: "アールオーイー", unit: "%", currencyNeutral: true, higherIsBetter: true, termKey: "roe",
       getter: function (fin) { return _finRatio(fin, FR.roe, ["net_income", "net_assets"]); } },
-    { key: "roa", label: "ROA", read: "アールオーエー", unit: "%", currencyNeutral: true, higherIsBetter: true, termKey: "ROA",
+    { key: "roa", label: "ROA", read: "アールオーエー", unit: "%", currencyNeutral: true, higherIsBetter: true, termKey: "roa",
       getter: function (fin) { return _finRatio(fin, FR.roa, ["net_income", "current_assets", "non_current_assets"]); } },
-    { key: "netMargin", label: "純利益率", read: "じゅんりえきりつ", unit: "%", currencyNeutral: true, higherIsBetter: true, termKey: "純利益率",
+    { key: "netMargin", label: "純利益率", read: "じゅんりえきりつ", unit: "%", currencyNeutral: true, higherIsBetter: true, termKey: "net-margin",
       getter: function (fin) { return _finRatio(fin, FR.netMargin, ["net_income", "net_sales"]); } },
-    { key: "opMargin", label: "営業利益率", read: "えいぎょうりえきりつ", unit: "%", currencyNeutral: true, higherIsBetter: true, termKey: "営業利益率",
+    { key: "opMargin", label: "営業利益率", read: "えいぎょうりえきりつ", unit: "%", currencyNeutral: true, higherIsBetter: true, termKey: "op-margin",
       getter: function (fin) { return _finRatio(fin, FR.opMargin, ["operating_income", "net_sales"]); } },
-    { key: "equityRatio", label: "自己資本比率", read: "じこしほんひりつ", unit: "%", currencyNeutral: true, higherIsBetter: true, termKey: "自己資本比率",
+    { key: "equityRatio", label: "自己資本比率", read: "じこしほんひりつ", unit: "%", currencyNeutral: true, higherIsBetter: true, termKey: "equity-ratio",
       getter: function (fin) { return _finRatio(fin, FR.equityRatio, ["net_assets", "current_assets", "non_current_assets"]); } },
-    { key: "currentRatio", label: "流動比率", read: "りゅうどうひりつ", unit: "%", currencyNeutral: true, higherIsBetter: true, termKey: "流動比率",
+    { key: "currentRatio", label: "流動比率", read: "りゅうどうひりつ", unit: "%", currencyNeutral: true, higherIsBetter: true, termKey: "current-ratio",
       getter: function (fin) { return _finRatio(fin, FR.currentRatio, ["current_assets", "current_liabilities"]); } },
-    { key: "marketCap", label: "時価総額", read: "じかそうがく", unit: "", currencyNeutral: false, higherIsBetter: null, termKey: "時価総額",
+    { key: "marketCap", label: "時価総額", read: "じかそうがく", unit: "", currencyNeutral: false, higherIsBetter: null, termKey: "market-cap",
       getter: function (fin, raw) { return _rawPositive(raw, "marketCap"); } },
   ];
   var METRIC_BY_KEY = {};

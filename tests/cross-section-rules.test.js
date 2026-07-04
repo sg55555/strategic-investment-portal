@@ -119,3 +119,10 @@ test("sectorMedians: N<minNはその他集約", () => {
   assert.strictEqual(fin.median, 12);
   assert.strictEqual(other.n, 2); // 小売+食品
 });
+test("METRIC_REGISTRY termKeys all resolve in INDICATOR_GLOSSARY", () => {
+  const DR = require("../detail-rules.js");
+  const gloss = new Set(DR.INDICATOR_GLOSSARY.map(g => g.term));
+  CS.METRIC_REGISTRY.forEach(m => {
+    assert.ok(gloss.has(m.termKey), `termKey "${m.termKey}" (${m.key}) missing from INDICATOR_GLOSSARY`);
+  });
+});
