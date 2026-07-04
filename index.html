@@ -1006,6 +1006,7 @@
         <div class="sector-filter-bar" id="sector-filter-bar"></div>
 
         <button class="screening-toggle-btn" id="screening-toggle" onclick="toggleScreening()">▼ スクリーニング</button>
+        <button id="ranking-entry" onclick="navigateToRanking()">▤ ランキング</button>
         <div class="screening-panel" id="screening-panel">
           <div class="screening-grid">
             <div class="screening-item">
@@ -1317,6 +1318,24 @@
         </div>
       </div>
 
+      <div id="ranking-view" class="view-section">
+        <div class="ranking-head">
+          <button class="rk-back" onclick="navigateToPortal()">← 一覧へ</button>
+          <h2 class="ranking-title" data-term="同市場比較">相対ランキング</h2>
+          <div class="rk-controls">
+            <span class="rk-market"><button class="rk-mkt active" id="rk-mkt-JP" onclick="setRankMarket('JP')">日本株</button>
+            <button class="rk-mkt" id="rk-mkt-US" onclick="setRankMarket('US')">米国株</button></span>
+            <select id="rk-metric" onchange="renderRanking()"></select>
+          </div>
+        </div>
+        <div class="ranking-body">
+          <div id="rk-scatter-wrap"><canvas id="rk-scatter"></canvas></div>
+          <div id="rk-sector-strip"></div>
+          <div id="rk-table"></div>
+        </div>
+        <div class="panel-disclaimer" id="rk-disclaimer"></div>
+      </div>
+
       <!-- フッター -->
       <footer class="site-footer">
         <span>© 2026 Strategic Investment Portal</span>
@@ -1499,7 +1518,7 @@
       let dataLoadState = "loading";     // C2: "loading" | "ready" | "error"（取得失敗を0件と区別）
 
       // F3: 中央ビュールーター。散在していた .view-section の active 付替を単一ソース化（+ hash 同期）。
-      const VIEW_IDS = { portal: "portal-view", detail: "detail-view", money: "money-view" };
+      const VIEW_IDS = { portal: "portal-view", detail: "detail-view", money: "money-view", ranking: "ranking-view" };
       currentView = "portal";   // 共有生束縛（宣言は IIFE 外へ hoist）。既定（#portal-view が active・detail-charts.js が呼出時 read）
 
 
@@ -2125,6 +2144,12 @@
         }, 100);
       }
 
+      // Task10: ③ランキングビューへの入口。renderRanking/setRankMarket は Task11/12 で定義（未定義の間は no-op）。
+      function navigateToRanking() {
+        showView("ranking");
+        if (typeof renderRanking === "function") renderRanking();
+      }
+
       // F2: IIFE 末尾で公開面を一括。inline HTML handler / cross-script(detail-charts/detail.js) free-var が
       // 依存する18名（関数16＋const ICO/DEFAULT_CURRENCY）のみ公開。currentTicker/currentView は生束縛ゆえ
       // 含めない（IIFE 外 let）。関数宣言は hoist 済・const も定義済でここに確実到達（try の外・IIFE 最終行）。
@@ -2133,6 +2158,7 @@
         esc, ICO, DEFAULT_CURRENCY, currencyBadge, isWatched, trackEvent, showView,
         toggleScreening, applyScreening, resetScreening, toggleWatchlist, handleContactSubmit,
         openModal, closeModal, retryLoadData, onPortalSearchInput, setSort, navigateToPortal,
+        navigateToRanking,
       });
     })();
 
