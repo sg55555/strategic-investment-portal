@@ -199,6 +199,47 @@
     injectTermHelp(card);
   }
 
+  // ── ①相対ポジションカード（Feature: 相対で見る目 束B）───────────────────────
+  //  純計算は CrossSection.relativePosition（同市場内パーセンタイル・中立バンド語）。ここは DOM 書込のみ。
+  //  免責/CrossSection/STOCK_DATA いずれか欠落・ETF・自己データ欠損はフェイルセーフ非描画（renderSignalDigest 同型）。
+  function renderRelativePosition(ticker) {
+    var card = document.getElementById("relative-position-card");
+    if (!card) return;
+    var CS = (typeof CrossSection !== "undefined") ? CrossSection : window.CrossSection;
+    var disc = (typeof DetailRules !== "undefined") && DetailRules.ANALYSIS_DISCLAIMER;
+    // 注意: STOCK_DATA は dataClient.js トップレベル let の生束縛（cross-script bare 読取専用・
+    //  window.STOCK_DATA は存在しない＝F2 の罠と同型）。window コピーではなく bare 参照で読む。
+    if (!CS || !disc || typeof STOCK_DATA === "undefined" || !STOCK_DATA) { card.style.display = "none"; return; }
+    var rp = CS.relativePosition(ticker, STOCK_DATA);
+    if (!rp || rp.etf) { card.style.display = "none"; return; }
+    function barRow(m) {
+      if (m.value == null) {
+        return '<div class="relpos-row"><div class="relpos-label" data-term="' + esc(m.termKey) + '">' + esc(m.label) +
+          '</div><div class="relpos-na">データなし</div><div class="relpos-val">—</div></div>';
+      }
+      var lo = m.min, hi = m.max, span = (hi - lo) || 1;
+      var pos = Math.max(0, Math.min(100, ((m.value - lo) / span) * 100));
+      var medPos = (m.median == null) ? 50 : Math.max(0, Math.min(100, ((m.median - lo) / span) * 100));
+      return '<div class="relpos-row">' +
+        '<div class="relpos-label" data-term="' + esc(m.termKey) + '">' + esc(m.label) + '</div>' +
+        '<div class="relpos-bar"><div class="relpos-median" style="left:' + medPos.toFixed(1) + '%"></div>' +
+        '<div class="relpos-marker tone-' + esc(m.tone) + '" style="left:' + pos.toFixed(1) + '%"></div></div>' +
+        '<div class="relpos-val">' + esc(m.format) + '</div>' +
+        '<div class="relpos-cap">' + esc(m.caption) + '</div></div>';
+    }
+    var html = '<div class="card-title" data-term="同市場比較">相対ポジション <span class="relpos-sub">' +
+      esc(rp.marketLabel) + esc(String(rp.marketN)) + '銘柄との比較</span></div>';
+    rp.groups.forEach(function (grp) {
+      if (!grp.metrics.length) return;
+      html += '<div class="relpos-group"><div class="relpos-group-title">' + esc(grp.title) + '</div>' +
+        grp.metrics.map(barRow).join("") + '</div>';
+    });
+    html += '<div class="panel-disclaimer">' + esc(disc) + '</div>';
+    card.innerHTML = html;
+    card.style.display = "";
+    if (typeof injectTermHelp === "function") injectTermHelp(card);
+  }
+
   function renderKpiCompare(data) {
     const grid = document.getElementById("kpi-compare-grid");
     if (!grid) return;
@@ -404,7 +445,7 @@
 
     // ETF・財務データなしの場合はチャートカードを非表示
     const isEtf = data.type === "etf";
-    const finCards = ["kpi-compare-card", "bs-title", "radar-title", "pl-title", "cf-title", "health-trend-card"];
+    const finCards = ["kpi-compare-card", "bs-title", "radar-title", "pl-title", "cf-title", "health-trend-card", "relative-position-card"];
     finCards.forEach(id => {
       const card = document.getElementById(id)?.closest(".card");
       if (card) card.style.display = isEtf ? "none" : "";
@@ -443,6 +484,9 @@
     var htDisc = document.getElementById("health-trend-disclaimer");
     if (htDisc && window.DetailRules) htDisc.textContent = window.DetailRules.ANALYSIS_DISCLAIMER || "";
     injectTermHelp(document.getElementById("health-trend-card"));
+    // Feature: 相対で見る目 束B ①相対ポジションカード。ETF/財務欠損は上の early-return でここに到達しない
+    //  （relative-position-card は finCards に登録済＝ETF時 display:none）。関数内で fail-safe 非描画も持つ。
+    renderRelativePosition(currentTicker);
     // forceChartRepaint() は価格チャート描画直後（early-return より前）へ移設済（上記参照）。
   }
 
@@ -459,6 +503,7 @@
   //  free-var 参照する（Task2 で global 前提のまま relocate 済）。detail.js へ移した本体を window に露出し
   //  detail-charts.js 側の bare 参照を解決させる（純ヘルパゆえ状態 seam と異なり引数化でなく shared global）。
   window.animateNumber = animateNumber;
+  window.renderRelativePosition = renderRelativePosition; // 相対ポジションカード（テスト/将来の手動再描画用）
   // 内部/将来用（switchYear は navigateToDetail 内 closure ゆえ bare 露出不要）。
-  window.Detail = { navigateToDetail, updateFinancialViews, switchYear, termHelp, injectTermHelp, renderSignalDigest };
+  window.Detail = { navigateToDetail, updateFinancialViews, switchYear, termHelp, injectTermHelp, renderSignalDigest, renderRelativePosition };
 })();
