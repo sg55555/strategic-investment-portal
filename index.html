@@ -2167,7 +2167,7 @@
         renderRanking();
       }
       // Task12: 散布図（Chart.js・0x0罠回避）+ データ駆動セクター帯。
-      var _rkScatter = null;
+      var _rkScatter = null, _rkScatterGen = 0;
       function renderRankScatterAndStrip(u) {
         var CS = window.CrossSection;
         // --- セクター帯（データ駆動・N>=3、残りその他） ---
@@ -2182,15 +2182,17 @@
               '<span class="rk-cell-sec">' + esc(s.sector) + '</span><span class="rk-cell-n">n' + s.n + '</span>' +
               '<span class="rk-cell-med">' + esc(fmt) + '</span></div>';
           }).join("") + '</div>';
-        // --- 散布図（x=PER, y=ROE 既定・両軸欠測除外・中央値クロスヘア） ---
+        // --- 散布図（x=PER, y=ROE 既定・両軸欠測除外） ---
         var xKey = "per", yKey = "roe";
         var sp = CS.scatterPoints(u, rankMarket, xKey, yKey);
         var canvas = document.getElementById("rk-scatter");
         if (!canvas || typeof Chart === "undefined") return;
-        if (_rkScatter) { _rkScatter.destroy(); _rkScatter = null; }   // 破棄先行（再入の二重生成防止）
+        var gen = ++_rkScatterGen; // 世代トークン：rAF内で自分が最新か再確認（同一フレーム内の複数回呼び出しレース防止）
         // 0x0罠回避：view が active になってから rAF で生成
         requestAnimationFrame(function () {
+          if (gen !== _rkScatterGen) return; // 後続呼び出しに追い越された→no-op
           if (!canvas.clientWidth) return; // 非表示なら生成しない（0x0固定回避）
+          if (_rkScatter) { _rkScatter.destroy(); _rkScatter = null; }   // 破棄はrAF内・new Chart直前
           var ctx = canvas.getContext("2d");
           _rkScatter = new Chart(ctx, {
             type: "scatter",

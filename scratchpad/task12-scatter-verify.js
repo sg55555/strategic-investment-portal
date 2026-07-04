@@ -107,7 +107,43 @@ async function run() {
   assertTrue(c.stripTitle.includes('ROE') || c.stripTitle.length > 0, '指標切替後のセクター帯タイトルが更新されている: "' + c.stripTitle + '"');
   assertTrue(c.cellCount > 0, '指標切替後もセクター帯セルが存在する: count=' + c.cellCount);
 
-  console.log('--- (d) pageerror ---');
+  console.log('--- (d) 高速連続切替（待機なし・同一フレーム内で複数回 renderRankScatterAndStrip を誘発）→ 二重生成/Canvas競合レースの回帰確認 ---');
+  const preBurstErrCount = pageErrors.length;
+  let burstError = null;
+  try {
+    await page.evaluate(() => {
+      // waitなしで連打＝同一フレーム内に複数回 rAF をスケジュールさせ、世代トークンで無効化される経路を踏む。
+      setRankMarket('JP');
+      document.getElementById('rk-metric').value = 'per'; renderRanking();
+      setRankMarket('US');
+      document.getElementById('rk-metric').value = 'roe'; renderRanking();
+      setRankMarket('JP');
+      document.getElementById('rk-metric').value = 'per'; renderRanking();
+      setRankMarket('US');
+      document.getElementById('rk-metric').value = 'roe'; renderRanking();
+      setRankMarket('JP');
+    });
+  } catch (e) { burstError = e.message; }
+  // 全てのスケジュール済み rAF が解決するまで数フレーム分待つ（burst 自体は無待機）
+  await page.waitForTimeout(200);
+  const d = await page.evaluate(() => {
+    const canvas = document.getElementById('rk-scatter');
+    const chartInst = (typeof Chart !== 'undefined' && typeof Chart.getChart === 'function') ? Chart.getChart(canvas) : null;
+    let instancesForCanvas = 0;
+    if (typeof Chart !== 'undefined' && Chart.instances) {
+      Object.keys(Chart.instances).forEach((k) => {
+        if (Chart.instances[k].canvas === canvas) instancesForCanvas++;
+      });
+    }
+    return { hasChartInstance: !!chartInst, instancesForCanvas: instancesForCanvas };
+  });
+  const burstPageErrors = pageErrors.slice(preBurstErrCount);
+  assertTrue(burstError === null, '連続切替の evaluate() 内で例外が発生しない: ' + (burstError || 'なし'));
+  assertTrue(d.hasChartInstance, '連続切替後も Chart インスタンスが #rk-scatter に紐付いている');
+  assertTrue(d.instancesForCanvas === 1, '連続切替後も canvas に紐づく Chart インスタンスは1つのみ(二重生成/レースなし): count=' + d.instancesForCanvas);
+  assertTrue(burstPageErrors.length === 0, '連続切替中に pageerror が発生しない("Canvas is already in use" 等): count=' + burstPageErrors.length + (burstPageErrors.length ? ' ' + JSON.stringify(burstPageErrors) : ''));
+
+  console.log('--- (e) pageerror（全体） ---');
   assertTrue(pageErrors.length === 0, 'pageerror 0件: count=' + pageErrors.length + (pageErrors.length ? ' ' + JSON.stringify(pageErrors) : ''));
 
   await browser.close();
