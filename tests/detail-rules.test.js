@@ -307,6 +307,11 @@ test("INDICATOR_GLOSSARY: def/read contain no trade/forecast words", () => {
   }
 });
 
+test("INDICATOR_GLOSSARY has cross-section terms", () => {
+  const terms = D.INDICATOR_GLOSSARY.map(g => g.term);
+  ["パーセンタイル", "中央値", "四分位", "同市場比較"].forEach(t => assert.ok(terms.includes(t), t));
+});
+
 test("ANALYSIS_DISCLAIMER: nonempty education-frame string", () => {
   assert.equal(typeof D.ANALYSIS_DISCLAIMER, "string");
   assert.ok(D.ANALYSIS_DISCLAIMER.length > 20);
