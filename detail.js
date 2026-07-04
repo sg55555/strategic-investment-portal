@@ -32,6 +32,7 @@
     document.getElementById("compare-search-list").style.display = "none";
     renderCompareChips();
     DetailCharts.renderCompareChart(compareSet, comparePeriodMonths);
+    setCompareTab("chart");  // Task9: モーダルを開くたびチャート既定へリセット
   }
 
   function compareSearchInput() {
@@ -56,12 +57,19 @@
     document.getElementById("compare-search-list").style.display = "none";
     renderCompareChips();
     DetailCharts.renderCompareChart(compareSet, comparePeriodMonths);
+    _rerenderCompareTableIfVisible();
   }
 
   function removeFromCompare(ticker) {
     compareSet.delete(ticker);
     renderCompareChips();
     DetailCharts.renderCompareChart(compareSet, comparePeriodMonths);
+    _rerenderCompareTableIfVisible();
+  }
+  // Task9: テーブルタブ表示中のみ再描画（チャートタブ中は無駄な再描画をしない）
+  function _rerenderCompareTableIfVisible() {
+    var table = document.getElementById("compare-table-container");
+    if (table && table.style.display !== "none") renderCompareTable(compareSet);
   }
 
   function renderCompareChips() {
@@ -80,6 +88,55 @@
     document.querySelectorAll(".compare-period-btn").forEach(b => b.classList.remove("active"));
     window.event.target.classList.add("active");   // Task3: 暗黙 global event を window.event に明示化（markup 無改変・挙動不変）
     DetailCharts.renderCompareChart(compareSet, comparePeriodMonths);
+  }
+
+  // ── ②比較テーブル（Feature: 相対で見る目 束B・指標比較タブ）───────────────────
+  //  純計算は CrossSection.compareMetricsRows（期間非依存の指標のみ・ETF は比率 N/A・時価総額のみ表示）。
+  //  term は INDICATOR_GLOSSARY のキー（小文字ハイフン短コード）に一致させる（?ツールチップが引けるように）。
+  var COMPARE_COLS = [
+    { key: "per", label: "PER", term: "per" }, { key: "pbr", label: "PBR", term: "pbr" },
+    { key: "roe", label: "ROE", term: "roe" }, { key: "netMargin", label: "純利益率", term: "net-margin" },
+    { key: "opMargin", label: "営業利益率", term: "op-margin" }, { key: "equityRatio", label: "自己資本比率", term: "equity-ratio" },
+    { key: "currentRatio", label: "流動比率", term: "current-ratio" }, { key: "marketCap", label: "時価総額", term: "market-cap" },
+  ];
+  function renderCompareTable(setLike) {
+    var host = document.getElementById("compare-table-container");
+    if (!host) return;
+    var CS = (typeof CrossSection !== "undefined") ? CrossSection : window.CrossSection;
+    var disc = (typeof DetailRules !== "undefined") && DetailRules.ANALYSIS_DISCLAIMER;
+    var tickers = setLike ? Array.from(setLike) : [];
+    // 注意: STOCK_DATA は dataClient.js トップレベル let の生束縛（cross-script bare 読取専用・
+    //  window.STOCK_DATA は存在しない＝F2 の罠と同型）。window コピーではなく bare 参照で読む。
+    if (!CS || !tickers.length || typeof STOCK_DATA === "undefined" || !STOCK_DATA) { host.innerHTML = ""; return; }
+    var rows = CS.compareMetricsRows(tickers, STOCK_DATA);
+    var head = '<th>銘柄</th>' + COMPARE_COLS.map(function (c) {
+      return '<th data-term="' + window.esc(c.term) + '">' + window.esc(c.label) + '</th>'; }).join("");
+    var body = rows.map(function (r) {
+      var tds = '<td>' + window.esc(r.name) + (r.isEtf ? ' <span class="cmp-etf">ETF</span>' : '') + '</td>';
+      tds += COMPARE_COLS.map(function (c) {
+        var cell = r.cells[c.key];
+        return '<td class="' + (cell.missing ? 'na' : '') + '">' + window.esc(cell.format) +
+          (c.key === "marketCap" && !cell.missing ? ' <span class="cmp-cur">' + window.esc(r.currency === "USD" ? "$" : "¥") + '</span>' : '') + '</td>';
+      }).join("");
+      return '<tr>' + tds + '</tr>';
+    }).join("");
+    host.innerHTML = '<div class="cmp-table-wrap"><table class="cmp-table"><thead><tr>' + head +
+      '</tr></thead><tbody>' + body + '</tbody></table></div>' +
+      '<div class="cmp-note">※ 時価総額は通貨単位が異なり市場をまたぐ比較はできません。</div>' +
+      (disc ? '<div class="panel-disclaimer">' + window.esc(disc) + '</div>' : '');
+    if (typeof injectTermHelp === "function") injectTermHelp(host);
+  }
+  function setCompareTab(which) {
+    var chart = document.getElementById("compare-chart-container");
+    var table = document.getElementById("compare-table-container");
+    var legend = document.getElementById("compare-legend");
+    var bChart = document.getElementById("compare-tab-chart"), bTable = document.getElementById("compare-tab-table");
+    var isTable = which === "table";
+    if (chart) chart.style.display = isTable ? "none" : "";
+    if (legend) legend.style.display = isTable ? "none" : "";
+    if (table) { table.style.display = isTable ? "" : "none"; if (isTable) renderCompareTable(compareSet); }
+    if (bChart) bChart.classList.toggle("active", !isTable);
+    if (bTable) bTable.classList.toggle("active", isTable);
   }
 
   function exportCSV() {
@@ -499,6 +556,8 @@
   window.addToCompare = addToCompare;              // compareSearchInput 生成 onclick
   window.removeFromCompare = removeFromCompare;    // renderCompareChips 生成 onclick
   window.setComparePeriod = setComparePeriod;      // markup onclick
+  window.renderCompareTable = renderCompareTable;  // 将来の手動再描画用
+  window.setCompareTab = setCompareTab;            // markup onclick="setCompareTab('table')"
   // cross-module seam(共有ヘルパ): animateNumber は detail-charts.js の renderBSChart/renderRadarChart が
   //  free-var 参照する（Task2 で global 前提のまま relocate 済）。detail.js へ移した本体を window に露出し
   //  detail-charts.js 側の bare 参照を解決させる（純ヘルパゆえ状態 seam と異なり引数化でなく shared global）。
