@@ -2178,13 +2178,20 @@
         host.innerHTML = '<table class="rk-tbl"><thead><tr><th>#</th><th>銘柄</th><th>業種</th><th>値</th><th>順位(%)</th></tr></thead><tbody>' +
           rows.map(function (r) {
             var col = (typeof getSectorColor === "function") ? getSectorColor(r.industry) : "#62f0ff";
-            return '<tr onclick="navigateToDetail(\'' + esc(r.ticker) + '\')">' +
+            return '<tr class="rk-row" data-ticker="' + esc(r.ticker) + '">' +
               '<td>' + r.rank + '</td>' +
               '<td><span class="rk-dot" style="background:' + esc(col) + '"></span>' + esc(r.name) + '</td>' +
               '<td class="rk-sec">' + esc(r.industry) + '</td>' +
               '<td class="rk-val">' + esc(r.format) + '</td>' +
               '<td>' + Math.round(r.percentile) + '</td></tr>';
           }).join("") + '</tbody></table>';
+        // data-ticker + 委譲リスナー（inline onclick はHTML実体復号後にJSとして解釈されるため
+        // esc() だけでは breakout を防げない latent XSS になる。行ごとの inline handler を廃し
+        // #rk-table に1つだけ委譲リスナーを付ける＝data-ticker は属性値として読むのみでJSソースに混ぜない。
+        host.onclick = function (e) {
+          var tr = e.target.closest("tr[data-ticker]");
+          if (tr && tr.dataset.ticker) navigateToDetail(tr.dataset.ticker);
+        };
         var disc = (window.DetailRules && DetailRules.ANALYSIS_DISCLAIMER) || "";
         document.getElementById("rk-disclaimer").textContent = disc;
         renderRankScatterAndStrip(u); // Task 12

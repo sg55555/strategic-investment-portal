@@ -33,7 +33,7 @@ async function run() {
       jpActive: document.getElementById('rk-mkt-JP').classList.contains('active'),
       usActive: document.getElementById('rk-mkt-US').classList.contains('active'),
       rowCount: rows.length,
-      tickers: rows.map((r) => r.getAttribute('onclick')),
+      tickers: rows.map((r) => r.getAttribute('data-ticker')),
       metricOptions: document.getElementById('rk-metric').options.length,
       metricValue: document.getElementById('rk-metric').value,
       disclaimerLen: (document.getElementById('rk-disclaimer').textContent || '').length,
@@ -56,13 +56,13 @@ async function run() {
       jpActive: document.getElementById('rk-mkt-JP').classList.contains('active'),
       usActive: document.getElementById('rk-mkt-US').classList.contains('active'),
       rowCount: rows.length,
-      tickers: rows.map((r) => r.getAttribute('onclick')),
+      tickers: rows.map((r) => r.getAttribute('data-ticker')),
     };
   });
   assertTrue(b.jpActive === false && b.usActive === true, 'US切替後: JP非active/US active');
   assertTrue(b.rowCount > 0, 'US表の行数>0: count=' + b.rowCount);
   assertTrue(JSON.stringify(b.tickers) !== JSON.stringify(jpTickersPer), 'US切替で銘柄集合がJPと異なる');
-  assertTrue(b.tickers.every((t) => !/\.T'/.test(t)), 'US表の銘柄は.T(日本株)を含まない');
+  assertTrue(b.tickers.every((t) => !/\.T$/.test(t)), 'US表の銘柄は.T(日本株)を含まない');
 
   console.log('--- (c) 指標を roe に切替(同一市場=US内) → 並び順(先頭ticker)が変化 ---');
   const usTopPer = b.tickers[0];
@@ -73,15 +73,21 @@ async function run() {
   await page.waitForTimeout(200);
   const c = await page.evaluate(() => {
     const rows = Array.from(document.querySelectorAll('#rk-table .rk-tbl tbody tr'));
-    return { metricValue: document.getElementById('rk-metric').value, tickers: rows.map((r) => r.getAttribute('onclick')), rowCount: rows.length };
+    return { metricValue: document.getElementById('rk-metric').value, tickers: rows.map((r) => r.getAttribute('data-ticker')), rowCount: rows.length };
   });
   assertTrue(c.metricValue === 'roe', '#rk-metric の値が roe に変わっている');
   assertTrue(c.rowCount > 0, 'roe切替後も行数>0: count=' + c.rowCount);
   assertTrue(c.tickers[0] !== usTopPer, '指標切替で並び順(先頭ticker)が変化: per先頭=' + usTopPer + ' roe先頭=' + c.tickers[0]);
 
   console.log('--- (d) 行クリック → 詳細ページへ遷移(currentTicker設定 / detail-view active) ---');
-  const firstOnclick = c.tickers[0]; // navigateToDetail('XXXX') 形式
-  const expectedTicker = /navigateToDetail\('([^']+)'\)/.exec(firstOnclick)[1];
+  // security fix: 行は data-ticker 属性(HTML-escaped)を持つのみ・ナビゲーションは
+  // #rk-table への委譲リスナー(host.onclick)経由。inline onclick は行に存在しない。
+  const expectedTicker = c.tickers[0];
+  const noInlineOnclick = await page.evaluate(() => {
+    const html = document.getElementById('rk-table').innerHTML;
+    return !/onclick\s*=/.test(html);
+  });
+  assertTrue(noInlineOnclick, '#rk-table 内に inline onclick 属性が存在しない(委譲リスナーのみ)');
   await page.click('#rk-table .rk-tbl tbody tr:first-child');
   await page.waitForTimeout(1200); // navigateToDetail は setTimeout(150ms)経由 + チャート描画
   const d = await page.evaluate(() => ({
