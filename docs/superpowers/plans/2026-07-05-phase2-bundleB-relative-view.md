@@ -825,11 +825,12 @@ git commit -m "feat(compare-table): modal tab bar + #compare-table-container + s
 
 `detail.js`:
 ```js
+// term は INDICATOR_GLOSSARY のキー（小文字ハイフン短コード）に一致させる（?ツールチップが引けるように）
 var COMPARE_COLS = [
-  { key: "per", label: "PER", term: "PER" }, { key: "pbr", label: "PBR", term: "PBR" },
-  { key: "roe", label: "ROE", term: "ROE" }, { key: "netMargin", label: "純利益率", term: "純利益率" },
-  { key: "opMargin", label: "営業利益率", term: "営業利益率" }, { key: "equityRatio", label: "自己資本比率", term: "自己資本比率" },
-  { key: "currentRatio", label: "流動比率", term: "流動比率" }, { key: "marketCap", label: "時価総額", term: "時価総額" },
+  { key: "per", label: "PER", term: "per" }, { key: "pbr", label: "PBR", term: "pbr" },
+  { key: "roe", label: "ROE", term: "roe" }, { key: "netMargin", label: "純利益率", term: "net-margin" },
+  { key: "opMargin", label: "営業利益率", term: "op-margin" }, { key: "equityRatio", label: "自己資本比率", term: "equity-ratio" },
+  { key: "currentRatio", label: "流動比率", term: "current-ratio" }, { key: "marketCap", label: "時価総額", term: "market-cap" },
 ];
 function renderCompareTable(setLike) {
   var host = document.getElementById("compare-table-container");
