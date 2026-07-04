@@ -379,6 +379,31 @@ def test_deadline_bucket_invalid_calendar_day():
     assert advice._deadline_bucket("2026-08-31", now) == "under_3m"  # 8/31 は実在
 
 
+def _all_keys(o, acc):
+    """facts の全キーを再帰収集（lower）。値でなくキーで判定＝'version' の 'rsi' 等の偽陽性を避ける。"""
+    if isinstance(o, dict):
+        for k, v in o.items():
+            acc.add(str(k).lower())
+            _all_keys(v, acc)
+    elif isinstance(o, list):
+        for v in o:
+            _all_keys(v, acc)
+
+
+def test_mode_a_facts_no_technical_keys():
+    """Feature#3: detail-rules 由来のテクニカル/指標キー（signalDigest / INDICATOR_GLOSSARY /
+    health 系列）が facts に絶対に流出しないことを保証（規制安全＝technical を LLM facts へ渡さない）。
+    技術指標を facts に混入させる将来変更を落とす回帰網。キー完全一致で判定（実際の漏洩ベクタは新キー追加）。"""
+    tech = {"signal", "signaldigest", "indicator", "rsi", "macd", "glossary", "zigzag", "bollinger", "healthtrend", "healthtrendseries"}
+    for c in CASES:
+        for include_raw in (False, True):
+            f = advice.mode_a_facts(c["state"], include_raw, _case_now(c))
+            ks = set()
+            _all_keys(f, ks)
+            leaked = tech & ks
+            assert not leaked, "technical keys leaked into facts: %s (case %s)" % (leaked, c.get("name", "?"))
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
