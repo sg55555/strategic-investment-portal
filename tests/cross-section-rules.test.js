@@ -82,3 +82,40 @@ test("relativePosition: 中立語彙のみ・自市場内・欠測データな�
   assert.deepStrictEqual(CS.relativePosition("ETF.T", { "ETF.T": jpStock({ type: "etf", financials_trend: {} }) }), { etf: true });
   assert.strictEqual(CS.relativePosition("NOPE", data), null);
 });
+test("compareMetricsRows: ETFはN/A・欠測—・marketCapは通貨付き", () => {
+  const data = { "A.T": jpStock(), "ETF.T": jpStock({ type: "etf", financials_trend: {} }) };
+  const rows = CS.compareMetricsRows(["A.T", "ETF.T", "NOPE"], data);
+  assert.strictEqual(rows.length, 2);
+  assert.strictEqual(rows[0].cells.per.missing, false);
+  assert.strictEqual(rows[1].isEtf, true);
+  assert.strictEqual(rows[1].cells.roe.missing, true);
+  assert.strictEqual(rows[1].cells.roe.format, "—");
+  assert.strictEqual(rows[1].cells.marketCap.missing, false); // ETFでも時価総額は出す
+});
+test("rankByMetric: 自市場内・PER昇順(低い順)・decile", () => {
+  const data = { "A.T": jpStock({ per: 10 }), "B.T": jpStock({ per: 30 }), "C.T": jpStock({ per: 20 }) };
+  const u = CS.buildUniverse(data);
+  const r = CS.rankByMetric(u, "JP", "per");
+  assert.deepStrictEqual(r.map(x => x.ticker), ["A.T", "C.T", "B.T"]); // higherIsBetter=false → asc
+  assert.strictEqual(r[0].rank, 1);
+});
+test("scatterPoints: 両軸欠測除外 + 中央値", () => {
+  const data = { "A.T": jpStock({ per: 10 }), "B.T": jpStock({ per: 20 }) };
+  const u = CS.buildUniverse(data);
+  const s = CS.scatterPoints(u, "JP", "per", "roe");
+  assert.strictEqual(s.points.length, 2);
+  assert.strictEqual(s.xMedian, 15);
+  assert.ok(s.xLabel === "PER" && s.yLabel === "ROE");
+});
+test("sectorMedians: N<minNはその他集約", () => {
+  const mk = (sec, per) => jpStock({ industry: sec, per });
+  const data = { "1.T": mk("金融", 10), "2.T": mk("金融", 12), "3.T": mk("金融", 14),
+    "4.T": mk("小売", 20), "5.T": mk("食品", 22) };
+  const u = CS.buildUniverse(data);
+  const sm = CS.sectorMedians(u, "JP", "per", { minN: 3 });
+  const fin = sm.find(x => x.sector === "金融");
+  const other = sm.find(x => x.sector === "その他");
+  assert.strictEqual(fin.n, 3);
+  assert.strictEqual(fin.median, 12);
+  assert.strictEqual(other.n, 2); // 小売+食品
+});

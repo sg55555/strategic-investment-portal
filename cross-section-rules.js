@@ -180,9 +180,70 @@
     };
   }
 
+  var COMPARE_METRICS = ["per", "pbr", "roe", "netMargin", "opMargin", "equityRatio", "currentRatio", "marketCap"];
+  function compareMetricsRows(tickers, stockData) {
+    return (tickers || []).map(function (ticker) {
+      var raw = stockData && stockData[ticker];
+      if (!raw) return null;
+      var isEtf = (raw.type || "stock") === "etf";
+      var fin = _latestFin(raw);
+      var cells = {};
+      COMPARE_METRICS.forEach(function (k) {
+        var m = METRIC_BY_KEY[k];
+        var v = (isEtf && k !== "marketCap") ? null : m.getter(fin, raw);
+        var missing = !(typeof v === "number" && isFinite(v));
+        cells[k] = { value: missing ? null : v, format: missing ? "—" : _fmtMetric(m, v, raw.currency), missing: missing };
+      });
+      return { ticker: ticker, name: raw.company_name || ticker, market: raw.country || "", currency: raw.currency || "", isEtf: isEtf, cells: cells };
+    }).filter(Boolean);
+  }
+  function rankByMetric(universe, market, metricKey, opts) {
+    var g = universe && universe[market];
+    if (!g) return [];
+    var m = METRIC_BY_KEY[metricKey];
+    var dir = (opts && opts.dir) || (m && m.higherIsBetter === false ? "asc" : "desc");
+    var vals = g[metricKey];
+    var rows = g._members.filter(function (mem) { return mem.values[metricKey] != null; })
+      .map(function (mem) { return { ticker: mem.ticker, name: mem.name, industry: mem.industry, value: mem.values[metricKey], currency: mem.currency }; });
+    rows.sort(function (a, b) { return dir === "asc" ? a.value - b.value : b.value - a.value; });
+    return rows.map(function (r, i) {
+      var p = percentileRank(vals, r.value);
+      return { rank: i + 1, ticker: r.ticker, name: r.name, industry: r.industry, value: r.value,
+        format: _fmtMetric(m, r.value, r.currency), percentile: p, decile: Math.min(10, Math.floor(p / 10) + 1) };
+    });
+  }
+  function scatterPoints(universe, market, xKey, yKey) {
+    var g = universe && universe[market];
+    if (!g) return { points: [], xMedian: null, yMedian: null, xLabel: "", yLabel: "" };
+    var points = g._members.filter(function (mem) { return mem.values[xKey] != null && mem.values[yKey] != null; })
+      .map(function (mem) { return { ticker: mem.ticker, name: mem.name, industry: mem.industry, x: mem.values[xKey], y: mem.values[yKey] }; });
+    return { points: points, xMedian: median(points.map(function (p) { return p.x; })), yMedian: median(points.map(function (p) { return p.y; })),
+      xLabel: (METRIC_BY_KEY[xKey] || {}).label || xKey, yLabel: (METRIC_BY_KEY[yKey] || {}).label || yKey };
+  }
+  function sectorMedians(universe, market, metricKey, opts) {
+    var g = universe && universe[market];
+    if (!g) return [];
+    var minN = (opts && opts.minN) || 3, bySector = {};
+    g._members.forEach(function (mem) {
+      var v = mem.values[metricKey];
+      if (v == null) return;
+      (bySector[mem.industry] = bySector[mem.industry] || []).push(v);
+    });
+    var named = [], other = [];
+    Object.keys(bySector).forEach(function (sec) {
+      var vals = bySector[sec];
+      if (vals.length >= minN) named.push({ sector: sec, n: vals.length, median: median(vals) });
+      else other = other.concat(vals);
+    });
+    named.sort(function (a, b) { return (b.median || 0) - (a.median || 0); });
+    if (other.length) named.push({ sector: "その他", n: other.length, median: median(other) });
+    return named;
+  }
+
   return { median: median, mean: mean, percentileRank: percentileRank, quantile: quantile,
     METRIC_REGISTRY: METRIC_REGISTRY, METRIC_BY_KEY: METRIC_BY_KEY,
     buildUniverse: buildUniverse, _latestFin: _latestFin,
     peerStats: peerStats, relativePosition: relativePosition,
+    compareMetricsRows: compareMetricsRows, rankByMetric: rankByMetric, scatterPoints: scatterPoints, sectorMedians: sectorMedians,
   };
 });
