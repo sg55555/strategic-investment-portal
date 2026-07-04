@@ -830,3 +830,17 @@
       [data-theme="D"] .term-help::after {
         box-shadow: 0 0 12px color-mix(in srgb, var(--ix-cyan, #62f0ff) 35%, transparent);
       }
+
+      /* ── 比較モーダル: タブ（チャート/テーブル切替・Task 9で setCompareTab 実装） ── */
+      .cmp-tabs { display: flex; gap: 8px; margin: 6px 0 8px; }
+      .cmp-tab { font: 12px var(--ix-mono, monospace); color: #9fb9cc; background: transparent; border: 1px solid rgba(98,240,255,.25);
+        border-radius: 3px; padding: 5px 12px; cursor: pointer; }
+      .cmp-tab.active { color: var(--c-cyan, #62f0ff); border-color: var(--c-cyan, #62f0ff); box-shadow: 0 0 8px rgba(98,240,255,.3); }
+      .cmp-table { width: 100%; border-collapse: collapse; font: 12px var(--ix-mono, monospace); }
+      .cmp-table th, .cmp-table td { padding: 6px 8px; text-align: right; border-bottom: 1px solid rgba(98,240,255,.12); white-space: nowrap; }
+      .cmp-table th:first-child, .cmp-table td:first-child { text-align: left; }
+      .cmp-table thead th { color: var(--c-cyan, #62f0ff); font-weight: 600; }
+      .cmp-table td.na { color: #7d93a5; }
+      .cmp-table-wrap { overflow-x: auto; }
+      /* 免責の共通スタイル（相対カード/比較テーブル/ランキングで共用・.sig-disclaimer と同等） */
+      .panel-disclaimer { margin-top: 8px; font-size: 10px; color: var(--ix-text-dim, #9fb0d0); line-height: 1.5; }

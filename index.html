@@ -1346,7 +1346,12 @@
           <button class="compare-period-btn" onclick="setComparePeriod(60)">5Y</button>
           <span style="font-size:0.7rem;color:#334155;margin-left:4px;">基準: 選択期間開始日 = 0%</span>
         </div>
+        <div class="cmp-tabs">
+          <button class="cmp-tab active" id="compare-tab-chart" onclick="setCompareTab('chart')">📈 リターン比較</button>
+          <button class="cmp-tab" id="compare-tab-table" onclick="setCompareTab('table')">▤ 指標比較</button>
+        </div>
         <div id="compare-chart-container"></div>
+        <div id="compare-table-container" style="display:none"></div>
         <div class="compare-legend" id="compare-legend"></div>
       </div>
     </div>
