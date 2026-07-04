@@ -214,27 +214,27 @@
     if (!rp || rp.etf) { card.style.display = "none"; return; }
     function barRow(m) {
       if (m.value == null) {
-        return '<div class="relpos-row"><div class="relpos-label" data-term="' + esc(m.termKey) + '">' + esc(m.label) +
+        return '<div class="relpos-row"><div class="relpos-label" data-term="' + window.esc(m.termKey) + '">' + window.esc(m.label) +
           '</div><div class="relpos-na">データなし</div><div class="relpos-val">—</div></div>';
       }
       var lo = m.min, hi = m.max, span = (hi - lo) || 1;
       var pos = Math.max(0, Math.min(100, ((m.value - lo) / span) * 100));
       var medPos = (m.median == null) ? 50 : Math.max(0, Math.min(100, ((m.median - lo) / span) * 100));
       return '<div class="relpos-row">' +
-        '<div class="relpos-label" data-term="' + esc(m.termKey) + '">' + esc(m.label) + '</div>' +
+        '<div class="relpos-label" data-term="' + window.esc(m.termKey) + '">' + window.esc(m.label) + '</div>' +
         '<div class="relpos-bar"><div class="relpos-median" style="left:' + medPos.toFixed(1) + '%"></div>' +
-        '<div class="relpos-marker tone-' + esc(m.tone) + '" style="left:' + pos.toFixed(1) + '%"></div></div>' +
-        '<div class="relpos-val">' + esc(m.format) + '</div>' +
-        '<div class="relpos-cap">' + esc(m.caption) + '</div></div>';
+        '<div class="relpos-marker tone-' + window.esc(m.tone) + '" style="left:' + pos.toFixed(1) + '%"></div></div>' +
+        '<div class="relpos-val">' + window.esc(m.format) + '</div>' +
+        '<div class="relpos-cap">' + window.esc(m.caption) + '</div></div>';
     }
     var html = '<div class="card-title" data-term="同市場比較">相対ポジション <span class="relpos-sub">' +
-      esc(rp.marketLabel) + esc(String(rp.marketN)) + '銘柄との比較</span></div>';
+      window.esc(rp.marketLabel) + window.esc(String(rp.marketN)) + '銘柄との比較</span></div>';
     rp.groups.forEach(function (grp) {
       if (!grp.metrics.length) return;
-      html += '<div class="relpos-group"><div class="relpos-group-title">' + esc(grp.title) + '</div>' +
+      html += '<div class="relpos-group"><div class="relpos-group-title">' + window.esc(grp.title) + '</div>' +
         grp.metrics.map(barRow).join("") + '</div>';
     });
-    html += '<div class="panel-disclaimer">' + esc(disc) + '</div>';
+    html += '<div class="panel-disclaimer">' + window.esc(disc) + '</div>';
     card.innerHTML = html;
     card.style.display = "";
     if (typeof injectTermHelp === "function") injectTermHelp(card);
