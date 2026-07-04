@@ -343,17 +343,77 @@ test("signalDigest: labels/states contain no trade/forecast words", () => {
   }
 });
 
-test("signalDigest: current value indexed to display window end, not today", () => {
+test("signalDigest: current value indexed to display window end, not allPrices tail (H7)", () => {
   const all = synthPrices(300);
-  const disp = all.slice(50, 120); // 過去窓（末尾=all[119] でなく disp 末尾）
+  const disp = all.slice(0, 120); // 過去窓（末尾=all[119]・all 末尾=all[299] とは別日）
   const ds = D.signalDigest(disp, all);
   const rsi = ds.find((d) => d.key === "rsi");
-  // 末尾窓の RSI は disp 末尾の time で index される（今日=all 末尾の値が混入しない）
-  assert.ok(rsi.state === "データ不足" || typeof rsi.readout === "string");
+
+  // フル履歴 RSI 系列から「disp 末尾の日付」の値と「all 末尾（今日）」の値を取り出す。
+  const rsiSeries = D.calcRSI(all, 14);
+  const dispEndTime = disp[disp.length - 1].time;
+  const atDispEnd = rsiSeries.find((r) => r.time === dispEndTime);
+  const atToday = rsiSeries[rsiSeries.length - 1];
+  assert.ok(atDispEnd, "RSI series should cover disp end date");
+
+  // H7 不変条件: readout は disp 末尾日の RSI 値であり、all 末尾（今日）の値ではない。
+  // （恒真アサートでなく実値で照合する＝allPrices-tail indexing への回帰を検出できる）
+  assert.equal(rsi.readout, "RSI " + atDispEnd.value);
+  assert.notEqual(atDispEnd.value, atToday.value, "test data must make disp-end and today differ");
+  assert.notEqual(rsi.readout, "RSI " + atToday.value);
 });
 
 test("signalDigest: thin history folds to データ不足, no crash", () => {
   const ds = D.signalDigest(synthPrices(5), synthPrices(5));
   assert.equal(ds.length, 7);
   assert.ok(ds.some((d) => d.state === "データ不足"));
+});
+
+// S/R 用の決定論ピーク列: 谷=100。近い抵抗=122(count1)・遠い抵抗=150/160/170(各count3)・末尾close=120。
+// これで「count 降順 top-3(150/160/170)」は近い 122 を脱落させる＝M7 の反例になる。
+function synthSRSeries() {
+  const A = []; let t = 0;
+  const bar = (o, h, l, c) => { const d = new Date(2020, 0, 1 + t++); return { time: d.toISOString().slice(0, 10), open: o, high: h, low: l, close: c, volume: 1000 }; };
+  const valley = () => A.push(bar(100, 100.8, 99.2, 100));
+  const peak = (lvl) => A.push(bar(100, lvl, 99, 100.5));
+  const valleys = (n) => { for (let i = 0; i < n; i++) valley(); };
+  valleys(4);
+  peak(122); valleys(4);
+  peak(150); valleys(4); peak(150); valleys(4); peak(150); valleys(4);
+  peak(160); valleys(4); peak(160); valleys(4); peak(160); valleys(4);
+  peak(170); valleys(4); peak(170); valleys(4); peak(170); valleys(4);
+  for (let i = 0; i < 5; i++) A.push(bar(120, 120.5, 119.5, 120)); // 末尾=現在地 close 120（ピボット検出外）
+  return A;
+}
+
+test("detectSR: maxPerSide caps per side (default 3) and Infinity returns all clusters (M7)", () => {
+  const A = synthSRSeries();
+  const def = D.detectSR(A);
+  const all = D.detectSR(A, Infinity);
+  assert.ok(def.resistance.length <= 3, "default caps resistance to top-3");
+  assert.ok(all.resistance.length > def.resistance.length, "Infinity returns more clusters");
+  assert.ok(!def.resistance.some((r) => r.price === 122), "near 122 dropped by default top-3-by-count");
+  assert.ok(all.resistance.some((r) => r.price === 122), "near 122 present with Infinity");
+});
+
+test("signalDigest S/R: picks nearest-by-distance level, not top-3-by-count (M7)", () => {
+  const A = synthSRSeries();
+  const sr = D.signalDigest(A, A).find((d) => d.key === "sr");
+  assert.equal(sr.state, "算出済み");
+  // close=120 に最も近い抵抗は 122(+1.7%)。top-3(150/160/170)しか見なければ +25.0% になってしまう。
+  assert.match(sr.readout, /直近の抵抗まで \+1\.7%/);
+  assert.doesNotMatch(sr.readout, /\+25\.0%/);
+});
+
+test("signalDigest S/R: computed from display window (dp), independent of allPrices tail (window-aware)", () => {
+  const disp = synthSRSeries(); // close ~120・抵抗 122 近傍（2020 の日付）
+  // all = disp ＋ はるかに高い直近水準(500)の後続 bar（2022）。S/R が ap を使うなら巨大な%になるはず。
+  const tail = [];
+  for (let i = 0; i < 300; i++) { const d = new Date(2022, 0, 1 + i); tail.push({ time: d.toISOString().slice(0, 10), open: 500, high: 505, low: 495, close: 500, volume: 1000 }); }
+  const all = disp.concat(tail);
+  const srDispOnly = D.signalDigest(disp, disp).find((d) => d.key === "sr");
+  const srWithHugeAll = D.signalDigest(disp, all).find((d) => d.key === "sr");
+  // S/R は dp（第1引数=表示期間）から算出されるので allPrices 末尾(500)に影響されず一致する。
+  assert.equal(srWithHugeAll.readout, srDispOnly.readout);
+  assert.match(srWithHugeAll.readout, /直近の抵抗まで \+1\.7%/);
 });

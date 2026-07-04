@@ -92,7 +92,10 @@
   }
 
   // ── 支持線・抵抗線 自動識別 ────────────────────────────────────
-  function detectSR(prices) {
+  // maxPerSide: 各サイド(抵抗/支持)で返すクラスタ数の上限。既定 3(チャート描画=強い順 top-3)。
+  //  signalDigest の「最寄り(価格差最小)」選択は count 降順 top-3 の外の近い水準も対象にするため Infinity を渡す(M7)。
+  function detectSR(prices, maxPerSide) {
+    const _maxPerSide = (maxPerSide == null) ? 3 : maxPerSide;
     const recent = prices.slice(-Math.min(252, prices.length));
     const pivotHighs = [], pivotLows = [];
     const n = 3;
@@ -121,7 +124,7 @@
         groups.push({ price: group.reduce((a, b) => a + b, 0) / group.length, count: group.length });
         i = j;
       }
-      return groups.sort((a, b) => b.count - a.count).slice(0, 3);
+      return groups.sort((a, b) => b.count - a.count).slice(0, _maxPerSide);
     }
     return { resistance: cluster(pivotHighs), support: cluster(pivotLows) };
   }
@@ -495,9 +498,10 @@
       out.push({ key: 'percent-b', label: 'ボリンジャー%B', term: 'percent-b', state: state, readout: readout });
     })();
 
-    // 5) S/R 最寄り（全クラスタを close で上下分割し価格差最小を選ぶ）
+    // 5) S/R 最寄り（表示期間 dp から算出＝チャート描画のS/R線・as-ofキャプションと整合／全クラスタを
+    //    close で上下分割し価格差最小を選ぶ＝count 降順 top-3 の外の近い水準も対象[M7]・count は強度表示のみ）
     (function () {
-      var sr = detectSR(ap) || { resistance: [], support: [] };
+      var sr = detectSR(dp, Infinity) || { resistance: [], support: [] };
       var all = (sr.resistance || []).concat(sr.support || []);
       var up = null, dn = null;
       if (close != null) {
