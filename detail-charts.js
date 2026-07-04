@@ -571,6 +571,11 @@
           [bsChartInstance, plChartInstance, cfChartInstance, radarChartInstance].forEach((ch) => {
             if (ch) { try { ch.resize(); ch.update("none"); } catch (e) {} }
           });
+          // Feature#3: 健全性トレンドは clientWidth>0(可視)ガード付き＝ETF非表示時に 0x0 空チャート化するのを防ぐ。
+          const htc = document.getElementById("healthTrend");
+          if (healthTrendInstance && htc && htc.clientWidth > 0) {
+            try { healthTrendInstance.resize(); healthTrendInstance.update("none"); } catch (e) {}
+          }
         };
         // 次フレーム＋entrance アニメ完了(≒1.02s)後まで複数時刻で再描画。update('none')は冪等で無害。
         requestAnimationFrame(() => requestAnimationFrame(run));
@@ -1116,6 +1121,58 @@
     if (priceChart) priceChart.resize(w, h);
   }
 
+  // ── 財務健全性の推移（Feature#3・二軸 line）──────────────────────────
+  //  純計算は DetailRules.healthTrendSeries(欠測 null)。Chart.js line・**destroy 先行**・
+  //  **responsive:true(onWindowResize 非登録＝bs/pl/cf/radar と同思想)**・display:none で生成しない。
+  //  ⚠️ neonGlowPlugin は $lineGlow/$neonSpecs 未設定で no-op(安全・save/restore 不均衡なし)。
+  //  datalabels は display:false。基準線は定数 dataset(chartjs-plugin-annotation 未導入=新CDN依存を足さない)。
+  var healthTrendInstance = null;
+  function renderHealthTrend(data, isUS) {
+    const canvas = document.getElementById("healthTrend");
+    if (!canvas) return;
+    if (healthTrendInstance) { healthTrendInstance.destroy(); healthTrendInstance = null; }
+    const s = DR.healthTrendSeries(data, isUS);
+    if (!s.years.length) return;
+    const cur = (data && data.currency) || "JPY";
+    let maxAbs = 0;
+    s.cash.concat(s.totalLiab).forEach((v) => { if (v != null) maxAbs = Math.max(maxAbs, Math.abs(v)); });
+    const unit = FinanceRules.pickUnit(maxAbs, cur);
+    const toU = (v) => (v == null ? null : FinanceRules.fmtUnitValue(v, unit));
+    const unitStr = FinanceRules.unitLabel(unit);
+    // 系列色は BS チャートの意味色を流用(自己資本=金/流動=cyan/総負債=pink)＋現金=green。
+    const cEquity = FIN_COLORS.bs.eq[0], cCurrent = FIN_COLORS.bs.ca[0], cCash = "#00e676", cLiab = FIN_COLORS.bs.cl[0];
+    const refEquity = s.years.map(() => s.basis.equityMin);
+    const refCurLow = s.years.map(() => s.basis.currentLow);
+    const datasets = [
+      { label: "自己資本比率(%)", yAxisID: "pct", data: s.equityRatio, spanGaps: false, borderColor: cEquity, tension: 0.2, pointRadius: 2 },
+      { label: "流動比率(%)", yAxisID: "pct", data: s.currentRatio, spanGaps: false, borderColor: cCurrent, tension: 0.2, pointRadius: 2 },
+      { label: "目安:自己資本" + s.basis.equityMin + "%", yAxisID: "pct", data: refEquity, borderColor: "rgba(255,214,10,.35)", borderDash: [4, 4], pointRadius: 0, borderWidth: 1 },
+      { label: "目安:流動" + s.basis.currentLow + "%", yAxisID: "pct", data: refCurLow, borderColor: "rgba(56,189,248,.35)", borderDash: [4, 4], pointRadius: 0, borderWidth: 1 },
+      { label: "現金(" + unitStr + ")", yAxisID: "amt", data: s.cash.map(toU), spanGaps: false, borderColor: cCash, tension: 0.2, pointRadius: 2 },
+      { label: "総負債(" + unitStr + ")", yAxisID: "amt", data: s.totalLiab.map(toU), spanGaps: false, borderColor: cLiab, tension: 0.2, pointRadius: 2 },
+    ];
+    // JP は流動比率 100-150 帯: currentHigh 線を足し 2 線間 fill（US は currentHigh=null で単線）。
+    if (s.basis.currentHigh != null) {
+      datasets.push({ label: "目安:流動" + s.basis.currentHigh + "%", yAxisID: "pct",
+        data: s.years.map(() => s.basis.currentHigh),
+        borderColor: "rgba(56,189,248,.35)", borderDash: [4, 4], pointRadius: 0, borderWidth: 1,
+        fill: "-1", backgroundColor: "rgba(56,189,248,.06)" });
+    }
+    healthTrendInstance = new Chart(canvas.getContext("2d"), {
+      type: "line",
+      data: { labels: s.years, datasets: datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: false,
+        plugins: { legend: { labels: { color: "#9fb0d0", boxWidth: 10 } }, datalabels: { display: false } },
+        scales: {
+          pct: { position: "left", title: { display: true, text: "％", color: "#9fb0d0" }, ticks: { color: "#9fb0d0" }, grid: { color: "rgba(120,140,180,.12)" } },
+          amt: { position: "right", title: { display: true, text: unitStr, color: "#9fb0d0" }, ticks: { color: "#9fb0d0" }, grid: { display: false } },
+          x: { ticks: { color: "#9fb0d0" }, grid: { display: false } },
+        },
+      },
+    });
+  }
+
   // ── window 露出 ──
   // inline onclick（markup 無改変）が呼ぶ bare 名。公開漏れ=無言故障。
   window.toggleMA = toggleMA;
@@ -1127,7 +1184,7 @@
   // 詳細ビュー制御 API（index.html 残置コード/onload/updateFinancialViews が呼ぶ）。
   window.DetailCharts = {
     initPriceChart, updateMaAndVolume, setCandleData,
-    renderBSChart, renderRadarChart, renderPLChart, renderCFChart,
+    renderBSChart, renderRadarChart, renderPLChart, renderCFChart, renderHealthTrend,
     repaint, onWindowResize, renderCompareChart, resizePrice,
   };
 })();
