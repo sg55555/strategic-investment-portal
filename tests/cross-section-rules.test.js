@@ -59,3 +59,26 @@ test("_latestFin: max year / empty", () => {
   assert.strictEqual(CS._latestFin(jpStock()).year, 2025);
   assert.strictEqual(CS._latestFin({ financials_trend: {} }), null);
 });
+test("relativePosition: 中立語彙のみ・自市場内・欠測データなし・ETF", () => {
+  const data = {
+    "A.T": jpStock({ per: 10, roe: undefined }),   // roe は財務から算出
+    "B.T": jpStock({ per: 30 }),
+    "C.T": jpStock({ per: 20, financials_trend: { "2025": { year: 2025, net_sales: 1000, net_assets: 600,
+      current_assets: 500, non_current_assets: 500, current_liabilities: 250, operating_income: 120 } } }), // net_income欠落
+  };
+  const rp = CS.relativePosition("A.T", data);
+  assert.strictEqual(rp.market, "JP");
+  assert.strictEqual(rp.marketLabel, "日本株");
+  const per = rp.groups[0].metrics.find(m => m.key === "per");
+  assert.strictEqual(per.value, 10);
+  assert.ok(per.caption.includes("日本株") && per.caption.includes("パーセンタイル"));
+  // C.T は net_income 欠落 → roe/netMargin は欠測(=universe に入らない)。A.T の roe は算出可。
+  const roe = rp.groups[1].metrics.find(m => m.key === "roe");
+  assert.ok(roe.value != null);
+  // 中立語彙: どの caption/band にも売買/予測語が無い
+  const BANNED = ["買い", "売り", "買う", "売る", "推奨", "割安なので", "上がる", "下がる", "狙い目", "お得"];
+  const allText = JSON.stringify(rp);
+  BANNED.forEach(w => assert.ok(!allText.includes(w), "banned word: " + w));
+  assert.deepStrictEqual(CS.relativePosition("ETF.T", { "ETF.T": jpStock({ type: "etf", financials_trend: {} }) }), { etf: true });
+  assert.strictEqual(CS.relativePosition("NOPE", data), null);
+});

@@ -115,8 +115,74 @@
     return universe;
   }
 
+  var MARKET_LABEL = { JP: "日本株", US: "米国株" };
+
+  // 中立バンド語(位置のみ・売買/予測語なし)。higherIsBetter は band には使わない(純粋に位置)。
+  function _band(pctile) {
+    if (pctile == null) return { label: "データなし", tone: "muted" };
+    if (pctile >= 80) return { label: "上位", tone: "high" };
+    if (pctile >= 60) return { label: "やや上位", tone: "midhigh" };
+    if (pctile >= 40) return { label: "中央値付近", tone: "mid" };
+    if (pctile >= 20) return { label: "やや下位", tone: "midlow" };
+    return { label: "下位", tone: "low" };
+  }
+  function _fmtMetric(m, value, currency) {
+    if (value == null) return "—";
+    if (m.key === "marketCap") return FR && FR.fmtMagnitude ? FR.fmtMagnitude(value, currency) : String(value);
+    if (m.unit === "%") return value.toFixed(1) + "%";
+    if (m.unit === "倍") return value.toFixed(1) + "倍";
+    return String(value);
+  }
+  function peerStats(universe, market, metricKey) {
+    var g = universe && universe[market];
+    var vals = (g && g[metricKey]) || [];
+    return {
+      n: vals.length, median: median(vals), q1: quantile(vals, 0.25), q3: quantile(vals, 0.75),
+      min: vals.length ? Math.min.apply(null, vals) : null,
+      max: vals.length ? Math.max.apply(null, vals) : null,
+    };
+  }
+  function relativePosition(ticker, stockData) {
+    var raw = stockData && stockData[ticker];
+    if (!raw) return null;
+    if ((raw.type || "stock") === "etf") return { etf: true };
+    var universe = buildUniverse(stockData);
+    var market = _market(ticker, raw);
+    var g = universe[market];
+    if (!g) return null;
+    var self = null;
+    for (var i = 0; i < g._members.length; i++) { if (g._members[i].ticker === ticker) { self = g._members[i]; break; } }
+    var selfVals = self ? self.values : {};
+    function entry(m) {
+      var value = selfVals[m.key];
+      value = (value == null) ? null : value;
+      var stats = peerStats(universe, market, m.key);
+      var pctile = (value == null) ? null : percentileRank(g[m.key], value);
+      var band = _band(pctile);
+      return {
+        key: m.key, label: m.label, termKey: m.termKey, unit: m.unit,
+        value: value, format: _fmtMetric(m, value, raw.currency),
+        percentile: pctile, n: stats.n, median: stats.median, min: stats.min, max: stats.max,
+        band: band.label, tone: band.tone,
+        caption: (value == null) ? "データなし"
+          : (MARKET_LABEL[market] || market) + stats.n + "銘柄中 " + band.label + "（" + Math.round(pctile) + "パーセンタイル）",
+      };
+    }
+    function grp(title, keys) { return { title: title, metrics: keys.map(function (k) { return entry(METRIC_BY_KEY[k]); }) }; }
+    return {
+      market: market, marketLabel: MARKET_LABEL[market] || market, marketN: g._members.length,
+      groups: [
+        grp("割安度", ["per", "pbr"]),
+        grp("収益性", ["roe", "roa", "netMargin", "opMargin"]),
+        grp("安全性", ["equityRatio", "currentRatio"]),
+        grp("規模", ["marketCap"]),
+      ],
+    };
+  }
+
   return { median: median, mean: mean, percentileRank: percentileRank, quantile: quantile,
     METRIC_REGISTRY: METRIC_REGISTRY, METRIC_BY_KEY: METRIC_BY_KEY,
     buildUniverse: buildUniverse, _latestFin: _latestFin,
+    peerStats: peerStats, relativePosition: relativePosition,
   };
 });
