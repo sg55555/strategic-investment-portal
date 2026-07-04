@@ -780,6 +780,14 @@
       .sig-asof { color: var(--ix-text-dim, #9fb0d0); font-size: 11px; font-weight: normal; }
       .sig-disclaimer { margin-top: 8px; font-size: 10px; color: var(--ix-text-dim, #9fb0d0); line-height: 1.5; }
 
+      /* ── 財務健全性の推移カード（Feature#3）── */
+      .health-trend-card { overflow: visible; }
+      /* Chart.js(responsive・maintainAspectRatio:false)は親の高さに追従＝明示高さで 0x0罠を回避 */
+      .ht-chart { position: relative; height: 300px; }
+      .ht-note { margin-top: 6px; font-size: 11px; color: var(--ix-text-dim, #9fb0d0); }
+      .ht-disclaimer { margin-top: 4px; font-size: 10px; color: var(--ix-text-dim, #9fb0d0); line-height: 1.5; }
+      @media (max-width: 768px) { .ht-chart { height: 240px; } }
+
       /* ── term-help ポップオーバー（純CSS・--ix-* トークンで自己完結／money.css .mcc-help 非依存） ── */
       .term-help {
         display: inline-flex; align-items: center; justify-content: center;

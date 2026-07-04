@@ -404,7 +404,7 @@
 
     // ETF・財務データなしの場合はチャートカードを非表示
     const isEtf = data.type === "etf";
-    const finCards = ["kpi-compare-card", "bs-title", "radar-title", "pl-title", "cf-title"];
+    const finCards = ["kpi-compare-card", "bs-title", "radar-title", "pl-title", "cf-title", "health-trend-card"];
     finCards.forEach(id => {
       const card = document.getElementById(id)?.closest(".card");
       if (card) card.style.display = isEtf ? "none" : "";
@@ -437,6 +437,12 @@
     DetailCharts.renderRadarChart(fin);
     DetailCharts.renderPLChart(fin, pageUnit);
     DetailCharts.renderCFChart(fin, pageUnit);
+    // Feature#3: 財務健全性の推移（二軸 line）。ETF/財務欠損は上の early-return でここに到達しない
+    //  （health-trend-card は finCards に登録済＝ETF時 display:none）。免責は空 div へここで注入。
+    DetailCharts.renderHealthTrend(data, isUS);
+    var htDisc = document.getElementById("health-trend-disclaimer");
+    if (htDisc && window.DetailRules) htDisc.textContent = window.DetailRules.ANALYSIS_DISCLAIMER || "";
+    injectTermHelp(document.getElementById("health-trend-card"));
     // forceChartRepaint() は価格チャート描画直後（early-return より前）へ移設済（上記参照）。
   }
 
