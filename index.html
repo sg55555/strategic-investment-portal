@@ -2150,6 +2150,46 @@
         if (typeof renderRanking === "function") renderRanking();
       }
 
+      // Task11: ③ランキング表 + 市場/指標コントロール（散布図/セクター帯は Task12）。
+      var rankMarket = "JP", rankMetric = "per";
+      function _initRankMetricSelect() {
+        var sel = document.getElementById("rk-metric");
+        if (!sel || sel.options.length) return;
+        (window.CrossSection.METRIC_REGISTRY).forEach(function (m) {
+          var o = document.createElement("option"); o.value = m.key; o.textContent = m.label; sel.appendChild(o);
+        });
+        sel.value = rankMetric;
+      }
+      function setRankMarket(m) {
+        rankMarket = m;
+        document.getElementById("rk-mkt-JP").classList.toggle("active", m === "JP");
+        document.getElementById("rk-mkt-US").classList.toggle("active", m === "US");
+        renderRanking();
+      }
+      // Task12 で本実装。Task11時点は空のプレースホルダ（表単独で動く）。
+      function renderRankScatterAndStrip() {}
+      function renderRanking() {
+        var CS = window.CrossSection; if (!CS || !STOCK_DATA) return;
+        _initRankMetricSelect();
+        rankMetric = document.getElementById("rk-metric").value || rankMetric;
+        var u = CS.buildUniverse(STOCK_DATA);
+        var rows = CS.rankByMetric(u, rankMarket, rankMetric);
+        var host = document.getElementById("rk-table");
+        host.innerHTML = '<table class="rk-tbl"><thead><tr><th>#</th><th>銘柄</th><th>業種</th><th>値</th><th>順位(%)</th></tr></thead><tbody>' +
+          rows.map(function (r) {
+            var col = (typeof getSectorColor === "function") ? getSectorColor(r.industry) : "#62f0ff";
+            return '<tr onclick="navigateToDetail(\'' + esc(r.ticker) + '\')">' +
+              '<td>' + r.rank + '</td>' +
+              '<td><span class="rk-dot" style="background:' + esc(col) + '"></span>' + esc(r.name) + '</td>' +
+              '<td class="rk-sec">' + esc(r.industry) + '</td>' +
+              '<td class="rk-val">' + esc(r.format) + '</td>' +
+              '<td>' + Math.round(r.percentile) + '</td></tr>';
+          }).join("") + '</tbody></table>';
+        var disc = (window.DetailRules && DetailRules.ANALYSIS_DISCLAIMER) || "";
+        document.getElementById("rk-disclaimer").textContent = disc;
+        renderRankScatterAndStrip(u); // Task 12
+      }
+
       // F2: IIFE 末尾で公開面を一括。inline HTML handler / cross-script(detail-charts/detail.js) free-var が
       // 依存する18名（関数16＋const ICO/DEFAULT_CURRENCY）のみ公開。currentTicker/currentView は生束縛ゆえ
       // 含めない（IIFE 外 let）。関数宣言は hoist 済・const も定義済でここに確実到達（try の外・IIFE 最終行）。
@@ -2158,7 +2198,7 @@
         esc, ICO, DEFAULT_CURRENCY, currencyBadge, isWatched, trackEvent, showView,
         toggleScreening, applyScreening, resetScreening, toggleWatchlist, handleContactSubmit,
         openModal, closeModal, retryLoadData, onPortalSearchInput, setSort, navigateToPortal,
-        navigateToRanking,
+        navigateToRanking, setRankMarket, renderRanking,
       });
     })();
 

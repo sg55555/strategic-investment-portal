@@ -847,3 +847,17 @@
       .cmp-note { font: 11px var(--ix-mono, monospace); color: #9fb9cc; margin: 6px 0; }
       /* 免責の共通スタイル（相対カード/比較テーブル/ランキングで共用・.sig-disclaimer と同等） */
       .panel-disclaimer { margin-top: 8px; font-size: 10px; color: var(--ix-text-dim, #9fb0d0); line-height: 1.5; }
+
+      /* ── ③ランキングビュー（Task11: 表 + 市場/指標コントロール。散布図/帯は Task12） ── */
+      #ranking-view .ranking-head { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 12px; }
+      .rk-controls { display: flex; gap: 10px; align-items: center; margin-left: auto; }
+      .rk-mkt, .rk-back, #ranking-entry { font: 12px var(--ix-mono,monospace); color: #9fb9cc; background: transparent;
+        border: 1px solid rgba(98,240,255,.25); border-radius: 3px; padding: 5px 12px; cursor: pointer; }
+      .rk-mkt.active { color: var(--c-cyan,#62f0ff); border-color: var(--c-cyan,#62f0ff); box-shadow: 0 0 8px rgba(98,240,255,.3); }
+      #rk-metric { font: 12px var(--ix-mono,monospace); color: #cfe8ff; background: #0a1420; border: 1px solid rgba(98,240,255,.3); border-radius: 3px; padding: 4px 8px; }
+      .rk-tbl { width: 100%; border-collapse: collapse; font: 12px var(--ix-mono,monospace); }
+      .rk-tbl th, .rk-tbl td { padding: 6px 8px; border-bottom: 1px solid rgba(98,240,255,.10); text-align: right; }
+      .rk-tbl th:nth-child(2), .rk-tbl td:nth-child(2), .rk-tbl th:nth-child(3), .rk-tbl td:nth-child(3) { text-align: left; }
+      .rk-tbl tbody tr { cursor: pointer; } .rk-tbl tbody tr:hover { background: rgba(98,240,255,.06); }
+      .rk-dot { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; }
+      .rk-sec { color: #9fb9cc; } .rk-val { color: #fff; }
