@@ -577,9 +577,12 @@
             try { healthTrendInstance.resize(); healthTrendInstance.update("none"); } catch (e) {}
           }
         };
-        // 次フレーム＋entrance アニメ完了(≒1.02s)後まで複数時刻で再描画。update('none')は冪等で無害。
+        // 次フレーム＋entrance アニメ完了後まで複数時刻で再描画。update('none')は冪等で無害。
+        //  カード7枚化(Feature#3で health 追加)で末尾カード(CF)の entrance 完了は ≒1.28s(nth-child(7)
+        //  遅延0.83s＋アニメ0.45s)。1500ms を足し、この呼出(≒T0+150ms)起点でも完了後に確実に再描画する
+        //  (FHD DPR=1 で黒 canvas テクスチャがキャッシュされる黒面バグの予防・headless非再現ゆえ余裕を持たせる)。
         requestAnimationFrame(() => requestAnimationFrame(run));
-        [300, 700, 1100].forEach((ms) => setTimeout(run, ms));
+        [300, 700, 1100, 1500].forEach((ms) => setTimeout(run, ms));
       }
 
   // ── 財務チャート（BS/PL/CF/Radar・index.html から verbatim relocate）──
@@ -1137,27 +1140,35 @@
     let maxAbs = 0;
     s.cash.concat(s.totalLiab).forEach((v) => { if (v != null) maxAbs = Math.max(maxAbs, Math.abs(v)); });
     const unit = FinanceRules.pickUnit(maxAbs, cur);
-    const toU = (v) => (v == null ? null : FinanceRules.fmtUnitValue(v, unit));
+    // ⚠️ chart data は数値(v/unit.div)を渡す。fmtUnitValue の整形済み文字列("6.5兆円"等)を渡すと
+    //  Chart.js が +raw で NaN 化し金額線(現金/総負債)が silent に消える。単位表示は軸タイトル/ラベル(unitStr)で行う。
+    const toU = (v) => (v == null ? null : v / unit.div);
     const unitStr = FinanceRules.unitLabel(unit);
     // 系列色は BS チャートの意味色を流用(自己資本=金/流動=cyan/総負債=pink)＋現金=green。
     const cEquity = FIN_COLORS.bs.eq[0], cCurrent = FIN_COLORS.bs.ca[0], cCash = "#00e676", cLiab = FIN_COLORS.bs.cl[0];
     const refEquity = s.years.map(() => s.basis.equityMin);
     const refCurLow = s.years.map(() => s.basis.currentLow);
+    // 並び順が重要: 基準線(pct)を先に置き、currentHigh 帯を currentLow 線の直後に push して
+    //  fill:"-1"(直前=currentLow・同じ pct 軸)で 2 線間を塗る。金額系列(amt)は最後に追加する。
+    //  ⚠️ currentHigh を配列末尾(amt の後)に置くと fill:"-1" が総負債(右軸)を指し、軸跨ぎの誤帯になる。
     const datasets = [
       { label: "自己資本比率(%)", yAxisID: "pct", data: s.equityRatio, spanGaps: false, borderColor: cEquity, tension: 0.2, pointRadius: 2 },
       { label: "流動比率(%)", yAxisID: "pct", data: s.currentRatio, spanGaps: false, borderColor: cCurrent, tension: 0.2, pointRadius: 2 },
       { label: "目安:自己資本" + s.basis.equityMin + "%", yAxisID: "pct", data: refEquity, borderColor: "rgba(255,214,10,.35)", borderDash: [4, 4], pointRadius: 0, borderWidth: 1 },
       { label: "目安:流動" + s.basis.currentLow + "%", yAxisID: "pct", data: refCurLow, borderColor: "rgba(56,189,248,.35)", borderDash: [4, 4], pointRadius: 0, borderWidth: 1 },
-      { label: "現金(" + unitStr + ")", yAxisID: "amt", data: s.cash.map(toU), spanGaps: false, borderColor: cCash, tension: 0.2, pointRadius: 2 },
-      { label: "総負債(" + unitStr + ")", yAxisID: "amt", data: s.totalLiab.map(toU), spanGaps: false, borderColor: cLiab, tension: 0.2, pointRadius: 2 },
     ];
-    // JP は流動比率 100-150 帯: currentHigh 線を足し 2 線間 fill（US は currentHigh=null で単線）。
+    // JP は流動比率 currentLow-currentHigh 帯（US は currentHigh=null で単線・帯なし）。
     if (s.basis.currentHigh != null) {
       datasets.push({ label: "目安:流動" + s.basis.currentHigh + "%", yAxisID: "pct",
         data: s.years.map(() => s.basis.currentHigh),
         borderColor: "rgba(56,189,248,.35)", borderDash: [4, 4], pointRadius: 0, borderWidth: 1,
-        fill: "-1", backgroundColor: "rgba(56,189,248,.06)" });
+        fill: "-1", backgroundColor: "rgba(56,189,248,.06)" }); // fill:"-1" = 直前の currentLow 線(pct)
     }
+    // 金額系列(右軸 amt)は基準線群の後に追加（data は v/unit.div の数値・上記 toU 参照）。
+    datasets.push(
+      { label: "現金(" + unitStr + ")", yAxisID: "amt", data: s.cash.map(toU), spanGaps: false, borderColor: cCash, tension: 0.2, pointRadius: 2 },
+      { label: "総負債(" + unitStr + ")", yAxisID: "amt", data: s.totalLiab.map(toU), spanGaps: false, borderColor: cLiab, tension: 0.2, pointRadius: 2 }
+    );
     healthTrendInstance = new Chart(canvas.getContext("2d"), {
       type: "line",
       data: { labels: s.years, datasets: datasets },
