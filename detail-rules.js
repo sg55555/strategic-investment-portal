@@ -33,8 +33,9 @@
   const HOLDING_COMPANIES = new Set(["9984.T"]);
   // 市場別バリュエーション基準（PER/PBR の割安・割高ライン・index.html 2303-）。
   const MARKET_BASIS = {
-    US: { perLow: 20.0, perHigh: 40.0, pbrLow: 2.0, pbrHigh: 15.0, label: "米国市場基準" },
-    JP: { perLow: 15.0, perHigh: 28.0, pbrLow: 1.0, pbrHigh: 3.0, label: "プロ基準" },
+    // equityMin/currentLow/currentHigh = 財務健全性トレンドの基準線数値(単一源・currentHigh=null は単線)。
+    US: { perLow: 20.0, perHigh: 40.0, pbrLow: 2.0, pbrHigh: 15.0, label: "米国市場基準", equityMin: 30, currentLow: 150, currentHigh: null },
+    JP: { perLow: 15.0, perHigh: 28.0, pbrLow: 1.0, pbrHigh: 3.0, label: "プロ基準", equityMin: 40, currentLow: 100, currentHigh: 150 },
   };
   // 比較チャートの系列色（index.html 2453）。
   const COMPARE_COLORS = ["#5cf0ff", "#ff5ca8", "#ffd84d", "#a35cff", "#34f5cf", "#ff8a2a", "#3aa6ff", "#ff4d6d"];
@@ -303,14 +304,16 @@
 
   // 自己資本比率・流動比率の基準テキスト（市場別）。index.html 3902-3907。
   function equityRatioDesc(isUS) {
+    var b = marketBasisFor(isUS);
     return isUS
-      ? "▶ 米国基準: 30.0% 以上 (自社株買い等で低下しやすい)"
-      : "▶ 中長期安全性基準: 40.0% 以上で健全企業水準";
+      ? "▶ 米国基準: " + b.equityMin + ".0% 以上 (自社株買い等で低下しやすい)"
+      : "▶ 中長期安全性基準: " + b.equityMin + ".0% 以上で健全企業水準";
   }
   function currentRatioDesc(isUS) {
+    var b = marketBasisFor(isUS);
     return isUS
-      ? "▶ 短期支払能力基準: 150.0% 以上で安全圏 (米国基準)"
-      : "▶ 短期支払能力基準: 100.0% 〜 150.0% 以上で安全圏";
+      ? "▶ 短期支払能力基準: " + b.currentLow + ".0% 以上で安全圏 (米国基準)"
+      : "▶ 短期支払能力基準: " + b.currentLow + ".0% 〜 " + b.currentHigh + ".0% 以上で安全圏";
   }
 
   // KPI 前年比バッジ HTML（欠損は空）。index.html 3499-3505。

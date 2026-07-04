@@ -135,3 +135,10 @@ test("unitLabel: ヘッダ用の単位文字列", () => {
   assert.equal(F.unitLabel(F.pickUnit(520000, "JPY")), "億円");
   assert.equal(F.unitLabel(null), "");
 });
+
+test("totalLiabilities = 流動負債 + 固定負債（欠損→0）", () => {
+  assert.equal(F.totalLiabilities({ current_liabilities: 300, non_current_liabilities: 200 }), 500);
+  assert.equal(F.totalLiabilities({ current_liabilities: 300 }), 300); // 固定負債欠損→0
+  assert.equal(F.totalLiabilities({}), 0);
+  assert.equal(F.totalLiabilities(null), 0);
+});

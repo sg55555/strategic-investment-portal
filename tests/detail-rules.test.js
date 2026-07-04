@@ -74,9 +74,24 @@ test("financialMaxAbs: 15項目の max|abs|（totalAssets=流動+固定, 負も�
 // ── marketBasisFor: 市場別バリュエーション基準（MARKET_BASIS 単一ソース）──
 test("marketBasisFor: US / JP の基準値", () => {
   assert.deepEqual(D.marketBasisFor(true),
-    { perLow: 20.0, perHigh: 40.0, pbrLow: 2.0, pbrHigh: 15.0, label: "米国市場基準" });
+    { perLow: 20.0, perHigh: 40.0, pbrLow: 2.0, pbrHigh: 15.0, label: "米国市場基準", equityMin: 30, currentLow: 150, currentHigh: null });
   assert.deepEqual(D.marketBasisFor(false),
-    { perLow: 15.0, perHigh: 28.0, pbrLow: 1.0, pbrHigh: 3.0, label: "プロ基準" });
+    { perLow: 15.0, perHigh: 28.0, pbrLow: 1.0, pbrHigh: 3.0, label: "プロ基準", equityMin: 40, currentLow: 100, currentHigh: 150 });
+});
+
+test("marketBasisFor: 財務健全性の数値閾値を露出 (equityMin/currentLow/currentHigh)", () => {
+  const jp = D.marketBasisFor(false), us = D.marketBasisFor(true);
+  assert.equal(jp.equityMin, 40);
+  assert.equal(jp.currentLow, 100);
+  assert.equal(jp.currentHigh, 150); // JP: 100-150 帯
+  assert.equal(us.equityMin, 30);
+  assert.equal(us.currentLow, 150);
+  assert.equal(us.currentHigh, null); // US: 単線
+  // desc 文言は同一源(marketBasisFor)から生成され従来と一致（回帰固定）
+  assert.equal(D.equityRatioDesc(false), "▶ 中長期安全性基準: 40.0% 以上で健全企業水準");
+  assert.equal(D.currentRatioDesc(false), "▶ 短期支払能力基準: 100.0% 〜 150.0% 以上で安全圏");
+  assert.equal(D.equityRatioDesc(true), "▶ 米国基準: 30.0% 以上 (自社株買い等で低下しやすい)");
+  assert.equal(D.currentRatioDesc(true), "▶ 短期支払能力基準: 150.0% 以上で安全圏 (米国基準)");
 });
 
 // ── perStatus: PER 評価カード（しきい値・色・文言を verbatim 固定）──

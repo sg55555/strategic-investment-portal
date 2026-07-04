@@ -25,6 +25,10 @@
     fin = fin || {};
     return n(fin.current_assets) + n(fin.non_current_assets);
   }
+  function totalLiabilities(fin) {   // 総負債 = 流動負債 + 固定負債（欠損→0）
+    fin = fin || {};
+    return n(fin.current_liabilities) + n(fin.non_current_liabilities);
+  }
   function equityRatio(fin) {        // 自己資本比率 = 純資産 / 総資産
     fin = fin || {};
     return ratio(fin.net_assets, totalAssets(fin));
@@ -135,6 +139,7 @@
     unitLabel: unitLabel,
     ratio: ratio,
     totalAssets: totalAssets,
+    totalLiabilities: totalLiabilities,
     equityRatio: equityRatio,
     currentRatio: currentRatio,
     opMargin: opMargin,
