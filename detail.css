@@ -798,10 +798,10 @@
       .relpos-label { font: 12px/1.3 var(--ix-mono, monospace); color: #cfe8ff; }
       .relpos-bar { position: relative; height: 6px; border-radius: 3px; background: linear-gradient(90deg, rgba(98,240,255,.10), rgba(98,240,255,.22)); }
       .relpos-median { position: absolute; top: -3px; width: 1px; height: 12px; background: rgba(255,255,255,.45); }
+      /* FIX4: マーカーは単一の中立色（cyan）。tone-high(緑)/tone-low(赤) の方向的良し悪し着色は
+         規制中立性のため撤去し、位置はバンド語（テキスト）に委ねる。 */
       .relpos-marker { position: absolute; top: -4px; width: 10px; height: 14px; margin-left: -5px; border-radius: 2px;
-        background: var(--c-cyan, #62f0ff); box-shadow: 0 0 8px var(--c-cyan, #62f0ff); }
-      .relpos-marker.tone-low { background: #ff8fb0; box-shadow: 0 0 8px #ff8fb0; }
-      .relpos-marker.tone-high { background: #7CFFB0; box-shadow: 0 0 8px #7CFFB0; }
+        background: var(--ix-cyan-bright2, var(--c-cyan, #62f0ff)); box-shadow: 0 0 8px var(--ix-cyan-bright2, var(--c-cyan, #62f0ff)); }
       .relpos-val { font: 12px/1.3 var(--ix-mono, monospace); color: #fff; text-align: right; }
       .relpos-cap { grid-column: 2 / 4; font: 11px/1.3 var(--ix-mono, monospace); color: #9fb9cc; margin-top: -2px; }
       .relpos-na { color: #7d93a5; font-size: 11px; }

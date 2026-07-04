@@ -107,7 +107,9 @@
     var tickers = setLike ? Array.from(setLike) : [];
     // 注意: STOCK_DATA は dataClient.js トップレベル let の生束縛（cross-script bare 読取専用・
     //  window.STOCK_DATA は存在しない＝F2 の罠と同型）。window コピーではなく bare 参照で読む。
-    if (!CS || !tickers.length || typeof STOCK_DATA === "undefined" || !STOCK_DATA) { host.innerHTML = ""; return; }
+    // FIX5: 免責フェイルクローズ。ANALYSIS_DISCLAIMER(disc) が取得不能なら分析本体(表)を描画しない
+    //  （renderRelativePosition と同じ規制不変条件＝免責なしで分析を出さない）。
+    if (!CS || !disc || !tickers.length || typeof STOCK_DATA === "undefined" || !STOCK_DATA) { host.innerHTML = ""; return; }
     var rows = CS.compareMetricsRows(tickers, STOCK_DATA);
     var head = '<th>銘柄</th>' + COMPARE_COLS.map(function (c) {
       return '<th data-term="' + window.esc(c.term) + '">' + window.esc(c.label) + '</th>'; }).join("");
@@ -115,8 +117,9 @@
       var tds = '<td>' + window.esc(r.name) + (r.isEtf ? ' <span class="cmp-etf">ETF</span>' : '') + '</td>';
       tds += COMPARE_COLS.map(function (c) {
         var cell = r.cells[c.key];
-        return '<td class="' + (cell.missing ? 'na' : '') + '">' + window.esc(cell.format) +
-          (c.key === "marketCap" && !cell.missing ? ' <span class="cmp-cur">' + window.esc(r.currency === "USD" ? "$" : "¥") + '</span>' : '') + '</td>';
+        // FIX8: 時価総額セルは cell.format(fmtMagnitude) が既に「兆円/兆ドル」の通貨単位を含むため、
+        //  末尾に ¥/$ を追記しない（"1.50 兆円 ¥" の二重通貨を解消）。
+        return '<td class="' + (cell.missing ? 'na' : '') + '">' + window.esc(cell.format) + '</td>';
       }).join("");
       return '<tr>' + tds + '</tr>';
     }).join("");
@@ -274,13 +277,16 @@
         return '<div class="relpos-row"><div class="relpos-label" data-term="' + window.esc(m.termKey) + '">' + window.esc(m.label) +
           '</div><div class="relpos-na">データなし</div><div class="relpos-val">—</div></div>';
       }
-      var lo = m.min, hi = m.max, span = (hi - lo) || 1;
-      var pos = Math.max(0, Math.min(100, ((m.value - lo) / span) * 100));
-      var medPos = (m.median == null) ? 50 : Math.max(0, Math.min(100, ((m.median - lo) / span) * 100));
+      // FIX3: バー上の位置はパーセンタイルで表す（キャプション/バンドと同一尺度）。marketCap 等の
+      //  歪んだ分布で min-max 線形位置がキャプション（パーセンタイル）と矛盾する旧バグを解消。
+      //  中央値ティックは定義上 50 パーセンタイル＝常に 50% に置く。
+      var pos = Math.max(0, Math.min(100, (typeof m.percentile === "number" ? m.percentile : 50)));
+      // FIX4: マーカー色は単一の中立色（tone クラス廃止）。緑=高/赤=低の方向的良し悪しを色で
+      //  含意しないよう、位置は中立バンド語（テキスト）に委ね、色は指標横断で一貫させる。
       return '<div class="relpos-row">' +
         '<div class="relpos-label" data-term="' + window.esc(m.termKey) + '">' + window.esc(m.label) + '</div>' +
-        '<div class="relpos-bar"><div class="relpos-median" style="left:' + medPos.toFixed(1) + '%"></div>' +
-        '<div class="relpos-marker tone-' + window.esc(m.tone) + '" style="left:' + pos.toFixed(1) + '%"></div></div>' +
+        '<div class="relpos-bar"><div class="relpos-median" style="left:50%"></div>' +
+        '<div class="relpos-marker" style="left:' + pos.toFixed(1) + '%"></div></div>' +
         '<div class="relpos-val">' + window.esc(m.format) + '</div>' +
         '<div class="relpos-cap">' + window.esc(m.caption) + '</div></div>';
     }
@@ -459,6 +465,12 @@
     //  カード自身の「?」注入は renderSignalDigest 内の injectTermHelp(card) が行う（冪等）。
     renderSignalDigest(displayPrices, data.prices);
 
+    // Feature: 相対で見る目 束B ①相対ポジションカード。renderSignalDigest と同型で isEtf/!fin の
+    //  early-return より前に無条件で呼び、関数内の fail-safe（!disc/ETF/データ欠損で自己非表示）に
+    //  可視制御を一元化する。非ETFで当年財務が欠損でも per/pbr/marketCap は raw 由来で成立し、比率群は
+    //  「データなし」で表示（early-return 後に呼んで前銘柄の残像を出す旧バグを解消）。
+    renderRelativePosition(currentTicker);
+
     const rawPer = data.per || 0;
     const rawPbr = data.pbr || 0;
 
@@ -502,7 +514,7 @@
 
     // ETF・財務データなしの場合はチャートカードを非表示
     const isEtf = data.type === "etf";
-    const finCards = ["kpi-compare-card", "bs-title", "radar-title", "pl-title", "cf-title", "health-trend-card", "relative-position-card"];
+    const finCards = ["kpi-compare-card", "bs-title", "radar-title", "pl-title", "cf-title", "health-trend-card"];
     finCards.forEach(id => {
       const card = document.getElementById(id)?.closest(".card");
       if (card) card.style.display = isEtf ? "none" : "";
@@ -541,10 +553,9 @@
     var htDisc = document.getElementById("health-trend-disclaimer");
     if (htDisc && window.DetailRules) htDisc.textContent = window.DetailRules.ANALYSIS_DISCLAIMER || "";
     injectTermHelp(document.getElementById("health-trend-card"));
-    // Feature: 相対で見る目 束B ①相対ポジションカード。ETF/財務欠損は上の early-return でここに到達しない
-    //  （relative-position-card は finCards に登録済＝ETF時 display:none）。関数内で fail-safe 非描画も持つ。
-    renderRelativePosition(currentTicker);
-    // forceChartRepaint() は価格チャート描画直後（early-return より前）へ移設済（上記参照）。
+    // 相対ポジションカードは renderSignalDigest 直後（early-return より前）へ移設済（上記参照）＝
+    //  ETF/財務欠損でも関数内 fail-safe で自己制御する（finCards から除外済）。
+    // forceChartRepaint() も価格チャート描画直後（early-return より前）へ移設済（上記参照）。
   }
 
   // ── window 露出（inline onclick / portal 行 onclick / cross-module 用 bare 名）──

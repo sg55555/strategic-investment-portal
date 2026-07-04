@@ -2177,7 +2177,11 @@
         strip.innerHTML = '<div class="rk-strip-title">セクター中央値（' + esc(m.label) + '・N≥3）</div>' +
           '<div class="rk-strip">' + sm.map(function (s) {
             var col = (s.sector === "その他") ? "#7d93a5" : ((typeof getSectorColor === "function") ? getSectorColor(s.sector) : "#62f0ff");
-            var fmt = (m.unit === "%") ? (s.median.toFixed(1) + "%") : (m.unit === "倍" ? s.median.toFixed(1) + "倍" : Math.round(s.median));
+            // FIX7: 時価総額は fmtMagnitude で桁+通貨に整形（ランキング表と一貫）。生の12桁整数を出さない。
+            var fmt = (m.key === "marketCap")
+              ? (window.FinanceRules ? window.FinanceRules.fmtMagnitude(s.median, rankMarket === "US" ? "USD" : "JPY") : String(Math.round(s.median)))
+              : (m.unit === "%") ? (s.median.toFixed(1) + "%")
+              : (m.unit === "倍" ? s.median.toFixed(1) + "倍" : Math.round(s.median));
             return '<div class="rk-cell"><span class="rk-dot" style="background:' + esc(col) + '"></span>' +
               '<span class="rk-cell-sec">' + esc(s.sector) + '</span><span class="rk-cell-n">n' + s.n + '</span>' +
               '<span class="rk-cell-med">' + esc(fmt) + '</span></div>';
@@ -2206,7 +2210,7 @@
               responsive: true, maintainAspectRatio: false,
               scales: { x: { title: { display: true, text: sp.xLabel }, ticks: { color: "#9fb9cc" }, grid: { color: "rgba(98,240,255,.08)" } },
                         y: { title: { display: true, text: sp.yLabel }, ticks: { color: "#9fb9cc" }, grid: { color: "rgba(98,240,255,.08)" } } },
-              plugins: { legend: { display: false },
+              plugins: { legend: { display: false }, datalabels: { display: false }, // FIX6: 全域登録の datalabels を散布図でも無効化（生の {x,y,_t,_n} をプロット全面に描く回帰を防ぐ）
                 tooltip: { callbacks: { label: function (c) { var d = c.raw; return d._n + "  " + sp.xLabel + ":" + d.x + " / " + sp.yLabel + ":" + d.y; } } } },
             },
           });
@@ -2214,6 +2218,17 @@
       }
       function renderRanking() {
         var CS = window.CrossSection; if (!CS || !STOCK_DATA) return;
+        // FIX5: 免責フェイルクローズ。ANALYSIS_DISCLAIMER が取得不能なら分析本体（表/セクター帯/散布図）を
+        //  一切描画せずクリアして中断する（免責なしの分析提示を規制不変条件として禁止）。
+        var disc = (window.DetailRules && window.DetailRules.ANALYSIS_DISCLAIMER) || "";
+        if (!disc) {
+          _rkScatterGen++; // 保留中の rAF を無効化（scatter 再生成を止める）
+          if (_rkScatter) { _rkScatter.destroy(); _rkScatter = null; }
+          var _t = document.getElementById("rk-table"); if (_t) _t.innerHTML = "";
+          var _s = document.getElementById("rk-sector-strip"); if (_s) _s.innerHTML = "";
+          var _d = document.getElementById("rk-disclaimer"); if (_d) _d.textContent = "";
+          return;
+        }
         _initRankMetricSelect();
         rankMetric = document.getElementById("rk-metric").value || rankMetric;
         var u = CS.buildUniverse(STOCK_DATA);
@@ -2236,8 +2251,7 @@
           var tr = e.target.closest("tr[data-ticker]");
           if (tr && tr.dataset.ticker) navigateToDetail(tr.dataset.ticker);
         };
-        var disc = (window.DetailRules && DetailRules.ANALYSIS_DISCLAIMER) || "";
-        document.getElementById("rk-disclaimer").textContent = disc;
+        document.getElementById("rk-disclaimer").textContent = disc; // FIX5: 上で算出済(非空保証)の disc を再利用
         renderRankScatterAndStrip(u); // Task 12
       }
 

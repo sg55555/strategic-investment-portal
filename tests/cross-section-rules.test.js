@@ -55,6 +55,29 @@ test("buildUniverse: ETF除外・市場分割・0欠測・最新年採用", () =
   const roe = u.JP._members[0].values.roe;
   assert.ok(Math.abs(roe - 13.333) < 0.01);
 });
+test("FIX2: 非正の分母は false-0 を分布に入れず欠測化・正当な0は保持", () => {
+  const negEquity = { year: 2025, net_sales: 1000, net_assets: -100, current_assets: 500,
+    non_current_assets: 500, current_liabilities: 250, operating_income: 120, net_income: 80 };
+  const zeroCurLiab = { year: 2025, net_sales: 1000, net_assets: 600, current_assets: 500,
+    non_current_assets: 500, current_liabilities: 0, operating_income: 120, net_income: 80 };
+  const legitZero = { year: 2025, net_sales: 1000, net_assets: 600, current_assets: 500,
+    non_current_assets: 500, current_liabilities: 250, operating_income: 120, net_income: 0 };
+  const roeG = CS.METRIC_BY_KEY.roe.getter;
+  const crG = CS.METRIC_BY_KEY.currentRatio.getter;
+  // net_assets<0 → 分母 非正 → ROE は算出不能(欠測null)。false 0 を分布に入れない。
+  assert.strictEqual(roeG(negEquity, {}), null);
+  // current_liabilities=0 → 分母 非正 → 流動比率は欠測null。
+  assert.strictEqual(crG(zeroCurLiab, {}), null);
+  // net_income=0 & net_assets>0 → ROE=0 は正当な0として保持（欠測にしない）。
+  assert.strictEqual(roeG(legitZero, {}), 0);
+  // buildUniverse: 欠測null は市場配列に入らない（NEG.T の roe null は除外、OK.T の 0 のみ残る）。
+  const u = CS.buildUniverse({
+    "NEG.T": jpStock({ financials_trend: { "2025": negEquity } }),
+    "OK.T": jpStock({ financials_trend: { "2025": legitZero } }),
+  });
+  assert.deepStrictEqual(u.JP.roe, [0]);
+  assert.strictEqual(u.JP.currentRatio.length, 2); // 両者 current_liabilities>0 → 正常算出
+});
 test("_latestFin: max year / empty", () => {
   assert.strictEqual(CS._latestFin(jpStock()).year, 2025);
   assert.strictEqual(CS._latestFin({ financials_trend: {} }), null);

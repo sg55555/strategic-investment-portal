@@ -49,9 +49,14 @@
     var v = Number(raw && raw[key]);
     return (isFinite(v) && v > 0) ? v : null; // 0/欠落/非有限 = 欠測(list.py null→0の罠)
   }
-  function _finRatio(fin, fn, needKeys) {
+  function _finRatio(fin, fn, needKeys, denomKeys) {
     if (!fin || !FR) return null;
     for (var i = 0; i < needKeys.length; i++) { if (!FR.hasValue(fin, needKeys[i])) return null; }
+    if (denomKeys) {
+      var denom = 0;
+      for (var j = 0; j < denomKeys.length; j++) denom += FR.n(fin[denomKeys[j]]);
+      if (!(denom > 0)) return null; // 非正の分母＝算出不能→欠測(false 0 を分布に入れない)
+    }
     var v = fn(fin);
     return (typeof v === "number" && isFinite(v)) ? v : null;
   }
@@ -70,17 +75,17 @@
     { key: "pbr", label: "PBR", read: "ピービーアール", unit: "倍", currencyNeutral: true, higherIsBetter: false, termKey: "pbr",
       getter: function (fin, raw) { return _rawPositive(raw, "pbr"); } },
     { key: "roe", label: "ROE", read: "アールオーイー", unit: "%", currencyNeutral: true, higherIsBetter: true, termKey: "roe",
-      getter: function (fin) { return _finRatio(fin, FR.roe, ["net_income", "net_assets"]); } },
+      getter: function (fin) { return _finRatio(fin, FR.roe, ["net_income", "net_assets"], ["net_assets"]); } },
     { key: "roa", label: "ROA", read: "アールオーエー", unit: "%", currencyNeutral: true, higherIsBetter: true, termKey: "roa",
-      getter: function (fin) { return _finRatio(fin, FR.roa, ["net_income", "current_assets", "non_current_assets"]); } },
+      getter: function (fin) { return _finRatio(fin, FR.roa, ["net_income", "current_assets", "non_current_assets"], ["current_assets", "non_current_assets"]); } },
     { key: "netMargin", label: "純利益率", read: "じゅんりえきりつ", unit: "%", currencyNeutral: true, higherIsBetter: true, termKey: "net-margin",
-      getter: function (fin) { return _finRatio(fin, FR.netMargin, ["net_income", "net_sales"]); } },
+      getter: function (fin) { return _finRatio(fin, FR.netMargin, ["net_income", "net_sales"], ["net_sales"]); } },
     { key: "opMargin", label: "営業利益率", read: "えいぎょうりえきりつ", unit: "%", currencyNeutral: true, higherIsBetter: true, termKey: "op-margin",
-      getter: function (fin) { return _finRatio(fin, FR.opMargin, ["operating_income", "net_sales"]); } },
+      getter: function (fin) { return _finRatio(fin, FR.opMargin, ["operating_income", "net_sales"], ["net_sales"]); } },
     { key: "equityRatio", label: "自己資本比率", read: "じこしほんひりつ", unit: "%", currencyNeutral: true, higherIsBetter: true, termKey: "equity-ratio",
-      getter: function (fin) { return _finRatio(fin, FR.equityRatio, ["net_assets", "current_assets", "non_current_assets"]); } },
+      getter: function (fin) { return _finRatio(fin, FR.equityRatio, ["net_assets", "current_assets", "non_current_assets"], ["current_assets", "non_current_assets"]); } },
     { key: "currentRatio", label: "流動比率", read: "りゅうどうひりつ", unit: "%", currencyNeutral: true, higherIsBetter: true, termKey: "current-ratio",
-      getter: function (fin) { return _finRatio(fin, FR.currentRatio, ["current_assets", "current_liabilities"]); } },
+      getter: function (fin) { return _finRatio(fin, FR.currentRatio, ["current_assets", "current_liabilities"], ["current_liabilities"]); } },
     { key: "marketCap", label: "時価総額", read: "じかそうがく", unit: "", currencyNeutral: false, higherIsBetter: null, termKey: "market-cap",
       getter: function (fin, raw) { return _rawPositive(raw, "marketCap"); } },
   ];
