@@ -550,10 +550,34 @@
     return out;
   }
 
+  // ── 財務健全性トレンド系列（Feature#3）──────────────────────────────
+  //  全年ループで equityRatio/currentRatio/現金/総負債 を系列化。**比率別の欠測ゲート**＝
+  //  各比率の全入力キーが hasValue の年のみ算出し、1つでも欠ければ null(欠測点)。実0% と区別する
+  //  (totalAssets は n() で欠損を0補完＝片側欠損年が"部分合計"で誤比率を出すのを防ぐ)。ETF は series ゼロ。
+  function healthTrendSeries(data, isUS) {
+    var tr = (data && data.financials_trend) || {};
+    var years = Object.keys(tr).sort();
+    var basis = marketBasisFor(!!isUS);
+    var eq = [], cur = [], cash = [], tl = [];
+    for (var i = 0; i < years.length; i++) {
+      var f = tr[years[i]];
+      var eqOk = FR.hasValue(f, "net_assets") && FR.hasValue(f, "current_assets") && FR.hasValue(f, "non_current_assets");
+      var curOk = FR.hasValue(f, "current_assets") && FR.hasValue(f, "current_liabilities");
+      eq.push(eqOk ? FR.equityRatio(f) : null);
+      cur.push(curOk ? FR.currentRatio(f) : null);
+      cash.push(FR.hasValue(f, "cf_cash_end") ? f.cf_cash_end : null);
+      tl.push((FR.hasValue(f, "current_liabilities") || FR.hasValue(f, "non_current_liabilities")) ? FR.totalLiabilities(f) : null);
+    }
+    return {
+      years: years, equityRatio: eq, currentRatio: cur, cash: cash, totalLiab: tl,
+      basis: { equityMin: basis.equityMin, currentLow: basis.currentLow, currentHigh: basis.currentHigh },
+    };
+  }
+
   return {
     // テクニカル純関数
     calcMA, calcBB, detectSR, calcRSI, calcEMA, calcMACD, calcZigZag, autoZigZagDeviation, volumeColorData,
-    signalDigest,
+    signalDigest, healthTrendSeries,
     // 財務ディスクリプタ純関数
     priceWindow, periodLabel, financialMaxAbs, marketBasisFor, perStatus, pbrStatus,
     equityRatioDesc, currentRatioDesc, yoyBadge, plSteps, cfFlowStatus, cfCompanyType, cfWaterfall, radarScores,

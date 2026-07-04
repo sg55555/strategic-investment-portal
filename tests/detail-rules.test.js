@@ -432,3 +432,29 @@ test("signalDigest S/R: computed from display window (dp), independent of allPri
   assert.equal(srWithHugeAll.readout, srDispOnly.readout);
   assert.match(srWithHugeAll.readout, /直近の抵抗まで \+1\.7%/);
 });
+
+// ── healthTrendSeries（財務健全性トレンド・Feature#3）──────────────────
+test("healthTrendSeries: per-ratio missing gate → null (not 0%)", () => {
+  const data = { currency: "JPY", financials_trend: {
+    "2021": { net_assets: 500, current_assets: 300, non_current_assets: 700, current_liabilities: 200, non_current_liabilities: 300, cf_cash_end: 120 },
+    "2022": { current_assets: 300, non_current_assets: 700 }, // net_assets/負債/現金 欠損
+  }};
+  const s = D.healthTrendSeries(data, false);
+  assert.deepEqual(s.years, ["2021", "2022"]);
+  assert.equal(typeof s.equityRatio[0], "number");
+  assert.equal(s.equityRatio[1], null);   // net_assets 欠損 → 0% でなく null
+  assert.equal(s.currentRatio[1], null);  // current_liabilities 欠損 → null
+  assert.equal(s.cash[1], null);          // cf_cash_end 欠損 → null
+  assert.equal(s.totalLiab[1], null);     // 負債両方欠損 → null
+  assert.equal(s.cash[0], 120);
+  assert.equal(s.totalLiab[0], 500);      // 200 + 300
+  assert.equal(s.basis.equityMin, 40);
+  assert.equal(s.basis.currentHigh, 150);
+});
+
+test("healthTrendSeries: ETF (financials_trend={}) → 空系列", () => {
+  const s = D.healthTrendSeries({ currency: "JPY", financials_trend: {} }, false);
+  assert.deepEqual(s.years, []);
+  assert.deepEqual(s.equityRatio, []);
+  assert.equal(s.basis.equityMin, 40);
+});
