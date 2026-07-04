@@ -700,8 +700,8 @@ function renderRelativePosition(ticker) {
   if (!card) return;
   var CS = (typeof CrossSection !== "undefined") ? CrossSection : (window.CrossSection);
   var disc = (typeof DetailRules !== "undefined") && DetailRules.ANALYSIS_DISCLAIMER;
-  if (!CS || !disc || !window.STOCK_DATA) { card.style.display = "none"; return; }
-  var rp = CS.relativePosition(ticker, window.STOCK_DATA);
+  if (!CS || !disc || !STOCK_DATA) { card.style.display = "none"; return; }
+  var rp = CS.relativePosition(ticker, STOCK_DATA);
   if (!rp || rp.etf) { card.style.display = "none"; return; }
   function barRow(m) {
     if (m.value == null) {
@@ -796,6 +796,8 @@ git commit -m "feat(relpos): renderRelativePosition wired (ETF-safe, termHelp, d
 .cmp-table thead th { color: var(--c-cyan, #62f0ff); font-weight: 600; }
 .cmp-table td.na { color: #7d93a5; }
 .cmp-table-wrap { overflow-x: auto; }
+/* 免責の共通スタイル（相対カード/比較テーブル/ランキングで共用・.sig-disclaimer と同等） */
+.panel-disclaimer { margin-top: 8px; font-size: 10px; color: var(--ix-text-dim, #9fb0d0); line-height: 1.5; }
 ```
 
 - [ ] **Step 3: Smoke**
@@ -838,8 +840,8 @@ function renderCompareTable(setLike) {
   var CS = (typeof CrossSection !== "undefined") ? CrossSection : window.CrossSection;
   var disc = (typeof DetailRules !== "undefined") && DetailRules.ANALYSIS_DISCLAIMER;
   var tickers = setLike ? Array.from(setLike) : [];
-  if (!CS || !tickers.length || !window.STOCK_DATA) { host.innerHTML = ""; return; }
-  var rows = CS.compareMetricsRows(tickers, window.STOCK_DATA);
+  if (!CS || !tickers.length || !STOCK_DATA) { host.innerHTML = ""; return; }
+  var rows = CS.compareMetricsRows(tickers, STOCK_DATA);
   var head = '<th>銘柄</th>' + COMPARE_COLS.map(function (c) {
     return '<th data-term="' + esc(c.term) + '">' + esc(c.label) + '</th>'; }).join("");
   var body = rows.map(function (r) {
@@ -985,10 +987,10 @@ function setRankMarket(m) {
   renderRanking();
 }
 function renderRanking() {
-  var CS = window.CrossSection; if (!CS || !window.STOCK_DATA) return;
+  var CS = window.CrossSection; if (!CS || !STOCK_DATA) return;
   _initRankMetricSelect();
   rankMetric = document.getElementById("rk-metric").value || rankMetric;
-  var u = CS.buildUniverse(window.STOCK_DATA);
+  var u = CS.buildUniverse(STOCK_DATA);
   var rows = CS.rankByMetric(u, rankMarket, rankMetric);
   var host = document.getElementById("rk-table");
   host.innerHTML = '<table class="rk-tbl"><thead><tr><th>#</th><th>銘柄</th><th>業種</th><th>値</th><th>順位(%)</th></tr></thead><tbody>' +
