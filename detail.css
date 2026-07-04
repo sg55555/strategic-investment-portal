@@ -861,3 +861,11 @@
       .rk-tbl tbody tr { cursor: pointer; } .rk-tbl tbody tr:hover { background: rgba(98,240,255,.06); }
       .rk-dot { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; }
       .rk-sec { color: #9fb9cc; } .rk-val { color: #fff; }
+
+      /* ── ③ランキング：散布図 + セクター帯（Task12） ── */
+      #rk-scatter-wrap { position: relative; height: 340px; margin-bottom: 14px; }
+      .rk-strip-title { font: 600 12px var(--ix-mono,monospace); color: var(--c-cyan,#62f0ff); margin: 8px 0 6px; }
+      .rk-strip { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+      .rk-cell { display: flex; align-items: center; gap: 6px; font: 11px var(--ix-mono,monospace); color: #cfe8ff;
+        border: 1px solid rgba(98,240,255,.18); border-radius: 3px; padding: 4px 8px; }
+      .rk-cell-sec { color: #cfe8ff; } .rk-cell-n { color: #7d93a5; } .rk-cell-med { color: #fff; }

@@ -2166,8 +2166,50 @@
         document.getElementById("rk-mkt-US").classList.toggle("active", m === "US");
         renderRanking();
       }
-      // Task12 で本実装。Task11時点は空のプレースホルダ（表単独で動く）。
-      function renderRankScatterAndStrip() {}
+      // Task12: 散布図（Chart.js・0x0罠回避）+ データ駆動セクター帯。
+      var _rkScatter = null;
+      function renderRankScatterAndStrip(u) {
+        var CS = window.CrossSection;
+        // --- セクター帯（データ駆動・N>=3、残りその他） ---
+        var sm = CS.sectorMedians(u, rankMarket, rankMetric, { minN: 3 });
+        var m = CS.METRIC_BY_KEY[rankMetric];
+        var strip = document.getElementById("rk-sector-strip");
+        strip.innerHTML = '<div class="rk-strip-title">セクター中央値（' + esc(m.label) + '・N≥3）</div>' +
+          '<div class="rk-strip">' + sm.map(function (s) {
+            var col = (s.sector === "その他") ? "#7d93a5" : ((typeof getSectorColor === "function") ? getSectorColor(s.sector) : "#62f0ff");
+            var fmt = (m.unit === "%") ? (s.median.toFixed(1) + "%") : (m.unit === "倍" ? s.median.toFixed(1) + "倍" : Math.round(s.median));
+            return '<div class="rk-cell"><span class="rk-dot" style="background:' + esc(col) + '"></span>' +
+              '<span class="rk-cell-sec">' + esc(s.sector) + '</span><span class="rk-cell-n">n' + s.n + '</span>' +
+              '<span class="rk-cell-med">' + esc(fmt) + '</span></div>';
+          }).join("") + '</div>';
+        // --- 散布図（x=PER, y=ROE 既定・両軸欠測除外・中央値クロスヘア） ---
+        var xKey = "per", yKey = "roe";
+        var sp = CS.scatterPoints(u, rankMarket, xKey, yKey);
+        var canvas = document.getElementById("rk-scatter");
+        if (!canvas || typeof Chart === "undefined") return;
+        if (_rkScatter) { _rkScatter.destroy(); _rkScatter = null; }   // 破棄先行（再入の二重生成防止）
+        // 0x0罠回避：view が active になってから rAF で生成
+        requestAnimationFrame(function () {
+          if (!canvas.clientWidth) return; // 非表示なら生成しない（0x0固定回避）
+          var ctx = canvas.getContext("2d");
+          _rkScatter = new Chart(ctx, {
+            type: "scatter",
+            data: { datasets: [{
+              label: sp.xLabel + " × " + sp.yLabel,
+              data: sp.points.map(function (p) { return { x: p.x, y: p.y, _t: p.ticker, _n: p.name }; }),
+              pointBackgroundColor: sp.points.map(function (p) { return (typeof getSectorColor === "function") ? getSectorColor(p.industry) : "#62f0ff"; }),
+              pointRadius: 5, pointHoverRadius: 7,
+            }] },
+            options: {
+              responsive: true, maintainAspectRatio: false,
+              scales: { x: { title: { display: true, text: sp.xLabel }, ticks: { color: "#9fb9cc" }, grid: { color: "rgba(98,240,255,.08)" } },
+                        y: { title: { display: true, text: sp.yLabel }, ticks: { color: "#9fb9cc" }, grid: { color: "rgba(98,240,255,.08)" } } },
+              plugins: { legend: { display: false },
+                tooltip: { callbacks: { label: function (c) { var d = c.raw; return d._n + "  " + sp.xLabel + ":" + d.x + " / " + sp.yLabel + ":" + d.y; } } } },
+            },
+          });
+        });
+      }
       function renderRanking() {
         var CS = window.CrossSection; if (!CS || !STOCK_DATA) return;
         _initRankMetricSelect();
