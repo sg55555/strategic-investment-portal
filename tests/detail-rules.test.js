@@ -463,3 +463,11 @@ test("healthTrendSeries: ETF (financials_trend={}) → 空系列", () => {
   assert.deepEqual(s.equityRatio, []);
   assert.equal(s.basis.equityMin, 40);
 });
+
+test("INDICATOR_GLOSSARY: cagr/growth-rate は read 付きで存在（売買/予測語なし）", () => {
+  const g = require("../detail-rules.js").INDICATOR_GLOSSARY;
+  const by = {}; g.forEach((e) => (by[e.term] = e));
+  assert.ok(by["cagr"] && by["cagr"].read && by["cagr"].def);
+  assert.ok(by["growth-rate"] && by["growth-rate"].read && by["growth-rate"].def);
+  assert.doesNotMatch(by["cagr"].def + by["growth-rate"].def, /買い|売り|推奨|割安|割高/);
+});
