@@ -668,6 +668,15 @@
         font-weight: bold;
         letter-spacing: 0.5px;
       }
+      .screening-group { grid-column: 1 / -1; font-size:0.72rem; color: var(--ix-text-dim); letter-spacing:0.08em; margin-top:6px; padding-bottom:2px; border-bottom:1px solid var(--ix-border-mid, #22303a); }
+      .screening-markets { display:flex; align-items:center; gap:14px; margin-bottom:8px; }
+      .screening-check { font-size:0.8rem; color: var(--ix-text-dim); display:inline-flex; align-items:center; gap:4px; cursor:pointer; }
+      .screening-presets { display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
+      .screening-presets select { background:transparent; color: var(--ix-text-dim); border:1px solid var(--ix-border-mid,#22303a); border-radius:4px; padding:3px 6px; font-size:0.78rem; }
+      .screening-preset-btn { background:transparent; border:1px solid var(--ix-border-mid,#22303a); color: var(--ix-text-dim); border-radius:4px; padding:3px 8px; font-size:0.76rem; cursor:pointer; }
+      .screening-preset-btn:hover { border-color: var(--ix-indigo-accent); color: var(--ix-indigo-bright); }
+      .screening-preset-btn.del:hover { border-color: var(--ix-red); color: var(--ix-red); }
+      .screening-note { margin-top:8px; font-size:0.7rem; color: var(--ix-text-dim); opacity:0.85; }
 
       /* ── お問い合わせフォーム ── */
       .contact-form { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
@@ -1011,9 +1020,20 @@
         <button class="screening-toggle-btn" id="screening-toggle" onclick="toggleScreening()">▼ スクリーニング</button>
         <button id="ranking-entry" onclick="navigateToRanking()">▤ ランキング</button>
         <div class="screening-panel" id="screening-panel">
+          <div class="screening-markets">
+            <span class="screening-label">市場</span>
+            <label class="screening-check"><input type="checkbox" id="scr-mkt-jp" checked onchange="applyScreening()"> 日本株</label>
+            <label class="screening-check"><input type="checkbox" id="scr-mkt-us" checked onchange="applyScreening()"> 米国株</label>
+          </div>
+          <div class="screening-presets">
+            <select id="scr-preset-select" onchange="onScreenerPresetChange()"><option value="">― 保存済みなし ―</option></select>
+            <button type="button" class="screening-preset-btn" onclick="saveScreenerPreset()">＋ 現在の条件を保存</button>
+            <button type="button" class="screening-preset-btn del" onclick="deleteScreenerPreset()">🗑 削除</button>
+          </div>
           <div class="screening-grid">
+            <div class="screening-group">割安</div>
             <div class="screening-item">
-              <span class="screening-label">PER (株価収益率)</span>
+              <span class="screening-label" data-term="per">PER (株価収益率)</span>
               <div class="screening-range">
                 <input class="screening-input" id="scr-per-min" type="number" placeholder="最小" min="0" step="0.5" oninput="applyScreening()">
                 <span class="screening-sep">〜</span>
@@ -1022,7 +1042,7 @@
               </div>
             </div>
             <div class="screening-item">
-              <span class="screening-label">PBR (株価純資産倍率)</span>
+              <span class="screening-label" data-term="pbr">PBR (株価純資産倍率)</span>
               <div class="screening-range">
                 <input class="screening-input" id="scr-pbr-min" type="number" placeholder="最小" min="0" step="0.1" oninput="applyScreening()">
                 <span class="screening-sep">〜</span>
@@ -1030,8 +1050,37 @@
                 <span class="screening-sep" style="font-size:0.7rem;color:#334155;">倍</span>
               </div>
             </div>
+            <div class="screening-group">収益</div>
             <div class="screening-item">
-              <span class="screening-label">自己資本比率</span>
+              <span class="screening-label" data-term="op-margin">営業利益率</span>
+              <div class="screening-range">
+                <input class="screening-input" id="scr-op-min" type="number" placeholder="最小" min="-100" step="0.5" oninput="applyScreening()">
+                <span class="screening-sep">〜</span>
+                <input class="screening-input" id="scr-op-max" type="number" placeholder="最大" step="0.5" oninput="applyScreening()">
+                <span class="screening-sep" style="font-size:0.7rem;color:#334155;">%</span>
+              </div>
+            </div>
+            <div class="screening-item">
+              <span class="screening-label" data-term="roe">ROE (自己資本利益率)</span>
+              <div class="screening-range">
+                <input class="screening-input" id="scr-roe-min" type="number" placeholder="最小" step="0.5" oninput="applyScreening()">
+                <span class="screening-sep">〜</span>
+                <input class="screening-input" id="scr-roe-max" type="number" placeholder="最大" step="0.5" oninput="applyScreening()">
+                <span class="screening-sep" style="font-size:0.7rem;color:#334155;">%</span>
+              </div>
+            </div>
+            <div class="screening-item">
+              <span class="screening-label" data-term="net-margin">純利益率</span>
+              <div class="screening-range">
+                <input class="screening-input" id="scr-nm-min" type="number" placeholder="最小" step="0.5" oninput="applyScreening()">
+                <span class="screening-sep">〜</span>
+                <input class="screening-input" id="scr-nm-max" type="number" placeholder="最大" step="0.5" oninput="applyScreening()">
+                <span class="screening-sep" style="font-size:0.7rem;color:#334155;">%</span>
+              </div>
+            </div>
+            <div class="screening-group">安全</div>
+            <div class="screening-item">
+              <span class="screening-label" data-term="equity-ratio">自己資本比率</span>
               <div class="screening-range">
                 <input class="screening-input" id="scr-eq-min" type="number" placeholder="最小" min="0" max="100" step="1" oninput="applyScreening()">
                 <span class="screening-sep">〜</span>
@@ -1040,11 +1089,21 @@
               </div>
             </div>
             <div class="screening-item">
-              <span class="screening-label">営業利益率</span>
+              <span class="screening-label" data-term="current-ratio">流動比率</span>
               <div class="screening-range">
-                <input class="screening-input" id="scr-op-min" type="number" placeholder="最小" min="-100" step="0.5" oninput="applyScreening()">
+                <input class="screening-input" id="scr-cur-min" type="number" placeholder="最小" min="0" step="1" oninput="applyScreening()">
                 <span class="screening-sep">〜</span>
-                <input class="screening-input" id="scr-op-max" type="number" placeholder="最大" step="0.5" oninput="applyScreening()">
+                <input class="screening-input" id="scr-cur-max" type="number" placeholder="最大" min="0" step="1" oninput="applyScreening()">
+                <span class="screening-sep" style="font-size:0.7rem;color:#334155;">%</span>
+              </div>
+            </div>
+            <div class="screening-group">成長</div>
+            <div class="screening-item">
+              <span class="screening-label" data-term="cagr">売上成長率 (3期CAGR)</span>
+              <div class="screening-range">
+                <input class="screening-input" id="scr-cagr-min" type="number" placeholder="最小" step="0.5" oninput="applyScreening()">
+                <span class="screening-sep">〜</span>
+                <input class="screening-input" id="scr-cagr-max" type="number" placeholder="最大" step="0.5" oninput="applyScreening()">
                 <span class="screening-sep" style="font-size:0.7rem;color:#334155;">%</span>
               </div>
             </div>
@@ -1053,6 +1112,7 @@
             <button class="screening-reset-btn" onclick="resetScreening()">✕ リセット</button>
             <span class="screening-result-count" id="screening-count"></span>
           </div>
+          <div class="screening-note">スクリーニングは条件による抽出であり、売買を推奨するものではありません。</div>
         </div>
 
         <div class="legend-bar">
