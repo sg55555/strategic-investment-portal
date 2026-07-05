@@ -1471,6 +1471,7 @@
     <script src="dataClient.js"></script>
     <script src="finance-rules.js"></script>
     <script src="cross-section-rules.js"></script>
+    <script src="screener-rules.js"></script>
     <script src="detail-rules.js"></script>
     <script>
       // F2: 生きた cross-script 共有束縛。detail.js の "use strict" bare 代入(currentTicker = ticker)と
@@ -1776,8 +1777,8 @@
           const fin = latestFin || {};
           const hasFinData = latestFin !== null && (latestFin.net_sales > 0 || latestFin.net_assets > 0);
 
-          const eqRatio = FinanceRules.equityRatio(fin);   // F1: 純関数へ集約
-          const curRatio = FinanceRules.currentRatio(fin);
+          const eqRatio = FinanceRules.ratioOrNull(fin, FinanceRules.equityRatio, ["net_assets","current_assets","non_current_assets"], ["current_assets","non_current_assets"]);   // F1: 純関数へ集約
+          const curRatio = FinanceRules.ratioOrNull(fin, FinanceRules.currentRatio, ["current_assets","current_liabilities"], ["current_liabilities"]);
 
           const assetType = company.type || "stock";
           if (activeSectorFilter === "stock_only" && assetType === "etf") continue;
@@ -1804,8 +1805,10 @@
             trendSales.push(company.financials_trend[yr].net_sales || 0);
           });
 
-          const opMargin = FinanceRules.opMargin(fin);     // F1: 純関数へ集約
-          const roe = FinanceRules.roe(fin);
+          const opMargin = FinanceRules.ratioOrNull(fin, FinanceRules.opMargin, ["operating_income","net_sales"], ["net_sales"]);     // F1: 純関数へ集約
+          const roe = FinanceRules.ratioOrNull(fin, FinanceRules.roe, ["net_income","net_assets"], ["net_assets"]);
+          const netMargin = FinanceRules.ratioOrNull(fin, FinanceRules.netMargin, ["net_income","net_sales"], ["net_sales"]);
+          const growth = FinanceRules.growthRates(company.financials_trend, ["net_sales","net_income"]);
 
           const item = {
             ticker: ticker,
@@ -1823,6 +1826,10 @@
             opMargin: opMargin,
             roe: roe,
             hasFinData: hasFinData,
+            isEtf: assetType === "etf",
+            netMargin: netMargin,
+            salesYoY: growth.net_sales.yoy, salesCagr: growth.net_sales.cagr,
+            niYoY: growth.net_income.yoy, niCagr: growth.net_income.cagr,
           };
           if (!passesScreening(item)) continue;
           list.push(item);
