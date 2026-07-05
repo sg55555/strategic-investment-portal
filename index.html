@@ -1667,6 +1667,64 @@
         filterAndRenderPortal();
       }
 
+      // Task11: スクリーニング条件プリセット CRUD（localStorage は ScreenerRules 内で完結）
+      function refreshPresetSelect(selectedName) {
+        const sel = document.getElementById("scr-preset-select");
+        if (!sel) return;
+        const presets = ScreenerRules.loadPresets();
+        sel.innerHTML = "";
+        const ph = document.createElement("option");
+        ph.value = ""; ph.textContent = presets.length ? "― プリセットを選択 ―" : "― 保存済みなし ―";
+        sel.appendChild(ph);
+        presets.forEach((p, i) => { const o = document.createElement("option"); o.value = String(i); o.textContent = p.name; sel.appendChild(o); }); // textContent＝esc（注入防止）
+        if (selectedName) { const idx = presets.findIndex((p) => p.name === selectedName); if (idx >= 0) sel.value = String(idx); }
+      }
+      function saveScreenerPreset() {
+        const input = prompt("プリセット名（1〜40字）");
+        if (input === null) return;                          // キャンセル no-op
+        const name = input.trim();
+        if (name.length < 1 || name.length > 40) { alert("プリセット名は1〜40字で入力してください"); return; }
+        const preset = { name: name, criteria: ScreenerRules.normalizeCriteria(_readScreenerRaw()), markets: _readMarkets(), v: 1 };
+        if (!ScreenerRules.validatePreset(preset)) { alert("保存できませんでした"); return; }
+        const list = ScreenerRules.loadPresets().filter((p) => p.name !== name); // 同名上書き（confirm不要）
+        list.push(preset);
+        ScreenerRules.savePresets(list);
+        refreshPresetSelect(name);
+      }
+      function onScreenerPresetChange() {
+        const sel = document.getElementById("scr-preset-select");
+        if (!sel || sel.value === "") return;                // プレースホルダは load しない
+        const p = ScreenerRules.loadPresets()[Number(sel.value)];
+        if (p) loadScreenerPreset(p);
+      }
+      function loadScreenerPreset(preset) {
+        // (1) clear-first：全8軸16入力＋市場チェック＋セクターを既定へ
+        ScreenerRules.AXIS_REGISTRY.forEach((ax) => { [ax.dom.min, ax.dom.max].forEach((id) => { const el = document.getElementById(id); if (el) el.value = ""; }); });
+        const jp = document.getElementById("scr-mkt-jp"), us = document.getElementById("scr-mkt-us");
+        const m = ScreenerRules.normalizeMarkets(preset.markets);
+        if (jp) jp.checked = (m.length === 0 || m.indexOf("JP") !== -1);   // (3) markets 復元（[]→両チェック）
+        if (us) us.checked = (m.length === 0 || m.indexOf("US") !== -1);
+        Object.keys(preset.criteria).forEach((k) => {                       // (2) criteria の軸だけ setValue
+          const ax = ScreenerRules.AXIS_BY_KEY[k]; if (!ax) return;
+          const c = preset.criteria[k];
+          const emin = document.getElementById(ax.dom.min), emax = document.getElementById(ax.dom.max);
+          if (emin) emin.value = (c.min == null ? "" : c.min);
+          if (emax) emax.value = (c.max == null ? "" : c.max);
+        });
+        activeSectorFilter = "all";                                        // D2 再現性：セクターチップをリセット
+        if (typeof initSectorFilter === "function") initSectorFilter();    // チップの active 表示を同期
+        applyScreening();
+      }
+      function deleteScreenerPreset() {
+        const sel = document.getElementById("scr-preset-select");
+        if (!sel || sel.value === "") return;
+        const p = ScreenerRules.loadPresets()[Number(sel.value)];
+        if (!p) return;
+        if (!confirm(`プリセット「${p.name}」を削除しますか？`)) return;   // 削除は confirm
+        ScreenerRules.savePresets(ScreenerRules.loadPresets().filter((x) => x.name !== p.name));
+        refreshPresetSelect();
+      }
+
       // ウォッチリスト (localStorage永続化)
       let watchlist = new Set(JSON.parse(localStorage.getItem("sip_watchlist") || "[]"));
       function isWatched(ticker) { return watchlist.has(ticker); }
@@ -1791,6 +1849,7 @@
         if (countEl) countEl.innerText = companies.length + " 銘柄";
         if (sectorEl) sectorEl.innerText = sectors.size + " セクター";
         initSectorFilter();
+        refreshPresetSelect();
         filterAndRenderPortal();
       }
 
@@ -2363,6 +2422,7 @@
         toggleScreening, applyScreening, resetScreening, toggleWatchlist, handleContactSubmit,
         openModal, closeModal, retryLoadData, onPortalSearchInput, setSort, navigateToPortal,
         navigateToRanking, setRankMarket, renderRanking,
+        saveScreenerPreset, onScreenerPresetChange, deleteScreenerPreset, loadScreenerPreset,
       });
     })();
 
