@@ -1628,7 +1628,8 @@
 
       // スクリーニングフィルター状態
       let screeningActive = false;
-      let screening = { perMin: null, perMax: null, pbrMin: null, pbrMax: null, eqMin: null, eqMax: null, opMin: null, opMax: null };
+      let screeningCriteria = {};
+      let screeningMarkets = [];   // 正規化後（[] = 無制約）
 
       function toggleScreening() {
         screeningActive = !screeningActive;
@@ -1638,29 +1639,32 @@
         btn.innerText = (screeningActive ? "▲" : "▼") + " スクリーニング";
       }
 
+      function _readScreenerRaw() {
+        const g = (id) => { const el = document.getElementById(id); return el ? el.value : ""; };
+        const raw = {};
+        ScreenerRules.AXIS_REGISTRY.forEach((ax) => { raw[ax.key] = { min: g(ax.dom.min), max: g(ax.dom.max) }; });
+        return raw;
+      }
+      function _readMarkets() {
+        const jp = document.getElementById("scr-mkt-jp"), us = document.getElementById("scr-mkt-us");
+        const arr = [];
+        if (jp && jp.checked) arr.push("JP");
+        if (us && us.checked) arr.push("US");
+        return ScreenerRules.normalizeMarkets(arr);
+      }
       function applyScreening() {
-        const g = (id) => { const v = parseFloat(document.getElementById(id).value); return isNaN(v) ? null : v; };
-        screening = { perMin: g("scr-per-min"), perMax: g("scr-per-max"), pbrMin: g("scr-pbr-min"), pbrMax: g("scr-pbr-max"), eqMin: g("scr-eq-min"), eqMax: g("scr-eq-max"), opMin: g("scr-op-min"), opMax: g("scr-op-max") };
+        screeningCriteria = ScreenerRules.normalizeCriteria(_readScreenerRaw());
+        screeningMarkets = _readMarkets();
         filterAndRenderPortal();
       }
-
       function resetScreening() {
-        ["scr-per-min","scr-per-max","scr-pbr-min","scr-pbr-max","scr-eq-min","scr-eq-max","scr-op-min","scr-op-max"].forEach(id => { document.getElementById(id).value = ""; });
-        screening = { perMin: null, perMax: null, pbrMin: null, pbrMax: null, eqMin: null, eqMax: null, opMin: null, opMax: null };
+        ScreenerRules.AXIS_REGISTRY.forEach((ax) => {
+          [ax.dom.min, ax.dom.max].forEach((id) => { const el = document.getElementById(id); if (el) el.value = ""; });
+        });
+        const jp = document.getElementById("scr-mkt-jp"), us = document.getElementById("scr-mkt-us");
+        if (jp) jp.checked = true; if (us) us.checked = true;
+        screeningCriteria = {}; screeningMarkets = [];
         filterAndRenderPortal();
-      }
-
-      function passesScreening(item) {
-        const s = screening;
-        if (s.perMin !== null && (item.per <= 0 || item.per < s.perMin)) return false;
-        if (s.perMax !== null && item.per > 0 && item.per > s.perMax) return false;
-        if (s.pbrMin !== null && (item.pbr <= 0 || item.pbr < s.pbrMin)) return false;
-        if (s.pbrMax !== null && item.pbr > 0 && item.pbr > s.pbrMax) return false;
-        if (s.eqMin !== null && item.eqRatio < s.eqMin) return false;
-        if (s.eqMax !== null && item.eqRatio > s.eqMax) return false;
-        if (s.opMin !== null && item.opMargin < s.opMin) return false;
-        if (s.opMax !== null && item.opMargin > s.opMax) return false;
-        return true;
       }
 
       // ウォッチリスト (localStorage永続化)
@@ -1894,14 +1898,15 @@
             salesYoY: growth.net_sales.yoy, salesCagr: growth.net_sales.cagr,
             niYoY: growth.net_income.yoy, niCagr: growth.net_income.cagr,
           };
-          if (!passesScreening(item)) continue;
+          if (!ScreenerRules.passesScreening(item, screeningCriteria)) continue;
+          if (!ScreenerRules.passesMarket(item, screeningMarkets)) continue;
           list.push(item);
         }
 
         // スクリーニング結果数を更新
         const countEl = document.getElementById("screening-count");
         if (countEl) {
-          const hasFilter = Object.values(screening).some(v => v !== null);
+          const hasFilter = ScreenerRules.hasAnyConstraint(screeningCriteria, screeningMarkets);
           countEl.innerText = hasFilter ? `${list.length} 銘柄がヒット` : "";
         }
 
@@ -1926,7 +1931,10 @@
         });
 
         if (Object.keys(groups).length === 0) {
-          container.innerHTML = `<div style="text-align:center; color:#6b7d8a; padding:40px;">該当する企業が見つかりません</div>`;
+          const marketOn = screeningMarkets.length > 0;
+          const sectorOn = (activeSectorFilter !== "all" && activeSectorFilter !== "stock_only");
+          const hint = (marketOn && sectorOn) ? "<br><span style='font-size:0.8rem;color:#5a6c78'>セクター条件と市場条件が重複している可能性があります</span>" : "";
+          container.innerHTML = `<div style="text-align:center; color:#6b7d8a; padding:40px;">該当する企業が見つかりません${hint}</div>`;
           return;
         }
 
@@ -2054,6 +2062,12 @@
           scrollWrap.appendChild(table);
           sectorDiv.appendChild(scrollWrap);
           container.appendChild(sectorDiv);
+        }
+
+        if (window.Detail && typeof window.Detail.injectTermHelp === "function") {
+          const panel = document.getElementById("screening-panel");
+          if (panel) window.Detail.injectTermHelp(panel);
+          window.Detail.injectTermHelp(container);   // grid の 3期トレンド列見出し data-term="growth-rate" を活性化
         }
       }
 
