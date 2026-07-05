@@ -161,3 +161,36 @@ test("cagr: 両端正・periods>=1 のみ", () => {
   assert.equal(F.cagr(100, -50, 2), null);  // 末尾負→null
   assert.equal(F.cagr(100, 121, 0), null);  // periods<1→null
 });
+
+test("growthRates: 3期 売上/純利益 独立", () => {
+  const TREND3 = { "2023": { net_sales: 100, net_income: 10, year: 2023 },
+                   "2024": { net_sales: 110, net_income: 8,  year: 2024 },
+                   "2025": { net_sales: 121, net_income: 12, year: 2025 } };
+  const g = F.growthRates(TREND3);
+  assert.equal(Math.round(g.net_sales.cagr), 10);   // 100→121 / 2期
+  assert.equal(Math.round(g.net_sales.yoy), 10);    // 110→121
+  assert.equal(g.net_income.beginYear, 2023);
+  assert.equal(Math.round(g.net_income.yoy), 50);   // 8→12
+});
+
+test("growthRates: 欠測年は非連続 yoy=null・cagr は span", () => {
+  const t = { "2023": { net_sales: 100, year: 2023 }, "2025": { net_sales: 121, year: 2025 } };
+  const g = F.growthRates(t, ["net_sales"]);
+  assert.equal(g.net_sales.yoy, null);              // 2024 欠落＝連続でない
+  assert.equal(Math.round(g.net_sales.cagr), 10);   // 100→121 / periods=2
+});
+
+test("growthRates: 有効1対→両 null / 純利益赤字基準→cagr null", () => {
+  assert.equal(F.growthRates({ "2025": { net_sales: 100, year: 2025 } }, ["net_sales"]).net_sales.cagr, null);
+  const t = { "2023": { net_income: -5, year: 2023 }, "2025": { net_income: 10, year: 2025 } };
+  assert.equal(F.growthRates(t, ["net_income"]).net_income.cagr, null);
+});
+
+test("ratioOrNull: 欠測キー/分母≤0 は null", () => {
+  assert.equal(F.ratioOrNull({}, F.equityRatio, ["net_assets"], ["current_assets"]), null);
+  assert.equal(F.ratioOrNull({ net_assets: 50, current_assets: 0, non_current_assets: 0 }, F.equityRatio,
+    ["net_assets","current_assets","non_current_assets"], ["current_assets","non_current_assets"]), null);
+  const ok = F.ratioOrNull({ net_assets: 45, current_assets: 30, non_current_assets: 60 }, F.equityRatio,
+    ["net_assets","current_assets","non_current_assets"], ["current_assets","non_current_assets"]);
+  assert.equal(Math.round(ok), 50); // 45/90
+});

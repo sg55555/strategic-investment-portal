@@ -145,6 +145,44 @@
     return (Math.pow(e / b, 1 / periods) - 1) * 100;
   }
 
+  // 欠測ゲート：needKeys 全て hasValue かつ denomKeys 合計>0 の時のみ fn(fin)、そうでなければ null（CrossSection._finRatio 同型）。
+  function ratioOrNull(fin, fn, needKeys, denomKeys) {
+    if (!fin) return null;
+    for (var i = 0; i < needKeys.length; i++) { if (!hasValue(fin, needKeys[i])) return null; }
+    if (denomKeys) {
+      var denom = 0;
+      for (var j = 0; j < denomKeys.length; j++) denom += n(fin[denomKeys[j]]);
+      if (!(denom > 0)) return null;
+    }
+    var v = fn(fin);
+    return (typeof v === "number" && isFinite(v)) ? v : null;
+  }
+  // 単社の財務時系列（list の financials_trend）から field ごとの {yoy, cagr, beginYear, endYear}。
+  function growthRates(trend, fields) {
+    fields = fields || ["net_sales", "net_income"];
+    trend = trend || {};
+    var out = {};
+    fields.forEach(function (field) {
+      var pairs = Object.keys(trend)
+        .map(function (y) { return { year: Number(y), obj: trend[y] }; })
+        .filter(function (p) { return isFinite(p.year) && p.obj && p.obj[field] != null && isFinite(Number(p.obj[field])); })
+        .map(function (p) { return { year: p.year, value: Number(p.obj[field]) }; })
+        .sort(function (a, b) { return a.year - b.year; });
+      var res = { yoy: null, cagr: null, beginYear: null, endYear: null };
+      if (pairs.length >= 1) {
+        var begin = pairs[0], end = pairs[pairs.length - 1];
+        res.beginYear = begin.year; res.endYear = end.year;
+        var prior = null;
+        for (var i = 0; i < pairs.length; i++) { if (pairs[i].year === end.year - 1) prior = pairs[i]; }
+        if (prior) res.yoy = yoy(prior.value, end.value);
+        var periods = end.year - begin.year;
+        if (periods >= 1) res.cagr = cagr(begin.value, end.value, periods);
+      }
+      out[field] = res;
+    });
+    return out;
+  }
+
   return {
     n: n,
     pickUnit: pickUnit,
@@ -167,5 +205,7 @@
     fmtAxis: fmtAxis,
     yoy: yoy,
     cagr: cagr,
+    growthRates: growthRates,
+    ratioOrNull: ratioOrNull,
   };
 });
