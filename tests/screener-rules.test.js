@@ -19,3 +19,24 @@ test("nullable(ROE): 制約時 null は除外（max-only/負min でも）", () =
 test("制約なし軸は無視", () => {
   assert.equal(S.passesScreening(ETF, {}), true);
 });
+
+test("normalizeMarkets: [] と [JP,US] は無制約([])", () => {
+  assert.deepEqual(S.normalizeMarkets([]), []);
+  assert.deepEqual(S.normalizeMarkets(["JP", "US"]), []);
+  assert.deepEqual(S.normalizeMarkets(["JP"]), ["JP"]);
+});
+test("passesMarket: 無制約=全通過 / 市場指定時 ETF は false / 国一致", () => {
+  assert.equal(S.passesMarket({ country: "US", isEtf: false }, []), true);
+  assert.equal(S.passesMarket({ country: "JP", isEtf: true }, ["JP"]), false); // 市場指定＝株式のみ
+  assert.equal(S.passesMarket({ country: "JP", isEtf: false }, ["JP"]), true);
+  assert.equal(S.passesMarket({ country: "US", isEtf: false }, ["JP"]), false);
+});
+test("hasAnyConstraint: 市場のみ絞込→true / 両チェック([])→軸無ければ false", () => {
+  assert.equal(S.hasAnyConstraint({}, ["JP"]), true);
+  assert.equal(S.hasAnyConstraint({}, ["JP", "US"]), false);
+  assert.equal(S.hasAnyConstraint({ per: { min: 10, max: null } }, []), true);
+});
+test("normalizeCriteria: 有限数のみ・空軸は落とす", () => {
+  const c = S.normalizeCriteria({ per: { min: "10", max: "" }, roe: { min: "", max: "" } });
+  assert.deepEqual(c, { per: { min: 10, max: null } });
+});

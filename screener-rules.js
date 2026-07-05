@@ -42,5 +42,35 @@
     return true;
   }
 
-  return { AXIS_REGISTRY: AXIS_REGISTRY, AXIS_BY_KEY: AXIS_BY_KEY, passesScreening: passesScreening };
+  function _num(v) { var x = parseFloat(v); return isFinite(x) ? x : null; }
+
+  function normalizeMarkets(markets) {
+    var set = {};
+    (markets || []).forEach(function (m) { if (m === "JP" || m === "US") set[m] = true; });
+    var keys = Object.keys(set);
+    return (keys.length === 0 || keys.length === 2) ? [] : keys;
+  }
+  function passesMarket(item, markets) {
+    var m = normalizeMarkets(markets);
+    if (m.length === 0) return true;
+    if ((item && item.isEtf)) return false;      // 市場指定＝株式のみ（チップと統一）
+    return m.indexOf(item && item.country) !== -1;
+  }
+  function normalizeCriteria(raw) {
+    var out = {};
+    AXIS_REGISTRY.forEach(function (ax) {
+      var r = (raw && raw[ax.key]) || {};
+      var min = _num(r.min), max = _num(r.max);
+      if (min !== null || max !== null) out[ax.key] = { min: min, max: max };
+    });
+    return out;
+  }
+  function hasAnyConstraint(criteria, markets) {
+    var anyAxis = Object.keys(criteria || {}).some(function (k) {
+      var c = criteria[k]; return c && (_fin(c.min) || _fin(c.max));
+    });
+    return anyAxis || normalizeMarkets(markets).length > 0;
+  }
+
+  return { AXIS_REGISTRY: AXIS_REGISTRY, AXIS_BY_KEY: AXIS_BY_KEY, passesScreening: passesScreening, normalizeMarkets: normalizeMarkets, passesMarket: passesMarket, normalizeCriteria: normalizeCriteria, hasAnyConstraint: hasAnyConstraint, _num: _num };
 });
