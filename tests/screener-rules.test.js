@@ -20,6 +20,11 @@ test("制約なし軸は無視", () => {
   assert.equal(S.passesScreening(ETF, {}), true);
 });
 
+test("passesScreening: min/max とも非有限の軸は no-op（除外しない）", () => {
+  assert.equal(S.passesScreening(STOCK, { per: { min: null, max: null } }), true);
+  assert.equal(S.passesScreening(ETF, { roe: { min: null, max: null } }), true);
+});
+
 test("normalizeMarkets: [] と [JP,US] は無制約([])", () => {
   assert.deepEqual(S.normalizeMarkets([]), []);
   assert.deepEqual(S.normalizeMarkets(["JP", "US"]), []);
@@ -30,6 +35,11 @@ test("passesMarket: 無制約=全通過 / 市場指定時 ETF は false / 国一
   assert.equal(S.passesMarket({ country: "JP", isEtf: true }, ["JP"]), false); // 市場指定＝株式のみ
   assert.equal(S.passesMarket({ country: "JP", isEtf: false }, ["JP"]), true);
   assert.equal(S.passesMarket({ country: "US", isEtf: false }, ["JP"]), false);
+});
+test("normalizeMarkets/passesMarket: 重複トークン折込・full-set×ETF は通過", () => {
+  assert.deepEqual(S.normalizeMarkets(["JP", "JP"]), ["JP"]);
+  assert.deepEqual(S.normalizeMarkets(["US", "JP"]), []);
+  assert.equal(S.passesMarket({ country: "JP", isEtf: true }, ["JP", "US"]), true); // full-set=無制約→ETFも通過
 });
 test("hasAnyConstraint: 市場のみ絞込→true / 両チェック([])→軸無ければ false", () => {
   assert.equal(S.hasAnyConstraint({}, ["JP"]), true);

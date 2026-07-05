@@ -182,6 +182,7 @@ test("growthRates: 欠測年は非連続 yoy=null・cagr は span", () => {
 
 test("growthRates: 有効1対→両 null / 純利益赤字基準→cagr null", () => {
   assert.equal(F.growthRates({ "2025": { net_sales: 100, year: 2025 } }, ["net_sales"]).net_sales.cagr, null);
+  assert.equal(F.growthRates({ "2025": { net_sales: 100, year: 2025 } }, ["net_sales"]).net_sales.yoy, null);
   const t = { "2023": { net_income: -5, year: 2023 }, "2025": { net_income: 10, year: 2025 } };
   assert.equal(F.growthRates(t, ["net_income"]).net_income.cagr, null);
 });
