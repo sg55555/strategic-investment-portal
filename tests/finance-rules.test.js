@@ -142,3 +142,22 @@ test("totalLiabilities = 流動負債 + 固定負債（欠損→0）", () => {
   assert.equal(F.totalLiabilities({}), 0);
   assert.equal(F.totalLiabilities(null), 0);
 });
+
+test("yoy: 正常な前年比", () => {
+  assert.equal(F.yoy(100, 120), 20);
+  assert.equal(F.yoy(200, 150), -25);
+});
+test("yoy: 基準0/欠測は null", () => {
+  assert.equal(F.yoy(0, 100), null);
+  assert.equal(F.yoy(null, 100), null);
+});
+test("yoy: 負基準は abs 分母（DetailRules.yoyBadge と同式）", () => {
+  assert.equal(F.yoy(-100, -50), 50);   // 赤字が半減＝+50%
+  assert.equal(F.yoy(-100, -150), -50); // 赤字が拡大＝-50%
+});
+test("cagr: 両端正・periods>=1 のみ", () => {
+  assert.equal(Math.round(F.cagr(100, 121, 2) * 100) / 100, 10); // 10%
+  assert.equal(F.cagr(-100, 100, 2), null); // 基準負→null
+  assert.equal(F.cagr(100, -50, 2), null);  // 末尾負→null
+  assert.equal(F.cagr(100, 121, 0), null);  // periods<1→null
+});

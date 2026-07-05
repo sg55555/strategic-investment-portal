@@ -132,6 +132,19 @@
   // 単位ラベル（ヘッダ「単位: 兆円」等）。
   function unitLabel(unit) { return unit ? unit.suffix : ""; }
 
+  // 前年比 %。基準0/欠測は null。負基準は abs 分母（DetailRules.yoyBadge と数値一致＝単一源方針）。
+  function yoy(prev, curr) {
+    var p = n(prev), c = n(curr);
+    if (p === 0) return null;
+    return ((c - p) / Math.abs(p)) * 100;
+  }
+  // 年平均成長率 %。両端が正・periods>=1 のときのみ（符号反転/0基準/負ratio の非実数化を根絶）。
+  function cagr(begin, end, periods) {
+    var b = n(begin), e = n(end);
+    if (!(b > 0) || !(e > 0) || !(periods >= 1)) return null;
+    return (Math.pow(e / b, 1 / periods) - 1) * 100;
+  }
+
   return {
     n: n,
     pickUnit: pickUnit,
@@ -152,5 +165,7 @@
     fmtUnit: fmtUnit,
     fmtMagnitude: fmtMagnitude,
     fmtAxis: fmtAxis,
+    yoy: yoy,
+    cagr: cagr,
   };
 });
