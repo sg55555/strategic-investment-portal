@@ -63,3 +63,41 @@ test("loadPresets/savePresets: round-trip・破損→[]", () => {
   assert.deepEqual(S.loadPresets(), []);
   delete global.localStorage;
 });
+
+test("回帰(Fix1): migratePreset は非配列 markets(文字列 'JP') でも例外を投げず markets:[] に正規化する", () => {
+  let mp;
+  assert.doesNotThrow(() => { mp = S.migratePreset({ name: "x", criteria: {}, markets: "JP" }); });
+  assert.ok(mp);
+  assert.deepEqual(mp.markets, []);
+  assert.equal(S.validatePreset(mp), true);
+});
+test("回帰(Fix1): loadPresets は1件が非配列markets(破損)でも例外で全滅([])せず、正常プリセットを保持する", () => {
+  try {
+    const mem = {};
+    global.localStorage = { getItem: (k) => mem[k] || null, setItem: (k, v) => { mem[k] = v; } };
+    mem["sip_screener_presets"] = JSON.stringify([
+      { name: "broken", criteria: {}, markets: "JP", v: 1 },
+      { name: "ok", criteria: { roe: { min: 8, max: null } }, markets: [], v: 1 },
+    ]);
+    const loaded = S.loadPresets();
+    // 修正前は migratePreset 内の forEach が非配列 markets で TypeError→catch→[] だった（ok も含め全滅）。
+    // 修正後は非配列 markets が [](無制約) に正規化され例外を投げないため、両方とも有効なプリセットとして残る。
+    assert.notDeepEqual(loaded, []);
+    assert.ok(loaded.some((p) => p.name === "ok"));
+  } finally {
+    delete global.localStorage;
+  }
+});
+test("回帰(Fix2): validatePreset は Object.prototype 由来キー(constructor)を軸として受理しない", () => {
+  assert.equal(S.validatePreset({ name: "x", criteria: { constructor: { min: 1, max: 2 } }, markets: [] }), false);
+});
+test("回帰(Fix2): migratePreset は Object.prototype 由来キー(constructor)を軸として引き継がない", () => {
+  const mp = S.migratePreset({ name: "x", criteria: { constructor: { min: 1, max: 2 } }, markets: [] });
+  assert.ok(mp);
+  assert.ok(!Object.prototype.hasOwnProperty.call(mp.criteria, "constructor"));
+});
+test("回帰(Fix3): validatePreset は min/max が数値以外(boolean/array/string)なら false", () => {
+  assert.equal(S.validatePreset({ name: "x", criteria: { per: { min: true, max: null } }, markets: [] }), false);
+  assert.equal(S.validatePreset({ name: "x", criteria: { per: { min: [5], max: null } }, markets: [] }), false);
+  assert.equal(S.validatePreset({ name: "x", criteria: { per: { min: "5", max: null } }, markets: [] }), false);
+});

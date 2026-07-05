@@ -46,7 +46,7 @@
 
   function normalizeMarkets(markets) {
     var set = {};
-    (markets || []).forEach(function (m) { if (m === "JP" || m === "US") set[m] = true; });
+    (Array.isArray(markets) ? markets : []).forEach(function (m) { if (m === "JP" || m === "US") set[m] = true; });
     var keys = Object.keys(set);
     return (keys.length === 0 || keys.length === 2) ? [] : keys;
   }
@@ -80,10 +80,10 @@
     if (!p.criteria || typeof p.criteria !== "object") return false;
     var keys = Object.keys(p.criteria);
     for (var i = 0; i < keys.length; i++) {
-      if (!AXIS_BY_KEY[keys[i]]) return false;
+      if (!Object.prototype.hasOwnProperty.call(AXIS_BY_KEY, keys[i])) return false;
       var c = p.criteria[keys[i]] || {};
-      if (c.min != null && !isFinite(Number(c.min))) return false;
-      if (c.max != null && !isFinite(Number(c.max))) return false;
+      if (c.min != null && (typeof c.min !== "number" || !isFinite(c.min))) return false;
+      if (c.max != null && (typeof c.max !== "number" || !isFinite(c.max))) return false;
     }
     if (!Array.isArray(p.markets)) return false;
     for (var j = 0; j < p.markets.length; j++) { if (p.markets[j] !== "JP" && p.markets[j] !== "US") return false; }
@@ -94,7 +94,7 @@
     var mp = { name: String(p.name || "").trim(), criteria: {}, markets: normalizeMarkets(p.markets), v: 1 };
     if (p.criteria && typeof p.criteria === "object") {
       Object.keys(p.criteria).forEach(function (k) {
-        if (AXIS_BY_KEY[k]) { var c = p.criteria[k] || {}; mp.criteria[k] = { min: _num(c.min), max: _num(c.max) }; }
+        if (Object.prototype.hasOwnProperty.call(AXIS_BY_KEY, k)) { var c = p.criteria[k] || {}; mp.criteria[k] = { min: _num(c.min), max: _num(c.max) }; }
       });
     }
     return validatePreset(mp) ? mp : null;
