@@ -40,3 +40,26 @@ test("normalizeCriteria: 有限数のみ・空軸は落とす", () => {
   const c = S.normalizeCriteria({ per: { min: "10", max: "" }, roe: { min: "", max: "" } });
   assert.deepEqual(c, { per: { min: 10, max: null } });
 });
+
+test("validatePreset: 空白のみ名/40字超/不正軸/不正市場は false", () => {
+  assert.equal(S.validatePreset({ name: "   ", criteria: {}, markets: [] }), false);
+  assert.equal(S.validatePreset({ name: "a".repeat(41), criteria: {}, markets: [] }), false);
+  assert.equal(S.validatePreset({ name: "x", criteria: { bogus: { min: 1, max: null } }, markets: [] }), false);
+  assert.equal(S.validatePreset({ name: "x", criteria: {}, markets: ["XX"] }), false);
+  assert.equal(S.validatePreset({ name: "割安JP", criteria: { per: { min: 10, max: null } }, markets: ["JP"] }), true);
+});
+test("migratePreset: 旧形/未知キーを寄せる・不正は null", () => {
+  const mp = S.migratePreset({ name: "v0", criteria: { per: { min: 10 }, bogus: { min: 1 } }, markets: ["JP", "US"] });
+  assert.equal(mp.v, 1);
+  assert.deepEqual(mp.markets, []);          // 両市場→正規化[]
+  assert.ok(mp.criteria.per && !mp.criteria.bogus);
+  assert.equal(S.migratePreset(null), null);
+});
+test("loadPresets/savePresets: round-trip・破損→[]", () => {
+  const mem = {}; global.localStorage = { getItem: (k) => mem[k] || null, setItem: (k, v) => { mem[k] = v; } };
+  assert.equal(S.savePresets([{ name: "x", criteria: { roe: { min: 8, max: null } }, markets: [], v: 1 }]), true);
+  assert.equal(S.loadPresets().length, 1);
+  mem["sip_screener_presets"] = "{bad json";
+  assert.deepEqual(S.loadPresets(), []);
+  delete global.localStorage;
+});

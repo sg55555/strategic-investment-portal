@@ -72,5 +72,47 @@
     return anyAxis || normalizeMarkets(markets).length > 0;
   }
 
-  return { AXIS_REGISTRY: AXIS_REGISTRY, AXIS_BY_KEY: AXIS_BY_KEY, passesScreening: passesScreening, normalizeMarkets: normalizeMarkets, passesMarket: passesMarket, normalizeCriteria: normalizeCriteria, hasAnyConstraint: hasAnyConstraint, _num: _num };
+  var PRESET_KEY = "sip_screener_presets";
+  function validatePreset(p) {
+    if (!p || typeof p !== "object") return false;
+    var name = typeof p.name === "string" ? p.name.trim() : "";
+    if (name.length < 1 || name.length > 40) return false;
+    if (!p.criteria || typeof p.criteria !== "object") return false;
+    var keys = Object.keys(p.criteria);
+    for (var i = 0; i < keys.length; i++) {
+      if (!AXIS_BY_KEY[keys[i]]) return false;
+      var c = p.criteria[keys[i]] || {};
+      if (c.min != null && !isFinite(Number(c.min))) return false;
+      if (c.max != null && !isFinite(Number(c.max))) return false;
+    }
+    if (!Array.isArray(p.markets)) return false;
+    for (var j = 0; j < p.markets.length; j++) { if (p.markets[j] !== "JP" && p.markets[j] !== "US") return false; }
+    return true;
+  }
+  function migratePreset(p) {
+    if (!p || typeof p !== "object") return null;
+    var mp = { name: String(p.name || "").trim(), criteria: {}, markets: normalizeMarkets(p.markets), v: 1 };
+    if (p.criteria && typeof p.criteria === "object") {
+      Object.keys(p.criteria).forEach(function (k) {
+        if (AXIS_BY_KEY[k]) { var c = p.criteria[k] || {}; mp.criteria[k] = { min: _num(c.min), max: _num(c.max) }; }
+      });
+    }
+    return validatePreset(mp) ? mp : null;
+  }
+  function loadPresets() {
+    try {
+      var raw = (typeof localStorage !== "undefined" && localStorage.getItem(PRESET_KEY)) || "[]";
+      var arr = JSON.parse(raw);
+      if (!Array.isArray(arr)) return [];
+      return arr.map(migratePreset).filter(Boolean);
+    } catch (e) { return []; }
+  }
+  function savePresets(list) {
+    try {
+      if (typeof localStorage !== "undefined") localStorage.setItem(PRESET_KEY, JSON.stringify((list || []).filter(validatePreset)));
+      return true;
+    } catch (e) { return false; }
+  }
+
+  return { AXIS_REGISTRY: AXIS_REGISTRY, AXIS_BY_KEY: AXIS_BY_KEY, passesScreening: passesScreening, normalizeMarkets: normalizeMarkets, passesMarket: passesMarket, normalizeCriteria: normalizeCriteria, hasAnyConstraint: hasAnyConstraint, validatePreset: validatePreset, migratePreset: migratePreset, loadPresets: loadPresets, savePresets: savePresets, _num: _num };
 });
