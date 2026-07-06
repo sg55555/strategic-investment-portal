@@ -47,7 +47,7 @@ Phase2「分析力の深化」の第3束。芯は**規律（discipline）の道�
 |---|---|---|
 | 純ロジック | `finance-rules.js` に growth（`yoy`/`cagr`/`growthRates`）＋**欠測ゲート `ratioOrNull`**＋テスト | **新 `screener-rules.js`**（`AXIS_REGISTRY`〔domId 付き〕・`passesScreening`/`passesMarket`/`normalizeMarkets`/`normalizeCriteria`/`hasAnyConstraint`・プリセット `validatePreset`/`migratePreset`/`loadPresets`/`savePresets`）＋テスト |
 | DOM/UI | index.html：item に null安全な ratio値＋flat 成長 key、「3期トレンド」列のソート化＋バッジ、null-last 比較器 | index.html：8軸パネル・市場チェック・プリセット行、`applyScreening` 拡張、`passesScreening` を `ScreenerRules` 呼出へ置換、`<script src="screener-rules.js">` 追加 |
-| 教育/規制 | `INDICATOR_GLOSSARY` に cagr/growth-rate（read 付き）、バッジは `--ix-text-secondary` 単色固定 | 各軸ラベルに `data-term`＋`Detail.injectTermHelp`、パネルに中立注記 |
+| 教育/規制 | `INDICATOR_GLOSSARY` に cagr/growth-rate（read 付き）、バッジは `--ix-text-dim` 単色固定 | 各軸ラベルに `data-term`＋`Detail.injectTermHelp`、パネルに中立注記 |
 
 **cross-module 依存（境界表に明記）**：screener-rules.js は `item` の算出済フィールドのみ読む＝FinanceRules 非依存（ロード順自由）。ただし **`<script src="screener-rules.js">` は index.html inline script が `ScreenerRules` を参照する前にロード**（finance-rules.js／cross-section-rules.js と同じ `<head>`/`<body>` 前方）。termHelp は `window.Detail.injectTermHelp`（detail.js:2275 ロード）に依存＝**呼び出しは fetch 後のポータル描画時**（inline 同期初期化時に呼ばない）。
 
@@ -100,7 +100,7 @@ item：`eqRatio` / `opMargin` / `roe` / `curRatio` / `netMargin` を **`ratioOrN
 - **「3期トレンド」列**（現状 `width:9%`・`cursor:default`・非ソート）を **売上CAGR でソート可能**化：ヘッダに `売上3期 ↕` 相当＋`onclick="setSort('salesCagr')"`。
   - **ソート方向**：`salesCagr` は setSort の未列挙キーゆえ**既定で降順**（setSort 2009-2013 は無改変・finding 13/21。※`|| key==="salesCagr"` を足すと逆に昇順になり誤り＝追記しない）。
 - **バッジ**：既存の売上スパークライン（inline SVG）の下に `CAGR ↑X.X%` / `↓X.X%`（`salesCagr`。null は「—」）。
-  - **色（decision-complete・finding 6）**：上昇/下降とも **`--ix-text-secondary` 単色**＋方向記号（↑/↓）と**不透明度差のみ**。緑/赤/金の hue は**禁止**（隣接セルの緑=良/赤=悪セマフォアに合わせない＝§8 不可侵）。
+  - **色（decision-complete・finding 6）**：上昇/下降とも **`--ix-text-dim` 単色**＋方向記号（↑/↓）と**不透明度差のみ**。緑/赤/金の hue は**禁止**（隣接セルの緑=良/赤=悪セマフォアに合わせない＝§8 不可侵）。
   - **tooltip（title 属性・数値のみゆえ esc 不要）**：`売上YoY {salesYoY}% ／ 純利益CAGR {niCagr}% ／ 純利益YoY {niYoY}%`（null は「—」）。純利益成長はここでのみ露出。
   - **スパークラインとバッジの欠測年差（finding 14・意図的）**：スパークラインは欠測年を 0 描画（既存 `net_sales||0`）、バッジ CAGR は欠測年スキップで暦年 span 準拠。欠測がある銘柄で折れ線とバッジ値が一致しないことがある旨を実装コメントに残し、§7 で欠測年ケースを確認。
 - **null-last 比較器（finding 1/21・方向独立）**：sort 比較で **null/NaN は sortAsc に依らず常に末尾**。対象＝null を持ち得る数値キー（`eqRatio`/`opMargin`/`roe`/`curRatio`/`netMargin`/`salesCagr`/`niCagr`）。文字列キー（ticker/name）と 0埋めキー（per/pbr/marketCap/sales）は既存挙動のまま。実装は既存比較器（1838-1848）の `typeof valA==="string"` 分岐より前に null 判定を置く。
@@ -179,7 +179,7 @@ Preset = { name: string(trim後 1..40), criteria: {axisKey:{min,max}}, markets: 
 
 ## 6. 教育・規制フレーム
 
-- **中立語・no-score**：成長バッジは方向記号＋数値のみ（色は `--ix-text-secondary` 単色）。スクリーナーは条件抽出（合否スコア化しない）。
+- **中立語・no-score**：成長バッジは方向記号＋数値のみ（色は `--ix-text-dim` 単色）。スクリーナーは条件抽出（合否スコア化しない）。
 - **グロッサリ追加（`INDICATOR_GLOSSARY`・単一源・`{term, read, def}` 完備・finding 9）**：各要素に **read を必ず付与**（termHelp が `read + "：" + def` を描画するため read 欠落は「undefined：…」表示）。
   - `{ term:"cagr", read:"CAGR（年平均成長率）", def:"複数年の増減を1年あたりの平均ペースに均した成長率。" }` — salesCagr 軸の `data-term` から参照。
   - `{ term:"growth-rate", read:"成長率", def:"売上や利益が前年（または数年平均）に対しどれだけ増減したか。将来の株価を保証するものではない。" }` — 「3期トレンド」列見出しの `?` から参照。
@@ -214,7 +214,7 @@ Preset = { name: string(trim後 1..40), criteria: {axisKey:{min,max}}, markets: 
 
 - **0x0罠**：新規 LWC/Chart canvas を追加しない（成長=inline SVG バッジ＋テキスト、スクリーナー=入力UI）。既存チャート/スパークライン SVG の寸法・初期化順序は無改変。
 - **F2 IIFE 隔離**：index.html inline `<script>` のグローバル汚染を増やさない＝新公開関数は末尾 `Object.assign(window, …)`。`currentTicker`/`currentView` の生束縛には触れない。
-- **成長バッジ色（finding 6）**：上昇/下降とも `--ix-text-secondary` 単色＋不透明度差のみ。**既存セルの緑=良/赤=悪セマフォアには合わせない**（緑/赤/金 hue 禁止）。
+- **成長バッジ色（finding 6）**：上昇/下降とも `--ix-text-dim` 単色＋不透明度差のみ。**既存セルの緑=良/赤=悪セマフォアには合わせない**（緑/赤/金 hue 禁止）。
 - **facts非出力・個人データ非接触**：money/advice/収支/investment 台帳レイヤーに触れない。LLM 非経由。
 - **既存挙動保存**：positive 軸（PER/PBR）の非対称挙動（max-only は 0以下を保持）はテストで固定。※nullable の eqRatio/opMargin は D1 で欠測 null 化＝max-only/負min の稀なエッジで挙動が「より正しく」変わる（本人決定・§11 D1）。
 - **チャート改変**：2026-07-01 に freeze 解除済だが本束はチャート非改変。
@@ -223,7 +223,7 @@ Preset = { name: string(trim後 1..40), criteria: {axisKey:{min,max}}, markets: 
 
 1. `finance-rules.js`：growth（`yoy`/`cagr`/`growthRates`）＋`ratioOrNull`＋テスト（yoyBadge 数値一致含む）。
 2. `screener-rules.js` 新設（AXIS_REGISTRY〔domId〕・`passesScreening`/`passesMarket`/`normalizeMarkets`/`normalizeCriteria`/`hasAnyConstraint`・プリセット schema）＋テスト。既存 positive 挙動を移植し同一性をテスト固定。
-3. index.html ①：item に null安全 ratio 値＋`netMargin`＋成長 flat key。グリッドのバッジ（`--ix-text-secondary`）＋トレンド列ソート＋**null-last 比較器**＋ratio列 null 表示フォールバック。
+3. index.html ①：item に null安全 ratio 値＋`netMargin`＋成長 flat key。グリッドのバッジ（`--ix-text-dim`）＋トレンド列ソート＋**null-last 比較器**＋ratio列 null 表示フォールバック。
 4. index.html ②：8軸パネル（グループ見出し）＋市場チェック＋プリセット CRUD（clear-first 復元・esc・confirm）＋`passesScreening` を `ScreenerRules` 呼出へ置換＋結果数バッジを `hasAnyConstraint` へ＋`resetScreening` を dom 由来へ（旧ハードコード配列置換）＋`<script src="screener-rules.js">` 追加＋空状態ヒント。
 5. `INDICATOR_GLOSSARY` に cagr/growth-rate（read 付き）＋`data-term`＋`Detail.injectTermHelp` 配線（fetch 後呼出・glossary 先行）＋スクリーナー中立注記。
 6. 統合検証（Playwright＋本番 curl）＋規制 grep（範囲/語彙/色）＋回帰（既存ビュー/既存軸/ETF行描画）。
@@ -238,3 +238,10 @@ Preset = { name: string(trim後 1..40), criteria: {axisKey:{min,max}}, markets: 
 - **D2（本人決定）＝市場フィルタは両系統を残して整合**：既存 jp_only/us_only チップ（クイック閲覧）を残しつつ、スクリーナーに市場チェック（JP/US 複数）を追加。チェックも **ETF 除外をチップと統一**（`passesMarket`）・既存チップと **AND** 重畳・**プリセット呼出時は `activeSectorFilter="all"` にリセット**（再現性）・**矛盾組合せは空状態に理由ヒント**。
 - **D3＝yoy と cagr の base 処理差は意図的**：yoy は abs 分母で負基準も数値（既存 yoyBadge と一致・単一源方針）、cagr は両端正要求で符号反転を null 化（非実数回避）。同一銘柄で yoy=数値・cagr=null が併存し得るのは正当（別指標）。
 - **REFUTED（採用しなかった finder 主張の例）**：null-last の方向独立性は spec §4.3/L100 で既定義（追加不要）／termHelp「機構が無ければ」は偽の未確定（機構は既存＝§2/§5.4 で再利用確定）。
+
+## 12. 実装差分メモ（実装で確定した点・spec 反映済）
+
+- **バッジ色トークン**：spec 起草時の `--ix-text-secondary` は実コードに非実在と判明（Task8）。中立の実在トークン **`--ix-text-dim`（#8ba2af・グレーブルー・既存で dim/secondary テキストに広用）** に置換。緑/赤/金の hue でなく規制意図（成長を売買シグナル化しない）を満たす（本 spec は §3/§4.3/§8 とも `--ix-text-dim` に統一済）。
+- **AXIS_REGISTRY group ラベル "割安"**：最終レビューで規制精査。裁定＝**許容**（PER/PBR の**指標カテゴリ見出し**＝セクション名であり個別銘柄への「割安=買い」推奨ではない・既存本番 `cross-section-rules.js` の `grp("割安度",[per,pbr])` と同種）。規制 grep の禁止語彙は「個別銘柄への肯定的売買/バリュエーション断定」を対象とし、カテゴリ見出し語は対象外と明確化。
+- **最終 whole-branch 敵対レビュー（wf_7ae9a596・4次元）**：9 findings→2 CONFIRMED（両 LOW・同一問題）。確定＝成長列見出しの termHelp `?` クリックがソート発火（clickable な `<th>` に data-term を付与したのは束Cが初）→ `onclick="if(!event.target.closest('.term-help'))setSort('salesCagr')"` ガードで解消（index.html のみ・detail.js 無改変・統合スモーク再PASS）。
+- **PER/PBR の termKey**：spec §5.1 は `termKey:null` としたが、`INDICATOR_GLOSSARY` に per/pbr が実在するため実装は `termKey:"per"/"pbr"` を採用（PER/PBR 軸にも `?` help が付く＝より良い）。
