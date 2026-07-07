@@ -236,3 +236,23 @@ test("dupont: 欠測因数は該当のみ null（他は算出）", () => {
   assert.equal(d.equityMultiplier, null); // 純資産欠測
   assert.equal(d.roe, null);              // 純資産欠測
 });
+
+test("fcf = 営業CF+投資CF（負値保持・どちらか欠測は null）", () => {
+  assert.equal(F.fcf(TOYOTA), 1000000);                          // 4,000,000 + (-3,000,000)
+  assert.equal(F.fcf({ operating_cf: 100, investing_cf: -300 }), -200); // 負のFCFは正当
+  assert.equal(F.fcf({ operating_cf: 100 }), null);              // 投資CF欠測
+  assert.equal(F.fcf(null), null);
+});
+
+test("fcfMargin = FCF/売上*100（売上≤0/欠測は null・負可）", () => {
+  assert.ok(Math.abs(F.fcfMargin(TOYOTA) - (1000000 / 48036704 * 100)) < 1e-9);
+  assert.equal(F.fcfMargin({ operating_cf: 100, investing_cf: -300, net_sales: 0 }), null); // 売上0
+  assert.equal(F.fcfMargin({ operating_cf: 100, investing_cf: -300 }), null);               // 売上欠測
+});
+
+test("cashConversion = 営業CF/純利益*100（純利益≤0/欠測は null）", () => {
+  assert.ok(Math.abs(F.cashConversion(TOYOTA) - (4000000 / 4765000 * 100)) < 1e-9);
+  assert.equal(F.cashConversion({ operating_cf: 100, net_income: 0 }), null);   // 純利益0
+  assert.equal(F.cashConversion({ operating_cf: 100, net_income: -50 }), null); // 赤字年
+  assert.equal(F.cashConversion({ net_income: 100 }), null);                    // 営業CF欠測（n()の0化に頼らない）
+});

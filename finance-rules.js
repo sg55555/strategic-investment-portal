@@ -210,6 +210,25 @@
     var re = (hasValue(fin, "net_income") && hasValue(fin, "net_assets") && n(fin.net_assets) > 0) ? roe(fin) : null;
     return { netMargin: nm, assetTurnover: at, equityMultiplier: em, roe: re };
   }
+  // 概算フリーCF = 営業CF + 投資CF（投資CFは通常負）。負値は正当（設備投資先行）。
+  // 営業CF/投資CF のどちらか欠測なら null（n() の0化に頼らず hasValue でゲート）。
+  function fcf(fin) {
+    if (!fin) return null;
+    if (!hasValue(fin, "operating_cf") || !hasValue(fin, "investing_cf")) return null;
+    return n(fin.operating_cf) + n(fin.investing_cf);
+  }
+  // FCFマージン(%) = FCF / 売上高。売上≤0 or 入力欠測は null。
+  function fcfMargin(fin) {
+    return ratioOrNull(fin, function (f) { return ratio(fcf(f), f.net_sales); },
+      ["operating_cf", "investing_cf", "net_sales"], ["net_sales"]);
+  }
+  // 現金変換率(%) = 営業CF / 純利益。利益の現金化＝収益の質。純利益≤0(赤字年)/欠測は null。
+  //  ⚠ null*100=0 の落とし穴を回避（divOrNull が null を返したら null のまま返す）。
+  function cashConversion(fin) {
+    if (!fin || !hasValue(fin, "operating_cf")) return null;
+    var c = divOrNull(n(fin.operating_cf), n(fin.net_income));
+    return c === null ? null : c * 100;
+  }
 
   return {
     n: n,
@@ -239,5 +258,8 @@
     assetTurnover: assetTurnover,
     equityMultiplier: equityMultiplier,
     dupont: dupont,
+    fcf: fcf,
+    fcfMargin: fcfMargin,
+    cashConversion: cashConversion,
   };
 });
