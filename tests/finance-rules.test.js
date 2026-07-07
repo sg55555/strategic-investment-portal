@@ -204,3 +204,17 @@ test("divOrNull は分母>0かつ両者有限のとき numer/denom、他は null
   assert.equal(F.divOrNull(NaN, 2), null);
   assert.equal(F.divOrNull(10, Infinity), null);
 });
+
+test("assetTurnover = 売上/総資産（倍）・欠測/分母0は null", () => {
+  assert.ok(Math.abs(F.assetTurnover(TOYOTA) - (48036704 / 90000000)) < 1e-9);
+  assert.equal(F.assetTurnover({ net_sales: 100, current_assets: 50, non_current_assets: 50 }), 1);
+  assert.equal(F.assetTurnover({ net_sales: 100, current_assets: 0, non_current_assets: 0 }), null); // 総資産0
+  assert.equal(F.assetTurnover({ current_assets: 50, non_current_assets: 50 }), null); // 売上欠測
+  assert.equal(F.assetTurnover(null), null);
+});
+
+test("equityMultiplier = 総資産/純資産（倍）・欠測/分母≤0は null", () => {
+  assert.equal(F.equityMultiplier(TOYOTA), 2); // 90,000,000 / 45,000,000
+  assert.equal(F.equityMultiplier({ current_assets: 50, non_current_assets: 50, net_assets: 0 }), null);
+  assert.equal(F.equityMultiplier({ current_assets: 50, non_current_assets: 50 }), null); // 純資産欠測
+});

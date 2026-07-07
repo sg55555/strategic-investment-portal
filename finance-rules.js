@@ -188,6 +188,18 @@
   function divOrNull(numer, denom) {
     return (isFinite(numer) && isFinite(denom) && denom > 0) ? (numer / denom) : null;
   }
+  // 総資産回転率（倍）= 売上高 / 総資産。入力欠測/分母≤0 は null。
+  function assetTurnover(fin) {
+    if (!fin) return null;
+    if (!hasValue(fin, "net_sales") || !hasValue(fin, "current_assets") || !hasValue(fin, "non_current_assets")) return null;
+    return divOrNull(n(fin.net_sales), totalAssets(fin));
+  }
+  // 財務レバレッジ（倍）= 総資産 / 純資産。入力欠測/分母≤0 は null。
+  function equityMultiplier(fin) {
+    if (!fin) return null;
+    if (!hasValue(fin, "current_assets") || !hasValue(fin, "non_current_assets") || !hasValue(fin, "net_assets")) return null;
+    return divOrNull(totalAssets(fin), n(fin.net_assets));
+  }
 
   return {
     n: n,
@@ -214,5 +226,7 @@
     growthRates: growthRates,
     ratioOrNull: ratioOrNull,
     divOrNull: divOrNull,
+    assetTurnover: assetTurnover,
+    equityMultiplier: equityMultiplier,
   };
 });
