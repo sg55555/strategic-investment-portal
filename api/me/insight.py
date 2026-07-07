@@ -5,7 +5,13 @@ DuPont/FCF を算出（finance-rules.js 鏡像）＋同市場 peer percentile＋
 claude-sonnet-4-6 へ。personal（ADVICE_MODE=personal）でのみ助言可・production は 403。
 免責は client 定数（DetailRules.ANALYSIS_DISCLAIMER）。個人資産 state は読まない（public 市場データのみ）。
 """
+import hashlib
+import json
 import math
+
+SCHEMA_VERSION = 1
+PROMPT_VERSION = "insight-sys-v1"
+DISCLAIMER_VERSION = "disc-v1"
 
 def n(v):
     try:
@@ -166,3 +172,35 @@ def peer_context(target_ticker, target_market, rows):
 
 def _round1(x):
     return round(x, 1) if isinstance(x, (int, float)) else None
+
+def build_facts(meta, trend, peer_ctx, universe, neutral_comment):
+    """§5 の server 権威 allowlist dict を組み立てる（mode は付けない＝handler が付与）。
+
+    個人資産キー（buffer/satellite/core/monthlyExpense/goals 等）は一切含まない：
+    meta/trend/peer_ctx はすべて public 市場データ（財務諸表・同市場 peer）由来。
+    """
+    ss = stock_series(trend)
+    return {
+        "ticker": meta.get("ticker"),
+        "name": meta.get("name"),
+        "industry": meta.get("industry"),
+        "currency": "USD" if meta.get("currency") == "USD" else "JPY",
+        "market": meta.get("market"),
+        "per": meta.get("per"),
+        "pbr": meta.get("pbr"),
+        "unit": "百万" + ("ドル" if meta.get("currency") == "USD" else "円"),
+        "dupont_latest": (ss["latest"] and {"year": ss["latest"]["year"], **ss["latest"]["dupont"]}) or None,
+        "dupont_trend": [{"year": s["year"], **s["dupont"]} for s in ss["series"]],
+        "fcf_latest": (ss["latest"] and {"year": ss["latest"]["year"], "fcf": ss["latest"]["fcf"],
+                                         "fcf_margin": ss["latest"]["fcf_margin"], "cash_conversion": ss["latest"]["cash_conversion"]}) or None,
+        "fcf_trend": [{"year": s["year"], "fcf": s["fcf"], "fcf_margin": s["fcf_margin"], "cash_conversion": s["cash_conversion"]} for s in ss["series"]],
+        "trend_direction": ss["direction"],
+        "peer": peer_ctx,
+        "universe": universe or [],
+        "neutral_comment": neutral_comment or "",
+        "prompt_version": PROMPT_VERSION,
+        "schema_version": SCHEMA_VERSION,
+    }
+
+def facts_hash(facts):
+    return hashlib.sha256(json.dumps(facts, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()

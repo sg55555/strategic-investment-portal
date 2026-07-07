@@ -58,3 +58,21 @@ def test_peer_context():
     assert abs(pc["roe_percentile"] - 87.5) < 1e-9
     # per=10 は[10,20,30,40]で最安→midrank (0.5/4)*100=12.5
     assert abs(pc["per_percentile"] - 12.5) < 1e-9
+
+def test_build_facts_shape_and_no_personal_keys():
+    meta = {"ticker":"7203.T","name":"トヨタ","industry":"車","currency":"JPY","market":"JP","per":10.2,"pbr":1.1}
+    trend = {"2024":{"net_sales":1000000,"net_income":100000,"net_assets":500000,"current_assets":600000,"non_current_assets":400000,"operating_cf":90000,"investing_cf":-20000}}
+    peer = {"market_n":4,"roe_percentile":100,"sector":"車","sector_n":3,"sector_median":{"roe":9.8}}
+    facts = insight.build_facts(meta, trend, peer, [{"ticker":"6758.T","per":18}], "中立コメント")
+    assert facts["ticker"] == "7203.T" and facts["market"] == "JP"
+    assert facts["dupont_latest"]["year"] == 2024
+    assert facts["peer"]["market_n"] == 4
+    assert facts["schema_version"] == 1
+    import json as _j
+    blob = _j.dumps(facts, ensure_ascii=False)
+    for forbidden in ("buffer", "satellite", "monthlyExpense", "core_amount", "goals"):
+        assert forbidden not in blob, "personal money key leaked: " + forbidden
+
+def test_facts_hash_stable():
+    f = {"a": 1, "b": 2}
+    assert insight.facts_hash(f) == insight.facts_hash({"b": 2, "a": 1})  # sort_keys
