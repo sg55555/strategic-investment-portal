@@ -541,6 +541,20 @@ test("fcfQualityDescriptor: 全欠測はフォールバック句", () => {
   assert.match(q.text, /概算FCF/);
 });
 
+// ── INDICATOR_GLOSSARY 束D新語（束D Task9）─────────────────────────
+test("INDICATOR_GLOSSARY に束Dの新語が中立defで存在する", () => {
+  const glo = D.INDICATOR_GLOSSARY;
+  const keys = glo.map((g) => g.term);
+  const newTerms = ["dupont", "asset-turnover", "financial-leverage", "fcf", "fcf-margin", "cash-conversion"];
+  newTerms.forEach((k) => {
+    assert.ok(keys.includes(k), "欠語: " + k);
+  });
+  glo.forEach((g) => {                                   // 全語 def は非空
+    assert.ok(typeof g.def === "string" && g.def.length > 5);
+    for (const re of FORBIDDEN.ALL) assert.ok(!re.test(g.def), g.term + " に禁止語: " + re);
+  });
+});
+
 // ── sparklineSVG（純SVGビルダー・束D Task6）───────────────────────
 test("sparklineSVG: 有効点>=2で polyline・null除外・<2は空svg", () => {
   const svg = D.sparklineSVG([1, null, 3, 4], { w: 60, h: 18 });
