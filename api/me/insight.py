@@ -104,3 +104,65 @@ def stock_series(trend):
         return row["dupont"]["roe"] if key == "roe" else row[key]
     direction = {k: _dir(pick(prev, k), pick(latest, k)) for k in ("roe", "fcf_margin", "cash_conversion")}
     return {"series": series, "latest": latest, "direction": direction}
+
+def median(values):
+    a = sorted(v for v in values if v is not None)
+    if not a: return None
+    m = len(a) // 2
+    return a[m] if len(a) % 2 else (a[m - 1] + a[m]) / 2
+
+def percentile_rank(values, x):
+    """midrank percentile（同順位は 0.5 加算・cross-section percentileRank と同方針）。"""
+    a = [v for v in values if v is not None]
+    if x is None or not a: return None
+    below = sum(1 for v in a if v < x)
+    equal = sum(1 for v in a if v == x)
+    return (below + 0.5 * equal) / len(a) * 100
+
+def _row_roe(r):
+    return roe(r) if (has_value(r, "net_income") and has_value(r, "net_assets") and n(r.get("net_assets")) > 0) else None
+
+def _row_net_margin(r):
+    return net_margin(r) if (has_value(r, "net_income") and has_value(r, "net_sales") and n(r.get("net_sales")) > 0) else None
+
+def _row_op_margin(r):
+    return op_margin(r) if (has_value(r, "operating_income") and has_value(r, "net_sales") and n(r.get("net_sales")) > 0) else None
+
+def _row_val(r, key):
+    v = r.get(key)
+    return float(v) if isinstance(v, (int, float)) and v is not None else None
+
+def peer_context(target_ticker, target_market, rows):
+    rows = rows or []
+    target = next((r for r in rows if r.get("ticker") == target_ticker), None)
+    roes = [_row_roe(r) for r in rows]
+    nms = [_row_net_margin(r) for r in rows]
+    oms = [_row_op_margin(r) for r in rows]
+    pers = [_row_val(r, "per") for r in rows]
+    pbrs = [_row_val(r, "pbr") for r in rows]
+    t_roe = _row_roe(target) if target else None
+    t_nm = _row_net_margin(target) if target else None
+    t_om = _row_op_margin(target) if target else None
+    t_per = _row_val(target, "per") if target else None
+    t_pbr = _row_val(target, "pbr") if target else None
+    sector = (target.get("industry") if target else None) or None
+    sector_rows = [r for r in rows if sector and r.get("industry") == sector]
+    sector_n = len(sector_rows)
+    sec_median = {"roe": None, "net_margin": None}
+    if sector_n >= 3:
+        sec_median = {"roe": median([_row_roe(r) for r in sector_rows]),
+                      "net_margin": median([_row_net_margin(r) for r in sector_rows])}
+    return {
+        "market_n": len(rows),
+        "roe_percentile": _round1(percentile_rank(roes, t_roe)),
+        "net_margin_percentile": _round1(percentile_rank(nms, t_nm)),
+        "op_margin_percentile": _round1(percentile_rank(oms, t_om)),
+        "per_percentile": _round1(percentile_rank(pers, t_per)),
+        "pbr_percentile": _round1(percentile_rank(pbrs, t_pbr)),
+        "sector": sector if sector_n >= 3 else None,
+        "sector_n": sector_n,
+        "sector_median": {k: _round1(v) for k, v in sec_median.items()},
+    }
+
+def _round1(x):
+    return round(x, 1) if isinstance(x, (int, float)) else None
