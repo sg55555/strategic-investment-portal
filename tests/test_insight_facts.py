@@ -76,3 +76,17 @@ def test_build_facts_shape_and_no_personal_keys():
 def test_facts_hash_stable():
     f = {"a": 1, "b": 2}
     assert insight.facts_hash(f) == insight.facts_hash({"b": 2, "a": 1})  # sort_keys
+
+def test_parse_ai_and_prompt():
+    ok = insight.parse_ai('{"headline":"H","story":"S","assessment":"A","watch":"W"}')
+    assert ok["headline"] == "H" and ok["assessment"] == "A"
+    assert insight.parse_ai("not json") is None
+    assert insight.parse_ai('{"headline":"","story":"","assessment":"","watch":""}') is None
+    # 保証語禁止と grounding と本人責任が system に含まれる（規制ガード）
+    s = insight.SYS_INSIGHT_PERSONAL
+    for kw in ("保証", "本人", "基づく"):
+        assert kw in s
+
+def test_deterministic_fallback():
+    fb = insight.deterministic_fallback()
+    assert isinstance(fb, dict) and "headline" in fb and "story" in fb
