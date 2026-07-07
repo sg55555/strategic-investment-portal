@@ -608,6 +608,30 @@
     return { years: years, fcf: fcfA, fcfMargin: mg, cashConversion: cc, operatingCf: op, investingCf: iv };
   }
 
+  // ── 純SVGスパークライン（束D）── null は欠測として除外。有効点<2は空svg。DOM非依存。
+  function sparklineSVG(values, opts) {
+    opts = opts || {};
+    var w = opts.w || 64, h = opts.h || 18, pad = 2;
+    var color = opts.color || "currentColor";
+    var pts = [];
+    for (var i = 0; i < values.length; i++) {
+      if (values[i] != null && isFinite(Number(values[i]))) pts.push({ i: i, v: Number(values[i]) });
+    }
+    var head = '<svg class="dp-spark" width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '" aria-hidden="true">';
+    if (pts.length < 2) return head + "</svg>";
+    var xs = values.length - 1;
+    var vs = pts.map(function (p) { return p.v; });
+    var min = Math.min.apply(null, vs), max = Math.max.apply(null, vs);
+    var span = (max - min) || 1;
+    var coord = pts.map(function (p) {
+      var x = pad + (p.i / xs) * (w - 2 * pad);
+      var y = h - pad - ((p.v - min) / span) * (h - 2 * pad);
+      return x.toFixed(1) + "," + y.toFixed(1);
+    }).join(" ");
+    return head + '<polyline points="' + coord + '" fill="none" stroke="' + color +
+      '" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  }
+
   return {
     // テクニカル純関数
     calcMA, calcBB, detectSR, calcRSI, calcEMA, calcMACD, calcZigZag, autoZigZagDeviation, volumeColorData,
@@ -615,6 +639,7 @@
     // 財務ディスクリプタ純関数
     priceWindow, periodLabel, financialMaxAbs, marketBasisFor, perStatus, pbrStatus,
     equityRatioDesc, currentRatioDesc, yoyBadge, plSteps, cfFlowStatus, cfCompanyType, cfWaterfall, radarScores,
+    sparklineSVG,
     // 色/特例定数
     FIN_COLORS, CF_BADGE_PAIR, COMPARE_COLORS, HOLDING_COMPANIES,
     // 分析グロッサリ・免責データ

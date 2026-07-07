@@ -503,6 +503,18 @@ test("fcfTrendSeries: fcf/margin/conversion と 内訳CF・欠測null点", () =>
   assert.equal(s.investingCf[1], null);
 });
 
+// ── sparklineSVG（純SVGビルダー・束D Task6）───────────────────────
+test("sparklineSVG: 有効点>=2で polyline・null除外・<2は空svg", () => {
+  const svg = D.sparklineSVG([1, null, 3, 4], { w: 60, h: 18 });
+  assert.match(svg, /<svg/);
+  assert.match(svg, /<polyline/);
+  // 有効3点（index 0,2,3）が反映される＝points に3座標
+  assert.equal((svg.match(/,/g) || []).length, 3); // "x,y" が3組
+  const empty = D.sparklineSVG([null, 5], {});
+  assert.match(empty, /<svg/);
+  assert.doesNotMatch(empty, /<polyline/); // 有効1点→線なし
+});
+
 test("INDICATOR_GLOSSARY: cagr/growth-rate は read 付きで存在（売買/予測語なし）", () => {
   const g = require("../detail-rules.js").INDICATOR_GLOSSARY;
   const by = {}; g.forEach((e) => (by[e.term] = e));
