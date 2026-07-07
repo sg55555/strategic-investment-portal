@@ -776,6 +776,10 @@
          （dupont-card=5番目/fcf-trend-card=6番目は既存の nth-child(5)(6) が引き続き適用される。） */
       .dashboard-stack.animate-cards .card:nth-child(9) { animation-delay: 1.09s; }
       .dashboard-stack.animate-cards .card:nth-child(10) { animation-delay: 1.22s; }
+      /* Task9（束D層2）で ai-insight-card が fcf-trend-card の直後（7番目）に挿入され、
+         relative-position-card 以降が8→11番目まで後退。末尾カード(cf-title=11番目)が
+         nth-child(10)までのルールから外れ delay:0 で即時発火してしまうため、同一増分(+0.13s)で拡張する。 */
+      .dashboard-stack.animate-cards .card:nth-child(11) { animation-delay: 1.35s; }
 
       /* ── テクニカル現在地サマリ signalDigest カード（Feature#2）── */
       /* ポップオーバー（?）が見切れないよう overflow:visible（status-card と異なり切らない） */
@@ -887,3 +891,17 @@
       .rk-cell { display: flex; align-items: center; gap: 6px; font: 11px var(--ix-mono,monospace); color: #cfe8ff;
         border: 1px solid rgba(98,240,255,.18); border-radius: 3px; padding: 4px 8px; }
       .rk-cell-sec { color: #cfe8ff; } .rk-cell-n { color: #7d93a5; } .rk-cell-med { color: #fff; }
+
+      /* ── AI読み解き（本人向け）カード（Task9: 束D層2・ネオン・ターミナル調＝既存 .card 準拠） ── */
+      .ai-insight-btn {
+        margin: 6px 0 10px; padding: 8px 16px; border-radius: 3px; cursor: pointer;
+        background: transparent; color: var(--c-cyan, #62f0ff);
+        border: 1px solid var(--c-cyan, #62f0ff); font: inherit; letter-spacing: .04em;
+      }
+      .ai-insight-btn:hover { box-shadow: 0 0 10px rgba(98,240,255,.4); }
+      .ai-insight-btn:disabled { opacity: .5; cursor: default; box-shadow: none; }
+      .ai-insight-body { display: grid; gap: 12px; }
+      .ai-ins-headline { font-weight: 700; color: var(--c-cyan, #62f0ff); text-shadow: 0 0 8px currentColor; }
+      .ai-ins-sec-label { font-size: .82rem; letter-spacing: .06em; opacity: .8; margin-bottom: 2px; }
+      .ai-ins-sec-body { line-height: 1.6; }
+      .ai-ins-note { opacity: .7; font-size: .85rem; }
