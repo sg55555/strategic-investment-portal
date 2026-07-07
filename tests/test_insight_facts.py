@@ -102,3 +102,18 @@ def test_insight_enabled_flag():
     assert session_mod.insight_enabled() is False
     del _os.environ["ADVICE_MODE"]
     assert session_mod.insight_enabled() is False
+
+def test_facts_never_contain_personal_or_advice_keys():
+    meta = {"ticker":"T","name":"N","industry":"I","currency":"JPY","market":"JP","per":10,"pbr":1}
+    trend = {"2024":{"net_sales":1000,"net_income":100,"net_assets":500,"current_assets":600,"non_current_assets":400}}
+    facts = insight.build_facts(meta, trend, {"market_n":1}, [], "")
+    import json as _j
+    blob = _j.dumps(facts, ensure_ascii=False)
+    for k in ("mcc_state", "buckets", "monthlyExpense", "bufferAmount", "cashflow", "advice_mode"):
+        assert k not in blob
+
+def test_prompt_forbids_guarantees_and_requires_grounding():
+    s = insight.SYS_INSIGHT_PERSONAL
+    assert "必勝" in s and "確実" in s and "元本保証" in s   # 保証語を明示禁止
+    assert "厳密に基づく" in s                               # grounding
+    assert "本人の責任" in s                                 # 最終判断は本人責任
