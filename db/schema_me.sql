@@ -110,3 +110,24 @@ CREATE TABLE IF NOT EXISTS me.investment_snapshots (
   pulled_at            TIMESTAMPTZ NOT NULL DEFAULT now()-- 鮮度（UIバッジ/Mode A staleDays算出元）
 );
 CREATE INDEX IF NOT EXISTS idx_investment_period ON me.investment_snapshots (period DESC);
+
+-- 束D層2 per-stock AI読み解きの監査ログ。facts は public 市場データのみ（個人資産なし＝生額 coarsen 不要）。
+CREATE TABLE IF NOT EXISTS me.insight_log (
+    id            bigserial PRIMARY KEY,
+    created_at    timestamptz NOT NULL DEFAULT now(),
+    advice_mode   text,
+    ticker        text,
+    facts         jsonb,
+    facts_hash    text,
+    model         text,
+    prompt_version text,
+    schema_version int,
+    disclaimer_version text,
+    ai_status     text,
+    ai_response   jsonb,
+    request_id    text,
+    usage         jsonb,
+    latency_ms    int
+);
+CREATE INDEX IF NOT EXISTS insight_log_hash_created ON me.insight_log (facts_hash, created_at DESC);
+CREATE INDEX IF NOT EXISTS insight_log_created ON me.insight_log (created_at DESC);
