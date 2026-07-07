@@ -29,6 +29,10 @@ def _hash(token):
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
+def insight_enabled():
+    return os.environ.get("ADVICE_MODE", "production").strip().lower() == "personal"
+
+
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
         token = _cookie_token(self.headers)
@@ -47,7 +51,7 @@ class handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json")
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
-        self.wfile.write(json.dumps({"ok": ok}).encode())
+        self.wfile.write(json.dumps({"ok": ok, "insightEnabled": insight_enabled()}).encode())
 
     def log_message(self, *args):
         pass

@@ -90,3 +90,15 @@ def test_parse_ai_and_prompt():
 def test_deterministic_fallback():
     fb = insight.deterministic_fallback()
     assert isinstance(fb, dict) and "headline" in fb and "story" in fb
+
+import os as _os
+_sspec = importlib.util.spec_from_file_location("session_mod", os.path.join(ROOT, "api", "auth", "session.py"))
+session_mod = importlib.util.module_from_spec(_sspec); _sspec.loader.exec_module(session_mod)
+
+def test_insight_enabled_flag():
+    _os.environ["ADVICE_MODE"] = "personal"
+    assert session_mod.insight_enabled() is True
+    _os.environ["ADVICE_MODE"] = "production"
+    assert session_mod.insight_enabled() is False
+    del _os.environ["ADVICE_MODE"]
+    assert session_mod.insight_enabled() is False
