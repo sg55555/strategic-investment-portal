@@ -649,9 +649,15 @@
     var text;
     var complete = d.netMargin != null && d.assetTurnover != null && d.equityMultiplier != null && d.roe != null;
     if (complete) {
+      // 符号ゲート: レバレッジ(財務レバレッジ)の効果は netMargin の符号で向きが反転する
+      // （roe = netMargin×assetTurnover×equityMultiplier より ∂roe/∂equityMultiplier ∝ netMargin）。
+      // 黒字（roe>=0）は「押し上げ」で正しいが、赤字（roe<0）だと押し上げは方向が逆＝マイナス幅の拡大が正しい。
+      var driverSentence = d.roe < 0
+        ? "純利益が赤字の年は、財務レバレッジが高いほどROEのマイナス幅が拡大し財務リスクも高まります（一般的な性質）。"
+        : "レバレッジはROEを押し上げますが財務リスクも高めます（一般的な性質）。";
       text = "純資産ROE " + d.roe.toFixed(1) + "% は、純利益率×総資産回転率×財務レバレッジ の積です。" +
         "財務レバレッジ " + d.equityMultiplier.toFixed(2) + "倍 は総資産が純資産の約 " + d.equityMultiplier.toFixed(2) + "倍 であることを表します（純資産ベース＝少数株主持分を含む）。" +
-        "レバレッジはROEを押し上げますが財務リスクも高めます（一般的な性質）。";
+        driverSentence;
     } else {
       text = "一部の因数が欠損のため、分解は参考値です（純資産ベース＝少数株主持分を含む）。";
     }

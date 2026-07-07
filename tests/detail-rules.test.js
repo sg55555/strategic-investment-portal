@@ -517,6 +517,27 @@ test("dupontDescriptor: 3因数+ROE+中立driver・純資産ベース明示・�
   assert.ok(Math.abs(d.roe.value - F.roe(TOYOTA)) < 1e-9);
   assert.match(d.driver.text, /純資産ベース/);
   for (const re of FORBIDDEN.ALL) assert.ok(!re.test(d.driver.text), "禁止語: " + re);
+  // 黒字年（TOYOTA・roe>=0）は従来どおり「押し上げ」句を維持（両分岐を固定・findings#1）。
+  assert.ok(d.driver.text.includes("レバレッジはROEを押し上げますが財務リスクも高めます"));
+  // findings#2: factors[i].value がラベルどおりの指標に束縛されていることを固定
+  // （renderDuPont はインデックス依存でラベル/値を描画するため、値↔ラベルの取り違えを検知できるよう
+  //   区別可能な非null値[純利益率0.53?/回転率/レバレッジ2倍]で個別に錠を掛ける）。
+  assert.ok(Math.abs(d.factors[0].value - F.netMargin(TOYOTA)) < 1e-9);
+  assert.ok(Math.abs(d.factors[1].value - F.assetTurnover(TOYOTA)) < 1e-9);
+  assert.equal(d.factors[2].value, F.equityMultiplier(TOYOTA));
+});
+
+// findings#1: 赤字年（net_income<0・全4因数非null・roe<0）の driver 句は「押し上げ」を使わない。
+// DuPont恒等式 roe = netMargin×assetTurnover×equityMultiplier より
+// ∂roe/∂equityMultiplier = netMargin×assetTurnover は netMargin<0 のとき負＝レバレッジ上昇でROEはより負に
+// 振れる（"押し上げ"は方向が逆）。赤字年は符号ゲートで「押し上げ」を回避し、マイナス幅の拡大を中立に記述する。
+test("dupontDescriptor: 赤字年（roe<0）は「レバレッジはROEを押し上げます」を使わない・符号ゲート", () => {
+  const LOSS = { net_income: -50, net_sales: 1000, current_assets: 400, non_current_assets: 600, net_assets: 500 };
+  const d = D.dupontDescriptor(LOSS);
+  assert.ok(d.roe.value < 0, "前提: 赤字年で ROE<0 のはず");
+  assert.ok(!d.driver.text.includes("レバレッジはROEを押し上げます"), "赤字年に方向誤りの「押し上げ」句が残存: " + d.driver.text);
+  assert.match(d.driver.text, /純資産ベース/);
+  for (const re of FORBIDDEN.ALL) assert.ok(!re.test(d.driver.text), "禁止語: " + re);
 });
 
 test("dupontDescriptor: 欠測は値null・参考値フォールバック句", () => {
