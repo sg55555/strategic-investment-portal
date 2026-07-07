@@ -205,6 +205,22 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as e:  # noqa: BLE001
             self._json(500, {"error": str(e)})
 
+    def do_POST(self):  # noqa: N802
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+            if length:
+                self.rfile.read(length)  # body は使わない（ticker 等）が完全に読み捨てる
+            parsed = urlparse(self.path)
+            path = unquote(parsed.path)
+            if path == "/api/me/insight":
+                self._mock_insight()
+                return
+            self._json(404, {"error": "not found"})
+        except BrokenPipeError:
+            pass
+        except Exception as e:  # noqa: BLE001
+            self._json(500, {"error": str(e)})
+
     # -- API --
     def _handle_api(self, path: str, qs: dict):
         if path == "/api/market/list":
@@ -224,7 +240,27 @@ class Handler(BaseHTTPRequestHandler):
                 return
             self._json(200, build_financials(ticker))
             return
+        if path == "/api/auth/session":
+            self._mock_session()
+            return
         self._json(404, {"error": "not found"})
+
+    # -- 束D層2: AI読み解き（personal/production 切替はモック専用フラグ） --
+    def _mock_session(self):
+        mode = os.environ.get("MOCK_ADVICE_MODE", "personal")
+        self._json(200, {"ok": True, "insightEnabled": mode == "personal"})
+
+    def _mock_insight(self):
+        mode = os.environ.get("MOCK_ADVICE_MODE", "personal")
+        if mode != "personal":
+            self._json(403, {"error": "personal-only"})
+            return
+        self._json(200, {
+            "deterministic": None, "applicable": True, "aiStatus": "ok", "mode": "personal",
+            "model": "claude-sonnet-4-6", "disclaimerVersion": "disc-v1",
+            "ai": {"headline": "収益の質は堅調", "story": "ROEは純利益率主導で…",
+                   "assessment": "peer比で割安圏・長期コア候補…", "watch": "設備投資でFCFは変動…"},
+        })
 
     # -- 静的ファイル --
     def _handle_static(self, path: str):
