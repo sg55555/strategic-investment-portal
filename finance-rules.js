@@ -200,6 +200,16 @@
     if (!hasValue(fin, "current_assets") || !hasValue(fin, "non_current_assets") || !hasValue(fin, "net_assets")) return null;
     return divOrNull(totalAssets(fin), n(fin.net_assets));
   }
+  // DuPont 分解。純利益率(%)×総資産回転率(倍)×財務レバレッジ(倍) ≈ ROE(%)。各因数 null 可。
+  // equity は net_assets（純資産・少数株主持分含む）＝厳密な自己資本ではない（呼出側で「純資産ベース」明示）。
+  function dupont(fin) {
+    fin = fin || {};
+    var nm = (hasValue(fin, "net_income") && hasValue(fin, "net_sales") && n(fin.net_sales) > 0) ? netMargin(fin) : null;
+    var at = assetTurnover(fin);
+    var em = equityMultiplier(fin);
+    var re = (hasValue(fin, "net_income") && hasValue(fin, "net_assets") && n(fin.net_assets) > 0) ? roe(fin) : null;
+    return { netMargin: nm, assetTurnover: at, equityMultiplier: em, roe: re };
+  }
 
   return {
     n: n,
@@ -228,5 +238,6 @@
     divOrNull: divOrNull,
     assetTurnover: assetTurnover,
     equityMultiplier: equityMultiplier,
+    dupont: dupont,
   };
 });

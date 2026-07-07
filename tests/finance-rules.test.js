@@ -218,3 +218,21 @@ test("equityMultiplier = 総資産/純資産（倍）・欠測/分母≤0は nul
   assert.equal(F.equityMultiplier({ current_assets: 50, non_current_assets: 50, net_assets: 0 }), null);
   assert.equal(F.equityMultiplier({ current_assets: 50, non_current_assets: 50 }), null); // 純資産欠測
 });
+
+test("dupont: 恒等式 netMargin%×assetTurnover×equityMultiplier ≈ roe%", () => {
+  const d = F.dupont(TOYOTA);
+  assert.ok(Math.abs(d.netMargin - F.netMargin(TOYOTA)) < 1e-9);
+  assert.ok(Math.abs(d.roe - F.roe(TOYOTA)) < 1e-9);
+  assert.equal(d.equityMultiplier, 2);
+  // 恒等式（%スケール）が閉じる
+  assert.ok(Math.abs(d.netMargin * d.assetTurnover * d.equityMultiplier - d.roe) < 1e-6);
+});
+
+test("dupont: 欠測因数は該当のみ null（他は算出）", () => {
+  const d = F.dupont({ net_income: 100, net_sales: 1000, current_assets: 400, non_current_assets: 600 }); // net_assets欠測
+  assert.equal(d.netMargin, 10);
+  // 総資産=400+600=1,000・assetTurnover=1,000/1,000=1（plan原文の期待値0.1は算術不整合のため是正）
+  assert.ok(Math.abs(d.assetTurnover - 1) < 1e-9);
+  assert.equal(d.equityMultiplier, null); // 純資産欠測
+  assert.equal(d.roe, null);              // 純資産欠測
+});
