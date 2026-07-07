@@ -1,0 +1,10 @@
+{ "finCases": [
+  { "name": "toyota-like", "fin": {"net_sales":45000000,"net_income":4900000,"net_assets":36000000,"current_assets":30000000,"non_current_assets":40000000,"operating_cf":3700000,"investing_cf":-4200000},
+    "expect": {"net_margin":10.888888888888889,"asset_turnover":0.6428571428571429,"equity_multiplier":1.9444444444444444,"roe":13.61111111111111,"fcf":-500000,"fcf_margin":-1.1111111111111112,"cash_conversion":75.51020408163265} },
+  { "name": "loss-year", "fin": {"net_sales":1000000,"net_income":-200000,"net_assets":500000,"current_assets":600000,"non_current_assets":400000,"operating_cf":50000,"investing_cf":-30000},
+    "expect": {"net_margin":-20,"asset_turnover":1,"equity_multiplier":2,"roe":-40,"fcf":20000,"fcf_margin":2,"cash_conversion":null} },
+  { "name": "missing-cf", "fin": {"net_sales":1000000,"net_income":100000,"net_assets":500000,"current_assets":600000,"non_current_assets":400000},
+    "expect": {"net_margin":10,"asset_turnover":1,"equity_multiplier":2,"roe":20,"fcf":null,"fcf_margin":null,"cash_conversion":null} },
+  { "name": "zero-equity", "fin": {"net_sales":1000000,"net_income":100000,"net_assets":0,"current_assets":600000,"non_current_assets":400000,"operating_cf":80000,"investing_cf":-10000},
+    "expect": {"net_margin":10,"asset_turnover":1,"equity_multiplier":null,"roe":null,"fcf":70000,"fcf_margin":7,"cash_conversion":80} }
+] }
