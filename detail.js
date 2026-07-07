@@ -514,7 +514,7 @@
 
     // ETF・財務データなしの場合はチャートカードを非表示
     const isEtf = data.type === "etf";
-    const finCards = ["kpi-compare-card", "bs-title", "radar-title", "pl-title", "cf-title", "health-trend-card"];
+    const finCards = ["kpi-compare-card", "bs-title", "radar-title", "pl-title", "cf-title", "health-trend-card", "dupont-card", "fcf-trend-card"];
     finCards.forEach(id => {
       const card = document.getElementById(id)?.closest(".card");
       if (card) card.style.display = isEtf ? "none" : "";
@@ -553,6 +553,11 @@
     var htDisc = document.getElementById("health-trend-disclaimer");
     if (htDisc && window.DetailRules) htDisc.textContent = window.DetailRules.ANALYSIS_DISCLAIMER || "";
     injectTermHelp(document.getElementById("health-trend-card"));
+    // Task12: 束D層1配線。DuPont恒等式カード / FCF＆収益の質カード（免責は各render自己完結）。
+    DetailCharts.renderDuPont(fin, data);
+    DetailCharts.renderFCFTrend(data, isUS);
+    injectTermHelp(document.getElementById("dupont-card"));
+    injectTermHelp(document.getElementById("fcf-trend-card"));
     // 相対ポジションカードは renderSignalDigest 直後（early-return より前）へ移設済（上記参照）＝
     //  ETF/財務欠損でも関数内 fail-safe で自己制御する（finCards から除外済）。
     // forceChartRepaint() も価格チャート描画直後（early-return より前）へ移設済（上記参照）。

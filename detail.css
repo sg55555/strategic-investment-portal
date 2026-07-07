@@ -770,6 +770,12 @@
       /* Task6 で relative-position-card 追加によりカードが 7→8 枚に増えるため、
          nth-child 遅延を (8) まで同一増分(+0.13s)で拡張（末尾カードの delay:0 即時発火を回避）。 */
       .dashboard-stack.animate-cards .card:nth-child(8) { animation-delay: 0.96s; }
+      /* Task12（束D層1）で dupont-card / fcf-trend-card が health-trend-card の直後（5,6番目）に挿入され、
+         relative-position-card 以降が7→10番目まで後退。末尾カード(pl-title=9番目/cf-title=10番目)が
+         nth-child(8)までのルールから外れ delay:0 で即時発火してしまうため、同一増分(+0.13s)で拡張する。
+         （dupont-card=5番目/fcf-trend-card=6番目は既存の nth-child(5)(6) が引き続き適用される。） */
+      .dashboard-stack.animate-cards .card:nth-child(9) { animation-delay: 1.09s; }
+      .dashboard-stack.animate-cards .card:nth-child(10) { animation-delay: 1.22s; }
 
       /* ── テクニカル現在地サマリ signalDigest カード（Feature#2）── */
       /* ポップオーバー（?）が見切れないよう overflow:visible（status-card と異なり切らない） */
