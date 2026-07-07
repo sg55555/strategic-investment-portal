@@ -230,6 +230,19 @@
     }
   }
 
+  // ── AI読み解き（束D層2）: session probe＋capability キャッシュ ──────────────
+  //  /api/auth/session を1度だけ叩き {ok, insightEnabled} をクロージャ内キャッシュ。
+  //  production(非personal)デプロイでは insightEnabled=false → 可視ゲートで完全非表示（痕跡ゼロ）。
+  //  fetch失敗/非2xx はすべて fail-closed（{ok:false, insightEnabled:false}）で隠す側に倒す。
+  var _insightCap = null;   // {ok, insightEnabled}（probe 済みキャッシュ）
+  function probeInsightCap() {
+    if (_insightCap) return Promise.resolve(_insightCap);
+    return fetch("/api/auth/session", { credentials: "same-origin" })
+      .then(function (r) { return r.ok ? r.json() : { ok: false, insightEnabled: false }; })
+      .then(function (j) { _insightCap = { ok: !!j.ok, insightEnabled: !!j.insightEnabled }; return _insightCap; })
+      .catch(function () { _insightCap = { ok: false, insightEnabled: false }; return _insightCap; });
+  }
+
   // ── テクニカル現在地サマリ signalDigest カード（Feature#2）──────────────────
   //  純計算は DetailRules.signalDigest（no-score 中立閉集合）。ここは DOM 書込のみ（window.esc でエスケープ）。
   //  固定 id カードへ innerHTML 置換＝冪等（switchYear/navigate で複数回呼ばれても増殖しない）。
@@ -514,7 +527,7 @@
 
     // ETF・財務データなしの場合はチャートカードを非表示
     const isEtf = data.type === "etf";
-    const finCards = ["kpi-compare-card", "bs-title", "radar-title", "pl-title", "cf-title", "health-trend-card", "dupont-card", "fcf-trend-card"];
+    const finCards = ["kpi-compare-card", "bs-title", "radar-title", "pl-title", "cf-title", "health-trend-card", "dupont-card", "fcf-trend-card", "ai-insight-card"];
     finCards.forEach(id => {
       const card = document.getElementById(id)?.closest(".card");
       if (card) card.style.display = isEtf ? "none" : "";
@@ -558,9 +571,88 @@
     DetailCharts.renderFCFTrend(data, isUS);
     injectTermHelp(document.getElementById("dupont-card"));
     injectTermHelp(document.getElementById("fcf-trend-card"));
+    // Task10: 束D層2 AI読み解きカード配線（session probe→可視ゲート）。層1(DuPont/FCF)描画の直後に置く
+    //  （renderDuPont が dupont-card の実 display を確定させた後に layer1Hidden を判定するため）。
+    wireInsightCard(data);
     // 相対ポジションカードは renderSignalDigest 直後（early-return より前）へ移設済（上記参照）＝
     //  ETF/財務欠損でも関数内 fail-safe で自己制御する（finCards から除外済）。
     // forceChartRepaint() も価格チャート描画直後（early-return より前）へ移設済（上記参照）。
+  }
+
+  // ── AI読み解き（束D層2）: 配線・可視ゲート・オンデマンド取得・degrade・描画 ────────
+  //  可視ゲート＝ログイン済 && personal デプロイ && 層1(dupont-card)が表示中 の3条件AND。
+  //  production(非personal)/未ログイン/層1非表示 のいずれでも完全非表示（痕跡ゼロ）。
+  function wireInsightCard(data) {
+    var card = document.getElementById("ai-insight-card");
+    if (!card) return;
+    // ★zero-trace hardening（brief 逸脱・1行）: finCards は非ETFで ai-insight-card を同期的に
+    //  display:"" にする（ETF早期returnより前）。probe は非同期のため、production 非ETF 銘柄の初回
+    //  描画で probe 往復の間だけカードが可視になり、spec §0/§8/§9①「production=痕跡ゼロ／完全非表示」
+    //  に反する。ここで同期的に隠し、personal かつ層1可視の時のみ下の .then で明示表示する。
+    card.style.display = "none";
+    var body = document.getElementById("ai-insight-body");
+    var btn = document.getElementById("ai-insight-btn");
+    if (body) body.innerHTML = "";                       // 銘柄切替でクリア
+    var disc = document.getElementById("ai-insight-disclaimer");
+    if (disc && window.DetailRules) disc.textContent = window.DetailRules.ANALYSIS_DISCLAIMER || "";
+    injectTermHelp(card);
+    probeInsightCap().then(function (cap) {
+      // 可視ゲート：ログイン済 && personal デプロイ && 層1(dupont-card)が表示中（ETF/財務欠損は層1が
+      // finCards で display:none 済＝それに連動して insight も隠す）。data 引数は将来拡張用に受けるが判定は
+      // 層1 の実 display に委ねる（ETF と非ETF財務欠損の両方を1条件で正しく捕捉）。
+      var dpCard = document.getElementById("dupont-card");
+      var layer1Hidden = !dpCard || dpCard.style.display === "none";
+      if (!(cap.ok && cap.insightEnabled) || layer1Hidden) { card.style.display = "none"; return; }
+      card.style.display = "";   // finCards が '' 済でも冪等に明示表示
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "AIに読み解いてもらう";
+        btn.onclick = function () { fetchInsight(currentTicker); };
+      }
+    });
+  }
+
+  function fetchInsight(ticker) {
+    var btn = document.getElementById("ai-insight-btn");
+    var body = document.getElementById("ai-insight-body");
+    if (btn) { btn.disabled = true; btn.textContent = "読み解き中…"; }
+    fetch("/api/me/insight", {
+      method: "POST", credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ticker: ticker }),
+    }).then(function (r) { return r.json().then(function (j) { return { status: r.status, j: j }; }); })
+      .then(function (res) { renderInsightResult(res.status, res.j); })
+      .catch(function () { renderInsightResult(0, null); })
+      .then(function () { if (btn) { btn.disabled = false; btn.textContent = "再読み解き"; } });
+  }
+
+  function renderInsightResult(status, j) {
+    var body = document.getElementById("ai-insight-body");
+    if (!body) return;
+    if (status === 200 && j && j.applicable === false) {
+      body.innerHTML = '<div class="ai-ins-note">この銘柄は財務3表がないため読み解き対象外です。</div>';
+      return;
+    }
+    var ai = j && j.ai;
+    if (!ai) {  // degrade：層1 決定論を案内
+      body.innerHTML = '<div class="ai-ins-note">AI読み解きは今は利用できません。上の「純資産ROE分解」「FCF＆収益の質」カードの決定論ファクトをご参照ください。</div>';
+      return;
+    }
+    renderInsightCard(ai);
+  }
+
+  function renderInsightCard(ai) {
+    var body = document.getElementById("ai-insight-body");
+    if (!body) return;
+    function sec(label, text) {
+      if (!text) return "";
+      return '<div><div class="ai-ins-sec-label">' + esc(label) + '</div><div class="ai-ins-sec-body">' + esc(text) + "</div></div>";
+    }
+    body.innerHTML =
+      (ai.headline ? '<div class="ai-ins-headline">' + esc(ai.headline) + "</div>" : "") +
+      sec("財務ストーリー", ai.story) +
+      sec("判断含意", ai.assessment) +
+      sec("留意点", ai.watch);
   }
 
   // ── window 露出（inline onclick / portal 行 onclick / cross-module 用 bare 名）──
@@ -580,5 +672,5 @@
   window.animateNumber = animateNumber;
   window.renderRelativePosition = renderRelativePosition; // 相対ポジションカード（テスト/将来の手動再描画用）
   // 内部/将来用（switchYear は navigateToDetail 内 closure ゆえ bare 露出不要）。
-  window.Detail = { navigateToDetail, updateFinancialViews, switchYear, termHelp, injectTermHelp, renderSignalDigest, renderRelativePosition };
+  window.Detail = { navigateToDetail, updateFinancialViews, switchYear, termHelp, injectTermHelp, renderSignalDigest, renderRelativePosition, renderInsightCard, fetchInsight, probeInsightCap };
 })();
