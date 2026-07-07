@@ -525,6 +525,22 @@ test("dupontDescriptor: 欠測は値null・参考値フォールバック句", (
   assert.match(d.driver.text, /参考値|欠損/);
 });
 
+// ── fcfQualityDescriptor（中立quality句・束D Task8）────────────────
+test("fcfQualityDescriptor: 概算FCF定義明示・中立・禁止語彙0", () => {
+  const data = { financials_trend: {
+    "2023": { operating_cf: 5000, investing_cf: -2000, net_sales: 100000, net_income: 4000 },
+    "2024": { operating_cf: 4000, investing_cf: -6000, net_sales: 100000, net_income: 4500 }, // FCF負
+  }};
+  const q = D.fcfQualityDescriptor(data);
+  assert.match(q.text, /概算FCF/);
+  for (const re of FORBIDDEN.ALL) assert.ok(!re.test(q.text), "禁止語: " + re);
+});
+
+test("fcfQualityDescriptor: 全欠測はフォールバック句", () => {
+  const q = D.fcfQualityDescriptor({ financials_trend: { "2024": { net_sales: 100 } } });
+  assert.match(q.text, /概算FCF/);
+});
+
 // ── sparklineSVG（純SVGビルダー・束D Task6）───────────────────────
 test("sparklineSVG: 有効点>=2で polyline・null除外・<2は空svg", () => {
   const svg = D.sparklineSVG([1, null, 3, 4], { w: 60, h: 18 });

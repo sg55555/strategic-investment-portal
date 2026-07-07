@@ -652,6 +652,26 @@
     return { factors: factors, roe: { value: d.roe, unit: "%" }, driver: { text: text } };
   }
 
+  // ── FCF & 収益の質 descriptor（束D・層1・公開）── 事実記述のみ・中立・no-score。
+  function fcfQualityDescriptor(data) {
+    var s = fcfTrendSeries(data);
+    var base = "概算FCF＝営業CF＋投資CF（投資CFは通常マイナス）。";
+    // 最新の有効な現金変換率
+    var lastCc = null;
+    for (var i = s.cashConversion.length - 1; i >= 0; i--) { if (s.cashConversion[i] != null) { lastCc = s.cashConversion[i]; break; } }
+    var hasNegFcf = s.fcf.some(function (v) { return v != null && v < 0; });
+    var parts = [base];
+    if (lastCc != null) {
+      parts.push(lastCc >= 100
+        ? "直近では営業CFが純利益を上回り、利益の現金化は概ね良好です（現金変換率 " + Math.round(lastCc) + "%）。"
+        : "直近では営業CFが純利益を下回っています（現金変換率 " + Math.round(lastCc) + "%）。赤字年の現金変換率は表示していません。");
+    } else {
+      parts.push("現金変換率を算出できる年がありません（赤字年やCF欠損の年は非表示）。");
+    }
+    if (hasNegFcf) parts.push("投資が営業CFを上回った年は概算FCFがマイナスになります（成長投資局面で一般に起こりうる事実です）。");
+    return { text: parts.join("") };
+  }
+
   return {
     // テクニカル純関数
     calcMA, calcBB, detectSR, calcRSI, calcEMA, calcMACD, calcZigZag, autoZigZagDeviation, volumeColorData,
@@ -659,7 +679,7 @@
     // 財務ディスクリプタ純関数
     priceWindow, periodLabel, financialMaxAbs, marketBasisFor, perStatus, pbrStatus,
     equityRatioDesc, currentRatioDesc, yoyBadge, plSteps, cfFlowStatus, cfCompanyType, cfWaterfall, radarScores,
-    sparklineSVG, dupontDescriptor,
+    sparklineSVG, dupontDescriptor, fcfQualityDescriptor,
     // 色/特例定数
     FIN_COLORS, CF_BADGE_PAIR, COMPARE_COLORS, HOLDING_COMPANIES,
     // 分析グロッサリ・免責データ
