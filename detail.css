@@ -800,6 +800,9 @@
       .dp-roe .dp-fval{color:#ffd84d;}
       .dp-driver{font-size:12px;line-height:1.6;color:var(--ix-text-secondary,#bcd);}
 
+      /* ── FCF & 収益の質 コンボカード（束D 層1・二軸bar+line・.ht-chart 再利用）── */
+      .fcf-trend-card { overflow: visible; }
+
       /* ── ①相対位置カード（市場内分布バー・面でなく線/マーカーで表現）── */
       .relpos-group { margin: 10px 0 4px; }
       .relpos-group-title { font: 600 12px/1.4 var(--ix-mono, monospace); color: var(--c-cyan, #62f0ff); letter-spacing: .04em; margin-bottom: 6px; }

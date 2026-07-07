@@ -576,13 +576,19 @@
           if (healthTrendInstance && htc && htc.clientWidth > 0) {
             try { healthTrendInstance.resize(); healthTrendInstance.update("none"); } catch (e) {}
           }
+          // 束D: FCF&収益の質コンボカード。ETF/非表示時は 0x0 のため clientWidth>0 ガード。
+          const fcc = document.getElementById("fcfTrend");
+          if (fcfTrendInstance && fcc && fcc.clientWidth > 0) {
+            try { fcfTrendInstance.resize(); fcfTrendInstance.update("none"); } catch (e) {}
+          }
         };
         // 次フレーム＋entrance アニメ完了後まで複数時刻で再描画。update('none')は冪等で無害。
         //  カード7枚化(Feature#3で health 追加)で末尾カード(CF)の entrance 完了は ≒1.28s(nth-child(7)
         //  遅延0.83s＋アニメ0.45s)。1500ms を足し、この呼出(≒T0+150ms)起点でも完了後に確実に再描画する
         //  (FHD DPR=1 で黒 canvas テクスチャがキャッシュされる黒面バグの予防・headless非再現ゆえ余裕を持たせる)。
+        //  束D で末尾カード増(DuPont/FCF)＝entrance完了がさらに伸びるため 1900ms を追加。
         requestAnimationFrame(() => requestAnimationFrame(run));
-        [300, 700, 1100, 1500].forEach((ms) => setTimeout(run, ms));
+        [300, 700, 1100, 1500, 1900].forEach((ms) => setTimeout(run, ms));
       }
 
   // ── 財務チャート（BS/PL/CF/Radar・index.html から verbatim relocate）──
@@ -1130,6 +1136,7 @@
   //  ⚠️ neonGlowPlugin は $lineGlow/$neonSpecs 未設定で no-op(安全・save/restore 不均衡なし)。
   //  datalabels は display:false。基準線は定数 dataset(chartjs-plugin-annotation 未導入=新CDN依存を足さない)。
   var healthTrendInstance = null;
+  var fcfTrendInstance = null;
   function renderHealthTrend(data, isUS) {
     const canvas = document.getElementById("healthTrend");
     if (!canvas) return;
@@ -1222,6 +1229,64 @@
     host.innerHTML = html;
   }
 
+  // ── FCF & 収益の質 コンボカード（束D 層1）─────────────────────────────
+  //  純計算は DetailRules.fcfTrendSeries/fcfQualityDescriptor。renderHealthTrend 型の
+  //  二軸 canvas(bar+line mixed)。destroy 先行・responsive:true・免責fail-closed自己完結
+  //  （disc 未取得ならカード非表示・DuPont と同型）。repaint() 対象＝clientWidth>0 ガード。
+  //  ⚠️ FIN_COLORS.cf は {start,pos,neg,fx,end}（ope/inv というキーは存在しない）。
+  //  ⚠️ chart data は数値(v/unit.div)を渡す。fmtUnitValue の整形済み文字列を渡すと NaN 化する
+  //  （renderHealthTrend の教訓と同じ）。
+  function renderFCFTrend(data, isUS) {
+    var card = document.getElementById("fcf-trend-card");
+    var cv = document.getElementById("fcfTrend");
+    if (!card || !cv) return;
+    var disc = DetailRules.ANALYSIS_DISCLAIMER;
+    if (!disc) { card.style.display = "none"; return; }        // 免責fail-closed
+    card.style.display = "";
+    if (fcfTrendInstance) { fcfTrendInstance.destroy(); fcfTrendInstance = null; }
+    var s = DetailRules.fcfTrendSeries(data);
+    // 注記・免責・quality句（免責/注記は自己完結でここに注入）
+    var q = DetailRules.fcfQualityDescriptor(data);
+    var noteEl = document.getElementById("fcf-trend-note");
+    if (noteEl) noteEl.textContent = q.text;
+    var discEl = document.getElementById("fcf-trend-disclaimer");
+    if (discEl) discEl.textContent = disc;
+    if (!s.years.length) return;                                // ETF/空
+    var cur = (data && data.currency) || "JPY";
+    var maxAbs = 0;
+    s.fcf.forEach(function (v) { if (v != null) maxAbs = Math.max(maxAbs, Math.abs(v)); });
+    var unit = FinanceRules.pickUnit(maxAbs, cur);
+    var unitStr = FinanceRules.unitLabel(unit);
+    var fcfU = s.fcf.map(function (v) { return v == null ? null : v / unit.div; });   // ← 数値を渡す（fmtUnitValue文字列は不可）
+    // バー色は正負で FIN_COLORS.cf.pos/neg（cfWaterfall と同じ意味色＝プラス=cyan/マイナス=pink）。
+    var barSpecs = s.fcf.map(function (v) { return (v != null && v < 0) ? FIN_COLORS.cf.neg : FIN_COLORS.cf.pos; });
+    var ds = [
+      { type: "bar", label: "概算FCF(" + unitStr + ")", data: fcfU, yAxisID: "amt", order: 3,
+        backgroundColor: neonBarBgByIndex(barSpecs), borderColor: neonEdgeByIndex(barSpecs), borderWidth: 1,
+        datalabels: { display: false } },
+      { type: "line", label: "現金変換率(%)", data: s.cashConversion, yAxisID: "pct", order: 1,
+        borderColor: "#5cf0ff", backgroundColor: "transparent", tension: 0.25, spanGaps: true,
+        pointRadius: 3, datalabels: { display: false } },
+      { type: "line", label: "FCFマージン(%)", data: s.fcfMargin, yAxisID: "pct", order: 2,
+        borderColor: "#ffd84d", backgroundColor: "transparent", tension: 0.25, spanGaps: true,
+        borderDash: [4, 3], pointRadius: 2, datalabels: { display: false } },
+    ];
+    fcfTrendInstance = new Chart(cv.getContext("2d"), {
+      data: { labels: s.years, datasets: ds },
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: false,
+        plugins: { legend: { display: true, labels: { color: "#9fb0d0", boxWidth: 10, font: { size: 10 } } }, datalabels: { display: false } },
+        scales: {
+          amt: { position: "left", title: { display: true, text: unitStr, color: "#9fb0d0" }, ticks: { color: "#9fb0d0" }, grid: { color: "rgba(120,140,180,.12)" }, grace: "20%" },
+          pct: { position: "right", title: { display: true, text: "％", color: "#9fb0d0" }, ticks: { color: "#9fb0d0" }, grid: { drawOnChartArea: false } },
+          x: { ticks: { color: "#9fb0d0" }, grid: { display: false } },
+        },
+      },
+    });
+    fcfTrendInstance.$neonSpecs = [barSpecs];   // neonGlowPlugin バー発光（$lineGlow は未設定＝bar bloom を活かす。両方設定すると
+                                                 // neonGlowPlugin.beforeDatasetsDraw が $lineGlow を先にチェックし bar bloom 分岐が無効化されるため）
+  }
+
   // ── window 露出 ──
   // inline onclick（markup 無改変）が呼ぶ bare 名。公開漏れ=無言故障。
   window.toggleMA = toggleMA;
@@ -1234,7 +1299,7 @@
   window.DetailCharts = {
     initPriceChart, updateMaAndVolume, setCandleData,
     renderBSChart, renderRadarChart, renderPLChart, renderCFChart, renderHealthTrend,
-    renderDuPont,
+    renderDuPont, renderFCFTrend,
     repaint, onWindowResize, renderCompareChart, resizePrice,
   };
 })();
