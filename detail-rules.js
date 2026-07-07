@@ -581,10 +581,37 @@
     };
   }
 
+  // ── DuPont 因数系列（束D）── 全年ループで dupont 各因数を系列化・欠測 null 点・ETF は空。
+  function dupontFactorSeries(data) {
+    var tr = (data && data.financials_trend) || {};
+    var years = Object.keys(tr).sort();
+    var nm = [], at = [], em = [], re = [];
+    for (var i = 0; i < years.length; i++) {
+      var d = FR.dupont(tr[years[i]]);
+      nm.push(d.netMargin); at.push(d.assetTurnover); em.push(d.equityMultiplier); re.push(d.roe);
+    }
+    return { years: years, netMargin: nm, assetTurnover: at, equityMultiplier: em, roe: re };
+  }
+  // ── FCF & 収益の質 系列（束D）── 概算FCF/FCFマージン/現金変換率＋内訳CF・欠測 null 点・ETF は空。
+  function fcfTrendSeries(data) {
+    var tr = (data && data.financials_trend) || {};
+    var years = Object.keys(tr).sort();
+    var fcfA = [], mg = [], cc = [], op = [], iv = [];
+    for (var i = 0; i < years.length; i++) {
+      var f = tr[years[i]];
+      fcfA.push(FR.fcf(f));
+      mg.push(FR.fcfMargin(f));
+      cc.push(FR.cashConversion(f));
+      op.push(FR.hasValue(f, "operating_cf") ? f.operating_cf : null);
+      iv.push(FR.hasValue(f, "investing_cf") ? f.investing_cf : null);
+    }
+    return { years: years, fcf: fcfA, fcfMargin: mg, cashConversion: cc, operatingCf: op, investingCf: iv };
+  }
+
   return {
     // テクニカル純関数
     calcMA, calcBB, detectSR, calcRSI, calcEMA, calcMACD, calcZigZag, autoZigZagDeviation, volumeColorData,
-    signalDigest, healthTrendSeries,
+    signalDigest, healthTrendSeries, dupontFactorSeries, fcfTrendSeries,
     // 財務ディスクリプタ純関数
     priceWindow, periodLabel, financialMaxAbs, marketBasisFor, perStatus, pbrStatus,
     equityRatioDesc, currentRatioDesc, yoyBadge, plSteps, cfFlowStatus, cfCompanyType, cfWaterfall, radarScores,

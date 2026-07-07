@@ -7,6 +7,18 @@ const FinanceRules = require("../finance-rules.js");
 global.FinanceRules = FinanceRules;
 const D = require("../detail-rules.js");
 const FORBIDDEN = require("./fixtures/forbidden_terms.js");
+const F = FinanceRules; // alias（束D Task5-9 の TOYOTA fixture 呼出用）
+
+// 実データ近似（トヨタ 2025 / 百万円）。tests/finance-rules.test.js の TOYOTA と同型（束D descriptor 検証用）。
+const TOYOTA = {
+  current_assets: 30000000, non_current_assets: 60000000,
+  current_liabilities: 25000000, non_current_liabilities: 20000000,
+  net_assets: 45000000, net_sales: 48036704, gross_profit: 10568074,
+  operating_income: 4795586, ordinary_income: 6000000,
+  income_before_taxes: 6965000, net_income: 4765000,
+  operating_cf: 4000000, investing_cf: -3000000, financing_cf: -1000000,
+  cf_cash_start: 6524000, cf_cash_end: 6524000,
+};
 
 // ── priceWindow: 表示期間の絞り込み（US=暦年 / JP=前年4月〜当年3月 / 0件は末尾200件）──
 test("priceWindow: US は暦年で絞る", () => {
@@ -462,6 +474,33 @@ test("healthTrendSeries: ETF (financials_trend={}) → 空系列", () => {
   assert.deepEqual(s.years, []);
   assert.deepEqual(s.equityRatio, []);
   assert.equal(s.basis.equityMin, 40);
+});
+
+// ── dupontFactorSeries / fcfTrendSeries（財務系列・束D Task5）──────────────
+test("dupontFactorSeries: 全年・欠測null点・ETF空", () => {
+  const data = { financials_trend: {
+    "2023": { net_income: 100, net_sales: 1000, current_assets: 400, non_current_assets: 600, net_assets: 500 },
+    "2024": { net_income: 120, net_sales: 1100, current_assets: 400, non_current_assets: 600 }, // net_assets欠測
+  }};
+  const s = D.dupontFactorSeries(data);
+  assert.deepEqual(s.years, ["2023", "2024"]);
+  assert.equal(s.equityMultiplier[0], 2);      // 1000/500
+  assert.equal(s.equityMultiplier[1], null);   // 欠測
+  assert.equal(s.roe[1], null);
+  assert.deepEqual(D.dupontFactorSeries({ financials_trend: {} }).years, []); // ETF空
+});
+
+test("fcfTrendSeries: fcf/margin/conversion と 内訳CF・欠測null点", () => {
+  const data = { financials_trend: {
+    "2024": { operating_cf: 4000000, investing_cf: -3000000, net_sales: 48036704, net_income: 4765000 },
+    "2025": { net_sales: 50000000 }, // CF欠測
+  }};
+  const s = D.fcfTrendSeries(data);
+  assert.equal(s.fcf[0], 1000000);
+  assert.equal(s.fcf[1], null);
+  assert.equal(s.cashConversion[1], null);
+  assert.equal(s.operatingCf[0], 4000000);
+  assert.equal(s.investingCf[1], null);
 });
 
 test("INDICATOR_GLOSSARY: cagr/growth-rate は read 付きで存在（売買/予測語なし）", () => {
