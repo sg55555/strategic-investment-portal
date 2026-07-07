@@ -195,3 +195,12 @@ test("ratioOrNull: 欠測キー/分母≤0 は null", () => {
     ["net_assets","current_assets","non_current_assets"], ["current_assets","non_current_assets"]);
   assert.equal(Math.round(ok), 50); // 45/90
 });
+
+test("divOrNull は分母>0かつ両者有限のとき numer/denom、他は null（×1・負numer可）", () => {
+  assert.equal(F.divOrNull(10, 2), 5);
+  assert.equal(F.divOrNull(-10, 2), -5);      // 負の numer は通す
+  assert.equal(F.divOrNull(10, 0), null);     // 分母0
+  assert.equal(F.divOrNull(10, -2), null);    // 分母<0
+  assert.equal(F.divOrNull(NaN, 2), null);
+  assert.equal(F.divOrNull(10, Infinity), null);
+});

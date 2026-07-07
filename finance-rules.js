@@ -183,6 +183,12 @@
     return out;
   }
 
+  // ×1（倍率）の共通ゲート。分母>0 かつ両者有限のときのみ numer/denom、他は null。
+  // 既存 ratio/ratioOrNull は ×100 を焼込むため、回転率/レバレッジ/現金変換の「倍」には使えない。
+  function divOrNull(numer, denom) {
+    return (isFinite(numer) && isFinite(denom) && denom > 0) ? (numer / denom) : null;
+  }
+
   return {
     n: n,
     pickUnit: pickUnit,
@@ -207,5 +213,6 @@
     cagr: cagr,
     growthRates: growthRates,
     ratioOrNull: ratioOrNull,
+    divOrNull: divOrNull,
   };
 });
