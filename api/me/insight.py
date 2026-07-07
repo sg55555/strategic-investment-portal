@@ -8,6 +8,14 @@ claude-sonnet-4-6 へ。personal（ADVICE_MODE=personal）でのみ助言可・p
 import hashlib
 import json
 import math
+import os
+import sys
+import time
+from datetime import datetime, timezone
+from http.server import BaseHTTPRequestHandler
+
+import psycopg
+from psycopg.types.json import Jsonb
 
 SCHEMA_VERSION = 1
 PROMPT_VERSION = "insight-sys-v1"
@@ -241,3 +249,252 @@ def parse_ai(text):
     if not (out["headline"] or out["story"]):
         return None
     return out
+
+
+# ---- handler・接続・認証ヘルパ＋定数（me/ グループ規約で advice.py を逐語複製・cross-file import 回避）----
+COOKIE = "wc_session"
+MODEL = "claude-sonnet-4-6"
+
+
+def _envint(name, default):
+    try:
+        return int(os.environ.get(name, "") or default)
+    except ValueError:
+        return default
+
+
+INSIGHT_LLM_TIMEOUT = float(_envint("INSIGHT_LLM_TIMEOUT_SEC", 30))
+INSIGHT_MAX_TOKENS = _envint("INSIGHT_MAX_TOKENS", 1000)
+INSIGHT_COOLDOWN_SEC = _envint("INSIGHT_COOLDOWN_SEC", 4)
+INSIGHT_CACHE_TTL_MIN = _envint("INSIGHT_CACHE_TTL_MIN", 720)
+INSIGHT_RATE_WINDOW_MIN = _envint("INSIGHT_RATE_WINDOW_MIN", 10)
+INSIGHT_RATE_MAX = _envint("INSIGHT_RATE_MAX_PER_WINDOW", 30)
+UNIVERSE_LIMIT = _envint("INSIGHT_UNIVERSE_LIMIT", 40)
+
+_FIN_COLS = ("net_sales", "net_income", "net_assets", "current_assets", "non_current_assets",
+             "current_liabilities", "non_current_liabilities", "operating_income",
+             "operating_cf", "investing_cf")
+
+
+def _conn():
+    url = os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL")
+    if not url:
+        raise RuntimeError("DATABASE_URL not set")
+    return psycopg.connect(url, autocommit=True)
+
+
+def _cookie_token(headers, name=COOKIE):
+    cookie = headers.get("Cookie", "") or ""
+    for part in cookie.split(";"):
+        p = part.strip()
+        if p.startswith(name + "="):
+            return p[len(name) + 1:]
+    return None
+
+
+def _valid_session(cur, token):
+    if not token:
+        return False
+    import hashlib as _h
+    cur.execute("SELECT 1 FROM me.sessions WHERE token = %s AND expires_at > now()",
+                (_h.sha256(token.encode("utf-8")).hexdigest(),))
+    return cur.fetchone() is not None
+
+
+def _mode():
+    return "personal" if os.environ.get("ADVICE_MODE", "production").strip().lower() == "personal" else "production"
+
+
+# ---- DB 読取ヘルパ（対象財務・meta・peer・universe・comment：market.* のみ）----
+def _read_target(cur, ticker):
+    cur.execute("SELECT company_name, industry, currency, country, type, per, pbr "
+                "FROM market.ticker_master WHERE ticker = %s", (ticker,))
+    row = cur.fetchone()
+    if not row:
+        return None
+    name, industry, currency, country, typ, per, pbr = row
+    market = "US" if (country == "US" or currency == "USD") else "JP"
+    meta = {"ticker": ticker, "name": name, "industry": industry, "currency": currency,
+            "market": market, "type": typ,
+            "per": round(per, 2) if isinstance(per, (int, float)) else None,
+            "pbr": round(pbr, 2) if isinstance(pbr, (int, float)) else None}
+    trend = {}
+    cur.execute("SELECT fiscal_year, " + ", ".join(_FIN_COLS) +
+                " FROM market.financials_annual WHERE ticker = %s", (ticker,))
+    for r in cur.fetchall():
+        fy = r[0]
+        obj = {"year": fy}
+        for name_i, val in zip(_FIN_COLS, r[1:]):
+            if val is not None:
+                obj[name_i] = float(val)
+        trend[str(fy)] = obj
+    comment = None
+    cur.execute("SELECT comment FROM market.ai_comments WHERE ticker = %s ORDER BY fiscal_year DESC LIMIT 1", (ticker,))
+    c = cur.fetchone()
+    if c:
+        comment = c[0]
+    return meta, trend, comment
+
+
+def _read_peer_rows(cur, market):
+    """同市場（ETF除外）の各銘柄・最新会計年度の主要財務＋per/pbr/industry。"""
+    where = "type <> 'ETF' AND " + ("(country = 'US' OR currency = 'USD')" if market == "US"
+                                    else "NOT (country = 'US' OR currency = 'USD')")
+    cur.execute(
+        "SELECT tm.ticker, tm.industry, tm.per, tm.pbr, "
+        "f.net_income, f.net_sales, f.net_assets, f.operating_income "
+        "FROM market.ticker_master tm JOIN ("
+        "  SELECT *, ROW_NUMBER() OVER (PARTITION BY ticker ORDER BY fiscal_year DESC) rn "
+        "  FROM market.financials_annual) f ON f.ticker = tm.ticker AND f.rn = 1 "
+        "WHERE " + where)
+    rows = []
+    for t, ind, per, pbr, ni, ns, na, oi in cur.fetchall():
+        rows.append({"ticker": t, "industry": ind,
+                     "per": float(per) if per is not None else None,
+                     "pbr": float(pbr) if pbr is not None else None,
+                     "net_income": float(ni) if ni is not None else None,
+                     "net_sales": float(ns) if ns is not None else None,
+                     "net_assets": float(na) if na is not None else None,
+                     "operating_income": float(oi) if oi is not None else None})
+    return rows
+
+
+def _read_universe(cur, market):
+    where = ("(country = 'US' OR currency = 'USD')" if market == "US"
+             else "NOT (country = 'US' OR currency = 'USD')")
+    cur.execute("SELECT ticker, company_name, industry, type, per, pbr FROM market.ticker_master "
+                "WHERE " + where + " ORDER BY market_cap DESC NULLS LAST LIMIT %s", (UNIVERSE_LIMIT,))
+    out = []
+    for t, nm, ind, typ, per, pbr in cur.fetchall():
+        out.append({"ticker": t, "name": nm, "industry": ind, "type": typ,
+                    "per": round(per, 1) if isinstance(per, (int, float)) else None,
+                    "pbr": round(pbr, 2) if isinstance(pbr, (int, float)) else None})
+    return out
+
+
+# ---- LLM 呼び出し・ユーザプロンプト構築 ----
+def _call_llm(system, user_text):
+    import anthropic
+    client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+    resp = client.with_options(timeout=INSIGHT_LLM_TIMEOUT, max_retries=0).messages.create(
+        model=MODEL, system=system, max_tokens=INSIGHT_MAX_TOKENS,
+        messages=[{"role": "user", "content": user_text}])
+    text = "".join(getattr(b, "text", "") for b in resp.content if getattr(b, "type", "") == "text")
+    try:
+        usage = {"input_tokens": resp.usage.input_tokens, "output_tokens": resp.usage.output_tokens}
+    except Exception:
+        usage = None
+    return text, getattr(resp, "stop_reason", None), getattr(resp, "_request_id", None), usage
+
+
+def _build_user(facts):
+    return ("次の JSON は対象銘柄の財務ファクト（DuPont/FCF・peer・universe・中立コメント）です。"
+            "これに厳密に基づき、財務ストーリーと判断含意を出力してください。\n"
+            + json.dumps(facts, ensure_ascii=False))
+
+
+class handler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        token = _cookie_token(self.headers)
+        mode = _mode()
+        started = time.time()
+        try:
+            length = int(self.headers.get("Content-Length", 0) or 0)
+            body = self.rfile.read(length) if length else b""
+            try:
+                req = json.loads(body or b"{}")
+            except Exception:
+                req = {}
+            ticker = (req.get("ticker") or "").strip() if isinstance(req, dict) else ""
+            with _conn() as conn, conn.cursor() as cur:
+                if not _valid_session(cur, token):
+                    return self._json(401, {"error": "unauthorized"})
+                if mode != "personal":
+                    return self._json(403, {"error": "personal-only"})   # production 完全遮断
+                if not os.environ.get("ANTHROPIC_API_KEY", ""):
+                    print("insight: ANTHROPIC_API_KEY not set", file=sys.stderr)
+                    return self._json(503, {"error": "not configured"})
+                if not ticker:
+                    return self._json(400, {"error": "ticker required"})
+                target = _read_target(cur, ticker)
+                if target is None:
+                    return self._json(404, {"error": "unknown ticker"})
+                meta, trend, comment = target
+                if meta.get("type") == "ETF" or not trend:
+                    return self._respond(mode, None, "not_applicable", applicable=False)
+
+                peer_rows = _read_peer_rows(cur, meta["market"])
+                peer_ctx = peer_context(ticker, meta["market"], peer_rows)
+                universe = _read_universe(cur, meta["market"])
+                facts = build_facts(meta, trend, peer_ctx, universe, comment)
+                facts["mode"] = "personal"
+                fhash = facts_hash(facts)
+
+                # rate → cache → cooldown（advice.py 同順）
+                cur.execute("SELECT count(*) FROM me.insight_log WHERE created_at > now() - make_interval(mins => %s)",
+                            (INSIGHT_RATE_WINDOW_MIN,))
+                if cur.fetchone()[0] >= INSIGHT_RATE_MAX:
+                    return self._json(429, {"error": "too many requests"})
+                cur.execute("SELECT ai_response FROM me.insight_log WHERE facts_hash = %s AND ai_status = 'ok' "
+                            "AND ai_response IS NOT NULL AND created_at > now() - make_interval(mins => %s) "
+                            "ORDER BY created_at DESC LIMIT 1", (fhash, INSIGHT_CACHE_TTL_MIN))
+                cached = cur.fetchone()
+                if cached:
+                    self._log(cur, mode, ticker, facts, fhash, "cached", cached[0], None, None,
+                              int((time.time() - started) * 1000))
+                    return self._respond(mode, cached[0], "cached")
+                cur.execute("SELECT 1 FROM me.insight_log WHERE ai_status IN ('ok','failed','refusal','truncated') "
+                            "AND created_at > now() - make_interval(secs => %s) LIMIT 1", (INSIGHT_COOLDOWN_SEC,))
+                if cur.fetchone():
+                    self._log(cur, mode, ticker, facts, fhash, "cooldown", None, None, None,
+                              int((time.time() - started) * 1000))
+                    return self._respond(mode, None, "cooldown")
+
+                status, ai, req_id, usage = "ok", None, None, None
+                try:
+                    text, stop, req_id, usage = _call_llm(SYS_INSIGHT_PERSONAL, _build_user(facts))
+                    if stop == "max_tokens":
+                        status = "truncated"
+                    elif stop not in ("end_turn", None):
+                        status = "refusal"
+                    else:
+                        ai = parse_ai(text)
+                        if ai is None:
+                            status = "failed"
+                except Exception as e:  # noqa: BLE001
+                    print(f"insight LLM error: {type(e).__name__}", file=sys.stderr)
+                    status, ai = "failed", None
+                self._log(cur, mode, ticker, facts, fhash, status, ai, req_id, usage,
+                          int((time.time() - started) * 1000))
+                return self._respond(mode, ai if status == "ok" else None, status)
+        except Exception as e:  # noqa: BLE001
+            print(f"insight error: {type(e).__name__}", file=sys.stderr)
+            return self._json(500, {"error": "internal"})
+
+    def _log(self, cur, mode, ticker, facts, fhash, ai_status, ai, req_id, usage, latency):
+        try:
+            cur.execute(
+                "INSERT INTO me.insight_log (advice_mode, ticker, facts, facts_hash, model, prompt_version, "
+                "schema_version, disclaimer_version, ai_status, ai_response, request_id, usage, latency_ms) "
+                "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                (mode, ticker, Jsonb(facts), fhash, MODEL, PROMPT_VERSION, SCHEMA_VERSION, DISCLAIMER_VERSION,
+                 ai_status, Jsonb(ai) if ai is not None else None, req_id, Jsonb(usage) if usage is not None else None, latency))
+        except Exception as e:  # noqa: BLE001
+            print(f"insight log error: {type(e).__name__}", file=sys.stderr)
+
+    def _respond(self, mode, ai, ai_status, applicable=True):
+        return self._json(200, {
+            "deterministic": None, "ai": ai, "aiStatus": ai_status, "applicable": applicable,
+            "mode": mode, "model": MODEL, "disclaimerVersion": DISCLAIMER_VERSION,
+            "generatedAt": datetime.now(timezone.utc).isoformat()})
+
+    def _json(self, status, data):
+        body = json.dumps(data, ensure_ascii=False).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, *args):
+        pass
