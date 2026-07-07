@@ -338,7 +338,7 @@ def _read_target(cur, ticker):
 
 def _read_peer_rows(cur, market):
     """同市場（ETF除外）の各銘柄・最新会計年度の主要財務＋per/pbr/industry。"""
-    where = "type <> 'ETF' AND " + ("(country = 'US' OR currency = 'USD')" if market == "US"
+    where = "lower(type) <> 'etf' AND " + ("(country = 'US' OR currency = 'USD')" if market == "US"
                                     else "NOT (country = 'US' OR currency = 'USD')")
     cur.execute(
         "SELECT tm.ticker, tm.industry, tm.per, tm.pbr, "
@@ -420,7 +420,7 @@ class handler(BaseHTTPRequestHandler):
                 if target is None:
                     return self._json(404, {"error": "unknown ticker"})
                 meta, trend, comment = target
-                if meta.get("type") == "ETF" or not trend:
+                if (meta.get("type") or "").lower() == "etf" or not trend:
                     return self._respond(mode, None, "not_applicable", applicable=False)
 
                 peer_rows = _read_peer_rows(cur, meta["market"])
