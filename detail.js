@@ -234,13 +234,19 @@
   //  /api/auth/session を1度だけ叩き {ok, insightEnabled} をクロージャ内キャッシュ。
   //  production(非personal)デプロイでは insightEnabled=false → 可視ゲートで完全非表示（痕跡ゼロ）。
   //  fetch失敗/非2xx はすべて fail-closed（{ok:false, insightEnabled:false}）で隠す側に倒す。
-  var _insightCap = null;   // {ok, insightEnabled}（probe 済みキャッシュ）
+  var _insightCap = null;   // {ok, insightEnabled}（probe 済みキャッシュ・成功(ok:true)のみ保持）
   function probeInsightCap() {
-    if (_insightCap) return Promise.resolve(_insightCap);
+    // 成功キャッシュのみ短絡。未ログイン/失敗の {ok:false} はキャッシュしない＝money view での
+    //  リロードなしログイン後に銘柄詳細へ戻ったら再 probe して mid-session login を拾う。
+    if (_insightCap && _insightCap.ok) return Promise.resolve(_insightCap);
     return fetch("/api/auth/session", { credentials: "same-origin" })
       .then(function (r) { return r.ok ? r.json() : { ok: false, insightEnabled: false }; })
-      .then(function (j) { _insightCap = { ok: !!j.ok, insightEnabled: !!j.insightEnabled }; return _insightCap; })
-      .catch(function () { _insightCap = { ok: false, insightEnabled: false }; return _insightCap; });
+      .then(function (j) {
+        var cap = { ok: !!j.ok, insightEnabled: !!j.insightEnabled };
+        if (cap.ok) _insightCap = cap;   // 成功のみキャッシュ（negative は毎回再 probe）
+        return cap;
+      })
+      .catch(function () { return { ok: false, insightEnabled: false }; });   // 失敗はキャッシュしない
   }
 
   // ── テクニカル現在地サマリ signalDigest カード（Feature#2）──────────────────
@@ -592,16 +598,22 @@
     var body = document.getElementById("ai-insight-body");
     var btn = document.getElementById("ai-insight-btn");
     if (body) body.innerHTML = "";                       // 銘柄切替でクリア
+    // 免責 fail-closed（規制不変条件④）：免責文言を一度だけ確定し、可視ゲートで空判定に使う。
+    var discText = (window.DetailRules && window.DetailRules.ANALYSIS_DISCLAIMER) || "";
     var disc = document.getElementById("ai-insight-disclaimer");
-    if (disc && window.DetailRules) disc.textContent = window.DetailRules.ANALYSIS_DISCLAIMER || "";
+    if (disc) disc.textContent = discText;
     injectTermHelp(card);
+    var reqTicker = currentTicker;   // レース防止：probe 開始時点の銘柄を捕捉
     probeInsightCap().then(function (cap) {
+      // stale probe ガード：probe 中に別銘柄へ遷移済みなら、去った銘柄のカード可視状態に一切触れない。
+      if (currentTicker !== reqTicker) return;
       // 可視ゲート：ログイン済 && personal デプロイ && 層1(dupont-card)が表示中（ETF/財務欠損は層1が
       // finCards で display:none 済＝それに連動して insight も隠す）。data 引数は将来拡張用に受けるが判定は
       // 層1 の実 display に委ねる（ETF と非ETF財務欠損の両方を1条件で正しく捕捉）。
       var dpCard = document.getElementById("dupont-card");
       var layer1Hidden = !dpCard || dpCard.style.display === "none";
-      if (!(cap.ok && cap.insightEnabled) || layer1Hidden) { card.style.display = "none"; return; }
+      // 免責 fail-closed（規制不変条件④）：discText が空（免責なし）なら助言カードを出さない。
+      if (!(cap.ok && cap.insightEnabled) || layer1Hidden || !discText) { card.style.display = "none"; return; }
       card.style.display = "";   // finCards が '' 済でも冪等に明示表示
       if (btn) {
         btn.disabled = false;
@@ -620,9 +632,12 @@
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ticker: ticker }),
     }).then(function (r) { return r.json().then(function (j) { return { status: r.status, j: j }; }); })
-      .then(function (res) { renderInsightResult(res.status, res.j); })
-      .catch(function () { renderInsightResult(0, null); })
-      .then(function () { if (btn) { btn.disabled = false; btn.textContent = "再読み解き"; } });
+      // レース防止：遅延レスポンス着信時に別銘柄へ遷移済み(currentTicker!==ticker)なら共有カード
+      //  #ai-insight-body へ一切書かない（stale AI 分析が別銘柄の名義/免責下に描かれる誤判断ハザードを封じる）。
+      .then(function (res) { if (currentTicker === ticker) renderInsightResult(res.status, res.j); })
+      .catch(function () { if (currentTicker === ticker) renderInsightResult(0, null); })
+      // ボタン文言リセットも自銘柄のときだけ（stale 応答は現銘柄自身の wiring が所有するボタンに触れない）。
+      .then(function () { if (currentTicker === ticker && btn) { btn.disabled = false; btn.textContent = "再読み解き"; } });
   }
 
   function renderInsightResult(status, j) {
