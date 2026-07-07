@@ -1184,6 +1184,44 @@
     });
   }
 
+  // ── 純資産ROE分解 DuPontカード（束D 層1）────────────────────────────
+  //  純計算は DetailRules.dupontDescriptor/dupontFactorSeries（no-score 中立driver句）。
+  //  canvas 無し＝innerHTML 全置換のみ（signalDigest 型・0x0罠と無縁・repaint 対象外）。
+  //  免責が取得できなければフェイルセーフ非描画（fail-closed）。
+  function renderDuPont(fin, data) {
+    var host = document.getElementById("dupont-body");
+    var card = document.getElementById("dupont-card");
+    if (!host || !card) return;
+    var disc = DetailRules.ANALYSIS_DISCLAIMER;
+    if (!disc) { card.style.display = "none"; return; }        // 免責fail-closed
+    card.style.display = "";
+    var d = DetailRules.dupontDescriptor(fin);
+    var ser = DetailRules.dupontFactorSeries(data);
+    var esc = window.esc;
+    function cell(label, termKey, val, unit, series) {
+      var vtxt = (val == null) ? "--" : (unit === "%" ? val.toFixed(1) + "%" : val.toFixed(2) + unit);
+      return '<div class="dp-factor"><div class="dp-flabel" data-term="' + esc(termKey) + '">' + esc(label) + '</div>' +
+        '<div class="dp-fval">' + esc(vtxt) + '</div>' +
+        '<div class="dp-fspark">' + DetailRules.sparklineSVG(series, { w: 68, h: 18, color: "#5cf0ff" }) + '</div></div>';
+    }
+    var roeTxt = (d.roe.value == null) ? "--" : d.roe.value.toFixed(1) + "%";
+    var html =
+      '<div class="dp-identity">' +
+        cell("純利益率", "net-margin", d.factors[0].value, "%", ser.netMargin) +
+        '<div class="dp-op">×</div>' +
+        cell("総資産回転率", "asset-turnover", d.factors[1].value, "倍", ser.assetTurnover) +
+        '<div class="dp-op">×</div>' +
+        cell("財務レバレッジ", "financial-leverage", d.factors[2].value, "倍", ser.equityMultiplier) +
+        '<div class="dp-op">=</div>' +
+        '<div class="dp-factor dp-roe"><div class="dp-flabel" data-term="roe">純資産ROE</div>' +
+          '<div class="dp-fval">' + esc(roeTxt) + '</div>' +
+          '<div class="dp-fspark">' + DetailRules.sparklineSVG(ser.roe, { w: 68, h: 18, color: "#ffd84d" }) + '</div></div>' +
+      '</div>' +
+      '<div class="dp-driver">' + esc(d.driver.text) + '</div>' +
+      '<div class="panel-disclaimer">' + esc(disc) + '</div>';
+    host.innerHTML = html;
+  }
+
   // ── window 露出 ──
   // inline onclick（markup 無改変）が呼ぶ bare 名。公開漏れ=無言故障。
   window.toggleMA = toggleMA;
@@ -1196,6 +1234,7 @@
   window.DetailCharts = {
     initPriceChart, updateMaAndVolume, setCandleData,
     renderBSChart, renderRadarChart, renderPLChart, renderCFChart, renderHealthTrend,
+    renderDuPont,
     repaint, onWindowResize, renderCompareChart, resizePrice,
   };
 })();

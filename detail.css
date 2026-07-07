@@ -791,6 +791,15 @@
       .ht-disclaimer { margin-top: 4px; font-size: 10px; color: var(--ix-text-dim, #9fb0d0); line-height: 1.5; }
       @media (max-width: 768px) { .ht-chart { height: 240px; } }
 
+      /* ── DuPont恒等式カード（束D 層1・canvas無し＝inline SVGスパークライン）── */
+      .dp-identity{display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap;margin:6px 0 10px;}
+      .dp-factor{display:flex;flex-direction:column;gap:2px;min-width:84px;}
+      .dp-flabel{font-size:11px;color:var(--ix-text-dim,#8aa);}
+      .dp-fval{font-family:var(--ix-mono,monospace);font-size:18px;color:var(--ix-text,#dff);}
+      .dp-op{font-size:16px;color:var(--ix-text-dim,#8aa);padding-bottom:20px;}
+      .dp-roe .dp-fval{color:#ffd84d;}
+      .dp-driver{font-size:12px;line-height:1.6;color:var(--ix-text-secondary,#bcd);}
+
       /* ── ①相対位置カード（市場内分布バー・面でなく線/マーカーで表現）── */
       .relpos-group { margin: 10px 0 4px; }
       .relpos-group-title { font: 600 12px/1.4 var(--ix-mono, monospace); color: var(--c-cyan, #62f0ff); letter-spacing: .04em; margin-bottom: 6px; }
