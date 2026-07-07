@@ -632,6 +632,26 @@
       '" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   }
 
+  // ── DuPont descriptor（束D・層1・公開）── no-score・中立driver句・純資産ベース明示。
+  function dupontDescriptor(fin) {
+    var d = FR.dupont(fin);
+    var factors = [
+      { key: "netMargin", label: "純利益率", termKey: "net-margin", value: d.netMargin, unit: "%" },
+      { key: "assetTurnover", label: "総資産回転率", termKey: "asset-turnover", value: d.assetTurnover, unit: "倍" },
+      { key: "equityMultiplier", label: "財務レバレッジ", termKey: "financial-leverage", value: d.equityMultiplier, unit: "倍" },
+    ];
+    var text;
+    var complete = d.netMargin != null && d.assetTurnover != null && d.equityMultiplier != null && d.roe != null;
+    if (complete) {
+      text = "純資産ROE " + d.roe.toFixed(1) + "% は、純利益率×総資産回転率×財務レバレッジ の積です。" +
+        "財務レバレッジ " + d.equityMultiplier.toFixed(2) + "倍 は総資産が純資産の約 " + d.equityMultiplier.toFixed(2) + "倍 であることを表します（純資産ベース＝少数株主持分を含む）。" +
+        "レバレッジはROEを押し上げますが財務リスクも高めます（一般的な性質）。";
+    } else {
+      text = "一部の因数が欠損のため、分解は参考値です（純資産ベース＝少数株主持分を含む）。";
+    }
+    return { factors: factors, roe: { value: d.roe, unit: "%" }, driver: { text: text } };
+  }
+
   return {
     // テクニカル純関数
     calcMA, calcBB, detectSR, calcRSI, calcEMA, calcMACD, calcZigZag, autoZigZagDeviation, volumeColorData,
@@ -639,7 +659,7 @@
     // 財務ディスクリプタ純関数
     priceWindow, periodLabel, financialMaxAbs, marketBasisFor, perStatus, pbrStatus,
     equityRatioDesc, currentRatioDesc, yoyBadge, plSteps, cfFlowStatus, cfCompanyType, cfWaterfall, radarScores,
-    sparklineSVG,
+    sparklineSVG, dupontDescriptor,
     // 色/特例定数
     FIN_COLORS, CF_BADGE_PAIR, COMPARE_COLORS, HOLDING_COMPANIES,
     // 分析グロッサリ・免責データ

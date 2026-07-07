@@ -503,6 +503,28 @@ test("fcfTrendSeries: fcf/margin/conversion と 内訳CF・欠測null点", () =>
   assert.equal(s.investingCf[1], null);
 });
 
+// ── dupontDescriptor（中立driver句・束D Task7）────────────────────
+// 注: 計画書は本テストローカルに `const FORBIDDEN = [...]`(文字列配列) を定義するが、本ファイルは
+// 冒頭で `const FORBIDDEN = require("./fixtures/forbidden_terms.js")`（regex 版・既存2テストが使用）
+// を既に束縛済みのため名前が衝突する（再宣言は SyntaxError）。同じ規制安全の意図（売買/予測語彙ゼロ）を
+// 単一源の共有 fixture（FORBIDDEN.ALL）で満たす形に寄せる。
+test("dupontDescriptor: 3因数+ROE+中立driver・純資産ベース明示・禁止語彙0", () => {
+  const d = D.dupontDescriptor(TOYOTA);
+  assert.equal(d.factors.length, 3);
+  assert.equal(d.factors[0].termKey, "net-margin");
+  assert.equal(d.factors[1].termKey, "asset-turnover");
+  assert.equal(d.factors[2].termKey, "financial-leverage");
+  assert.ok(Math.abs(d.roe.value - F.roe(TOYOTA)) < 1e-9);
+  assert.match(d.driver.text, /純資産ベース/);
+  for (const re of FORBIDDEN.ALL) assert.ok(!re.test(d.driver.text), "禁止語: " + re);
+});
+
+test("dupontDescriptor: 欠測は値null・参考値フォールバック句", () => {
+  const d = D.dupontDescriptor({ net_income: 100, net_sales: 1000 }); // 資産系欠測
+  assert.equal(d.factors[1].value, null); // 回転率null
+  assert.match(d.driver.text, /参考値|欠損/);
+});
+
 // ── sparklineSVG（純SVGビルダー・束D Task6）───────────────────────
 test("sparklineSVG: 有効点>=2で polyline・null除外・<2は空svg", () => {
   const svg = D.sparklineSVG([1, null, 3, 4], { w: 60, h: 18 });
