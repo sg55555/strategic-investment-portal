@@ -72,3 +72,35 @@ def cash_conversion(fin):
     if not fin or not has_value(fin, "operating_cf"): return None
     c = div_or_null(n(fin.get("operating_cf")), n(fin.get("net_income")))
     return None if c is None else c * 100
+
+def _dir(prev, curr):
+    if prev is None or curr is None: return None
+    if prev == 0:
+        return "improving" if curr > 0 else ("declining" if curr < 0 else "flat")
+    if curr > prev * 1.02: return "improving"
+    if curr < prev * 0.98: return "declining"
+    return "flat"
+
+def _year_facts(fin):
+    dp = dupont(fin)
+    return {"dupont": dp, "fcf": fcf(fin), "fcf_margin": fcf_margin(fin), "cash_conversion": cash_conversion(fin)}
+
+def stock_series(trend):
+    trend = trend or {}
+    pairs = []
+    for k, v in trend.items():
+        try:
+            y = int(k)
+        except (TypeError, ValueError):
+            continue
+        if isinstance(v, dict):
+            pairs.append((y, v))
+    pairs.sort(key=lambda p: p[0])
+    series = [dict(year=y, **_year_facts(v)) for y, v in pairs]
+    latest = series[-1] if series else None
+    prev = series[-2] if len(series) >= 2 else None
+    def pick(row, key):
+        if row is None: return None
+        return row["dupont"]["roe"] if key == "roe" else row[key]
+    direction = {k: _dir(pick(prev, k), pick(latest, k)) for k in ("roe", "fcf_margin", "cash_conversion")}
+    return {"series": series, "latest": latest, "direction": direction}
