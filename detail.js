@@ -527,11 +527,15 @@
 
     // ETF・財務データなしの場合はチャートカードを非表示
     const isEtf = data.type === "etf";
-    const finCards = ["kpi-compare-card", "bs-title", "radar-title", "pl-title", "cf-title", "health-trend-card", "dupont-card", "fcf-trend-card", "ai-insight-card"];
+    const finCards = ["kpi-compare-card", "bs-title", "radar-title", "pl-title", "cf-title", "health-trend-card", "dupont-card", "fcf-trend-card"];
     finCards.forEach(id => {
       const card = document.getElementById(id)?.closest(".card");
       if (card) card.style.display = isEtf ? "none" : "";
     });
+    // ai-insight-card は常に既定 none を維持し、wireInsightCard の可視ゲート（login+personal＋層1カード表示）
+    //  でのみ表示する。ETF/財務欠損(!fin)の early-return や production デプロイでは一切可視化させない（痕跡ゼロ）。
+    var _aiInsightCard = document.getElementById("ai-insight-card");
+    if (_aiInsightCard) _aiInsightCard.style.display = "none";
     if (isEtf) {
       document.getElementById("kpi-compare-card").style.display = "none";
       return;
@@ -585,11 +589,6 @@
   function wireInsightCard(data) {
     var card = document.getElementById("ai-insight-card");
     if (!card) return;
-    // ★zero-trace hardening（brief 逸脱・1行）: finCards は非ETFで ai-insight-card を同期的に
-    //  display:"" にする（ETF早期returnより前）。probe は非同期のため、production 非ETF 銘柄の初回
-    //  描画で probe 往復の間だけカードが可視になり、spec §0/§8/§9①「production=痕跡ゼロ／完全非表示」
-    //  に反する。ここで同期的に隠し、personal かつ層1可視の時のみ下の .then で明示表示する。
-    card.style.display = "none";
     var body = document.getElementById("ai-insight-body");
     var btn = document.getElementById("ai-insight-btn");
     if (body) body.innerHTML = "";                       // 銘柄切替でクリア
