@@ -24,7 +24,8 @@
   // テクニカル純関数も DetailRules を単一ソースとして参照（index.html 側の重複定義は撤去済）。
   const calcMA = DR.calcMA, calcBB = DR.calcBB, detectSR = DR.detectSR,
         calcRSI = DR.calcRSI, calcMACD = DR.calcMACD, calcADX = DR.calcADX, calcATR = DR.calcATR,
-        calcZigZag = DR.calcZigZag, autoZigZagDeviation = DR.autoZigZagDeviation;
+        calcZigZag = DR.calcZigZag, autoZigZagDeviation = DR.autoZigZagDeviation,
+        calcKeltner = DR.calcKeltner, calcVWAP = DR.calcVWAP;
 
   // ── チャート instance / series / state（index.html から private 化・bare-global 解消の中核）──
   let priceChart = null;
@@ -38,6 +39,10 @@
   let maState = { 5: false, 25: false, 75: false };
   let bbUpperSeries = null, bbMidSeries = null, bbLowerSeries = null;
   let bbState = false;
+      let kcUpperSeries = null, kcMidSeries = null, kcLowerSeries = null;
+      let kcState = false;
+      let vwapSeries = null;
+      let vwapState = false;
   let srLines = [];
   let srState = false;
   let trState = false;
@@ -201,6 +206,16 @@
         bbState = !bbState;
         document.getElementById("ind-btn-bb").classList.toggle("active", bbState);
         [bbUpperSeries, bbMidSeries, bbLowerSeries].forEach(s => s?.applyOptions({ visible: bbState }));
+      }
+      function toggleKeltner() {
+        kcState = !kcState;
+        document.getElementById("ind-btn-keltner").classList.toggle("active", kcState);
+        [kcUpperSeries, kcMidSeries, kcLowerSeries].forEach(s => s?.applyOptions({ visible: kcState }));
+      }
+      function toggleVWAP() {
+        vwapState = !vwapState;
+        document.getElementById("ind-btn-vwap").classList.toggle("active", vwapState);
+        vwapSeries?.applyOptions({ visible: vwapState });
       }
       function applySRLines(prices) {
         srLines.forEach(l => { try { candleSeries.removePriceLine(l); } catch(e) {} });
@@ -478,6 +493,16 @@
         bbMidSeries?.setData(bb.mid.filter(f));
         bbLowerSeries?.setData(bb.lower.filter(f));
 
+        // ── ケルトナーチャネル（BB と同じ全履歴算出→window filter） ──
+        const kcBase = base.length >= 20 ? base : displayPrices;
+        const kc = calcKeltner(kcBase);
+        kcUpperSeries?.setData(kc.upper.filter(f));
+        kcMidSeries?.setData(kc.mid.filter(f));
+        kcLowerSeries?.setData(kc.lower.filter(f));
+
+        // ── VWAP（期間アンカー＝表示ウィンドウ先頭起点。全履歴算出→filter ではなく displayPrices 直接） ──
+        vwapSeries?.setData(calcVWAP(displayPrices));
+
         // ── 支持線・抵抗線 ──
         applySRLines(base);
 
@@ -590,6 +615,24 @@
         });
         bbLowerSeries = priceChart.addLineSeries({
           color: "rgba(92,240,255,0.5)", lineWidth: 1, lineStyle: 2, visible: false,
+          priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+        });
+        // ── ケルトナーチャネル シリーズ（amber/orange・初期非表示。BB=cyan / ma75=purple と非衝突） ──
+        kcUpperSeries = priceChart.addLineSeries({
+          color: "rgba(255,163,64,0.5)", lineWidth: 1, lineStyle: 2, visible: false,
+          priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+        });
+        kcMidSeries = priceChart.addLineSeries({
+          color: "rgba(255,163,64,0.85)", lineWidth: 1, visible: false,
+          priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+        });
+        kcLowerSeries = priceChart.addLineSeries({
+          color: "rgba(255,163,64,0.5)", lineWidth: 1, lineStyle: 2, visible: false,
+          priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+        });
+        // ── VWAP シリーズ（gold・単線太め・初期非表示） ──
+        vwapSeries = priceChart.addLineSeries({
+          color: "#ffd84d", lineWidth: 2, visible: false,
           priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
         });
       }
@@ -1334,6 +1377,8 @@
   window.toggleBB = toggleBB;
   window.toggleSR = toggleSR;
   window.toggleTR = toggleTR;
+  window.toggleKeltner = toggleKeltner;
+  window.toggleVWAP = toggleVWAP;
   // 詳細ビュー制御 API（index.html 残置コード/onload/updateFinancialViews/detail.js が呼ぶ）。
   window.DetailCharts = {
     initPriceChart, updateMaAndVolume, setCandleData,
