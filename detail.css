@@ -502,8 +502,6 @@
       #ma-btn-75.active { border-color: #a35cff; color: #a35cff; background: rgba(163,92,255,0.12); }
       #ind-btn-bb.active   { border-color: #5cf0ff; color: #5cf0ff; background: rgba(92,240,255,0.12); }
       #ind-btn-sr.active   { border-color: #ff6699; color: #ff6699; background: rgba(255,102,153,0.12); }
-      #ind-btn-rsi.active  { border-color: #ffd84d; color: #ffd84d; background: rgba(255,216,77,0.12); }
-      #ind-btn-macd.active { border-color: #ff5ca8; color: #ff5ca8; background: rgba(255,92,168,0.12); }
       #ind-btn-tr.active   { border-color: var(--ix-amber); color: var(--ix-amber); background: rgba(251,191,36,0.12); }
       .vol-label {
         font-size: 0.68rem;
