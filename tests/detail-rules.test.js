@@ -406,7 +406,7 @@ test("signalDigest: current value indexed to display window end, not allPrices t
 
 test("signalDigest: thin history folds to データ不足, no crash", () => {
   const ds = D.signalDigest(synthPrices(5), synthPrices(5));
-  // Task4(adx/atr)で 7→9、本Task(keltner/vwap/obv)で 9→12。薄い履歴では新規3件も データ不足 に畳む。
+  // Task4(adx/atr)で 7→9、本Task(keltner/vwap/obv)で 9→12。新規3件のうち keltner/obv は データ不足 に畳む（vwap は窓最小長を要求しないため実値が出ることがある）。
   assert.equal(ds.length, 12);
   assert.ok(ds.some((d) => d.state === "データ不足"));
 });

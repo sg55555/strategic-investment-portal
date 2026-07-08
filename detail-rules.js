@@ -765,6 +765,7 @@
           for (var i = dp.length - 20; i < dp.length; i++) gross += (dp[i].volume || 0);
           var ratio = gross > 0 ? d / gross : 0;
           state = Math.abs(ratio) < 0.2 ? 'ほぼ横ばい' : (ratio > 0 ? '直近20日で上向き' : '直近20日で低下');
+          readout = '20日純出来高比 ' + (ratio >= 0 ? '+' : '') + (ratio * 100).toFixed(0) + '%';
         }
       }
       out.push({ key: 'obv', label: 'OBV', term: 'obv', state: state, readout: readout });
