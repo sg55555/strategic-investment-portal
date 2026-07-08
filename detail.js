@@ -290,6 +290,7 @@
     { key: "macd", label: "MACD",    sub: "(12,26,9)",  term: "macd", height: 110, desc: "短期と長期の移動平均の差。勢いの向きと転換の傾向。" },
     { key: "adx",  label: "ADX/DMI", sub: "(14)",       term: "adx",  height: 132, desc: "トレンドの強さ（向きは示さない）。25超で方向感、20未満はレンジ気味。" },
     { key: "atr",  label: "ATR%",    sub: "(14)",       term: "atr",  height: 104, desc: "1日の値幅の目安（株価に対する%）。値幅そのものは行動を促すものではない。" },
+    { key: "obv",  label: "OBV",     sub: "",           term: "obv",  height: 104, desc: "終値方向×出来高の累計線。傾き・価格との食い違いを見る目安。" },
   ];
   var SOFT_CAP = 2;
   var _accItems = {};             // key -> {wrap, host, caret, expanded}
