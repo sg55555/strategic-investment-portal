@@ -278,6 +278,192 @@
     injectTermHelp(card);
   }
 
+  // ── サブパネル選択UI（アコーディオン・案C・Task8）───────────────────────────
+  //  参照移植元: scratchpad/subpanel-mock/live-C.html の addItem/removeItem/expand/collapse/toggle/
+  //  buildChips（差分＝MockEngine.mount/unmount → window.DetailCharts.mountSubpanel/unmountSubpanel、
+  //  ヘッダの用語?は injectTermHelp/data-term、チップは既存 .ma-btn を再利用）。
+  //  0x0罠: host を display:block にしてから mountSubpanel を呼ぶ（DetailCharts 側も rAF で二重待ち）。
+  //  height は DetailCharts.SUBPANEL_REGISTRY の既定値と同値（重複だが host の CSS 高さを chart 生成前に
+  //  確保するため必須＝ mountSubpanel の opts.height は省略しても同じ値に解決するが、host 側は自前で持つ必要がある）。
+  var SUBPANEL_META = [
+    { key: "rsi",  label: "RSI",     sub: "(14)",       term: "rsi",  height: 100, desc: "買われすぎ/売られすぎの目安。70超で過熱・30割れで冷え込み。" },
+    { key: "macd", label: "MACD",    sub: "(12,26,9)",  term: "macd", height: 110, desc: "短期と長期の移動平均の差。勢いの向きと転換の傾向。" },
+    { key: "adx",  label: "ADX/DMI", sub: "(14)",       term: "adx",  height: 132, desc: "トレンドの強さ（向きは示さない）。25超で方向感、20未満はレンジ気味。" },
+    { key: "atr",  label: "ATR%",    sub: "(14)",       term: "atr",  height: 104, desc: "1日の値幅の目安（株価に対する%）。値幅そのものは行動を促すものではない。" },
+  ];
+  var SOFT_CAP = 2;
+  var _accItems = {};             // key -> {wrap, host, caret, expanded}
+  var _subpanelUIInited = false;  // initSubpanelUI の冪等ガード（navigate/switchYear 複数回呼び対応）
+
+  function _spMeta(key) {
+    for (var i = 0; i < SUBPANEL_META.length; i++) if (SUBPANEL_META[i].key === key) return SUBPANEL_META[i];
+    return null;
+  }
+  function _countExpanded() {
+    var n = 0;
+    for (var k in _accItems) if (_accItems[k] && _accItems[k].expanded) n++;
+    return n;
+  }
+  function _chipOf(key) {
+    return document.getElementById("sp-chip-" + key);
+  }
+  function _setHint(msg) {
+    var links = document.getElementById("subpanel-links");
+    if (!links) return;
+    var hint = links.querySelector(".subpanel-hint");
+    if (!msg) { if (hint) hint.remove(); return; }
+    if (!hint) { hint = document.createElement("span"); hint.className = "subpanel-hint"; links.appendChild(hint); }
+    hint.textContent = msg;
+  }
+
+  function expandSubpanel(key) {
+    var it = _accItems[key];
+    if (!it || it.expanded) return;
+    it.expanded = true;
+    it.wrap.classList.add("expanded");
+    it.caret.textContent = "▾";
+    var meta = _spMeta(key);
+    var height = meta && meta.height ? meta.height : undefined;
+    it.host.style.display = "block";
+    if (height) it.host.style.height = height + "px";  // chart 生成前に host のレイアウト高さを確保（0x0罠の親版）
+    window.DetailCharts && window.DetailCharts.mountSubpanel(key, it.host, height ? { height: height } : {});
+  }
+  function collapseSubpanel(key) {
+    var it = _accItems[key];
+    if (!it || !it.expanded) return;
+    it.expanded = false;
+    it.wrap.classList.remove("expanded");
+    it.caret.textContent = "▸";
+    window.DetailCharts && window.DetailCharts.unmountSubpanel(key);
+    it.host.style.display = "none";
+    it.host.style.height = "0";
+  }
+  function toggleSubpanel(key) {
+    var it = _accItems[key];
+    if (!it) return;
+    it.expanded ? collapseSubpanel(key) : expandSubpanel(key);
+  }
+
+  function addSubpanelItem(key) {
+    if (_accItems[key]) return;
+    var meta = _spMeta(key);
+    if (!meta) return;
+    var wrap = document.createElement("div");
+    wrap.className = "acc-item";
+    wrap.dataset.key = key;
+    var head = document.createElement("div");
+    head.className = "acc-head";
+    head.innerHTML =
+      '<span class="acc-caret">▸</span>' +
+      '<span class="acc-label" data-term="' + window.esc(meta.term) + '">' + window.esc(meta.label) + '</span>' +
+      '<span class="acc-sub">' + window.esc(meta.sub) + '</span>' +
+      '<span class="spacer"></span>' +
+      '<span class="acc-desc">' + window.esc(meta.desc) + '</span>' +
+      '<span class="acc-close" title="外す">✕</span>';
+    var body = document.createElement("div");
+    body.className = "acc-body";
+    var fd = document.createElement("div");
+    fd.className = "acc-full-desc";
+    fd.textContent = meta.desc;
+    var host = document.createElement("div");
+    host.className = "subpanel-host";
+    host.style.display = "none";
+    host.style.height = "0";
+    body.appendChild(fd);
+    body.appendChild(host);
+    wrap.appendChild(head);
+    wrap.appendChild(body);
+    var list = document.getElementById("subpanel-accordion");
+    if (list) list.appendChild(wrap);
+
+    _accItems[key] = { wrap: wrap, host: host, caret: head.querySelector(".acc-caret"), expanded: false };
+
+    // 委譲でなく item 単位のリスナー（要素は addItem 時に1回だけ生成＝重複束縛なし）。
+    head.addEventListener("click", function (e) {
+      if (e.target.classList.contains("acc-close")) return;
+      toggleSubpanel(key);
+    });
+    head.querySelector(".acc-close").addEventListener("click", function (e) {
+      e.stopPropagation();
+      removeSubpanelItem(key);
+    });
+
+    var chip = _chipOf(key);
+    if (chip) chip.classList.add("active");
+    injectTermHelp(wrap);
+
+    // ソフト上限: 既に SOFT_CAP 枠展開済なら畳んだまま追加（ヒントで案内・トースト無し）。
+    if (_countExpanded() >= SOFT_CAP) {
+      _setHint(meta.label + " を畳んで追加（展開は" + SOFT_CAP + "枠まで・ヘッダで開けます）");
+    } else {
+      expandSubpanel(key);
+    }
+  }
+  function removeSubpanelItem(key) {
+    var it = _accItems[key];
+    if (!it) return;
+    window.DetailCharts && window.DetailCharts.unmountSubpanel(key);
+    it.wrap.remove();
+    delete _accItems[key];
+    var chip = _chipOf(key);
+    if (chip) chip.classList.remove("active");
+  }
+
+  function initSubpanelUI() {
+    if (_subpanelUIInited) return;  // 冪等（navigate/switchYear の複数回呼び出しでも重複構築しない）
+    var chipsEl = document.getElementById("subpanel-chips");
+    var linksEl = document.getElementById("subpanel-links");
+    if (!chipsEl || !linksEl) return;
+    chipsEl.innerHTML = "";
+    SUBPANEL_META.forEach(function (meta) {
+      var b = document.createElement("button");
+      b.className = "ma-btn";
+      b.id = "sp-chip-" + meta.key;
+      b.dataset.key = meta.key;
+      b.textContent = meta.label;
+      // 委譲不可（チップは固定4個・イベント委譲でなくチップ生成時1回束縛で足りる＝新規 inline onclick は増やさない）。
+      b.addEventListener("click", function () {
+        _accItems[meta.key] ? removeSubpanelItem(meta.key) : addSubpanelItem(meta.key);
+      });
+      chipsEl.appendChild(b);
+    });
+    var expandAll = document.createElement("a");
+    expandAll.textContent = "すべて開く";
+    expandAll.addEventListener("click", function () { Object.keys(_accItems).forEach(expandSubpanel); _setHint(""); });
+    var collapseAll = document.createElement("a");
+    collapseAll.textContent = "すべて畳む";
+    collapseAll.addEventListener("click", function () { Object.keys(_accItems).forEach(collapseSubpanel); });
+    linksEl.innerHTML = "";
+    linksEl.appendChild(expandAll);
+    linksEl.appendChild(collapseAll);
+
+    // 既定: ADX + ATR を展開（本機能の主役=規律テクニカルを最初に見せる）。
+    addSubpanelItem("adx");
+    addSubpanelItem("atr");
+
+    _subpanelUIInited = true;
+  }
+
+  // ── 規律テクニカル 現在地ミニ解説カード（Task8 Step2）──────────────────────
+  //  純計算は DetailRules.disciplineDigest（no-score 中立閉集合）。生数値は丸め表示のみ（"スコア"演出禁止）。
+  function renderDisciplineCard(displayPrices, allPrices) {
+    var card = document.getElementById("discipline-card");
+    if (!card) return;
+    var d = window.DetailRules && window.DetailRules.disciplineDigest(displayPrices, allPrices);
+    if (!d || !d.ok) { card.style.display = "none"; return; }
+    var trendCls = d.trend === "方向感が強い" ? "warm" : d.trend.indexOf("レンジ") >= 0 ? "calm" : "";
+    var volCls = d.vol === "振れ大きめ" ? "hot" : d.vol === "静穏" ? "calm" : "";
+    card.style.display = "";
+    card.innerHTML =
+      '<div class="disc-title">規律テクニカル 現在地</div>' +
+      '<div class="disc-chip"><span class="k">トレンド強度</span><span class="v ' + trendCls + '" data-term="adx">' +
+        window.esc(d.trend) + '（ADX ' + Math.round(d.adx) + '・' + window.esc(d.dir) + '）</span></div>' +
+      '<div class="disc-chip"><span class="k">値幅</span><span class="v ' + volCls + '" data-term="atr">' +
+        window.esc(d.vol) + '（ATR% ' + d.atrPct.toFixed(1) + '%）</span></div>' +
+      '<div class="disc-note">' + window.esc(d.note) + '</div>';
+    injectTermHelp(card);
+  }
+
   // ── ①相対ポジションカード（Feature: 相対で見る目 束B）───────────────────────
   //  純計算は CrossSection.relativePosition（同市場内パーセンタイル・中立バンド語）。ここは DOM 書込のみ。
   //  免責/CrossSection/STOCK_DATA いずれか欠落・ETF・自己データ欠損はフェイルセーフ非描画（renderSignalDigest 同型）。
@@ -484,6 +670,15 @@
     //  カード自身の「?」注入は renderSignalDigest 内の injectTermHelp(card) が行う（冪等）。
     renderSignalDigest(displayPrices, data.prices);
 
+    // 束C③規律テクニカル（ADX/ATR）: サブパネル選択UI（アコーディオン）は初回のみ構築（冪等・chip/accordion
+    //  DOM は銘柄をまたいで再利用＝navigate/switchYear のたびに再構築しない）。既定 ADX/ATR 展開は
+    //  initSubpanelUI 内で1度だけ行われ、以後の銘柄/年切替はチャート側 refreshSubpanels（updateMaAndVolume
+    //  経由・上記で呼び出し済）が mount 済みパネルへ setData するだけで追従する。
+    //  ミニ解説カードは renderSignalDigest と同型（価格のみで成立・isEtf/!fin early-return より前で無条件描画・
+    //  switchYear 等の再呼び出しでも冪等）で毎回再描画する。
+    initSubpanelUI();
+    renderDisciplineCard(displayPrices, data.prices);
+
     // Feature: 相対で見る目 束B ①相対ポジションカード。renderSignalDigest と同型で isEtf/!fin の
     //  early-return より前に無条件で呼び、関数内の fail-safe（!disc/ETF/データ欠損で自己非表示）に
     //  可視制御を一元化する。非ETFで当年財務が欠損でも per/pbr/marketCap は raw 由来で成立し、比率群は
@@ -686,5 +881,5 @@
   window.animateNumber = animateNumber;
   window.renderRelativePosition = renderRelativePosition; // 相対ポジションカード（テスト/将来の手動再描画用）
   // 内部/将来用（switchYear は navigateToDetail 内 closure ゆえ bare 露出不要）。
-  window.Detail = { navigateToDetail, updateFinancialViews, switchYear, termHelp, injectTermHelp, renderSignalDigest, renderRelativePosition, renderInsightCard, fetchInsight, probeInsightCap };
+  window.Detail = { navigateToDetail, updateFinancialViews, switchYear, termHelp, injectTermHelp, renderSignalDigest, renderRelativePosition, renderInsightCard, fetchInsight, probeInsightCap, initSubpanelUI, renderDisciplineCard };
 })();
