@@ -205,6 +205,27 @@
     return { macdLine, signalLine, histogram };
   }
 
+  // ── ATR (Wilder・period=14)。value=絶対ATR / pct=ATR%(÷close×100) ──
+  function calcATR(prices, period = 14) {
+    const out = [];
+    if (prices.length < period + 1) return out;
+    const tr = [];
+    for (let i = 1; i < prices.length; i++) {
+      const h = prices[i].high, l = prices[i].low, pc = prices[i - 1].close;
+      tr.push(Math.max(h - l, Math.abs(h - pc), Math.abs(l - pc)));
+    }
+    let atr = 0;
+    for (let k = 0; k < period; k++) atr += tr[k];
+    atr /= period;
+    const push = (pi, a) => {
+      const cl = prices[pi].close || 0;
+      out.push({ time: prices[pi].time, value: parseFloat(a.toFixed(2)), pct: cl ? parseFloat((a / cl * 100).toFixed(2)) : 0 });
+    };
+    push(period, atr); // tr index period-1 → price index period
+    for (let k = period; k < tr.length; k++) { atr = (atr * (period - 1) + tr[k]) / period; push(k + 1, atr); }
+    return out;
+  }
+
   // ── T/R線: ZigZag セグメント分析 ───────────
   // ZigZag: 主要転換点を抽出。deviation 以上の値動きで転換確定
   function calcZigZag(prices, deviation) {
@@ -687,6 +708,7 @@
   return {
     // テクニカル純関数
     calcMA, calcBB, detectSR, calcRSI, calcEMA, calcMACD, calcZigZag, autoZigZagDeviation, volumeColorData,
+    calcATR,
     signalDigest, healthTrendSeries, dupontFactorSeries, fcfTrendSeries,
     // 財務ディスクリプタ純関数
     priceWindow, periodLabel, financialMaxAbs, marketBasisFor, perStatus, pbrStatus,

@@ -595,3 +595,24 @@ test("INDICATOR_GLOSSARY: cagr/growth-rate は read 付きで存在（売買/予
   assert.ok(by["growth-rate"] && by["growth-rate"].read && by["growth-rate"].def);
   assert.doesNotMatch(by["cagr"].def + by["growth-rate"].def, /買い|売り|推奨|割安|割高/);
 });
+
+// ── calcATR: Wilder ATR（絶対値 + ATR%）──
+test("calcATR: 長さ不足は空配列", () => {
+  assert.deepEqual(D.calcATR([{ time: "d1", high: 1, low: 1, close: 1 }], 14), []);
+});
+test("calcATR: 一定TRなら ATR=TR・pct=TR/close*100", () => {
+  // 毎バー high-low=10, gap無し（close=100固定）→ TR=10, ATR=10, pct=10
+  const prices = [];
+  for (let i = 0; i < 20; i++) prices.push({ time: "d" + i, high: 105, low: 95, close: 100 });
+  const r = D.calcATR(prices, 5);
+  assert.ok(r.length > 0);
+  const last = r[r.length - 1];
+  assert.equal(Math.round(last.value), 10);
+  assert.equal(Math.round(last.pct), 10);
+});
+test("calcATR: フラット価格で NaN/Inf を出さない", () => {
+  const prices = [];
+  for (let i = 0; i < 20; i++) prices.push({ time: "d" + i, high: 50, low: 50, close: 50 });
+  const r = D.calcATR(prices, 14);
+  r.forEach((o) => { assert.ok(Number.isFinite(o.value)); assert.ok(Number.isFinite(o.pct)); });
+});
