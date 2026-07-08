@@ -670,3 +670,16 @@ test("signalDigest: adx/atr descriptor を含み score フィールドなし・�
   const text = [adx, atr].map((d) => (d.state || "") + (d.readout || "")).join(" ");
   FORBIDDEN.ALL.forEach((re) => assert.ok(!re.test(text), "禁止語: " + re));
 });
+
+test("disciplineDigest: 状態語と note を返し score なし・データ不足で ok:false", () => {
+  assert.equal(D.disciplineDigest([], []).ok, false);
+  const prices = [];
+  let p = 100;
+  for (let i = 0; i < 80; i++) { p += (i < 50 ? 2 : 0); prices.push({ time: "2024-" + String((i % 12) + 1).padStart(2, "0") + "-15", high: p + 1, low: p - 1, close: p, open: p, volume: 1 }); }
+  const d = D.disciplineDigest(prices, prices);
+  assert.equal(d.ok, true);
+  assert.ok(["方向感が強い", "やや方向感あり", "弱い・レンジ気味"].includes(d.trend));
+  assert.ok(["振れ大きめ", "通常", "静穏"].includes(d.vol));
+  ["value", "score", "weight"].forEach((k) => assert.ok(!(k in d)));
+  FORBIDDEN.ALL.forEach((re) => assert.ok(!re.test(d.note || ""), "禁止語: " + re));
+});

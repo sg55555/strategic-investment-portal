@@ -673,6 +673,27 @@
     return out;
   }
 
+  // ── 規律テクニカル現在地（ミニ解説カード用・ADX/ATR フォーカス）──
+  function disciplineDigest(displayPrices, allPrices) {
+    var dp = displayPrices || [];
+    var ap = (allPrices && allPrices.length) ? allPrices : dp;
+    var endBar = dp.length ? dp[dp.length - 1] : null;
+    var endTime = endBar ? endBar.time : null;
+    var a = _atDisplayEnd(calcADX(ap, 14), endTime);
+    var atSeries = calcATR(ap, 14);
+    var at = _atDisplayEnd(atSeries, endTime);
+    if (!a || !at) return { ok: false };
+    var win = atSeries.filter(function (o) { return o.time <= endTime && (!dp.length || o.time >= dp[0].time); });
+    var med = _median(win.map(function (o) { return o.pct; }));
+    return {
+      ok: true,
+      adx: a.adx, plusDI: a.plusDI, minusDI: a.minusDI,
+      atrPct: at.pct, atrMedian: parseFloat((med || 0).toFixed(2)),
+      trend: _adxState(a.adx), dir: _diDir(a.plusDI, a.minusDI), vol: _atrVolState(at.pct, med),
+      note: "ADXが低い局面は方向感が乏しく（レンジ気味）、ATR%で日々の振れの荒さを見ます。まず全体像（この現在地）→気になる指標を下で開く、の順で読むと迷いにくいです。",
+    };
+  }
+
   // ── 財務健全性トレンド系列（Feature#3）──────────────────────────────
   //  全年ループで equityRatio/currentRatio/現金/総負債 を系列化。**比率別の欠測ゲート**＝
   //  各比率の全入力キーが hasValue の年のみ算出し、1つでも欠ければ null(欠測点)。実0% と区別する
@@ -797,7 +818,7 @@
   return {
     // テクニカル純関数
     calcMA, calcBB, detectSR, calcRSI, calcEMA, calcMACD, calcZigZag, autoZigZagDeviation, volumeColorData,
-    calcATR, calcADX,
+    calcATR, calcADX, disciplineDigest,
     signalDigest, healthTrendSeries, dupontFactorSeries, fcfTrendSeries,
     // 財務ディスクリプタ純関数
     priceWindow, periodLabel, financialMaxAbs, marketBasisFor, perStatus, pbrStatus,
