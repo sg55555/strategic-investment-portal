@@ -511,28 +511,115 @@
         padding-left: 10px;
         white-space: nowrap;
       }
-      /* ── サブチャートパネル (RSI / MACD) ── */
-      .sub-chart-wrap {
-        display: none;
-        width: 100%;
+      /* ── サブパネル選択UI（アコーディオン・案C移植／scratchpad/subpanel-mock 参照）── */
+      /* チップ行（.ma-control-bar と同系のフレックス行） */
+      .subpanel-bar {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px 10px;
+        padding: 10px 0 8px;
         border-top: 1px solid var(--ix-border);
-        position: relative;
+        margin-top: 4px;
       }
-      .sub-chart-wrap.visible { display: block; }
-      #rsi-container  { height: 100px; }
-      #macd-container { height: 110px; }
-      .sub-chart-label {
-        position: absolute;
-        top: 5px;
-        left: 10px;
-        font-size: 0.65rem;
-        color: var(--ix-border-mid);
-        z-index: 10;
-        pointer-events: none;
-        font-weight: bold;
-        letter-spacing: 1px;
+      .subpanel-chips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+      /* サブパネルチップは既存 .ma-btn を流用（active= .ma-btn.active の共通スタイル）。
+         各 key ごとのアクセント色はチャート内の線色と一致させる（RSI=黄/MACD=ピンク/ADX=シアン/ATR=橙）。 */
+      #sp-chip-rsi.active  { border-color: #ffd84d; color: #ffd84d; background: rgba(255,216,77,0.12); }
+      #sp-chip-macd.active { border-color: #ff5ca8; color: #ff5ca8; background: rgba(255,92,168,0.12); }
+      #sp-chip-adx.active  { border-color: #5cf0ff; color: #5cf0ff; background: rgba(92,240,255,0.12); }
+      #sp-chip-atr.active  { border-color: #ffb03a; color: #ffb03a; background: rgba(255,176,58,0.12); }
+      .subpanel-links { display: inline-flex; align-items: center; gap: 10px; margin-left: auto; }
+      .subpanel-links a {
+        font-family: var(--ix-mono);
+        font-size: 0.66rem;
+        color: var(--ix-cyan-bright2, #62f0ff);
+        cursor: pointer;
+        text-decoration: none;
+        border-bottom: 1px dotted color-mix(in srgb, var(--ix-cyan-bright2, #62f0ff) 55%, transparent);
+        white-space: nowrap;
+      }
+      .subpanel-links a:hover { color: #eafcff; }
+      .subpanel-hint {
+        font-family: var(--ix-mono);
+        font-size: 0.64rem;
+        color: var(--ix-text-dim);
+        white-space: nowrap;
+      }
+
+      /* 規律テクニカル 現在地ミニ解説カード（.sig-digest-card と同系のガラスカード・cyan縁） */
+      .discipline-card {
+        margin: 0 0 12px;
+        padding: 10px 14px;
+        border: 1px solid color-mix(in srgb, var(--ix-cyan-bright2, #62f0ff) 45%, transparent);
+        border-radius: 3px;
+        background: var(--ix-surface-1, rgba(6,12,22,0.6));
+        box-shadow: 0 0 14px color-mix(in srgb, var(--ix-cyan-bright2, #62f0ff) 10%, transparent);
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 18px;
+        overflow: visible;
+      }
+      .disc-title {
+        font-family: var(--ix-mono);
+        font-size: 0.66rem;
+        letter-spacing: 0.08em;
         text-transform: uppercase;
+        color: var(--ix-text-dim);
+        flex-basis: 100%;
       }
+      .disc-chip { display: inline-flex; align-items: baseline; gap: 6px; font-family: var(--ix-mono); font-size: 0.78rem; }
+      .disc-chip .k { color: var(--ix-text-dim); font-size: 0.68rem; }
+      .disc-chip .v { color: var(--ix-text, #eafcff); font-weight: bold; }
+      .disc-chip .v.hot  { color: var(--ix-pink, #ff4db8); text-shadow: 0 0 8px color-mix(in srgb, var(--ix-pink, #ff4db8) 50%, transparent); }
+      .disc-chip .v.warm { color: var(--ix-amber, #ffca3a); text-shadow: 0 0 8px color-mix(in srgb, var(--ix-amber, #ffca3a) 45%, transparent); }
+      .disc-chip .v.calm { color: var(--ix-teal-bright, #2fe6c4); text-shadow: 0 0 8px color-mix(in srgb, var(--ix-teal-bright, #2fe6c4) 40%, transparent); }
+      .disc-note { flex-basis: 100%; font-size: 0.66rem; color: var(--ix-text-dim); line-height: 1.5; }
+
+      /* サブパネル アコーディオン */
+      .subpanel-accordion { display: flex; flex-direction: column; gap: 8px; }
+      .acc-item {
+        border: 1px solid var(--ix-border);
+        border-radius: 3px;
+        background: var(--ix-surface-0, rgba(6,12,22,0.42));
+        overflow: hidden;
+      }
+      .acc-item.expanded { border-color: color-mix(in srgb, var(--ix-cyan-bright2, #62f0ff) 55%, transparent); }
+      .acc-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        cursor: pointer;
+        user-select: none;
+      }
+      .acc-head:hover { background: color-mix(in srgb, var(--ix-cyan-bright2, #62f0ff) 5%, transparent); }
+      .acc-caret { font-family: var(--ix-mono); font-size: 11px; color: var(--ix-cyan-bright2, #62f0ff); width: 12px; text-align: center; flex-shrink: 0; }
+      .acc-label { font-family: var(--ix-mono); font-size: 0.75rem; font-weight: bold; color: var(--ix-text-hi, #eaf6ff); letter-spacing: 0.02em; }
+      .acc-sub { font-family: var(--ix-mono); font-size: 0.62rem; color: var(--ix-text-dim); }
+      .acc-head .spacer { flex: 1 1 auto; }
+      .acc-desc {
+        font-size: 0.62rem;
+        color: var(--ix-text-dim);
+        max-width: 46%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .acc-close {
+        font-family: var(--ix-mono);
+        font-size: 12px;
+        color: var(--ix-text-dim);
+        padding: 0 4px;
+        border: 1px solid transparent;
+        border-radius: 3px;
+        flex-shrink: 0;
+      }
+      .acc-close:hover { color: var(--ix-red-soft, #ff5c7a); border-color: rgba(255,92,153,0.4); }
+      .acc-body { padding: 0 9px 9px; }
+      .acc-body .acc-full-desc { font-size: 0.68rem; color: var(--ix-text-dim); line-height: 1.5; margin: 2px 2px 6px; }
+      .subpanel-host { width: 100%; }
 
       /* ── ヘッダーセクターバッジ ── */
       .sector-badge {

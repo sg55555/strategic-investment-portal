@@ -1190,21 +1190,16 @@
                 <button class="ma-btn" id="ind-btn-sr" onclick="toggleSR()">S/R線</button><span class="ma-label" data-term="sr"></span>
                 <button class="ma-btn" id="ind-btn-tr" onclick="toggleTR()">T/R線</button><span class="ma-label" data-term="zigzag"></span>
               </div>
-              <div class="ctrl-separator"></div>
-              <div class="ctrl-group">
-                <span class="ma-label">オシレーター</span>
-                <button class="ma-btn" id="ind-btn-rsi"  onclick="toggleRSI()">RSI</button><span class="ma-label" data-term="rsi"></span>
-                <button class="ma-btn" id="ind-btn-macd" onclick="toggleMACD()">MACD</button><span class="ma-label" data-term="macd"></span>
-              </div>
               <span class="vol-label" data-term="volume">▌ 出来高: 下段</span>
             </div>
             <div id="chart-container"></div>
-            <div id="rsi-container" class="sub-chart-wrap">
-              <span class="sub-chart-label">RSI (14)</span>
+            <div class="subpanel-bar">
+              <span class="ma-label">サブパネル</span>
+              <div id="subpanel-chips" class="subpanel-chips"></div>
+              <span id="subpanel-links" class="subpanel-links"></span>
             </div>
-            <div id="macd-container" class="sub-chart-wrap">
-              <span class="sub-chart-label">MACD (12, 26, 9)</span>
-            </div>
+            <div id="discipline-card" class="discipline-card" style="display:none"></div>
+            <div id="subpanel-accordion" class="subpanel-accordion"></div>
           </div>
 
           <div class="card">
