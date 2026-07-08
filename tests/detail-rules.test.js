@@ -299,6 +299,7 @@ test("定数を verbatim で同梱 export する", () => {
 test("INDICATOR_GLOSSARY: shape and required terms", () => {
   assert.ok(Array.isArray(D.INDICATOR_GLOSSARY));
   const required = ["ma", "bb", "rsi", "macd", "sr", "zigzag", "volume", "percent-b",
+    "keltner", "obv", "vwap",
     "equity-ratio", "current-ratio", "roe", "roa", "op-margin", "net-margin", "per", "pbr"];
   const terms = new Set(D.INDICATOR_GLOSSARY.map((g) => g.term));
   for (const t of required) assert.ok(terms.has(t), `missing term: ${t}`);
