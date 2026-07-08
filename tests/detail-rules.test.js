@@ -640,3 +640,13 @@ test("calcADX: フラット価格で NaN/Inf を出さない（分母0ガード�
   const r = D.calcADX(prices, 14);
   r.forEach((o) => [o.adx, o.plusDI, o.minusDI].forEach((v) => assert.ok(Number.isFinite(v))));
 });
+
+// ── 状態ヘルパ ＆ グロッサリ ──（FORBIDDEN は regex オブジェクト {TRADE,FORECAST,ALL}）
+test("adx/atr グロッサリが存在し中立文言（売買/予測語なし）", () => {
+  const g = D.INDICATOR_GLOSSARY;
+  const adx = g.find((x) => x.term === "adx"), atr = g.find((x) => x.term === "atr");
+  assert.ok(adx && atr, "adx/atr glossary missing");
+  assert.ok(adx.read && adx.def && atr.read && atr.def);
+  [adx, atr].forEach((e) => FORBIDDEN.ALL.forEach((re) =>
+    assert.ok(!re.test(e.read + "　" + e.def), e.term + " に禁止語: " + re)));
+});

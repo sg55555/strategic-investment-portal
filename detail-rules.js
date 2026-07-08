@@ -76,6 +76,8 @@
     { term: "fcf", read: "フリーCF（概算）", def: "営業CFと投資CFの合計で、事業から自由に使える現金の概算。設備投資が多い年は一時的にマイナスになりうる。" },
     { term: "fcf-margin", read: "FCFマージン", def: "売上高に対する概算フリーCFの割合。売上のうちどれだけ自由な現金が残るかの目安。" },
     { term: "cash-conversion", read: "現金変換率", def: "純利益に対する営業CFの割合。利益がどれだけ現金として入ってきているかの目安（収益の質）。赤字の年は意味を持たない。" },
+    { term: "adx", read: "ADX/DMI（トレンド強度）", def: "ADXはトレンドの強さ（0〜100）を測る目安で、向きは示さない。+DI/−DIは上昇・下降どちらの圧力が優勢かの目安。ADXが低い＝横ばい、高い＝一方向に動きやすい局面の目安であって、強い・弱いはそれ自体が方向を決めるものではない。" },
+    { term: "atr", read: "ATR%（値幅の目安）", def: "ATR（平均的な1日の値幅）を株価で割った割合。大きいほど日々の振れが大きい＝荒い相場という目安で、銘柄をまたいで比べられる。値幅の目安であり、それ自体が行動を促すものではない。" },
   ];
 
   // ── テクニカル純関数（index.html 3029-3351 から本体を1文字も変えず verbatim relocate）──
@@ -507,6 +509,21 @@
     if (!series || !series.length || !endTime) return null;
     for (var i = series.length - 1; i >= 0; i--) if (series[i].time === endTime) return series[i];
     return null;
+  }
+  // ADX/ATR の中立状態語（signalDigest と disciplineDigest の単一源・売買語なし）
+  function _adxState(adx) {
+    var a = Math.round(adx);
+    return a >= 25 ? "方向感が強い" : a >= 20 ? "やや方向感あり" : "弱い・レンジ気味";
+  }
+  function _atrVolState(pct, med) {
+    if (!(med > 0)) return "通常";
+    return pct >= med * 1.3 ? "振れ大きめ" : pct <= med * 0.75 ? "静穏" : "通常";
+  }
+  function _diDir(pDI, mDI) {
+    if (pDI == null || mDI == null) return "";
+    var diff = Math.abs(pDI - mDI);
+    if (diff < 2) return "上下拮抗";
+    return pDI > mDI ? "上向き圧力優勢" : "下向き圧力優勢";
   }
   function signalDigest(displayPrices, allPrices) {
     var out = [];
