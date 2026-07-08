@@ -226,6 +226,46 @@
     return out;
   }
 
+  // ── ADX/DMI (Wilder・period=14)。{time, adx, plusDI, minusDI} ──
+  function calcADX(prices, period = 14) {
+    if (prices.length < 2 * period + 1) return [];
+    const tr = [], pdm = [], mdm = [];
+    for (let i = 1; i < prices.length; i++) {
+      const h = prices[i].high, l = prices[i].low, ph = prices[i - 1].high, pl = prices[i - 1].low, pc = prices[i - 1].close;
+      const up = h - ph, dn = pl - l;
+      pdm.push(up > dn && up > 0 ? up : 0);
+      mdm.push(dn > up && dn > 0 ? dn : 0);
+      tr.push(Math.max(h - l, Math.abs(h - pc), Math.abs(l - pc)));
+    }
+    let atr = 0, ap = 0, am = 0;
+    for (let k = 0; k < period; k++) { atr += tr[k]; ap += pdm[k]; am += mdm[k]; }
+    const dx = [];
+    const pushDX = (pi) => {
+      const pDI = atr === 0 ? 0 : 100 * ap / atr, mDI = atr === 0 ? 0 : 100 * am / atr;
+      const sum = pDI + mDI, d = sum === 0 ? 0 : 100 * Math.abs(pDI - mDI) / sum;
+      dx.push({ pi, pDI, mDI, dx: d });
+    };
+    pushDX(period);
+    for (let k = period; k < tr.length; k++) {
+      atr = atr - atr / period + tr[k];
+      ap = ap - ap / period + pdm[k];
+      am = am - am / period + mdm[k];
+      pushDX(k + 1);
+    }
+    if (dx.length < period) return [];
+    let adx = 0;
+    for (let k = 0; k < period; k++) adx += dx[k].dx;
+    adx /= period;
+    const res = [];
+    const pushRes = (idx, a) => {
+      const o = dx[idx];
+      res.push({ time: prices[o.pi].time, adx: parseFloat(a.toFixed(2)), plusDI: parseFloat(o.pDI.toFixed(2)), minusDI: parseFloat(o.mDI.toFixed(2)) });
+    };
+    pushRes(period - 1, adx);
+    for (let k = period; k < dx.length; k++) { adx = (adx * (period - 1) + dx[k].dx) / period; pushRes(k, adx); }
+    return res;
+  }
+
   // ── T/R線: ZigZag セグメント分析 ───────────
   // ZigZag: 主要転換点を抽出。deviation 以上の値動きで転換確定
   function calcZigZag(prices, deviation) {
@@ -708,7 +748,7 @@
   return {
     // テクニカル純関数
     calcMA, calcBB, detectSR, calcRSI, calcEMA, calcMACD, calcZigZag, autoZigZagDeviation, volumeColorData,
-    calcATR,
+    calcATR, calcADX,
     signalDigest, healthTrendSeries, dupontFactorSeries, fcfTrendSeries,
     // 財務ディスクリプタ純関数
     priceWindow, periodLabel, financialMaxAbs, marketBasisFor, perStatus, pbrStatus,

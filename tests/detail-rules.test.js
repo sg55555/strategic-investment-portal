@@ -616,3 +616,27 @@ test("calcATR: フラット価格で NaN/Inf を出さない", () => {
   const r = D.calcATR(prices, 14);
   r.forEach((o) => { assert.ok(Number.isFinite(o.value)); assert.ok(Number.isFinite(o.pct)); });
 });
+
+// ── calcADX: Wilder ADX/DMI ──
+test("calcADX: 長さ不足は空配列", () => {
+  const short = [];
+  for (let i = 0; i < 10; i++) short.push({ time: "d" + i, high: 2, low: 1, close: 1.5 });
+  assert.deepEqual(D.calcADX(short, 14), []);
+});
+test("calcADX: 一貫上昇では +DI>-DI かつ ADX が高い", () => {
+  const prices = [];
+  let p = 100;
+  for (let i = 0; i < 60; i++) { p += 2; prices.push({ time: "d" + i, high: p + 1, low: p - 1, close: p }); }
+  const r = D.calcADX(prices, 14);
+  assert.ok(r.length > 0);
+  const last = r[r.length - 1];
+  assert.ok(last.plusDI > last.minusDI);
+  assert.ok(last.adx > 25);
+  [last.adx, last.plusDI, last.minusDI].forEach((v) => assert.ok(Number.isFinite(v)));
+});
+test("calcADX: フラット価格で NaN/Inf を出さない（分母0ガード）", () => {
+  const prices = [];
+  for (let i = 0; i < 60; i++) prices.push({ time: "d" + i, high: 50, low: 50, close: 50 });
+  const r = D.calcADX(prices, 14);
+  r.forEach((o) => [o.adx, o.plusDI, o.minusDI].forEach((v) => assert.ok(Number.isFinite(v))));
+});
