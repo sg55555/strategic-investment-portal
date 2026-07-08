@@ -525,6 +525,12 @@
     if (diff < 2) return "上下拮抗";
     return pDI > mDI ? "上向き圧力優勢" : "下向き圧力優勢";
   }
+  function _median(arr) {
+    if (!arr || !arr.length) return 0;
+    var s = arr.slice().sort(function (a, b) { return a - b; });
+    var m = Math.floor(s.length / 2);
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+  }
   function signalDigest(displayPrices, allPrices) {
     var out = [];
     var dp = displayPrices || [];
@@ -636,6 +642,32 @@
         readout = '出来高 ' + (end.value || 0);
       }
       out.push({ key: 'volume', label: '出来高', term: 'volume', state: state, readout: readout });
+    })();
+
+    // 8) ADX/DMI（トレンド強度・向きは圧力の事実）
+    (function () {
+      var a = calcADX(ap, 14);
+      var end = _atDisplayEnd(a, endTime);
+      var state = 'データ不足', readout = '';
+      if (end) {
+        state = _adxState(end.adx);
+        readout = 'ADX ' + Math.round(end.adx) + '（' + _diDir(end.plusDI, end.minusDI) + '）';
+      }
+      out.push({ key: 'adx', label: 'トレンド強度', term: 'adx', state: state, readout: readout });
+    })();
+
+    // 9) ATR%（値幅の目安・中央値比）
+    (function () {
+      var at = calcATR(ap, 14);
+      var end = _atDisplayEnd(at, endTime);
+      var win = at.filter(function (o) { return endTime && o.time <= endTime && (!dp.length || o.time >= dp[0].time); });
+      var med = _median(win.map(function (o) { return o.pct; }));
+      var state = 'データ不足', readout = '';
+      if (end) {
+        state = _atrVolState(end.pct, med);
+        readout = 'ATR% ' + end.pct.toFixed(1) + '%（中央値 ' + (med || 0).toFixed(1) + '%）';
+      }
+      out.push({ key: 'atr', label: '値幅(ATR%)', term: 'atr', state: state, readout: readout });
     })();
 
     return out;

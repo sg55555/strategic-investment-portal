@@ -338,6 +338,9 @@ const STATE_ENUM = new Set([
   '上限バンドの外側', '下限バンドの外側', 'バンド内側',
   '算出済み', '直近の確定区間はトレンド', '直近の確定区間はレンジ',
   '陽線(終値≥始値)', '陰線', 'データ不足',
+  // Task4(adx/atr descriptor 追加分)の中立状態語（_adxState/_atrVolState の閉集合）
+  '方向感が強い', 'やや方向感あり', '弱い・レンジ気味',
+  '振れ大きめ', '通常', '静穏',
 ]);
 
 function synthPrices(n) {
@@ -350,11 +353,12 @@ function synthPrices(n) {
   return out;
 }
 
-test("signalDigest: 7 descriptors, no numeric score fields, state in closed enum", () => {
+test("signalDigest: 9 descriptors, no numeric score fields, state in closed enum", () => {
   const all = synthPrices(300);
   const disp = all.slice(-120);
   const ds = D.signalDigest(disp, all);
-  assert.equal(ds.length, 7);
+  // Task4(adx/atr descriptor 追加)で 7→9 件。
+  assert.equal(ds.length, 9);
   for (const d of ds) {
     assert.ok(typeof d.key === "string" && typeof d.label === "string" && typeof d.term === "string");
     assert.ok(STATE_ENUM.has(d.state), `state not in enum: ${d.state}`);
@@ -397,7 +401,8 @@ test("signalDigest: current value indexed to display window end, not allPrices t
 
 test("signalDigest: thin history folds to データ不足, no crash", () => {
   const ds = D.signalDigest(synthPrices(5), synthPrices(5));
-  assert.equal(ds.length, 7);
+  // Task4(adx/atr descriptor 追加)で 7→9 件（既存7 + adx/atr）。薄い履歴では両者とも データ不足 に畳む。
+  assert.equal(ds.length, 9);
   assert.ok(ds.some((d) => d.state === "データ不足"));
 });
 
@@ -649,4 +654,19 @@ test("adx/atr グロッサリが存在し中立文言（売買/予測語なし�
   assert.ok(adx.read && adx.def && atr.read && atr.def);
   [adx, atr].forEach((e) => FORBIDDEN.ALL.forEach((re) =>
     assert.ok(!re.test(e.read + "　" + e.def), e.term + " に禁止語: " + re)));
+});
+
+test("signalDigest: adx/atr descriptor を含み score フィールドなし・中立状態", () => {
+  const prices = [];
+  let p = 100;
+  for (let i = 0; i < 80; i++) { p += (i < 50 ? 2 : 0); prices.push({ time: "2024-" + String((i % 12) + 1).padStart(2, "0") + "-01", high: p + 1, low: p - 1, close: p, open: p, volume: 1000 }); }
+  const ds = D.signalDigest(prices, prices);
+  const adx = ds.find((d) => d.key === "adx"), atr = ds.find((d) => d.key === "atr");
+  assert.ok(adx && atr);
+  assert.equal(adx.term, "adx"); assert.equal(atr.term, "atr");
+  // no-score: value/score/weight を持たない
+  [adx, atr].forEach((d) => ["value", "score", "weight"].forEach((k) => assert.ok(!(k in d))));
+  // 中立状態語（禁止語なし・FORBIDDEN.ALL は regex 配列）
+  const text = [adx, atr].map((d) => (d.state || "") + (d.readout || "")).join(" ");
+  FORBIDDEN.ALL.forEach((re) => assert.ok(!re.test(text), "禁止語: " + re));
 });
