@@ -646,6 +646,40 @@ test("calcADX: フラット価格で NaN/Inf を出さない（分母0ガード�
   r.forEach((o) => [o.adx, o.plusDI, o.minusDI].forEach((v) => assert.ok(Number.isFinite(v))));
 });
 
+// ── calcKeltner: EMA中心 ± mult×ATR チャネル ──
+test("calcKeltner: 長さ不足は空の{upper,mid,lower}", () => {
+  assert.deepEqual(D.calcKeltner([{ time: "d0", high: 1, low: 1, close: 1 }]), { upper: [], mid: [], lower: [] });
+});
+test("calcKeltner: ATR=0（定数価格）なら upper=mid=lower=価格", () => {
+  const prices = [];
+  for (let i = 0; i < 40; i++) prices.push({ time: "d" + i, high: 100, low: 100, close: 100, volume: 1000 });
+  const r = D.calcKeltner(prices, 20, 2, 14);
+  assert.ok(r.mid.length > 0);
+  const lm = r.mid[r.mid.length - 1], lu = r.upper[r.upper.length - 1], ll = r.lower[r.lower.length - 1];
+  assert.equal(lm.value, 100);
+  assert.equal(lu.value, 100);
+  assert.equal(ll.value, 100);
+});
+test("calcKeltner: バンド幅 = 2×ATR（既知値）", () => {
+  // high=110 low=90 close=100 一定 → TR=20 → ATR=20 → band=2×20=40, mid=EMA(100)=100
+  const prices = [];
+  for (let i = 0; i < 40; i++) prices.push({ time: "d" + i, high: 110, low: 90, close: 100, volume: 1000 });
+  const r = D.calcKeltner(prices, 20, 2, 14);
+  const lm = r.mid[r.mid.length - 1], lu = r.upper[r.upper.length - 1], ll = r.lower[r.lower.length - 1];
+  assert.equal(lm.value, 100);
+  assert.equal(lu.value, 140);
+  assert.equal(ll.value, 60);
+  // time 整列: 3系列の末尾は同一 time
+  assert.equal(lu.time, lm.time);
+  assert.equal(ll.time, lm.time);
+});
+test("calcKeltner: フラット価格で NaN/Inf を出さない", () => {
+  const prices = [];
+  for (let i = 0; i < 40; i++) prices.push({ time: "d" + i, high: 50, low: 50, close: 50, volume: 0 });
+  const r = D.calcKeltner(prices, 20, 2, 14);
+  [...r.upper, ...r.mid, ...r.lower].forEach((o) => assert.ok(Number.isFinite(o.value)));
+});
+
 // ── 状態ヘルパ ＆ グロッサリ ──（FORBIDDEN は regex オブジェクト {TRADE,FORECAST,ALL}）
 test("adx/atr グロッサリが存在し中立文言（売買/予測語なし）", () => {
   const g = D.INDICATOR_GLOSSARY;

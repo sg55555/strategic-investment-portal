@@ -268,6 +268,26 @@
     return res;
   }
 
+  // ── ケルトナーチャネル：EMA(emaPeriod) を中心に ± atrMult×ATR(atrPeriod) のバンド ──
+  //  mid=EMA(close)（全長 null 埋め）と ATR（index atrPeriod 起点の短い配列）を **time で整列** する。
+  function calcKeltner(prices, emaPeriod = 20, atrMult = 2, atrPeriod = 14) {
+    const upper = [], mid = [], lower = [];
+    if (!prices || prices.length < Math.max(emaPeriod, atrPeriod + 1)) return { upper, mid, lower };
+    const closes = prices.map(p => p.close);
+    const ema = calcEMA(closes, emaPeriod);            // 全長・period-1 まで null
+    const atr = calcATR(prices, atrPeriod);            // [{time,value,pct}]・index atrPeriod 起点
+    const atrByTime = new Map(atr.map(o => [o.time, o.value]));
+    for (let i = 0; i < prices.length; i++) {
+      const t = prices[i].time, m = ema[i], a = atrByTime.get(t);
+      if (m == null || a == null) continue;            // EMA・ATR 双方が揃うバーのみ出力
+      const band = atrMult * a;
+      mid.push({ time: t, value: parseFloat(m.toFixed(2)) });
+      upper.push({ time: t, value: parseFloat((m + band).toFixed(2)) });
+      lower.push({ time: t, value: parseFloat((m - band).toFixed(2)) });
+    }
+    return { upper, mid, lower };
+  }
+
   // ── T/R線: ZigZag セグメント分析 ───────────
   // ZigZag: 主要転換点を抽出。deviation 以上の値動きで転換確定
   function calcZigZag(prices, deviation) {
@@ -818,7 +838,7 @@
   return {
     // テクニカル純関数
     calcMA, calcBB, detectSR, calcRSI, calcEMA, calcMACD, calcZigZag, autoZigZagDeviation, volumeColorData,
-    calcATR, calcADX, disciplineDigest,
+    calcATR, calcADX, calcKeltner, disciplineDigest,
     signalDigest, healthTrendSeries, dupontFactorSeries, fcfTrendSeries,
     // 財務ディスクリプタ純関数
     priceWindow, periodLabel, financialMaxAbs, marketBasisFor, perStatus, pbrStatus,
