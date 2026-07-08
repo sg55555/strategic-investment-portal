@@ -576,6 +576,9 @@
       .disc-chip .v.warm { color: var(--ix-amber, #ffca3a); text-shadow: 0 0 8px color-mix(in srgb, var(--ix-amber, #ffca3a) 45%, transparent); }
       .disc-chip .v.calm { color: var(--ix-teal-bright, #2fe6c4); text-shadow: 0 0 8px color-mix(in srgb, var(--ix-teal-bright, #2fe6c4) 40%, transparent); }
       .disc-note { flex-basis: 100%; font-size: 0.66rem; color: var(--ix-text-dim); line-height: 1.5; }
+      /* discipline-card は flex-wrap レイアウトゆえ .panel-disclaimer（共通免責スタイル）に
+         flex-basis:100% だけを局所付与（他カードでの .panel-disclaimer 定義は無改変）。 */
+      .discipline-card .panel-disclaimer { flex-basis: 100%; }
 
       /* サブパネル アコーディオン */
       .subpanel-accordion { display: flex; flex-direction: column; gap: 8px; }

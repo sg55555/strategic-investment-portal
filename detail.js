@@ -449,6 +449,8 @@
   function renderDisciplineCard(displayPrices, allPrices) {
     var card = document.getElementById("discipline-card");
     if (!card) return;
+    var disc = window.DetailRules && window.DetailRules.ANALYSIS_DISCLAIMER;
+    if (!disc) { card.style.display = "none"; return; } // 免責取得不可=フェイルセーフ非描画（renderSignalDigest 同型）
     var d = window.DetailRules && window.DetailRules.disciplineDigest(displayPrices, allPrices);
     if (!d || !d.ok) { card.style.display = "none"; return; }
     var trendCls = d.trend === "方向感が強い" ? "warm" : d.trend.indexOf("レンジ") >= 0 ? "calm" : "";
@@ -460,7 +462,8 @@
         window.esc(d.trend) + '（ADX ' + Math.round(d.adx) + '・' + window.esc(d.dir) + '）</span></div>' +
       '<div class="disc-chip"><span class="k">値幅</span><span class="v ' + volCls + '" data-term="atr">' +
         window.esc(d.vol) + '（ATR% ' + d.atrPct.toFixed(1) + '%）</span></div>' +
-      '<div class="disc-note">' + window.esc(d.note) + '</div>';
+      '<div class="disc-note">' + window.esc(d.note) + '</div>' +
+      '<div class="panel-disclaimer">' + window.esc(disc) + '</div>';
     injectTermHelp(card);
   }
 
