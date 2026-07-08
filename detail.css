@@ -584,7 +584,10 @@
         border: 1px solid var(--ix-border);
         border-radius: 3px;
         background: var(--ix-surface-0, rgba(6,12,22,0.42));
-        overflow: hidden;
+        /* term-help ツールチップ（.term-help::after = position:absolute）が
+           クリップされないよう visible。折り畳みは unmount+display:none ゆえ
+           hidden は不要（sig-digest-card が overflow:visible なのと同じ理由）。 */
+        overflow: visible;
       }
       .acc-item.expanded { border-color: color-mix(in srgb, var(--ix-cyan-bright2, #62f0ff) 55%, transparent); }
       .acc-head {
