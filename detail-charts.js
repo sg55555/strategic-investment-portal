@@ -23,7 +23,7 @@
   const HOLDING_COMPANIES = DR.HOLDING_COMPANIES;
   // テクニカル純関数も DetailRules を単一ソースとして参照（index.html 側の重複定義は撤去済）。
   const calcMA = DR.calcMA, calcBB = DR.calcBB, detectSR = DR.detectSR,
-        calcRSI = DR.calcRSI, calcMACD = DR.calcMACD,
+        calcRSI = DR.calcRSI, calcMACD = DR.calcMACD, calcADX = DR.calcADX, calcATR = DR.calcATR,
         calcZigZag = DR.calcZigZag, autoZigZagDeviation = DR.autoZigZagDeviation;
 
   // ── チャート instance / series / state（index.html から private 化・bare-global 解消の中核）──
@@ -40,14 +40,10 @@
   let bbState = false;
   let srLines = [];
   let srState = false;
-  let rsiChart = null, rsiSeries = null;
-  let rsiState = false;
-  let macdChart = null, macdLineSeries = null, macdSignalSeries = null, macdHistSeries = null;
-  let macdState = false;
   let trState = false;
   let trSeries = [];
   let currentDisplayPrices = null;
-  let subChartsTimeSyncBound = false;
+  let currentAllPrices = null;
   let compareChart = null;
 
   // ── ネオン発光ヘルパ / Chart.js プラグイン（index.html から verbatim relocate）──
@@ -188,10 +184,7 @@
           if (currentView !== "detail") return;
           const cc = document.getElementById("chart-container");
           if (priceChart && cc && cc.clientWidth > 0) priceChart.resize(cc.clientWidth, cc.clientHeight);
-          const rc = document.getElementById("rsi-container");
-          if (rsiChart && rsiState && rc && rc.clientWidth > 0) rsiChart.resize(rc.clientWidth, rc.clientHeight);
-          const mc = document.getElementById("macd-container");
-          if (macdChart && macdState && mc && mc.clientWidth > 0) macdChart.resize(mc.clientWidth, mc.clientHeight);
+          resizeSubpanels();
         }, 150);
       }
 
@@ -233,117 +226,168 @@
         const data = STOCK_DATA[currentTicker];
         if (data) applySRLines(data.prices);
       }
-      function toggleRSI() {
-        rsiState = !rsiState;
-        document.getElementById("ind-btn-rsi").classList.toggle("active", rsiState);
-        const wrap = document.getElementById("rsi-container");
-        wrap.classList.toggle("visible", rsiState);
-        if (rsiState) {
-          // display:none → block への切替後、レイアウト確定を待ってからチャート生成
-          requestAnimationFrame(() => {
-            if (!rsiChart) initSubCharts();
-            const container = document.getElementById("rsi-container");
-            rsiChart?.resize(container.clientWidth, container.clientHeight);
-            const data = STOCK_DATA[currentTicker];
-            if (data) {
-              const display = currentDisplayPrices || data.prices.slice(-250);
-              updateSubCharts(display, data.prices);
-            }
-            rsiChart?.timeScale().fitContent();
-          });
-        }
+      // ── サブパネル 汎用レジストリ（RSI/MACD=既存ロジック・色を move-not-rewrite／ADX/ATR=
+      //    scratchpad/subpanel-mock/mock-engine.js buildSubpanel の該当分岐を移植）────────────
+      const subBaseOpts = {
+        layout: { background: { type: "solid", color: "#05080f" }, textColor: "#a8bcc6" },
+        grid: { vertLines: { color: "rgba(0,229,255,0.06)" }, horzLines: { color: "rgba(0,229,255,0.06)" } },
+        rightPriceScale: { borderColor: "#2a3a44", scaleMargins: { top: 0.1, bottom: 0.1 } },
+        crosshair: { mode: 1, vertLine: { color: "rgba(92,240,255,0.45)", labelBackgroundColor: "#0a3a4a" }, horzLine: { color: "rgba(92,240,255,0.45)", labelBackgroundColor: "#0a3a4a" } },
+        handleScale: false,
+        handleScroll: false,
+      };
+      function _subMedian(arr) {
+        if (!arr || !arr.length) return 0;
+        const s = arr.slice().sort((a, b) => a - b);
+        const m = Math.floor(s.length / 2);
+        return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
       }
-      function toggleMACD() {
-        macdState = !macdState;
-        document.getElementById("ind-btn-macd").classList.toggle("active", macdState);
-        const wrap = document.getElementById("macd-container");
-        wrap.classList.toggle("visible", macdState);
-        if (macdState) {
-          // display:none → block への切替後、レイアウト確定を待ってからチャート生成
-          requestAnimationFrame(() => {
-            if (!macdChart) initSubCharts();
-            const container = document.getElementById("macd-container");
-            macdChart?.resize(container.clientWidth, container.clientHeight);
-            const data = STOCK_DATA[currentTicker];
-            if (data) {
-              const display = currentDisplayPrices || data.prices.slice(-250);
-              updateSubCharts(display, data.prices);
-            }
-            macdChart?.timeScale().fitContent();
-          });
-        }
-      }
-      // ── サブチャート 初期化 ────────────────────────────────────────
-      function initSubCharts() {
-        const baseOpts = {
-          layout: { background: { type: "solid", color: "#05080f" }, textColor: "#a8bcc6" },
-          grid: { vertLines: { color: "rgba(0,229,255,0.06)" }, horzLines: { color: "rgba(0,229,255,0.06)" } },
-          rightPriceScale: { borderColor: "#2a3a44", scaleMargins: { top: 0.1, bottom: 0.1 } },
-          crosshair: { mode: 1, vertLine: { color: "rgba(92,240,255,0.45)", labelBackgroundColor: "#0a3a4a" }, horzLine: { color: "rgba(92,240,255,0.45)", labelBackgroundColor: "#0a3a4a" } },
-          handleScale: false,
-          handleScroll: false,
+      // RSI（既存ロジック・色 #ffd84d＋70/50/30 priceLine を verbatim 移植）
+      function buildRSI(chart) {
+        const series = chart.addLineSeries({
+          color: "#ffd84d", lineWidth: 1.5,
+          priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: true,
+        });
+        series.createPriceLine({ price: 70, color: "rgba(255,102,153,0.5)", lineWidth: 1, lineStyle: 2, title: "70" });
+        series.createPriceLine({ price: 50, color: "rgba(148,163,184,0.2)", lineWidth: 1, lineStyle: 3 });
+        series.createPriceLine({ price: 30, color: "rgba(52,245,207,0.5)",  lineWidth: 1, lineStyle: 2, title: "30" });
+        chart.__setData = (display, all) => {
+          if (!display?.length) return;
+          const startTime = display[0].time, endTime = display[display.length - 1].time;
+          const calcBase = (all?.length > 50) ? all : display;
+          const inRange = (d) => d.time >= startTime && d.time <= endTime;
+          series.setData(calcRSI(calcBase).filter(inRange));
         };
+      }
+      // MACD（既存ロジック・hist＋MACD線 #ff5ca8＋シグナル #3aa6ff＋0線 を verbatim 移植）
+      function buildMACD(chart) {
+        const hist = chart.addHistogramSeries({ priceLineVisible: false, lastValueVisible: false });
+        const line = chart.addLineSeries({
+          color: "#ff5ca8", lineWidth: 1.5,
+          priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+        });
+        const signal = chart.addLineSeries({
+          color: "#3aa6ff", lineWidth: 1.5,
+          priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+        });
+        hist.createPriceLine({ price: 0, color: "rgba(148,163,184,0.2)", lineWidth: 1, lineStyle: 0 });
+        chart.__setData = (display, all) => {
+          if (!display?.length) return;
+          const startTime = display[0].time, endTime = display[display.length - 1].time;
+          const calcBase = (all?.length > 50) ? all : display;
+          const inRange = (d) => d.time >= startTime && d.time <= endTime;
+          const { macdLine, signalLine, histogram } = calcMACD(calcBase);
+          hist.setData(histogram.filter(inRange));
+          line.setData(macdLine.filter(inRange));
+          signal.setData(signalLine.filter(inRange));
+        };
+      }
+      // ADX/DMI（mock-engine.js buildSubpanel の adx 分岐を移植：ADX線 #5cf0ff＋+DI/−DI＋25 priceLine）
+      function buildADX(chart) {
+        const adxLine = chart.addLineSeries({
+          color: "#5cf0ff", lineWidth: 2.4,
+          priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: true,
+        });
+        const pdi = chart.addLineSeries({
+          color: "rgba(52,245,207,0.85)", lineWidth: 1.4,
+          priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+        });
+        const mdi = chart.addLineSeries({
+          color: "rgba(255,102,153,0.85)", lineWidth: 1.4,
+          priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+        });
+        adxLine.createPriceLine({ price: 25, color: "rgba(255,216,77,0.5)", lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: "25" });
+        chart.__setData = (display, all) => {
+          if (!display?.length || !calcADX) return;
+          const startTime = display[0].time, endTime = display[display.length - 1].time;
+          const calcBase = (all?.length > 50) ? all : display;
+          const inRange = (d) => d.time >= startTime && d.time <= endTime;
+          const a = calcADX(calcBase, 14).filter(inRange);
+          adxLine.setData(a.map((o) => ({ time: o.time, value: o.adx })));
+          pdi.setData(a.map((o) => ({ time: o.time, value: o.plusDI })));
+          mdi.setData(a.map((o) => ({ time: o.time, value: o.minusDI })));
+        };
+      }
+      // ATR%（mock-engine.js buildSubpanel の atr 分岐を移植：ATR%線 #ffb03a[RSIの#ffd84dと非衝突]＋表示窓中央値の破線）
+      function buildATR(chart) {
+        const series = chart.addLineSeries({
+          color: "#ffb03a", lineWidth: 2,
+          priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: true,
+        });
+        let medLine = null;
+        chart.__setData = (display, all) => {
+          if (!display?.length || !calcATR) return;
+          const startTime = display[0].time, endTime = display[display.length - 1].time;
+          const calcBase = (all?.length > 50) ? all : display;
+          const inRange = (d) => d.time >= startTime && d.time <= endTime;
+          const at = calcATR(calcBase, 14).filter(inRange);
+          series.setData(at.map((o) => ({ time: o.time, value: o.pct })));
+          const med = _subMedian(at.map((o) => o.pct));
+          if (medLine) { try { series.removePriceLine(medLine); } catch (e) {} medLine = null; }
+          medLine = series.createPriceLine({ price: +med.toFixed(2), color: "rgba(168,188,198,0.4)", lineWidth: 1, lineStyle: 3, axisLabelVisible: true, title: "中央 " + med.toFixed(1) + "%" });
+        };
+      }
+      const SUBPANEL_REGISTRY = {
+        rsi:  { height: 100, timeAxis: false, build: buildRSI },
+        macd: { height: 110, timeAxis: true,  build: buildMACD },
+        adx:  { height: 132, timeAxis: false, build: buildADX },
+        atr:  { height: 104, timeAxis: false, build: buildATR },
+      };
+      const _subMounted = {};   // key -> { chart, host, height }
+      const _subOrder = [];     // mount順
+      let _subSyncBound = false;
 
-        if (!rsiChart) {
-          rsiChart = LightweightCharts.createChart(
-            document.getElementById("rsi-container"),
-            { ...baseOpts, timeScale: { borderColor: "#2a3a44", visible: false } }
-          );
-          rsiSeries = rsiChart.addLineSeries({
-            color: "#ffd84d", lineWidth: 1.5,
-            priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: true,
+      // 0x0罠回避: hostEl が可視(clientWidth>0)になるまで rAF で待ってから createChart（冪等）。
+      function mountSubpanel(key, hostEl, opts) {
+        opts = opts || {};
+        if (_subMounted[key]) { resizeSubpanels(); return; }
+        const def = SUBPANEL_REGISTRY[key];
+        if (!def || !hostEl) return;
+        const height = opts.height || def.height;
+        let tries = 0;
+        const create = () => {
+          if (!hostEl.clientWidth) { if (tries++ < 30) requestAnimationFrame(create); return; }
+          const chart = LightweightCharts.createChart(hostEl, {
+            ...subBaseOpts, timeScale: { borderColor: "#2a3a44", visible: def.timeAxis }, height,
           });
-          rsiSeries.createPriceLine({ price: 70, color: "rgba(255,102,153,0.5)", lineWidth: 1, lineStyle: 2, title: "70" });
-          rsiSeries.createPriceLine({ price: 50, color: "rgba(148,163,184,0.2)", lineWidth: 1, lineStyle: 3 });
-          rsiSeries.createPriceLine({ price: 30, color: "rgba(52,245,207,0.5)",  lineWidth: 1, lineStyle: 2, title: "30" });
-        }
-
-        if (!macdChart) {
-          macdChart = LightweightCharts.createChart(
-            document.getElementById("macd-container"),
-            { ...baseOpts, timeScale: { borderColor: "#2a3a44", visible: true } }
-          );
-          macdHistSeries = macdChart.addHistogramSeries({
-            priceLineVisible: false, lastValueVisible: false,
-          });
-          macdLineSeries = macdChart.addLineSeries({
-            color: "#ff5ca8", lineWidth: 1.5,
-            priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
-          });
-          macdSignalSeries = macdChart.addLineSeries({
-            color: "#3aa6ff", lineWidth: 1.5,
-            priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
-          });
-          macdHistSeries.createPriceLine({ price: 0, color: "rgba(148,163,184,0.2)", lineWidth: 1, lineStyle: 0 });
-        }
-
-        // 時間軸を主チャートに連動させる（一度だけバインド）
-        if (!subChartsTimeSyncBound) {
-          priceChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
-            if (range == null) return;
-            if (rsiState && rsiChart)  rsiChart.timeScale().setVisibleLogicalRange(range);
-            if (macdState && macdChart) macdChart.timeScale().setVisibleLogicalRange(range);
-          });
-          subChartsTimeSyncBound = true;
+          def.build(chart);
+          _subMounted[key] = { chart, host: hostEl, height };
+          if (_subOrder.indexOf(key) === -1) _subOrder.push(key);
+          ensureSubSync();
+          if (currentDisplayPrices) chart.__setData(currentDisplayPrices, currentAllPrices);
+          const range = priceChart && priceChart.timeScale().getVisibleLogicalRange();
+          if (range) chart.timeScale().setVisibleLogicalRange(range);
+        };
+        requestAnimationFrame(create);
+      }
+      function unmountSubpanel(key) {
+        const m = _subMounted[key];
+        if (!m) return;
+        try { m.chart.remove(); } catch (e) {}
+        delete _subMounted[key];
+        const i = _subOrder.indexOf(key);
+        if (i !== -1) _subOrder.splice(i, 1);
+      }
+      function isSubpanelMounted(key) { return !!_subMounted[key]; }
+      function activeSubpanels() { return _subOrder.filter((k) => _subMounted[k]); }
+      function refreshSubpanels(displayPrices, allPrices) {
+        currentDisplayPrices = displayPrices;
+        currentAllPrices = allPrices;
+        for (const k in _subMounted) if (_subMounted[k]) _subMounted[k].chart.__setData(displayPrices, allPrices);
+      }
+      function resizeSubpanels() {
+        for (const k in _subMounted) {
+          const m = _subMounted[k];
+          if (m && m.host.clientWidth > 0) m.chart.resize(m.host.clientWidth, m.height);
         }
       }
-      function updateSubCharts(displayPrices, allPrices) {
-        if (!displayPrices?.length) return;
-        const startTime = displayPrices[0].time;
-        const endTime   = displayPrices[displayPrices.length - 1].time;
-        // 計算はフル履歴で行い、表示はメインチャートの時間範囲に揃える
-        const calcBase = (allPrices?.length > 50) ? allPrices : displayPrices;
-        const inRange = d => d.time >= startTime && d.time <= endTime;
-
-        if (rsiState && rsiChart && rsiSeries) {
-          rsiSeries.setData(calcRSI(calcBase).filter(inRange));
-        }
-        if (macdState && macdChart) {
-          const { macdLine, signalLine, histogram } = calcMACD(calcBase);
-          macdHistSeries?.setData(histogram.filter(inRange));
-          macdLineSeries?.setData(macdLine.filter(inRange));
-          macdSignalSeries?.setData(signalLine.filter(inRange));
-        }
+      function ensureSubSync() {
+        if (_subSyncBound || !priceChart) return;
+        priceChart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+          if (range == null) return;
+          for (const k in _subMounted) if (_subMounted[k]) _subMounted[k].chart.timeScale().setVisibleLogicalRange(range);
+        });
+        _subSyncBound = true;
       }
       function drawTRLines(displayPrices) {
         // 既存ラインをクリーンアップ
@@ -441,8 +485,8 @@
         currentDisplayPrices = displayPrices;
         drawTRLines(displayPrices);
 
-        // ── RSI / MACD サブチャート（表示範囲に揃える） ──
-        updateSubCharts(displayPrices, base);
+        // ── サブパネル（mount 済み全 key・表示範囲に揃える） ──
+        refreshSubpanels(displayPrices, allPrices);
       }
       // ローソク足のネオン発光（各足をその色で発光・本体と同フレーム描画＝ズーム/パン時もズレない）。
       //  lightweight-charts の Series Primitive を candleSeries に attach し、currentDisplayPrices を読む。
@@ -564,10 +608,7 @@
         const run = () => {
           const cc = document.getElementById("chart-container");
           if (priceChart && cc && cc.clientWidth > 0) priceChart.resize(cc.clientWidth, cc.clientHeight);
-          const rc = document.getElementById("rsi-container");
-          if (rsiChart && rsiState && rc && rc.clientWidth > 0) rsiChart.resize(rc.clientWidth, rc.clientHeight);
-          const mc = document.getElementById("macd-container");
-          if (macdChart && macdState && mc && mc.clientWidth > 0) macdChart.resize(mc.clientWidth, mc.clientHeight);
+          resizeSubpanels();
           [bsChartInstance, plChartInstance, cfChartInstance, radarChartInstance].forEach((ch) => {
             if (ch) { try { ch.resize(); ch.update("none"); } catch (e) {} }
           });
@@ -1293,13 +1334,12 @@
   window.toggleBB = toggleBB;
   window.toggleSR = toggleSR;
   window.toggleTR = toggleTR;
-  window.toggleRSI = toggleRSI;
-  window.toggleMACD = toggleMACD;
-  // 詳細ビュー制御 API（index.html 残置コード/onload/updateFinancialViews が呼ぶ）。
+  // 詳細ビュー制御 API（index.html 残置コード/onload/updateFinancialViews/detail.js が呼ぶ）。
   window.DetailCharts = {
     initPriceChart, updateMaAndVolume, setCandleData,
     renderBSChart, renderRadarChart, renderPLChart, renderCFChart, renderHealthTrend,
     renderDuPont, renderFCFTrend,
     repaint, onWindowResize, renderCompareChart, resizePrice,
+    mountSubpanel, unmountSubpanel, isSubpanelMounted, activeSubpanels, refreshSubpanels, resizeSubpanels,
   };
 })();
