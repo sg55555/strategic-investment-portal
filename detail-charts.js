@@ -25,7 +25,7 @@
   const calcMA = DR.calcMA, calcBB = DR.calcBB, detectSR = DR.detectSR,
         calcRSI = DR.calcRSI, calcMACD = DR.calcMACD, calcADX = DR.calcADX, calcATR = DR.calcATR,
         calcZigZag = DR.calcZigZag, autoZigZagDeviation = DR.autoZigZagDeviation,
-        calcKeltner = DR.calcKeltner, calcVWAP = DR.calcVWAP;
+        calcKeltner = DR.calcKeltner, calcVWAP = DR.calcVWAP, calcOBV = DR.calcOBV;
 
   // ── チャート instance / series / state（index.html から private 化・bare-global 解消の中核）──
   let priceChart = null;
@@ -342,11 +342,27 @@
           medLine = series.createPriceLine({ price: +med.toFixed(2), color: "rgba(168,188,198,0.4)", lineWidth: 1, lineStyle: 3, axisLabelVisible: true, title: "中央 " + med.toFixed(1) + "%" });
         };
       }
+      // OBV（累計出来高線・自動スケール／buildRSI 雛形。0基準の破線を1本＝符号の目安）
+      function buildOBV(chart) {
+        const series = chart.addLineSeries({
+          color: "#5cf0ff", lineWidth: 1.8,
+          priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: true,
+        });
+        series.createPriceLine({ price: 0, color: "rgba(148,163,184,0.25)", lineWidth: 1, lineStyle: 3 });
+        chart.__setData = (display, all) => {
+          if (!display?.length || !calcOBV) return;
+          const startTime = display[0].time, endTime = display[display.length - 1].time;
+          const calcBase = (all?.length > 50) ? all : display;   // 全履歴で累積し窓に filter（窓内は連続）
+          const inRange = (d) => d.time >= startTime && d.time <= endTime;
+          series.setData(calcOBV(calcBase).filter(inRange));
+        };
+      }
       const SUBPANEL_REGISTRY = {
         rsi:  { height: 100, timeAxis: false, build: buildRSI },
         macd: { height: 110, timeAxis: true,  build: buildMACD },
         adx:  { height: 132, timeAxis: false, build: buildADX },
         atr:  { height: 104, timeAxis: false, build: buildATR },
+        obv:  { height: 104, timeAxis: false, build: buildOBV },
       };
       const _subMounted = {};   // key -> { chart, host, height }
       const _subOrder = [];     // mount順
