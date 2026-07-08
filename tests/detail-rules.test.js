@@ -708,6 +708,35 @@ test("calcOBV: 全バー出来高0でも NaN を出さず 0 累計", () => {
   assert.equal(r[r.length - 1].value, 0);
 });
 
+// ── calcVWAP: 期間アンカー（prices[0]起点）出来高加重平均 ──
+test("calcVWAP: 空・総出来高0は空配列", () => {
+  assert.deepEqual(D.calcVWAP([]), []);
+  const zv = [
+    { time: "d0", high: 1, low: 1, close: 1, volume: 0 },
+    { time: "d1", high: 1, low: 1, close: 1, volume: 0 },
+  ];
+  assert.deepEqual(D.calcVWAP(zv), []);
+});
+test("calcVWAP: Σ(typical×vol)/Σvol の累積（既知値）", () => {
+  const prices = [
+    { time: "d0", high: 12, low: 8, close: 10, volume: 100 },  // tp=10 → cum=1000/100=10
+    { time: "d1", high: 24, low: 16, close: 20, volume: 100 }, // tp=20 → cum=3000/200=15
+  ];
+  const r = D.calcVWAP(prices);
+  assert.equal(r.length, 2);
+  assert.deepEqual(r.map((o) => o.value), [10, 15]);
+});
+test("calcVWAP: 先頭の出来高0バーはスキップし出来高が付くバーから開始", () => {
+  const prices = [
+    { time: "d0", high: 10, low: 10, close: 10, volume: 0 },   // cumV=0 skip
+    { time: "d1", high: 20, low: 20, close: 20, volume: 100 }, // tp=20 → 20
+  ];
+  const r = D.calcVWAP(prices);
+  assert.equal(r.length, 1);
+  assert.equal(r[0].time, "d1");
+  assert.equal(r[0].value, 20);
+});
+
 // ── 状態ヘルパ ＆ グロッサリ ──（FORBIDDEN は regex オブジェクト {TRADE,FORECAST,ALL}）
 test("adx/atr グロッサリが存在し中立文言（売買/予測語なし）", () => {
   const g = D.INDICATOR_GLOSSARY;

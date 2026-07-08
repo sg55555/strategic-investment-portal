@@ -303,6 +303,23 @@
     return out;
   }
 
+  // ── VWAP（期間アンカー）：prices[0] を起点に typical=(H+L+C)/3 の出来高加重平均を累積 ──
+  //  日足のためセッション VWAP 不可。呼び出し側は「表示ウィンドウ」を prices として渡す（起点=期間先頭）。
+  function calcVWAP(prices) {
+    const out = [];
+    if (!prices || !prices.length) return out;
+    let cumPV = 0, cumV = 0;
+    for (let i = 0; i < prices.length; i++) {
+      const p = prices[i];
+      const tp = (p.high + p.low + p.close) / 3;
+      const v = p.volume || 0;
+      cumPV += tp * v;
+      cumV += v;
+      if (cumV > 0) out.push({ time: p.time, value: parseFloat((cumPV / cumV).toFixed(2)) });
+    }
+    return out;
+  }
+
   // ── T/R線: ZigZag セグメント分析 ───────────
   // ZigZag: 主要転換点を抽出。deviation 以上の値動きで転換確定
   function calcZigZag(prices, deviation) {
@@ -853,7 +870,7 @@
   return {
     // テクニカル純関数
     calcMA, calcBB, detectSR, calcRSI, calcEMA, calcMACD, calcZigZag, autoZigZagDeviation, volumeColorData,
-    calcATR, calcADX, calcKeltner, calcOBV, disciplineDigest,
+    calcATR, calcADX, calcKeltner, calcOBV, calcVWAP, disciplineDigest,
     signalDigest, healthTrendSeries, dupontFactorSeries, fcfTrendSeries,
     // 財務ディスクリプタ純関数
     priceWindow, periodLabel, financialMaxAbs, marketBasisFor, perStatus, pbrStatus,
