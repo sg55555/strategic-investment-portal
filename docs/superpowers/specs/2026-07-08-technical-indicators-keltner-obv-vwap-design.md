@@ -53,7 +53,7 @@ calcKeltner(prices, emaPeriod=20, atrMult=2, atrPeriod=14) -> { upper, mid, lowe
 **描画（`detail-charts.js`）**
 - `DR` destructure に `calcKeltner` 追加（`:25-27`）。
 - モジュール private `let kcUpperSeries, kcMidSeries, kcLowerSeries` ＋ `let kcState=false`（`:36-40` 付近）。
-- `initPriceChart` で BB の `addLineSeries`（`:583-594`）を複製し 3 本作成、`visible:false`、色 = **violet 系**（BB cyan・MA magenta・candle 赤青・ZigZag teal/pink と非衝突）。mid はやや淡く。
+- `initPriceChart` で BB の `addLineSeries`（`:583-594`）を複製し 3 本作成、`visible:false`、色 = **amber/orange 系**（既存 price overlay の MA=pink `#ff5ca8`/blue `#3aa6ff`/purple `#a35cff`・BB=cyan・candle 赤青・ZigZag teal/pink と非衝突。⚠️violet は ma75 と衝突するので不可）。upper/lower は淡い破線（`lineStyle:2`）、mid はやや濃い実線。
 - `toggleKeltner()`（`toggleBB` `:200-204` 複製）＝ `kcState` フリップ＋`#ind-btn-keltner` に `.active`＋3 本の `applyOptions({visible:kcState})`。
 - `updateMaAndVolume` の BB ブロック（`:473-479`）を複製：base（全履歴 or displayPrices）で `calcKeltner`、`[startTime,endTime]` で filter、`kcXSeries?.setData(...)`。
 - `window.toggleKeltner` を露出（`:1333-1336`）。
@@ -102,7 +102,7 @@ calcVWAP(prices) -> [{time, value}]         // prices[0] を起点に累積
 - **アーキ上の唯一の逸脱**：他オーバーレイは「全履歴算出→window filter」だが、期間アンカー VWAP は path-dependent。`updateMaAndVolume` で `calcVWAP(displayPrices)` を**表示ウィンドウ直接**に算出（filter しない）。`displayPrices[0]` = 期間先頭 = アンカー。年/期間切替（`priceWindow()` の US=暦年 / JP=年度）で `updateMaAndVolume` が再呼びされ起点が自然にリセットされる。
 - 先頭に volume=0 のバーが続く場合は cumV=0 の間だけ点を出さず（LightweightCharts に null を渡さない＝線の途切れ防止）、最初に出来高が付いたバーから線が始まる。以降に単発の volume=0 が挟まっても cumV は据え置きで割れない。
 
-**描画（`detail-charts.js`）**：Keltner と同じ骨格の単線 `vwapSeries` ＋ `vwapState` ＋ `toggleVWAP()` ＋ `#ind-btn-vwap` ＋ `window.toggleVWAP`。色 = **amber/gold 系**。`initPriceChart` で `visible:false` 作成、`updateMaAndVolume` で `vwapSeries?.setData(calcVWAP(displayPrices))`。
+**描画（`detail-charts.js`）**：Keltner と同じ骨格の単線 `vwapSeries` ＋ `vwapState` ＋ `toggleVWAP()` ＋ `#ind-btn-vwap` ＋ `window.toggleVWAP`。色 = **gold 系**（例 `#ffd84d`・単線・`lineWidth:2`。Keltner の amber/orange とは暖色内で分離＋線形状が別[単線 vs 破線チャネル]）。`initPriceChart` で `visible:false` 作成、`updateMaAndVolume` で `vwapSeries?.setData(calcVWAP(displayPrices))`。色は改善対象＝実機 FB で微調整前提。
 
 **UI**：`index.html` ツールバーに `<button id="ind-btn-vwap" ...>` ＋ `data-term="vwap"` span。
 
@@ -119,7 +119,7 @@ calcVWAP(prices) -> [{time, value}]         // prices[0] を起点に累積
 **state 判定の閾値（実装時にコメント明記）**
 - **Keltner**：`close < lower`→下限の外側／`close > upper`→上限の外側／それ以外→内側（バンドに対する binary・ε 不要）。
 - **VWAP 近辺**：`|close/vwap − 1| ≤ 0.3%` を「近辺」、超えたら上/下。
-- **OBV**：直近 20 バーの変化 `d = OBV[end] − OBV[end−20]`。`|d| < 期間内平均出来高` を「ほぼ横ばい」（OBV の絶対値は任意なので平均出来高でスケール）、それ以外は符号で上向き/低下。20 バー未満は state 省略。
+- **OBV**：直近 20 バーの純変化 `d = OBV[end] − OBV[end−20]` を同区間の総出来高 `gross` で正規化した比 `ratio = d/gross ∈ [−1,1]`（OBV 絶対値は任意なので総出来高でスケール）。`|ratio| < 0.2` を「ほぼ横ばい」、それ以外は符号で上向き/低下。表示窓が 21 バー未満は state 省略（データ不足）。
 - 「買い圧力」等の含意語は使わない（線の傾きの純事実のみ）。
 
 ## 5. glossary（term-help・3 語追加）
