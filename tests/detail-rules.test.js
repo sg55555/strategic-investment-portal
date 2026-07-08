@@ -680,6 +680,34 @@ test("calcKeltner: フラット価格で NaN/Inf を出さない", () => {
   [...r.upper, ...r.mid, ...r.lower].forEach((o) => assert.ok(Number.isFinite(o.value)));
 });
 
+// ── calcOBV: On-Balance Volume（累計） ──
+test("calcOBV: 長さ不足は空配列", () => {
+  assert.deepEqual(D.calcOBV([{ time: "d0", close: 1, volume: 100 }]), []);
+});
+test("calcOBV: up=+vol / down=−vol / eq=±0 の累計", () => {
+  const prices = [
+    { time: "d0", close: 10, volume: 100 },
+    { time: "d1", close: 11, volume: 50 },  // up  → +50 → 50
+    { time: "d2", close: 10, volume: 40 },  // down → −40 → 10
+    { time: "d3", close: 10, volume: 30 },  // eq  → ±0 → 10
+    { time: "d4", close: 12, volume: 20 },  // up  → +20 → 30
+  ];
+  const r = D.calcOBV(prices);
+  assert.equal(r.length, 4);
+  assert.deepEqual(r.map((o) => o.value), [50, 10, 10, 30]);
+  assert.equal(r[3].time, "d4");
+});
+test("calcOBV: 全バー出来高0でも NaN を出さず 0 累計", () => {
+  const prices = [
+    { time: "d0", close: 10, volume: 0 },
+    { time: "d1", close: 11, volume: 0 },
+    { time: "d2", close: 9, volume: 0 },
+  ];
+  const r = D.calcOBV(prices);
+  r.forEach((o) => assert.ok(Number.isFinite(o.value)));
+  assert.equal(r[r.length - 1].value, 0);
+});
+
 // ── 状態ヘルパ ＆ グロッサリ ──（FORBIDDEN は regex オブジェクト {TRADE,FORECAST,ALL}）
 test("adx/atr グロッサリが存在し中立文言（売買/予測語なし）", () => {
   const g = D.INDICATOR_GLOSSARY;

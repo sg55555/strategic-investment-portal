@@ -288,6 +288,21 @@
     return { upper, mid, lower };
   }
 
+  // ── OBV（On-Balance Volume）：終値方向で出来高を加減した累計線。絶対値は任意・傾きを見る ──
+  function calcOBV(prices) {
+    const out = [];
+    if (!prices || prices.length < 2) return out;
+    let obv = 0;
+    for (let i = 1; i < prices.length; i++) {
+      const c = prices[i].close, pc = prices[i - 1].close;
+      if (c > pc) obv += (prices[i].volume || 0);
+      else if (c < pc) obv -= (prices[i].volume || 0);
+      // c === pc: 変化なし
+      out.push({ time: prices[i].time, value: obv });
+    }
+    return out;
+  }
+
   // ── T/R線: ZigZag セグメント分析 ───────────
   // ZigZag: 主要転換点を抽出。deviation 以上の値動きで転換確定
   function calcZigZag(prices, deviation) {
@@ -838,7 +853,7 @@
   return {
     // テクニカル純関数
     calcMA, calcBB, detectSR, calcRSI, calcEMA, calcMACD, calcZigZag, autoZigZagDeviation, volumeColorData,
-    calcATR, calcADX, calcKeltner, disciplineDigest,
+    calcATR, calcADX, calcKeltner, calcOBV, disciplineDigest,
     signalDigest, healthTrendSeries, dupontFactorSeries, fcfTrendSeries,
     // 財務ディスクリプタ純関数
     priceWindow, periodLabel, financialMaxAbs, marketBasisFor, perStatus, pbrStatus,
