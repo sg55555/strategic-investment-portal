@@ -84,14 +84,14 @@ Expected: FAIL（`D.calcATR is not a function`）
   }
 ```
 
-- [ ] **Step 4: Add to exports**（688-690 の技術群へ）
+- [ ] **Step 4: Add to exports**（688-690 の技術群へ・**この Task では calcATR のみ**）
 
 ```js
     calcMA, calcBB, detectSR, calcRSI, calcEMA, calcMACD, calcZigZag, autoZigZagDeviation, volumeColorData,
-    calcATR, calcADX, disciplineDigest,
+    calcATR,
     signalDigest, healthTrendSeries, dupontFactorSeries, fcfTrendSeries,
 ```
-（`calcADX`/`disciplineDigest` は Task2/Task5 で実体追加。ここで一括宣言してよい＝未定義参照にはならない＝同一 return object のプロパティは関数宣言巻き上げで解決。）
+⚠️ `calcADX` は Task2、`disciplineDigest` は Task5 で**各自が実体を追加してから** export に足す（未実装の名前を `return {…}` の shorthand に入れると module load 時 ReferenceError＝全 unit が落ちる）。
 
 - [ ] **Step 5: Run test to verify it passes**
 
@@ -193,12 +193,18 @@ Expected: FAIL（`D.calcADX is not a function`）
   }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 4: Add `calcADX` to exports**（Task1 で追加した `calcATR,` の隣へ）
+
+```js
+    calcATR, calcADX,
+```
+
+- [ ] **Step 5: Run test to verify it passes**
 
 Run: `NODE_PATH=/home/shugo/node_modules node --test tests/detail-rules.test.js`
 Expected: calcADX 3件 PASS
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add detail-rules.js tests/detail-rules.test.js
@@ -221,17 +227,17 @@ git commit -m "feat(detail-rules): calcADX (Wilder ADX/DMI)"
 - [ ] **Step 1: Write the failing test**
 
 ```js
-// ── 状態ヘルパ ＆ グロッサリ ──
-test("adx/atr グロッサリが存在し中立文言（売買語なし）", () => {
+// ── 状態ヘルパ ＆ グロッサリ ──（FORBIDDEN は regex オブジェクト {TRADE,FORECAST,ALL}）
+test("adx/atr グロッサリが存在し中立文言（売買/予測語なし）", () => {
   const g = D.INDICATOR_GLOSSARY;
   const adx = g.find((x) => x.term === "adx"), atr = g.find((x) => x.term === "atr");
-  assert.ok(adx && atr);
-  const joined = (adx.def + atr.def);
-  FORBIDDEN.forEach((w) => assert.ok(!joined.includes(w), "禁止語混入: " + w));
-  assert.ok(atr.def.includes("損切り") === false || atr.def.includes("推奨ではない"));
+  assert.ok(adx && atr, "adx/atr glossary missing");
+  assert.ok(adx.read && adx.def && atr.read && atr.def);
+  [adx, atr].forEach((e) => FORBIDDEN.ALL.forEach((re) =>
+    assert.ok(!re.test(e.read + "　" + e.def), e.term + " に禁止語: " + re)));
 });
 ```
-（`_adxState`/`_atrVolState` は private ゆえ直接テストせず、Task4/5 の descriptor 経由で境界を検証する。ここではグロッサリのみ assert。）
+⚠️ 既存テスト（`INDICATOR_GLOSSARY: def/read contain no trade/forecast words`・313行）が**全**グロッサリ def を `FORBIDDEN.ALL` で検査する。よって adx/atr def に「損切り」「買い/売り」等の TRADE/FORECAST 語を**絶対に入れない**（下の def はそれを避けた文言＝否定でも「損切り」の語自体を使わない）。`_adxState`/`_atrVolState` は private ゆえ Task4/5 の descriptor 経由で境界を検証。
 
 - [ ] **Step 2: Run test to verify it fails**
 
@@ -241,8 +247,8 @@ Expected: FAIL（adx/atr グロッサリ未定義で `adx` が undefined）
 - [ ] **Step 3: グロッサリに2件追加**（`detail-rules.js` 78行 `cash-conversion` の後・`]`(79) の前）
 
 ```js
-    { term: "adx", read: "ADX/DMI（トレンド強度）", def: "ADXはトレンドの強さ（0〜100）を測る目安で、向きは示さない。+DI/−DIは上昇・下降どちらの圧力が優勢かの目安。ADXが低い＝横ばい、高い＝一方向に動きやすい局面の目安であって、強い/弱いは売買を勧めるものではない。" },
-    { term: "atr", read: "ATR%（値幅の目安）", def: "ATR（平均的な1日の値幅）を株価で割った割合。大きいほど日々の振れが大きい＝荒い相場という目安で、銘柄をまたいで比べられる。損切り水準を示すものではない。" },
+    { term: "adx", read: "ADX/DMI（トレンド強度）", def: "ADXはトレンドの強さ（0〜100）を測る目安で、向きは示さない。+DI/−DIは上昇・下降どちらの圧力が優勢かの目安。ADXが低い＝横ばい、高い＝一方向に動きやすい局面の目安であって、強い・弱いはそれ自体が方向を決めるものではない。" },
+    { term: "atr", read: "ATR%（値幅の目安）", def: "ATR（平均的な1日の値幅）を株価で割った割合。大きいほど日々の振れが大きい＝荒い相場という目安で、銘柄をまたいで比べられる。値幅の目安であり、それ自体が行動を促すものではない。" },
 ```
 
 - [ ] **Step 4: 状態ヘルパを追加**（`detail-rules.js`・signalDigest 定義(450)の前＝`_atDisplayEnd` の後あたり）
@@ -302,9 +308,9 @@ test("signalDigest: adx/atr descriptor を含み score フィールドなし・�
   assert.equal(adx.term, "adx"); assert.equal(atr.term, "atr");
   // no-score: value/score/weight を持たない
   [adx, atr].forEach((d) => ["value", "score", "weight"].forEach((k) => assert.ok(!(k in d))));
-  // 中立状態語（禁止語なし）
-  const text = ds.map((d) => (d.state || "") + (d.readout || "") + (d.note || "")).join(" ");
-  FORBIDDEN.forEach((w) => assert.ok(!text.includes(w), "禁止語: " + w));
+  // 中立状態語（禁止語なし・FORBIDDEN.ALL は regex 配列）
+  const text = [adx, atr].map((d) => (d.state || "") + (d.readout || "")).join(" ");
+  FORBIDDEN.ALL.forEach((re) => assert.ok(!re.test(text), "禁止語: " + re));
 });
 ```
 
@@ -391,7 +397,7 @@ test("disciplineDigest: 状態語と note を返し score なし・データ不�
   assert.ok(["方向感が強い", "やや方向感あり", "弱い・レンジ気味"].includes(d.trend));
   assert.ok(["振れ大きめ", "通常", "静穏"].includes(d.vol));
   ["value", "score", "weight"].forEach((k) => assert.ok(!(k in d)));
-  FORBIDDEN.forEach((w) => assert.ok(!(d.note || "").includes(w), "禁止語: " + w));
+  FORBIDDEN.ALL.forEach((re) => assert.ok(!re.test(d.note || ""), "禁止語: " + re));
 });
 ```
 
@@ -425,12 +431,18 @@ Expected: FAIL（`D.disciplineDigest is not a function`）
   }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 4: Add `disciplineDigest` to exports**（`calcATR, calcADX,` の隣へ）
+
+```js
+    calcATR, calcADX, disciplineDigest,
+```
+
+- [ ] **Step 5: Run test to verify it passes**
 
 Run: `NODE_PATH=/home/shugo/node_modules node --test tests/detail-rules.test.js`
 Expected: PASS（rules 層 全緑）
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add detail-rules.js tests/detail-rules.test.js
@@ -614,7 +626,7 @@ git commit -m "feat(detail-ui): accordion subpanel markup + mini-card container 
     { key: "rsi",  label: "RSI",     sub: "(14)",       term: "rsi",  desc: "買われすぎ/売られすぎの目安。70超で過熱・30割れで冷え込み。" },
     { key: "macd", label: "MACD",    sub: "(12,26,9)",  term: "macd", desc: "短期と長期の移動平均の差。勢いの向きと転換の傾向。" },
     { key: "adx",  label: "ADX/DMI", sub: "(14)",       term: "adx",  desc: "トレンドの強さ（向きは示さない）。25超で方向感、20未満はレンジ気味。" },
-    { key: "atr",  label: "ATR%",    sub: "(14)",       term: "atr",  desc: "1日の値幅の目安（株価に対する%）。損切り水準の推奨ではない。" },
+    { key: "atr",  label: "ATR%",    sub: "(14)",       term: "atr",  desc: "1日の値幅の目安（株価に対する%）。値幅そのものは行動を促すものではない。" },
   ];
   var _accItems = {}; // key -> {wrap, host, expanded}
   var SOFT_CAP = 2;
