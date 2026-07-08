@@ -342,6 +342,10 @@ const STATE_ENUM = new Set([
   // Task4(adx/atr descriptor 追加分)の中立状態語（_adxState/_atrVolState の閉集合）
   '方向感が強い', 'やや方向感あり', '弱い・レンジ気味',
   '振れ大きめ', '通常', '静穏',
+  // Task(keltner/obv/vwap descriptor)の中立状態語
+  '上限チャネルの外側', 'チャネル内側', '下限チャネルの外側',
+  '終値がVWAPの上', 'VWAP近辺', '終値がVWAPの下',
+  '直近20日で上向き', 'ほぼ横ばい', '直近20日で低下',
 ]);
 
 function synthPrices(n) {
@@ -354,12 +358,12 @@ function synthPrices(n) {
   return out;
 }
 
-test("signalDigest: 9 descriptors, no numeric score fields, state in closed enum", () => {
+test("signalDigest: 12 descriptors, no numeric score fields, state in closed enum", () => {
   const all = synthPrices(300);
   const disp = all.slice(-120);
   const ds = D.signalDigest(disp, all);
-  // Task4(adx/atr descriptor 追加)で 7→9 件。
-  assert.equal(ds.length, 9);
+  // Task4(adx/atr)で 7→9、本Task(keltner/vwap/obv)で 9→12。
+  assert.equal(ds.length, 12);
   for (const d of ds) {
     assert.ok(typeof d.key === "string" && typeof d.label === "string" && typeof d.term === "string");
     assert.ok(STATE_ENUM.has(d.state), `state not in enum: ${d.state}`);
@@ -402,8 +406,8 @@ test("signalDigest: current value indexed to display window end, not allPrices t
 
 test("signalDigest: thin history folds to データ不足, no crash", () => {
   const ds = D.signalDigest(synthPrices(5), synthPrices(5));
-  // Task4(adx/atr descriptor 追加)で 7→9 件（既存7 + adx/atr）。薄い履歴では両者とも データ不足 に畳む。
-  assert.equal(ds.length, 9);
+  // Task4(adx/atr)で 7→9、本Task(keltner/vwap/obv)で 9→12。薄い履歴では新規3件も データ不足 に畳む。
+  assert.equal(ds.length, 12);
   assert.ok(ds.some((d) => d.state === "データ不足"));
 });
 

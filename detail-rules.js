@@ -725,6 +725,51 @@
       out.push({ key: 'atr', label: '値幅(ATR%)', term: 'atr', state: state, readout: readout });
     })();
 
+    // 10) ケルトナーチャネル（終値のチャネル内外・純事実）
+    (function () {
+      var kc = calcKeltner(ap);
+      var u = _atDisplayEnd(kc && kc.upper, endTime);
+      var m = _atDisplayEnd(kc && kc.mid, endTime);
+      var l = _atDisplayEnd(kc && kc.lower, endTime);
+      var state = 'データ不足', readout = '';
+      if (u && m && l && close != null) {
+        state = close > u.value ? '上限チャネルの外側' : close < l.value ? '下限チャネルの外側' : 'チャネル内側';
+        readout = '中心線比 ' + (close >= m.value ? '+' : '') + ((close / m.value - 1) * 100).toFixed(1) + '%';
+      }
+      out.push({ key: 'keltner', label: 'ケルトナー', term: 'keltner', state: state, readout: readout });
+    })();
+
+    // 11) VWAP（表示期間の出来高加重平均・終値の上下）
+    (function () {
+      var vw = calcVWAP(dp);   // 期間アンカー＝表示ウィンドウ dp（signalDigest の他ブロックと異なり ap でなく dp）
+      var end = vw.length ? vw[vw.length - 1] : null;
+      var state = 'データ不足', readout = '';
+      if (end && close != null && end.value > 0) {
+        var dev = (close / end.value - 1) * 100;
+        state = Math.abs(dev) <= 0.3 ? 'VWAP近辺' : (dev > 0 ? '終値がVWAPの上' : '終値がVWAPの下');
+        readout = '乖離 ' + (dev >= 0 ? '+' : '') + dev.toFixed(1) + '%';
+      }
+      out.push({ key: 'vwap', label: 'VWAP', term: 'vwap', state: state, readout: readout });
+    })();
+
+    // 12) OBV（累計出来高線の傾き・純事実。純変化/総出来高で正規化＝絶対値は任意）
+    (function () {
+      var obv = calcOBV(ap);
+      var end = _atDisplayEnd(obv, endTime);
+      var state = 'データ不足', readout = '';
+      if (end && dp.length >= 21) {
+        var back = _atDisplayEnd(obv, dp[dp.length - 21].time);
+        if (back) {
+          var d = end.value - back.value;
+          var gross = 0;
+          for (var i = dp.length - 20; i < dp.length; i++) gross += (dp[i].volume || 0);
+          var ratio = gross > 0 ? d / gross : 0;
+          state = Math.abs(ratio) < 0.2 ? 'ほぼ横ばい' : (ratio > 0 ? '直近20日で上向き' : '直近20日で低下');
+        }
+      }
+      out.push({ key: 'obv', label: 'OBV', term: 'obv', state: state, readout: readout });
+    })();
+
     return out;
   }
 
