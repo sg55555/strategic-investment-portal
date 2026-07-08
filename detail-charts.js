@@ -352,9 +352,12 @@
         chart.__setData = (display, all) => {
           if (!display?.length || !calcOBV) return;
           const startTime = display[0].time, endTime = display[display.length - 1].time;
-          const calcBase = (all?.length > 50) ? all : display;   // 全履歴で累積し窓に filter（窓内は連続）
+          const calcBase = (all?.length > 50) ? all : display;   // 全履歴で累積し窓に filter
           const inRange = (d) => d.time >= startTime && d.time <= endTime;
-          series.setData(calcOBV(calcBase).filter(inRange));
+          const win = calcOBV(calcBase).filter(inRange);
+          // 表示窓の先頭を 0 に再アンカー（OBV 絶対値は任意＝窓内の純増減を見る。0基準の破線が意味を持つ）。
+          const anchor = win.length ? win[0].value : 0;
+          series.setData(win.map((o) => ({ time: o.time, value: o.value - anchor })));
         };
       }
       const SUBPANEL_REGISTRY = {
