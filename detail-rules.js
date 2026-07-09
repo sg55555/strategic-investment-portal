@@ -52,7 +52,7 @@
     { term: "rsi", read: "RSI（相対力指数）", def: "直近の値上がり・値下がりの勢いを0〜100で表す目安。70超は買われ過ぎ、30未満は売られ過ぎの目安であって、水準だけで方向は決まらない。" },
     { term: "macd", read: "MACD", def: "短期と長期の移動平均の差（MACD線）とその平均（シグナル線）の関係を見る。2本の位置関係や交差の有無は事実であり、それ自体が方向を保証しない。" },
     { term: "sr", read: "支持線・抵抗線（S/R）", def: "過去に価格が反発・頭打ちしやすかった水準を自動で抽出したもの。タッチ回数が多いほど意識されやすい目安にすぎない。" },
-    { term: "zigzag", read: "ZigZag（トレンド/レンジ）", def: "一定以上動いた転換点だけを結び、区間を「トレンド」か「レンジ（横ばい）」に分けて見る。末尾の点は未確定で後から変わりうる。" },
+    { term: "zigzag", read: "ZigZag（トレンド/レンジ）", def: "一定以上動いた転換点だけを結び、区間を「トレンド」か「レンジ（横ばい）」に分けて見る。同じ価格帯で複数回往復する区間は1つの横ばい帯（支持帯/抵抗帯）として見る。末尾の点は未確定で後から変わりうる。" },
     { term: "volume", read: "出来高", def: "その日に売買が成立した株数。関心の大きさの目安。多い＝上昇、という意味ではなく、価格の文脈と併せて見る。" },
     { term: "percent-b", read: "%B", def: "ボリンジャーバンドの中で価格が今どの位置にあるかを0〜1で表したもの。1超＝上限の外側、0未満＝下限の外側という位置の事実を示す。" },
     { term: "equity-ratio", read: "自己資本比率", def: "総資産のうち返済不要の自己資本が占める割合。財務の安定度の目安。一般に高いほど安定的とされるが、業種で適正水準は異なる。" },
@@ -837,6 +837,20 @@
     var atSeries = calcATR(ap, 14);
     var at = _atDisplayEnd(atSeries, endTime);
     if (!a || !at) return { ok: false };
+    // ── レンジ帯（zigzagSegments 単一源）＋ recency 二重錠（末尾セグメント位置＋bar-distance）──
+    var range = { ok: false };
+    var segs = zigzagSegments(dp, calcZigZag(dp, autoZigZagDeviation(dp)) || []) || [];
+    var lastSeg = segs.length ? segs[segs.length - 1] : null;
+    var prevSeg = segs.length > 1 ? segs[segs.length - 2] : null;
+    var band = null;
+    if (lastSeg && lastSeg.type === 'range') band = lastSeg;
+    else if (lastSeg && lastSeg.type === 'trend' && prevSeg && prevSeg.type === 'range') band = prevSeg;
+    var recencyBars = Math.max(10, Math.round(dp.length * 0.2));
+    var closeV = endBar ? endBar.close : null;
+    if (band && closeV != null && (dp.length - 1 - band.endIdx) <= recencyBars) {
+      var st = closeV > band.resistance ? '上抜け（直近）' : (closeV < band.support ? '下抜け（直近）' : '横ばい帯の中');
+      range = { ok: true, state: st, widthPct: parseFloat(((band.resistance - band.support) / band.support * 100).toFixed(1)), touches: band.touchHigh + band.touchLow };
+    }
     var win = atSeries.filter(function (o) { return o.time <= endTime && (!dp.length || o.time >= dp[0].time); });
     var med = _median(win.map(function (o) { return o.pct; }));
     return {
@@ -844,6 +858,7 @@
       adx: a.adx, plusDI: a.plusDI, minusDI: a.minusDI,
       atrPct: at.pct, atrMedian: parseFloat((med || 0).toFixed(2)),
       trend: _adxState(a.adx), dir: _diDir(a.plusDI, a.minusDI), vol: _atrVolState(at.pct, med),
+      range: range,
       note: "ADXが低い局面は方向感が乏しく（レンジ気味）、ATR%で日々の振れの荒さを見ます。まず全体像（この現在地）→気になる指標を下で開く、の順で読むと迷いにくいです。",
     };
   }

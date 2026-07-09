@@ -777,7 +777,9 @@ test("disciplineDigest: 状態語と note を返し score なし・データ不�
   assert.ok(["方向感が強い", "やや方向感あり", "弱い・レンジ気味"].includes(d.trend));
   assert.ok(["振れ大きめ", "通常", "静穏"].includes(d.vol));
   ["value", "score", "weight"].forEach((k) => assert.ok(!(k in d)));
-  FORBIDDEN.ALL.forEach((re) => assert.ok(!re.test(d.note || ""), "禁止語: " + re));
+  // trend/vol/dir/range.state と note をまとめて禁止語スキャン（range 経路も規制ゲートに含める）
+  const discText = [d.trend, d.vol, d.dir, (d.range && d.range.state) || "", d.note || ""].join("　");
+  FORBIDDEN.ALL.forEach((re) => assert.ok(!re.test(discText), "禁止語: " + re));
 });
 
 // ── ZigZag レンジ帯検出（zigzagSegments / autoClusterTol）───────────────
@@ -868,4 +870,28 @@ test("signalDigest zigzag 行: 末尾が横ばい帯なら readout に帯幅・s
   // ガード条件撤去＝crafted横ばいデータは確実に range state に着地し帯幅を出すべき（回帰ロック強化）
   assert.equal(z.state, "直近の確定区間はレンジ");
   assert.ok(/帯幅/.test(z.readout), `帯幅が readout に含まれるべき、実際: ${z.readout}`);
+});
+
+// ── Task 3: disciplineDigest.range（recency 二重錠）───────────────
+test("disciplineDigest.range: 末尾が横ばい帯なら ok:true・横ばい帯の中・通貨非依存", () => {
+  const prices = []; const base = Date.UTC(2024, 0, 1);
+  for (let i = 0; i < 30; i++) prices.push(mkBar(base, i, 100 + i * 0.4)); // 立ち上がり
+  for (let i = 30; i < 90; i++) prices.push(mkBar(base, i, 120 + 120 * 0.07 * Math.sin((2 * Math.PI * 3 * (i - 30)) / 60))); // 末尾=横ばい
+  const d = D.disciplineDigest(prices, prices);
+  assert.equal(d.ok, true);
+  assert.ok(d.range && d.range.ok === true);
+  assert.ok(["横ばい帯の中", "上抜け（直近）", "下抜け（直近）"].includes(d.range.state));
+  assert.equal(typeof d.range.widthPct, "number");
+  assert.equal(typeof d.range.touches, "number");
+  // 通貨非依存＝絶対価格キーを含まない
+  ["support", "resistance", "price"].forEach((k) => assert.ok(!(k in d.range)));
+});
+
+test("disciplineDigest.range: 窓前半で横ばい→その後ずっと上昇（帯が古い）なら ok:false（recency 錠・C1）", () => {
+  const prices = []; const base = Date.UTC(2024, 0, 1);
+  for (let i = 0; i < 30; i++) prices.push(mkBar(base, i, 100 + 100 * 0.06 * Math.sin((2 * Math.PI * 2.5 * i) / 30))); // 前半=横ばい
+  for (let i = 30; i < 120; i++) prices.push(mkBar(base, i, 100 + (i - 30) * 1.2)); // 以後ずっと上昇
+  const d = D.disciplineDigest(prices, prices);
+  assert.equal(d.ok, true);
+  assert.equal(d.range.ok, false); // 月遅れブレイクを"上抜け（直近）"にしない
 });
