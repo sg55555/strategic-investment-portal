@@ -25,6 +25,7 @@
   const calcMA = DR.calcMA, calcBB = DR.calcBB, detectSR = DR.detectSR,
         calcRSI = DR.calcRSI, calcMACD = DR.calcMACD, calcADX = DR.calcADX, calcATR = DR.calcATR,
         calcZigZag = DR.calcZigZag, autoZigZagDeviation = DR.autoZigZagDeviation,
+        zigzagSegments = DR.zigzagSegments,
         calcKeltner = DR.calcKeltner, calcVWAP = DR.calcVWAP, calcOBV = DR.calcOBV;
 
   // ── チャート instance / series / state（index.html から private 化・bare-global 解消の中核）──
@@ -47,6 +48,7 @@
   let srState = false;
   let trState = false;
   let trSeries = [];
+  let trRangeBands = [];
   let currentDisplayPrices = null;
   let currentAllPrices = null;
   let compareChart = null;
@@ -424,60 +426,40 @@
         _subSyncBound = true;
       }
       function drawTRLines(displayPrices) {
-        // 既存ラインをクリーンアップ
         trSeries.forEach(s => { try { priceChart.removeSeries(s); } catch(e) {} });
         trSeries = [];
+        trRangeBands = [];
         if (!trState || !displayPrices?.length || displayPrices.length < 10) return;
 
         const dev = autoZigZagDeviation(displayPrices);
         const pivots = calcZigZag(displayPrices, dev);
         if (pivots.length < 2) return;
+        const segs = zigzagSegments(displayPrices, pivots);
 
-        // 各セグメント (連続ピボット間) を個別に分析・描画
-        for (let i = 1; i < pivots.length; i++) {
-          const p1 = pivots[i - 1], p2 = pivots[i];
-          const segLen = p2.idx - p1.idx;
-          if (segLen < 3) continue;  // 短すぎるセグメントはスキップ
-
-          const change    = (p2.value - p1.value) / p1.value;
-          const absChange = Math.abs(change);
-
-          if (absChange >= 0.03) {
-            // ── トレンドセグメント: 始点ピボット → 終点ピボット の斜めライン ──
-            const isUp  = change > 0;
-            // ZigZag 逆規約（up=緑/down=赤＝トレーダーが手で引くトレンド可視化）の意味は維持し、色のみネオン化。
-            const color = isUp ? "rgba(52,245,207,0.9)" : "rgba(255,102,153,0.9)";
-            const s = priceChart.addLineSeries({
-              color, lineWidth: 2, lineStyle: 0,
-              priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
-            });
+        for (const seg of segs) {
+          if (seg.type === "trend") {
+            // ZigZag 逆規約（up=緑 teal/down=赤 pink・意味不変）。始点→終点の線形補間（既存挙動を保存）。
+            const color = seg.change > 0 ? "rgba(52,245,207,0.9)" : "rgba(255,102,153,0.9)";
+            const s = priceChart.addLineSeries({ color, lineWidth: 2, lineStyle: 0, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+            const segLen = seg.endIdx - seg.startIdx;
             const data = [];
-            for (let j = p1.idx; j <= p2.idx; j++) {
-              const t = (j - p1.idx) / segLen;
-              const v = p1.value + (p2.value - p1.value) * t;
+            for (let j = seg.startIdx; j <= seg.endIdx; j++) {
+              const t = (j - seg.startIdx) / segLen;
+              const v = seg.startVal + (seg.endVal - seg.startVal) * t;
               data.push({ time: displayPrices[j].time, value: parseFloat(v.toFixed(2)) });
             }
             s.setData(data);
             trSeries.push(s);
           } else {
-            // ── レンジセグメント: 区間内の高値・安値を水平ラインで（区間限定）──
-            let hi = -Infinity, lo = Infinity;
-            for (let j = p1.idx; j <= p2.idx; j++) {
-              if (displayPrices[j].high > hi) hi = displayPrices[j].high;
-              if (displayPrices[j].low  < lo) lo = displayPrices[j].low;
-            }
-            [hi, lo].forEach(val => {
-              const s = priceChart.addLineSeries({
-                color: "rgba(255,216,77,0.85)", lineWidth: 1.5, lineStyle: 2,
-                priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
-              });
+            // レンジ帯：支持・抵抗を帯の全区間に amber 破線1本ずつ（複数ピボットを束ねた1帯）。
+            [seg.resistance, seg.support].forEach((val) => {
+              const s = priceChart.addLineSeries({ color: "rgba(255,216,77,0.85)", lineWidth: 1.5, lineStyle: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
               const data = [];
-              for (let j = p1.idx; j <= p2.idx; j++) {
-                data.push({ time: displayPrices[j].time, value: val });
-              }
+              for (let j = seg.startIdx; j <= seg.endIdx; j++) data.push({ time: displayPrices[j].time, value: parseFloat(val.toFixed(2)) });
               s.setData(data);
               trSeries.push(s);
             });
+            trRangeBands.push({ startTime: displayPrices[seg.startIdx].time, endTime: displayPrices[seg.endIdx].time, support: seg.support, resistance: seg.resistance });
           }
         }
       }
@@ -563,6 +545,32 @@
         const paneView = { renderer() { return renderer; }, zOrder() { return "bottom"; } };
         return { paneViews() { return [paneView]; } };
       }
+      // レンジ帯の淡いグロー（案B・面でなく光）。trState=off / trRangeBands 空なら描かない。
+      //  candle glow と同機構＝draw 時に trRangeBands を読む（drawTRLines の series 変更で pane 再描画される）。
+      function makeRangeBandPrimitive() {
+        const renderer = {
+          draw(target) {
+            target.useMediaCoordinateSpace((scope) => {
+              if (!trState || !trRangeBands.length || !priceChart || !candleSeries) return;
+              const ctx = scope.context;
+              const ts = priceChart.timeScale();
+              for (const b of trRangeBands) {
+                const x1 = ts.timeToCoordinate(b.startTime), x2 = ts.timeToCoordinate(b.endTime);
+                const yR = candleSeries.priceToCoordinate(b.resistance), yS = candleSeries.priceToCoordinate(b.support);
+                if (x1 == null || x2 == null || yR == null || yS == null) continue;
+                const g = ctx.createLinearGradient(0, yR, 0, yS);
+                g.addColorStop(0, "rgba(255,216,77,0.16)");
+                g.addColorStop(0.5, "rgba(255,216,77,0.05)");
+                g.addColorStop(1, "rgba(255,216,77,0.16)");
+                ctx.fillStyle = g;
+                ctx.fillRect(x1, yR, x2 - x1, yS - yR);
+              }
+            });
+          },
+        };
+        const paneView = { renderer() { return renderer; }, zOrder() { return "bottom"; } };
+        return { paneViews() { return [paneView]; } };
+      }
       function initPriceChart() {
         const container = document.getElementById("chart-container");
         priceChart = LightweightCharts.createChart(container, {
@@ -598,6 +606,7 @@
           wickDownColor:  "#4d80ff",
         });
         candleSeries.attachPrimitive(makeCandleGlowPrimitive());
+        candleSeries.attachPrimitive(makeRangeBandPrimitive());
 
         volumeSeries = priceChart.addHistogramSeries({
           priceFormat: { type: "volume" },
