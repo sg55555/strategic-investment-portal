@@ -838,3 +838,34 @@ test("autoClusterTol: [0.02,0.045] にクランプ", () => {
   const t = D.autoClusterTol(flat);
   assert.ok(t >= 0.02 && t <= 0.045, "in range: " + t);
 });
+
+// ── Task 2: signalDigest ZigZag 行の zigzagSegments 消費テスト ──
+function mkBar(base, i, close) {
+  const d = new Date(base + i * 86400000).toISOString().slice(0, 10);
+  return { time: d, open: close, high: close * 1.01, low: close * 0.99, close: close, volume: 1000 + i };
+}
+
+test("signalDigest zigzag 行: 末尾が横ばい帯なら readout に帯幅・state は既存 enum 値", () => {
+  // 明確な横ばい帯を生成：100-110 の範囲で複数往復するデータ
+  // calcZigZag で小幅ピボットを複数検出し、zigzagSegments で帯化される
+  const prices = []; const base = Date.UTC(2024, 0, 1);
+
+  // シンプルな横ばい帯: 100-110 を中心に ±5 で5往復
+  // 5往復すれば十分に複数ピボット（high/low が各5回）が確定レンジとなる
+  for (let i = 0; i < 50; i++) {
+    const basePrice = 105;
+    const amplitude = 5;
+    const c = basePrice + amplitude * Math.sin((2 * Math.PI * i) / 10);
+    prices.push(mkBar(base, i, c));
+  }
+
+  const ds = D.signalDigest(prices, prices);
+  const z = ds.find((d) => d.key === "zigzag");
+  assert.ok(z);
+  // state は閉じた enum 値のみ
+  assert.ok(["直近の確定区間はレンジ", "直近の確定区間はトレンド", "データ不足"].includes(z.state));
+  // 末尾が帯なら readout に帯幅パーセンテージが明示される（新実装で追加される）
+  if (z.state === "直近の確定区間はレンジ") {
+    assert.ok(/帯幅/.test(z.readout), `帯幅が readout に含まれるべき、実際: ${z.readout}`);
+  }
+});

@@ -722,16 +722,19 @@
       out.push({ key: 'sr', label: '支持線・抵抗線', term: 'sr', state: parts.length ? '算出済み' : 'データ不足', readout: parts.join('／') });
     })();
 
-    // 6) ZigZag：確定済み直近2ピボット間の change（末尾は未確定）
+    // 6) ZigZag：zigzagSegments の末尾セグメント（単一源）。state は既存 enum 値を維持し改善は readout へ。
     (function () {
-      var piv = calcZigZag(dp, autoZigZagDeviation(dp)) || [];
+      var segs = zigzagSegments(dp, calcZigZag(dp, autoZigZagDeviation(dp)) || []) || [];
       var state = 'データ不足', readout = '', note = '';
-      if (piv.length >= 3) {
-        var p1 = piv[piv.length - 3], p2 = piv[piv.length - 2]; // 末尾=暫定なので手前2点
-        var ch = ((p2.value - p1.value) / p1.value) * 100;
-        var isTrend = Math.abs(ch) >= 3;
-        state = isTrend ? '直近の確定区間はトレンド' : '直近の確定区間はレンジ';
-        readout = (ch >= 0 ? '+' : '') + ch.toFixed(1) + '%';
+      var last = segs.length ? segs[segs.length - 1] : null;
+      if (last) {
+        if (last.type === 'range') {
+          state = '直近の確定区間はレンジ';
+          readout = '帯幅 ' + ((last.resistance - last.support) / last.support * 100).toFixed(1) + '%・' + (last.touchHigh + last.touchLow) + '点接触';
+        } else {
+          state = '直近の確定区間はトレンド';
+          readout = (last.change >= 0 ? '+' : '') + (last.change * 100).toFixed(1) + '%';
+        }
         note = '末尾ピボットは未確定';
       }
       out.push({ key: 'zigzag', label: 'ZigZag区間', term: 'zigzag', state: state, readout: readout, note: note });
