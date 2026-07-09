@@ -463,6 +463,11 @@
         window.esc(d.trend) + '（ADX ' + Math.round(d.adx) + '・' + window.esc(d.dir) + '）</span></div>' +
       '<div class="disc-chip"><span class="k">値幅</span><span class="v ' + volCls + '" data-term="atr">' +
         window.esc(d.vol) + '（ATR% ' + d.atrPct.toFixed(1) + '%）</span></div>' +
+      (d.range && d.range.ok
+        ? '<div class="disc-chip"><span class="k">レンジ</span><span class="v ' +
+          (d.range.state.indexOf("横ばい") >= 0 ? "calm" : "") + '" data-term="zigzag">' +
+          window.esc(d.range.state) + '（帯幅 ' + d.range.widthPct.toFixed(1) + '%・' + d.range.touches + '点接触）</span></div>'
+        : "") +
       '<div class="disc-note">' + window.esc(d.note) + '</div>' +
       '<div class="panel-disclaimer">' + window.esc(disc) + '</div>';
     injectTermHelp(card);
