@@ -368,6 +368,56 @@
     return Math.max(0.025, Math.min(0.08, totalRange * 0.15));
   }
 
+  // 表示期間ボラティリティに応じた帯の近接許容（autoZigZagDeviation と同思想＝スイング幅の半分・[0.02,0.045]）。
+  //  下限保証で「切り上がるトレンド」を誤って帯化しないようにする。
+  function autoClusterTol(prices) {
+    return Math.max(0.02, Math.min(0.045, autoZigZagDeviation(prices) * 0.5));
+  }
+
+  // ピボット列を「トレンド区間」と「レンジ帯（複数ピボットを束ねた水平バンド）」のセグメント列へ後処理。
+  //  単一源＝drawTRLines / signalDigest / disciplineDigest がこれを消費（判定の二重実装を作らない）。
+  function zigzagSegments(prices, pivots, opts) {
+    opts = opts || {};
+    var trendPct = opts.trendPct != null ? opts.trendPct : 0.03;
+    var minTouches = opts.minTouches != null ? opts.minTouches : 2;
+    var clusterTol = opts.clusterTol != null ? opts.clusterTol : autoClusterTol(prices);
+    var segs = [];
+    var n = pivots.length;
+    var i = 0;
+    while (i < n - 1) {
+      var bestK = -1, bestBand = null;
+      for (var k = i + (2 * minTouches - 1); k < n; k++) {
+        var highs = [], lows = [];
+        for (var w = i; w <= k; w++) { (pivots[w].type === "high" ? highs : lows).push(pivots[w].value); }
+        if (highs.length < minTouches || lows.length < minTouches) continue;
+        var resistance = _mean(highs), support = _mean(lows), mid = (resistance + support) / 2 || 1;
+        var highsSpread = (Math.max.apply(null, highs) - Math.min.apply(null, highs)) / mid;
+        var lowsSpread = (Math.max.apply(null, lows) - Math.min.apply(null, lows)) / mid;
+        if (highsSpread <= clusterTol && lowsSpread <= clusterTol && resistance > support) {
+          bestK = k; bestBand = { support: support, resistance: resistance, touchHigh: highs.length, touchLow: lows.length };
+        } else break;
+      }
+      if (bestK >= 0) {
+        segs.push({
+          type: "range", startIdx: pivots[i].idx, endIdx: pivots[bestK].idx,
+          support: bestBand.support, resistance: bestBand.resistance,
+          touchHigh: bestBand.touchHigh, touchLow: bestBand.touchLow, pivots: pivots.slice(i, bestK + 1),
+        });
+        i = bestK;
+      } else {
+        var p1 = pivots[i], p2 = pivots[i + 1], change = (p2.value - p1.value) / p1.value;
+        if (Math.abs(change) >= trendPct && (p2.idx - p1.idx) >= 3) {
+          segs.push({ type: "trend", startIdx: p1.idx, endIdx: p2.idx, startVal: p1.value, endVal: p2.value, change: change });
+        }
+        i = i + 1;
+      }
+    }
+    return segs;
+  }
+
+  // ヘルパ: 配列の平均値を求める
+  function _mean(a) { return a.reduce(function (x, y) { return x + y; }, 0) / a.length; }
+
   // ── 出来高バーの色（陽線=赤系 / 陰線=青系）。index.html 3555-3559 のインライン map を純関数化。
   function volumeColorData(displayPrices) {
     return displayPrices.map((p) => ({
@@ -918,7 +968,7 @@
 
   return {
     // テクニカル純関数
-    calcMA, calcBB, detectSR, calcRSI, calcEMA, calcMACD, calcZigZag, autoZigZagDeviation, volumeColorData,
+    calcMA, calcBB, detectSR, calcRSI, calcEMA, calcMACD, calcZigZag, autoZigZagDeviation, zigzagSegments, autoClusterTol, volumeColorData,
     calcATR, calcADX, calcKeltner, calcOBV, calcVWAP, disciplineDigest,
     signalDigest, healthTrendSeries, dupontFactorSeries, fcfTrendSeries,
     // 財務ディスクリプタ純関数

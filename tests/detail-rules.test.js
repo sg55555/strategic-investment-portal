@@ -779,3 +779,62 @@ test("disciplineDigest: 状態語と note を返し score なし・データ不�
   ["value", "score", "weight"].forEach((k) => assert.ok(!(k in d)));
   FORBIDDEN.ALL.forEach((re) => assert.ok(!re.test(d.note || ""), "禁止語: " + re));
 });
+
+// ── ZigZag レンジ帯検出（zigzagSegments / autoClusterTol）───────────────
+function pxOf(pivots, n) {
+  // pivots の最大 idx をカバーする最小限の prices（zigzagSegments は pivots 主体・prices は autoClusterTol 用）
+  const out = []; const maxIdx = pivots.reduce((m, p) => Math.max(m, p.idx), 0);
+  for (let i = 0; i <= Math.max(maxIdx, n - 1); i++) out.push({ time: "2024-01-01", open: 100, high: 101, low: 99, close: 100 });
+  return out;
+}
+const OPT = { trendPct: 0.03, minTouches: 2, clusterTol: 0.025 };
+
+test("zigzagSegments: 明確な横ばい→1つの range 帯（複数ピボットを束ねる）", () => {
+  const pivots = [
+    { idx: 2, value: 104, type: "low" }, { idx: 8, value: 121, type: "high" },
+    { idx: 14, value: 105, type: "low" }, { idx: 20, value: 120, type: "high" },
+    { idx: 26, value: 104, type: "low" },
+  ];
+  const segs = D.zigzagSegments(pxOf(pivots, 30), pivots, OPT);
+  const ranges = segs.filter((s) => s.type === "range");
+  assert.equal(ranges.length, 1);
+  assert.equal(ranges[0].startIdx, 2);
+  assert.equal(ranges[0].endIdx, 26);
+  assert.ok(ranges[0].resistance > ranges[0].support);
+  assert.equal(ranges[0].touchHigh + ranges[0].touchLow, 5);
+});
+
+test("zigzagSegments: 連続切り上げ→trend のみ・range 0（誤帯化しない）", () => {
+  const pivots = [
+    { idx: 0, value: 100, type: "low" }, { idx: 5, value: 112, type: "high" },
+    { idx: 10, value: 108, type: "low" }, { idx: 15, value: 125, type: "high" },
+    { idx: 20, value: 120, type: "low" }, { idx: 25, value: 140, type: "high" },
+  ];
+  const segs = D.zigzagSegments(pxOf(pivots, 30), pivots, OPT);
+  assert.equal(segs.filter((s) => s.type === "range").length, 0);
+  assert.ok(segs.some((s) => s.type === "trend"));
+});
+
+test("zigzagSegments: 帯→ブレイクの reconciliation（[range, trend]）", () => {
+  const pivots = [
+    { idx: 2, value: 104, type: "low" }, { idx: 8, value: 121, type: "high" },
+    { idx: 14, value: 105, type: "low" }, { idx: 20, value: 120, type: "high" },
+    { idx: 26, value: 104, type: "low" }, { idx: 40, value: 150, type: "high" },
+  ];
+  const segs = D.zigzagSegments(pxOf(pivots, 44), pivots, OPT);
+  assert.equal(segs[0].type, "range");
+  assert.equal(segs[segs.length - 1].type, "trend");
+  assert.equal(segs[segs.length - 1].endIdx, 40);
+});
+
+test("zigzagSegments: ピボット不足(<2*minTouches)→range なし", () => {
+  const pivots = [{ idx: 0, value: 100, type: "low" }, { idx: 5, value: 120, type: "high" }, { idx: 10, value: 101, type: "low" }];
+  const segs = D.zigzagSegments(pxOf(pivots, 12), pivots, OPT);
+  assert.equal(segs.filter((s) => s.type === "range").length, 0);
+});
+
+test("autoClusterTol: [0.02,0.045] にクランプ", () => {
+  const flat = []; for (let i = 0; i < 30; i++) flat.push({ close: 100, high: 100.5, low: 99.5 });
+  const t = D.autoClusterTol(flat);
+  assert.ok(t >= 0.02 && t <= 0.045, "in range: " + t);
+});
