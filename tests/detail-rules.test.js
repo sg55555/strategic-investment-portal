@@ -865,7 +865,7 @@ test("signalDigest zigzag 行: 末尾が横ばい帯なら readout に帯幅・s
   // state は閉じた enum 値のみ
   assert.ok(["直近の確定区間はレンジ", "直近の確定区間はトレンド", "データ不足"].includes(z.state));
   // 末尾が帯なら readout に帯幅パーセンテージが明示される（新実装で追加される）
-  if (z.state === "直近の確定区間はレンジ") {
-    assert.ok(/帯幅/.test(z.readout), `帯幅が readout に含まれるべき、実際: ${z.readout}`);
-  }
+  // ガード条件撤去＝crafted横ばいデータは確実に range state に着地し帯幅を出すべき（回帰ロック強化）
+  assert.equal(z.state, "直近の確定区間はレンジ");
+  assert.ok(/帯幅/.test(z.readout), `帯幅が readout に含まれるべき、実際: ${z.readout}`);
 });
