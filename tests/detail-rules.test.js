@@ -885,13 +885,43 @@ test("disciplineDigest.range: 末尾が横ばい帯なら ok:true・横ばい帯
   assert.equal(typeof d.range.touches, "number");
   // 通貨非依存＝絶対価格キーを含まない
   ["support", "resistance", "price"].forEach((k) => assert.ok(!(k in d.range)));
+  // FORBIDDEN 拡張スキャンが range.state 経路を実際に検査することの直接ロック（Task3 review Finding2）＝
+  // 既存の disciplineDigest 汎用テスト（770行）は range.ok:false データのため range.state="" で素通りする。
+  // ここは range.ok:true・range.state 非空のデータなので、range.state 自体に禁止語スキャンをかける。
+  assert.ok(d.range.state && d.range.state.length > 0);
+  FORBIDDEN.ALL.forEach((re) => assert.ok(!re.test(d.range.state), "禁止語: " + re));
 });
 
-test("disciplineDigest.range: 窓前半で横ばい→その後ずっと上昇（帯が古い）なら ok:false（recency 錠・C1）", () => {
+test("disciplineDigest.range: 窓前半で横ばい帯（真に検出）→その後ずっと単調上昇（帯が古い）なら ok:false（recency 錠・C1・bar距離錠の真の回帰ロック）", () => {
+  // Task3 review Finding1 の修正＝旧データは band が一度も検出されず（zigzagSegments が trend 1本のみを
+  // 返す）ok:false になっていたため、bar-distance 錠を外しても FAIL しない vacuous test だった
+  // （mutation で実証：距離錠を無条件で無効化しても ok:false のまま＝距離錠を一度も通過していない）。
+  //
+  // 差し替え後のデータは以下をローカルで実測確認済（デバッグ出力・mutation は確認後に削除しクリーンな
+  // テストのみ残す）:
+  //   (a) この構成で d.range.ok === false（本アサーション）。
+  //   (b) zigzagSegments(dp, calcZigZag(dp, autoZigZagDeviation(dp))) の末尾が
+  //       [...,{type:'range', startIdx:2, endIdx:37, touchHigh:4, touchLow:4}, {type:'trend', startIdx:37, endIdx:139}]
+  //       ＝band は prevSeg（range）経由で真に検出される（band=null で ok:false になっているのではない）。
+  //   (c) bar-distance 錠を一時的に無効化する（recencyBars を巨大化 or 条件を外す）と、同じ band で
+  //       closeV(242.6) > band.resistance(110.6) のため ok:true・state:'上抜け（直近）' になる
+  //       （＝月遅れブレイクを"上抜け（直近）"にしない、という距離錠が実際に効いていることの証明）。
+  //       dp.length=140・recencyBars=max(10,round(140*0.2))=28・band.endIdx=37・distance=139-37=102>28。
   const prices = []; const base = Date.UTC(2024, 0, 1);
-  for (let i = 0; i < 30; i++) prices.push(mkBar(base, i, 100 + 100 * 0.06 * Math.sin((2 * Math.PI * 2.5 * i) / 30))); // 前半=横ばい
-  for (let i = 30; i < 120; i++) prices.push(mkBar(base, i, 100 + (i - 30) * 1.2)); // 以後ずっと上昇
+  // 前半=横ばい帯（center±10%=20%級の振幅・4往復）。autoZigZagDeviation は全体レンジが大きいと上限0.08に
+  // 張り付くため、振幅を大きめにして確実にピボット化させる。クラスタは各往復の高値/安値が同一水準で
+  // ノイズなくクリーンに揃うため autoClusterTol（≈0.04）内に収まる。
+  const rangeLen = 40, cycles = 4, amp = 10;
+  for (let i = 0; i < rangeLen; i++) {
+    prices.push(mkBar(base, i, 100 + amp * Math.sin((2 * Math.PI * cycles * i) / rangeLen)));
+  }
+  // 後半=1本の連続単調上昇トレンドで窓末尾まで（calcZigZag が「range 終端の低値→末尾高値」の2ピボット＝
+  // trend 1本になるよう単調増加）。帯の終端（endIdx=37）から dp 末尾まで十分離れる＝bar-distance 錠が効く。
+  const startTrend = 100 + amp * Math.sin((2 * Math.PI * cycles * (rangeLen - 1)) / rangeLen);
+  for (let i = 0; i < 100; i++) {
+    prices.push(mkBar(base, rangeLen + i, startTrend + i * 1.5 + 0.01));
+  }
   const d = D.disciplineDigest(prices, prices);
   assert.equal(d.ok, true);
-  assert.equal(d.range.ok, false); // 月遅れブレイクを"上抜け（直近）"にしない
+  assert.equal(d.range.ok, false); // band は検出済（古い横ばい帯）だが距離錠で"上抜け（直近）"にしない
 });
