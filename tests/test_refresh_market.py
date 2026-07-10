@@ -3,6 +3,11 @@ import pytest
 from scripts.refresh_market import map_ohlcv_rows, map_info_fields, map_financials_rows
 
 
+class _NullConn:
+    def __enter__(self): return self
+    def __exit__(self, *a): return False
+
+
 def test_map_ohlcv_rows_filters_non_finite():
     hist = [
         {"date": "2026-07-10", "open": 100.0, "high": 110.0, "low": 99.0, "close": 105.0, "volume": 1000},
@@ -58,3 +63,29 @@ def test_run_prices_partial_failure(monkeypatch):
     res = R.run_prices(FakeConn(), ["AAA.T", "BBB.T"], download_fn=fake_download, info_fn=fake_info)
     assert res["ok"] == 1 and res["failed"] == ["BBB.T"]        # BBB は足0で失敗計上
     assert calls["info"][0][0] == "AAA.T"
+
+
+def test_upsert_financials_protects_edinet(monkeypatch):
+    from scripts import refresh_market as R
+    captured = {}
+    class Cur:
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def executemany(self, sql, rows): captured["sql"] = sql; captured["rows"] = rows
+    class Conn:
+        def cursor(self): return Cur()
+    rows = R.map_financials_rows("NEW", {2025: {"Total Revenue": 100.0}})
+    R.upsert_financials(Conn(), rows)
+    # EDINET 行を守るガードが SQL に入っている
+    assert "source='yfinance'" in captured["sql"].replace(" ", "") or \
+           "source = 'yfinance'" in captured["sql"]
+    assert captured["rows"][0][0] == "NEW"
+
+
+def test_main_loud_fail_when_all_fail(monkeypatch):
+    from scripts import refresh_market as R
+    monkeypatch.setattr(R, "_connect", lambda: _NullConn())
+    monkeypatch.setattr(R, "run_prices", lambda conn, tks, **k: {"ok": 0, "failed": tks})
+    monkeypatch.setattr(R, "_load_tickers", lambda conn: ["X", "Y"])
+    rc = R.main(["--prices"])
+    assert rc != 0   # 全失敗は非ゼロ終了

@@ -6,6 +6,7 @@
 """
 from __future__ import annotations
 import math
+import os
 import sys
 
 # yfinance 財務ラベル → schema 列名（欠損はそのまま None）。
@@ -138,3 +139,97 @@ def run_prices(conn, tickers, download_fn=None, info_fn=None):
 def _live_info(ticker):
     import yfinance as yf
     return yf.Ticker(ticker).info
+
+
+def upsert_financials(conn, rows):
+    if not rows:
+        return 0
+    cols = ("ticker,fiscal_year,fiscal_period,current_assets,non_current_assets,"
+            "current_liabilities,non_current_liabilities,net_assets,net_sales,"
+            "gross_profit,operating_income,ordinary_income,income_before_taxes,"
+            "net_income,operating_cf,investing_cf,financing_cf,cf_cash_start,"
+            "cf_cash_end,source")
+    setexpr = ", ".join(f"{c}=EXCLUDED.{c}" for c in
+                        cols.split(",")[3:19])  # 財務16列のみ更新（PK/source は除外）
+    sql = (f"INSERT INTO market.financials_annual ({cols}) VALUES "
+           f"({','.join(['%s']*20)}) "
+           f"ON CONFLICT (ticker,fiscal_year,fiscal_period) DO UPDATE SET {setexpr} "
+           f"WHERE financials_annual.source='yfinance'")   # EDINET 行は保護
+    with conn.cursor() as cur:
+        cur.executemany(sql, rows)
+    return len(rows)
+
+
+def run_financials(conn, tickers, fin_fn=None):
+    ok, failed = 0, []
+    for tk in tickers:
+        try:
+            fin = fin_fn(tk) if fin_fn else _live_financials(tk)
+            rows = map_financials_rows(tk, fin)
+            if not rows:
+                failed.append(tk); continue
+            upsert_financials(conn, rows)
+            ok += 1
+        except Exception as e:  # noqa: BLE001
+            print(f"[WARN] financials {tk}: {e}", file=sys.stderr)
+            failed.append(tk)
+    return {"ok": ok, "failed": failed}
+
+
+def _live_financials(ticker):
+    import yfinance as yf
+    t = yf.Ticker(ticker)
+    fin = {}
+    def _absorb(df, orient):
+        for col in df.columns:
+            fy = getattr(col, "year", None)
+            if fy is None:
+                continue
+            fin.setdefault(fy, {})
+            for label in df.index:
+                fin[fy][str(label)] = df.loc[label, col]
+    for df in (t.income_stmt, t.balance_sheet, t.cashflow):
+        if df is not None and not df.empty:
+            _absorb(df, None)
+    return fin
+
+
+def _connect():
+    url = os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL")
+    if not url:
+        raise SystemExit("DATABASE_URL not set")
+    import psycopg
+    return psycopg.connect(url)
+
+
+def _load_tickers(conn):
+    with conn.cursor() as cur:
+        cur.execute("SELECT ticker FROM market.ticker_master ORDER BY ticker")
+        return [r[0] for r in cur.fetchall()]
+
+
+def main(argv=None):
+    argv = argv if argv is not None else sys.argv[1:]
+    do_prices = "--prices" in argv or "--all" in argv
+    do_fin = "--financials" in argv or "--all" in argv
+    if not (do_prices or do_fin):
+        print("usage: refresh_market.py [--prices|--financials|--all]", file=sys.stderr)
+        return 2
+    with _connect() as conn:
+        tickers = _load_tickers(conn)
+        total_ok = 0
+        if do_prices:
+            r = run_prices(conn, tickers)
+            print(f"[prices] ok={r['ok']} failed={len(r['failed'])}", file=sys.stderr)
+            total_ok += r["ok"]
+        if do_fin:
+            r = run_financials(conn, tickers)
+            print(f"[financials] ok={r['ok']} failed={len(r['failed'])}", file=sys.stderr)
+            total_ok += r["ok"]
+        # psycopg3 の `with connection:` は正常終了時に自動 commit（例外時は rollback）するため
+        # 明示的 conn.commit() は不要（テストダブル _NullConn は commit を持たない前提とも整合）。
+    return 0 if total_ok > 0 else 1   # loud-fail: 全失敗は非ゼロ
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
