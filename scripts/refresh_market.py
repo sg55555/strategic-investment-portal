@@ -75,3 +75,66 @@ def map_financials_rows(ticker: str, fin: dict) -> list[tuple]:
                 vals[col] = _finite(v)
         rows.append((ticker, int(fy), "FY", *[vals[c] for c in _FIN_COLS], "yfinance"))
     return rows
+
+
+def fetch_prices(tickers, download_fn=None):
+    if download_fn is None:
+        import yfinance as yf
+        def download_fn(tks):
+            df = yf.download(tks, period="10d", group_by="ticker", threads=True,
+                             progress=False, auto_adjust=True)
+            out = {}
+            for tk in tks:
+                sub = df[tk] if len(tks) > 1 else df
+                hist = []
+                for idx, row in sub.dropna().iterrows():
+                    hist.append({"date": idx.strftime("%Y-%m-%d"),
+                                 "open": row["Open"], "high": row["High"],
+                                 "low": row["Low"], "close": row["Close"],
+                                 "volume": row.get("Volume", 0)})
+                out[tk] = hist
+            return out
+    return download_fn(tickers)
+
+
+def upsert_ohlcv(conn, rows):
+    if not rows:
+        return 0
+    with conn.cursor() as cur:
+        cur.executemany(
+            "INSERT INTO market.ohlcv (ticker,date,open,high,low,close,volume) "
+            "VALUES (%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (ticker,date) DO UPDATE SET "
+            "open=EXCLUDED.open, high=EXCLUDED.high, low=EXCLUDED.low, "
+            "close=EXCLUDED.close, volume=EXCLUDED.volume", rows)
+    return len(rows)
+
+
+def upsert_ticker_info(conn, ticker, fields):
+    with conn.cursor() as cur:
+        cur.execute(
+            "UPDATE market.ticker_master SET market_cap=%s, per=%s, pbr=%s, updated_at=now() "
+            "WHERE ticker=%s",
+            (fields["market_cap"], fields["per"], fields["pbr"], ticker))
+
+
+def run_prices(conn, tickers, download_fn=None, info_fn=None):
+    hist_map = fetch_prices(tickers, download_fn)
+    ok, failed = 0, []
+    for tk in tickers:
+        try:
+            rows = map_ohlcv_rows(tk, hist_map.get(tk, []))
+            if not rows:
+                failed.append(tk); continue
+            upsert_ohlcv(conn, rows)
+            info = info_fn(tk) if info_fn else _live_info(tk)
+            upsert_ticker_info(conn, tk, map_info_fields(info))
+            ok += 1
+        except Exception as e:  # noqa: BLE001
+            print(f"[WARN] prices {tk}: {e}", file=sys.stderr)
+            failed.append(tk)
+    return {"ok": ok, "failed": failed}
+
+
+def _live_info(ticker):
+    import yfinance as yf
+    return yf.Ticker(ticker).info

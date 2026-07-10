@@ -35,3 +35,26 @@ def test_map_financials_rows_maps_and_tags_source():
     assert r[8] == 1000.0   # net_sales
     assert r[9] == 300.0    # gross_profit
     assert r[-1] == "yfinance"   # source タグ
+
+
+def test_run_prices_partial_failure(monkeypatch):
+    from scripts import refresh_market as R
+
+    def fake_download(tickers):
+        # AAA は成功・BBB は空（取得不能）を模す
+        return {"AAA.T": [{"date": "2026-07-10", "open": 1, "high": 2, "low": 1, "close": 2, "volume": 5}],
+                "BBB.T": []}
+
+    def fake_info(tk):
+        return {"marketCap": 1e9, "trailingPE": 10, "priceToBook": 1}
+
+    calls = {"ohlcv": [], "info": []}
+    class FakeConn:  # upsert を捕捉する軽量ダブル
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+    monkeypatch.setattr(R, "upsert_ohlcv", lambda conn, rows: calls["ohlcv"].append(rows) or len(rows))
+    monkeypatch.setattr(R, "upsert_ticker_info", lambda conn, tk, f: calls["info"].append((tk, f)))
+
+    res = R.run_prices(FakeConn(), ["AAA.T", "BBB.T"], download_fn=fake_download, info_fn=fake_info)
+    assert res["ok"] == 1 and res["failed"] == ["BBB.T"]        # BBB は足0で失敗計上
+    assert calls["info"][0][0] == "AAA.T"
