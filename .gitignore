@@ -3,8 +3,10 @@
 __pycache__/
 *.pyc
 
-# データ・DB（ローカルのみ）
-data/
+# データ・DB（ローカルのみ）。ただし universe.csv は Plan 1 §3.3 のキュレーション済み
+# ticker シード（scripts/seed_universe.py が読む）で意図的にコミット対象。
+data/*
+!data/universe.csv
 logs/
 
 # 一時ファイル（EDINETダウンロード等）

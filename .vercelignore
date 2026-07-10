@@ -13,3 +13,6 @@ tmp/
 .venv/
 .env
 data-bundle.js
+# data/universe.csv はビルド時シード専用（scripts/seed_universe.py が Neon へ upsert）。
+# 静的アセットとして配信する必要はないため除外。
+data/

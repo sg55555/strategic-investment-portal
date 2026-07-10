@@ -1,0 +1,290 @@
+ticker,company_name,industry,currency,country,type
+1306.T,NEXT FUNDS TOPIX連動型上場投信,国内ETF - TOPIX,JPY,JP,etf
+1321.T,NEXT FUNDS 日経225連動型上場投信,国内ETF - 日経225,JPY,JP,etf
+1343.T,NEXT FUNDS 東証REIT指数連動型上場投信,国内ETF - REIT,JPY,JP,etf
+1348.T,MAXIS トピックス上場投信,国内ETF - TOPIX,JPY,JP,etf
+2269.T,明治ホールディングス,食品・飲料,JPY,JP,stock
+2502.T,アサヒグループホールディングス,食品・飲料,JPY,JP,stock
+2503.T,キリンホールディングス,食品・飲料,JPY,JP,stock
+2558.T,MAXIS米国株式(S&P500)上場投信,国内ETF - 米国株式,JPY,JP,etf
+2801.T,キッコーマン,食品・飲料,JPY,JP,stock
+2802.T,味の素,食品・飲料,JPY,JP,stock
+2897.T,日清食品ホールディングス,食品・飲料,JPY,JP,stock
+3289.T,東急不動産ホールディングス,不動産,JPY,JP,stock
+3382.T,セブン&アイ・ホールディングス,小売業,JPY,JP,stock
+3402.T,東レ,化学・素材,JPY,JP,stock
+3407.T,旭化成,化学・素材,JPY,JP,stock
+3436.T,SUMCO,電気機器・半導体,JPY,JP,stock
+4063.T,信越化学工業,化学・素材,JPY,JP,stock
+4307.T,野村総合研究所,電機・ITサービス,JPY,JP,stock
+4324.T,電通グループ,情報通信,JPY,JP,stock
+4452.T,花王,化学・素材,JPY,JP,stock
+4502.T,武田薬品工業,医薬品・バイオ,JPY,JP,stock
+4503.T,アステラス製薬,医薬品・バイオ,JPY,JP,stock
+4507.T,塩野義製薬,医薬品・バイオ,JPY,JP,stock
+4519.T,中外製薬,医薬品・バイオ,JPY,JP,stock
+4568.T,第一三共,医薬品・バイオ,JPY,JP,stock
+4578.T,大塚ホールディングス,医薬品・バイオ,JPY,JP,stock
+4661.T,オリエンタルランド,エンターテインメント,JPY,JP,stock
+4755.T,楽天グループ,情報通信,JPY,JP,stock
+4901.T,富士フイルムホールディングス,化学・素材,JPY,JP,stock
+4911.T,資生堂,化学・素材,JPY,JP,stock
+5108.T,ブリヂストン,自動車部品・電装,JPY,JP,stock
+5401.T,日本製鉄,化学・素材,JPY,JP,stock
+5411.T,JFEホールディングス,化学・素材,JPY,JP,stock
+5802.T,住友電気工業,自動車部品・電装,JPY,JP,stock
+6098.T,リクルートホールディングス,情報通信,JPY,JP,stock
+6301.T,コマツ,空調・産業機器,JPY,JP,stock
+6326.T,クボタ,空調・産業機器,JPY,JP,stock
+6367.T,ダイキン工業,空調・産業機器,JPY,JP,stock
+6501.T,日立製作所,電機・インフラIT,JPY,JP,stock
+6503.T,三菱電機,電機・インフラIT,JPY,JP,stock
+6506.T,安川電機,産業用ロボット,JPY,JP,stock
+6594.T,ニデック,電気機器・半導体,JPY,JP,stock
+6701.T,NEC,電機・ITサービス,JPY,JP,stock
+6702.T,富士通,電機・ITサービス,JPY,JP,stock
+6723.T,ルネサスエレクトロニクス,電気機器・半導体,JPY,JP,stock
+6752.T,パナソニックホールディングス,テクノロジー・家電,JPY,JP,stock
+6762.T,TDK,電気機器・半導体,JPY,JP,stock
+6857.T,アドバンテスト,電気機器・半導体,JPY,JP,stock
+6861.T,キーエンス,テクノロジー・家電,JPY,JP,stock
+6902.T,デンソー,自動車部品・電装,JPY,JP,stock
+6954.T,ファナック,産業用ロボット,JPY,JP,stock
+6971.T,京セラ,電気機器・半導体,JPY,JP,stock
+6981.T,村田製作所,電気機器・半導体,JPY,JP,stock
+7011.T,三菱重工業,重工・防衛,JPY,JP,stock
+7012.T,川崎重工業,重工・防衛,JPY,JP,stock
+7013.T,IHI,重工・防衛,JPY,JP,stock
+7182.T,ゆうちょ銀行,銀行・金融,JPY,JP,stock
+7201.T,日産自動車,自動車・輸送機器,JPY,JP,stock
+7202.T,いすゞ自動車,自動車・輸送機器,JPY,JP,stock
+7203.T,トヨタ自動車,自動車・輸送機器,JPY,JP,stock
+7259.T,アイシン,自動車部品・電装,JPY,JP,stock
+7261.T,マツダ,自動車・輸送機器,JPY,JP,stock
+7267.T,本田技研工業,自動車・輸送機器,JPY,JP,stock
+7269.T,スズキ,自動車・輸送機器,JPY,JP,stock
+7733.T,オリンパス,精密機器・半導体,JPY,JP,stock
+7741.T,HOYA,精密機器・半導体,JPY,JP,stock
+7832.T,バンダイナムコホールディングス,エンターテインメント,JPY,JP,stock
+7974.T,任天堂,テクノロジー・家電,JPY,JP,stock
+8001.T,伊藤忠商事,総合商社,JPY,JP,stock
+8002.T,丸紅,総合商社,JPY,JP,stock
+8035.T,東京エレクトロン,電気機器・半導体,JPY,JP,stock
+8053.T,住友商事,総合商社,JPY,JP,stock
+8058.T,三菱商事,総合商社,JPY,JP,stock
+8267.T,イオン,小売業,JPY,JP,stock
+8306.T,三菱UFJフィナンシャル・グループ,銀行・金融,JPY,JP,stock
+8308.T,りそなホールディングス,銀行・金融,JPY,JP,stock
+8309.T,三井住友トラスト・ホールディングス,銀行・金融,JPY,JP,stock
+8316.T,三井住友フィナンシャルグループ,銀行・金融,JPY,JP,stock
+8411.T,みずほフィナンシャルグループ,銀行・金融,JPY,JP,stock
+8591.T,オリックス,証券・金融サービス,JPY,JP,stock
+8604.T,野村ホールディングス,証券・金融サービス,JPY,JP,stock
+8630.T,SOMPOホールディングス,保険,JPY,JP,stock
+8697.T,日本取引所グループ,証券・金融サービス,JPY,JP,stock
+8725.T,MS&ADインシュアランスグループHD,保険,JPY,JP,stock
+8750.T,第一生命ホールディングス,保険,JPY,JP,stock
+8766.T,東京海上ホールディングス,保険,JPY,JP,stock
+8795.T,T&Dホールディングス,保険,JPY,JP,stock
+8801.T,三井不動産,不動産,JPY,JP,stock
+8830.T,住友不動産,不動産,JPY,JP,stock
+9020.T,東日本旅客鉄道,運輸・インフラ,JPY,JP,stock
+9022.T,東海旅客鉄道,運輸・インフラ,JPY,JP,stock
+9101.T,日本郵船,運輸・インフラ,JPY,JP,stock
+9104.T,商船三井,運輸・インフラ,JPY,JP,stock
+9107.T,川崎汽船,運輸・インフラ,JPY,JP,stock
+9202.T,ANAホールディングス,運輸・インフラ,JPY,JP,stock
+9432.T,日本電信電話,情報通信,JPY,JP,stock
+9433.T,KDDI,情報通信,JPY,JP,stock
+9434.T,ソフトバンク,情報通信,JPY,JP,stock
+9501.T,東京電力ホールディングス,電力・ガス,JPY,JP,stock
+9502.T,中部電力,電力・ガス,JPY,JP,stock
+9531.T,東京瓦斯,電力・ガス,JPY,JP,stock
+9684.T,スクウェア・エニックス・ホールディングス,エンターテインメント,JPY,JP,stock
+9697.T,カプコン,エンターテインメント,JPY,JP,stock
+9843.T,ニトリホールディングス,小売業,JPY,JP,stock
+9983.T,ファーストリテイリング,小売業,JPY,JP,stock
+AAPL,Apple,US - テクノロジー,USD,US,stock
+ABBV,AbbVie,US - 医薬品・バイオ,USD,US,stock
+ABT,Abbott Laboratories,US - 医薬品・バイオ,USD,US,stock
+ADBE,Adobe,US - テクノロジー,USD,US,stock
+ADI,Analog Devices,US - 半導体・AI,USD,US,stock
+ADSK,Autodesk,US - クラウド・SaaS,USD,US,stock
+AEP,American Electric Power,US - 公益事業,USD,US,stock
+AGG,iShares Core U.S. Aggregate Bond ETF,US - 債券・コモディティETF,USD,US,etf
+AIG,American International Group,US - 保険,USD,US,stock
+ALL,Allstate Corporation,US - 保険,USD,US,stock
+AMAT,Applied Materials,US - 半導体・AI,USD,US,stock
+AMD,Advanced Micro Devices,US - 半導体・AI,USD,US,stock
+AMGN,Amgen,US - 医薬品・バイオ,USD,US,stock
+AMT,American Tower Corporation,US - REIT・不動産,USD,US,stock
+AMZN,Amazon,US - EC・クラウド,USD,US,stock
+APD,Air Products and Chemicals,US - 素材・化学,USD,US,stock
+ARM,Arm Holdings,US - 半導体・AI,USD,US,stock
+AVGO,Broadcom,US - 半導体・AI,USD,US,stock
+AXP,American Express,US - 決済・フィンテック,USD,US,stock
+BA,Boeing,US - 資本財・防衛,USD,US,stock
+BAC,Bank of America,US - 銀行・金融,USD,US,stock
+BLK,BlackRock,US - 証券・資産運用,USD,US,stock
+BMY,Bristol-Myers Squibb,US - 医薬品・バイオ,USD,US,stock
+BRK-B,Berkshire Hathaway B,US - 銀行・金融,USD,US,stock
+C,Citigroup,US - 銀行・金融,USD,US,stock
+CAT,Caterpillar,US - 資本財・防衛,USD,US,stock
+CHTR,Charter Communications,US - 通信,USD,US,stock
+CI,Cigna Group,US - 保険,USD,US,stock
+CL,Colgate-Palmolive,US - 生活必需品,USD,US,stock
+CMCSA,Comcast Corporation,US - エンターテインメント,USD,US,stock
+CME,CME Group,US - 証券・資産運用,USD,US,stock
+CMG,Chipotle Mexican Grill,US - 飲食・外食,USD,US,stock
+COF,Capital One Financial,US - 銀行・金融,USD,US,stock
+COP,ConocoPhillips,US - エネルギー,USD,US,stock
+COST,Costco Wholesale,US - 小売・流通,USD,US,stock
+CRM,Salesforce,US - クラウド・SaaS,USD,US,stock
+CRWD,CrowdStrike Holdings,US - クラウド・SaaS,USD,US,stock
+CSCO,Cisco Systems,US - テクノロジー,USD,US,stock
+CSX,CSX Corporation,US - 運輸・物流,USD,US,stock
+CVS,CVS Health,US - 保険,USD,US,stock
+CVX,Chevron Corporation,US - エネルギー,USD,US,stock
+D,Dominion Energy,US - 公益事業,USD,US,stock
+DAL,Delta Air Lines,US - 運輸・物流,USD,US,stock
+DDOG,Datadog,US - クラウド・SaaS,USD,US,stock
+DE,Deere & Company,US - 資本財・防衛,USD,US,stock
+DELL,Dell Technologies,US - テクノロジー,USD,US,stock
+DG,Dollar General,US - 小売・流通,USD,US,stock
+DHR,Danaher Corporation,US - 医薬品・バイオ,USD,US,stock
+DIA,SPDR Dow Jones Industrial Average ETF,US - インデックスETF,USD,US,etf
+DIS,Walt Disney,US - エンターテインメント,USD,US,stock
+DOW,Dow Inc.,US - 素材・化学,USD,US,stock
+DUK,Duke Energy,US - 公益事業,USD,US,stock
+EA,Electronic Arts,US - エンターテインメント,USD,US,stock
+ECL,Ecolab,US - 素材・化学,USD,US,stock
+EOG,EOG Resources,US - エネルギー,USD,US,stock
+EQIX,Equinix,US - REIT・不動産,USD,US,stock
+F,Ford Motor Company,US - 自動車,USD,US,stock
+FCX,Freeport-McMoRan,US - 素材・化学,USD,US,stock
+FDX,FedEx Corporation,US - 運輸・物流,USD,US,stock
+FISV,Fiserv,US - 決済・フィンテック,USD,US,stock
+GD,General Dynamics,US - 資本財・防衛,USD,US,stock
+GE,GE Aerospace,US - 資本財・防衛,USD,US,stock
+GILD,Gilead Sciences,US - 医薬品・バイオ,USD,US,stock
+GLD,SPDR Gold Shares,US - 債券・コモディティETF,USD,US,etf
+GM,General Motors,US - 自動車,USD,US,stock
+GOOGL,Alphabet (Google),US - 広告・クラウド,USD,US,stock
+GRMN,Garmin,US - テクノロジー,USD,US,stock
+GS,Goldman Sachs Group,US - 証券・資産運用,USD,US,stock
+HD,Home Depot,US - 小売・流通,USD,US,stock
+HON,Honeywell International,US - 資本財・防衛,USD,US,stock
+HPE,Hewlett Packard Enterprise,US - テクノロジー,USD,US,stock
+HPQ,HP Inc.,US - テクノロジー,USD,US,stock
+IBM,International Business Machines,US - テクノロジー,USD,US,stock
+ICE,Intercontinental Exchange,US - 証券・資産運用,USD,US,stock
+INTC,Intel Corporation,US - テクノロジー,USD,US,stock
+INTU,Intuit,US - クラウド・SaaS,USD,US,stock
+ISRG,Intuitive Surgical,US - 医薬品・バイオ,USD,US,stock
+IWM,iShares Russell 2000 ETF,US - インデックスETF,USD,US,etf
+JNJ,Johnson & Johnson,US - 医薬品・バイオ,USD,US,stock
+JPM,JPMorgan Chase,US - 銀行・金融,USD,US,stock
+KLAC,KLA Corporation,US - 半導体・AI,USD,US,stock
+KMB,Kimberly-Clark,US - 生活必需品,USD,US,stock
+KO,Coca-Cola Company,US - 生活必需品,USD,US,stock
+KR,Kroger,US - 小売・流通,USD,US,stock
+LIN,Linde plc,US - 素材・化学,USD,US,stock
+LLY,Eli Lilly and Company,US - 医薬品・バイオ,USD,US,stock
+LMT,Lockheed Martin,US - 資本財・防衛,USD,US,stock
+LOGI,Logitech International,US - テクノロジー,USD,US,stock
+LOW,Lowe's Companies,US - 小売・流通,USD,US,stock
+LRCX,Lam Research,US - 半導体・AI,USD,US,stock
+LYV,Live Nation Entertainment,US - エンターテインメント,USD,US,stock
+MA,Mastercard,US - 決済・フィンテック,USD,US,stock
+MDB,MongoDB,US - クラウド・SaaS,USD,US,stock
+MDLZ,Mondelez International,US - 生活必需品,USD,US,stock
+MDT,Medtronic,US - 医薬品・バイオ,USD,US,stock
+MET,MetLife,US - 保険,USD,US,stock
+META,Meta Platforms,US - SNS・AI,USD,US,stock
+MMM,3M Company,US - 資本財・防衛,USD,US,stock
+MO,Altria Group,US - 生活必需品,USD,US,stock
+MRK,Merck & Co.,US - 医薬品・バイオ,USD,US,stock
+MRNA,Moderna,US - 医薬品・バイオ,USD,US,stock
+MRVL,Marvell Technology,US - 半導体・AI,USD,US,stock
+MS,Morgan Stanley,US - 証券・資産運用,USD,US,stock
+MSFT,Microsoft,US - テクノロジー,USD,US,stock
+MU,Micron Technology,US - 半導体・AI,USD,US,stock
+NEE,NextEra Energy,US - 公益事業,USD,US,stock
+NET,Cloudflare,US - クラウド・SaaS,USD,US,stock
+NFLX,Netflix,US - エンターテインメント,USD,US,stock
+NOC,Northrop Grumman,US - 資本財・防衛,USD,US,stock
+NOW,ServiceNow,US - クラウド・SaaS,USD,US,stock
+NSC,Norfolk Southern Corporation,US - 運輸・物流,USD,US,stock
+NVDA,NVIDIA,US - 半導体・AI,USD,US,stock
+O,Realty Income Corporation,US - REIT・不動産,USD,US,stock
+ORCL,Oracle,US - テクノロジー,USD,US,stock
+OXY,Occidental Petroleum,US - エネルギー,USD,US,stock
+PANW,Palo Alto Networks,US - クラウド・SaaS,USD,US,stock
+PEP,PepsiCo,US - 生活必需品,USD,US,stock
+PFE,Pfizer,US - 医薬品・バイオ,USD,US,stock
+PG,Procter & Gamble,US - 生活必需品,USD,US,stock
+PGR,Progressive Corporation,US - 保険,USD,US,stock
+PINS,Pinterest,US - SNS・AI,USD,US,stock
+PLD,Prologis,US - REIT・不動産,USD,US,stock
+PM,Philip Morris International,US - 生活必需品,USD,US,stock
+PNC,PNC Financial Services Group,US - 銀行・金融,USD,US,stock
+PRU,Prudential Financial,US - 保険,USD,US,stock
+PSA,Public Storage,US - REIT・不動産,USD,US,stock
+PYPL,PayPal Holdings,US - 決済・フィンテック,USD,US,stock
+QCOM,Qualcomm,US - 半導体・AI,USD,US,stock
+QQQ,Invesco QQQ (NASDAQ 100),US - インデックスETF,USD,US,etf
+RDDT,Reddit,US - SNS・AI,USD,US,stock
+REGN,Regeneron Pharmaceuticals,US - 医薬品・バイオ,USD,US,stock
+ROST,Ross Stores,US - 小売・流通,USD,US,stock
+RTX,RTX Corporation,US - 資本財・防衛,USD,US,stock
+SBUX,Starbucks,US - 飲食・外食,USD,US,stock
+SCHW,Charles Schwab,US - 証券・資産運用,USD,US,stock
+SHOP,Shopify,US - クラウド・SaaS,USD,US,stock
+SLB,SLB (Schlumberger),US - エネルギー,USD,US,stock
+SNAP,Snap Inc.,US - SNS・AI,USD,US,stock
+SNOW,Snowflake,US - クラウド・SaaS,USD,US,stock
+SO,Southern Company,US - 公益事業,USD,US,stock
+SPG,Simon Property Group,US - REIT・不動産,USD,US,stock
+SPGI,S&P Global,US - 証券・資産運用,USD,US,stock
+SPOT,Spotify Technology,US - エンターテインメント,USD,US,stock
+SPY,S&P 500 ETF (SPY),US - インデックスETF,USD,US,etf
+STLA,Stellantis,US - 自動車,USD,US,stock
+SYK,Stryker Corporation,US - 医薬品・バイオ,USD,US,stock
+T,AT&T,US - 通信,USD,US,stock
+TEAM,Atlassian,US - クラウド・SaaS,USD,US,stock
+TFC,Truist Financial,US - 銀行・金融,USD,US,stock
+TGT,Target Corporation,US - 小売・流通,USD,US,stock
+TJX,TJX Companies,US - 小売・流通,USD,US,stock
+TLT,iShares 20+ Year Treasury Bond ETF,US - 債券・コモディティETF,USD,US,etf
+TMO,Thermo Fisher Scientific,US - 医薬品・バイオ,USD,US,stock
+TMUS,T-Mobile US,US - 通信,USD,US,stock
+TRV,Travelers Companies,US - 保険,USD,US,stock
+TSLA,Tesla,US - 電気自動車・エネルギー,USD,US,stock
+TTWO,Take-Two Interactive Software,US - エンターテインメント,USD,US,stock
+TXN,Texas Instruments,US - 半導体・AI,USD,US,stock
+UAL,United Airlines Holdings,US - 運輸・物流,USD,US,stock
+UNH,UnitedHealth Group,US - 保険,USD,US,stock
+UNP,Union Pacific Corporation,US - 運輸・物流,USD,US,stock
+UPS,United Parcel Service,US - 運輸・物流,USD,US,stock
+USB,U.S. Bancorp,US - 銀行・金融,USD,US,stock
+V,Visa,US - 決済・フィンテック,USD,US,stock
+VOO,Vanguard S&P 500 ETF,US - インデックスETF,USD,US,etf
+VRTX,Vertex Pharmaceuticals,US - 医薬品・バイオ,USD,US,stock
+VTI,Vanguard Total Market ETF,US - インデックスETF,USD,US,etf
+VZ,Verizon Communications,US - 通信,USD,US,stock
+WBD,Warner Bros. Discovery,US - エンターテインメント,USD,US,stock
+WDAY,Workday,US - クラウド・SaaS,USD,US,stock
+WFC,Wells Fargo,US - 銀行・金融,USD,US,stock
+WMT,Walmart,US - 小売・流通,USD,US,stock
+XLB,Materials Select Sector SPDR Fund,US - セクターETF,USD,US,etf
+XLE,Energy Select Sector SPDR Fund,US - セクターETF,USD,US,etf
+XLF,Financial Select Sector SPDR Fund,US - セクターETF,USD,US,etf
+XLI,Industrial Select Sector SPDR Fund,US - セクターETF,USD,US,etf
+XLK,Technology Select Sector SPDR Fund,US - セクターETF,USD,US,etf
+XLP,Consumer Staples Select Sector SPDR Fund,US - セクターETF,USD,US,etf
+XLU,Utilities Select Sector SPDR Fund,US - セクターETF,USD,US,etf
+XLV,Health Care Select Sector SPDR Fund,US - セクターETF,USD,US,etf
+XLY,Consumer Discretionary Select Sector SPDR Fund,US - セクターETF,USD,US,etf
+XOM,ExxonMobil,US - エネルギー,USD,US,stock
+YUM,Yum! Brands,US - 飲食・外食,USD,US,stock
+ZS,Zscaler,US - クラウド・SaaS,USD,US,stock
