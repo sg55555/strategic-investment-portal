@@ -82,11 +82,11 @@ def map_financials_rows(ticker: str, fin: dict) -> list[tuple]:
     return rows
 
 
-def fetch_prices(tickers, download_fn=None):
+def fetch_prices(tickers, download_fn=None, period="10d"):
     if download_fn is None:
         import yfinance as yf
         def download_fn(tks):
-            df = yf.download(tks, period="10d", group_by="ticker", threads=True,
+            df = yf.download(tks, period=period, group_by="ticker", threads=True,
                              progress=False, auto_adjust=True)
             out = {}
             for tk in tks:
@@ -126,8 +126,8 @@ def upsert_ticker_info(conn, ticker, fields):
             (fields["market_cap"], fields["per"], fields["pbr"], ticker))
 
 
-def run_prices(conn, tickers, download_fn=None, info_fn=None):
-    hist_map = fetch_prices(tickers, download_fn)
+def run_prices(conn, tickers, download_fn=None, info_fn=None, period="10d"):
+    hist_map = fetch_prices(tickers, download_fn, period)
     ok, failed = 0, []
     for tk in tickers:
         try:
@@ -222,17 +222,20 @@ def _load_tickers(conn):
 
 def main(argv=None):
     argv = argv if argv is not None else sys.argv[1:]
-    do_prices = "--prices" in argv or "--all" in argv
+    do_backfill = "--backfill" in argv          # 初回フル履歴（新規銘柄の5年チャート用）
+    do_prices = "--prices" in argv or "--all" in argv or do_backfill
     do_fin = "--financials" in argv or "--all" in argv
     if not (do_prices or do_fin):
-        print("usage: refresh_market.py [--prices|--financials|--all]", file=sys.stderr)
+        print("usage: refresh_market.py [--prices|--financials|--all|--backfill]", file=sys.stderr)
         return 2
     with _connect() as conn:
         tickers = _load_tickers(conn)
         total_ok = 0
         if do_prices:
-            r = run_prices(conn, tickers)
-            print(f"[prices] ok={r['ok']} failed={len(r['failed'])}", file=sys.stderr)
+            period = "max" if do_backfill else "10d"   # backfill=全履歴 / 通常=直近10日
+            r = run_prices(conn, tickers, period=period)
+            label = "prices backfill" if do_backfill else "prices"
+            print(f"[{label}] ok={r['ok']} failed={len(r['failed'])}", file=sys.stderr)
             total_ok += r["ok"]
         if do_fin:
             r = run_financials(conn, tickers)

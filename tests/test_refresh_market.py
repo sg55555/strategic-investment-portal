@@ -96,3 +96,26 @@ def test_missing_holdings():
     from scripts.refresh_market import missing_holdings
     assert missing_holdings({"AAA", "BBB"}, {"AAA", "ZZZ"}) == ["ZZZ"]
     assert missing_holdings({"AAA"}, {"AAA"}) == []
+
+
+def test_backfill_uses_max_period(monkeypatch):
+    from scripts import refresh_market as R
+    captured = {}
+    monkeypatch.setattr(R, "_connect", lambda: _NullConn())
+    monkeypatch.setattr(R, "_load_tickers", lambda conn: ["X"])
+    monkeypatch.setattr(R, "run_prices",
+                        lambda conn, tks, **k: captured.update(k) or {"ok": 1, "failed": []})
+    rc = R.main(["--backfill"])
+    assert captured.get("period") == "max"   # backfill は全履歴を取りに行く
+    assert rc == 0
+
+
+def test_prices_default_period_is_10d(monkeypatch):
+    from scripts import refresh_market as R
+    captured = {}
+    monkeypatch.setattr(R, "_connect", lambda: _NullConn())
+    monkeypatch.setattr(R, "_load_tickers", lambda conn: ["X"])
+    monkeypatch.setattr(R, "run_prices",
+                        lambda conn, tks, **k: captured.update(k) or {"ok": 1, "failed": []})
+    R.main(["--prices"])
+    assert captured.get("period") == "10d"   # 通常更新は直近のみ
