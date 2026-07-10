@@ -1,0 +1,38 @@
+name: market-refresh
+
+# yfinance → Neon market スキーマ更新。Claude 非依存の純データ ETL（無料）。
+# 段階本番化: まず workflow_dispatch サニティ → 問題なければ schedule 有効化。
+# Secrets: DATABASE_URL（market スキーマ upsert 権限の最小ロール推奨）。
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "prices | financials | all"
+        default: "prices"
+  # schedule:
+  #   - cron: "0 21 * * 1-5"   # 平日 UTC21:00 ≒ JST06:00（米クローズ後・日次株価）
+  #   - cron: "0 22 * * 6"     # 週次 財務（土 UTC22:00）
+
+permissions:
+  contents: read
+
+concurrency:
+  group: market-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install deps
+        run: pip install "psycopg[binary]>=3" "yfinance>=0.2.40"
+      - name: Refresh market data
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/refresh_market.py --${{ github.event.inputs.mode || 'prices' }}
