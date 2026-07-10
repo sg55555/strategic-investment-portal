@@ -28,6 +28,10 @@ YF_TO_SCHEMA = {
     "End Cash Position": "cf_cash_end",
 }
 
+# 中断耐性: 成功件数がこの倍数に達するたびに中間 commit（GHA timeout 等での kill でも
+# 完了分は永続化。upsert は冪等なので部分 commit は安全）。
+_COMMIT_EVERY = 25
+
 _FIN_COLS = (
     "current_assets", "non_current_assets", "current_liabilities",
     "non_current_liabilities", "net_assets", "net_sales", "gross_profit",
@@ -86,13 +90,17 @@ def fetch_prices(tickers, download_fn=None):
                              progress=False, auto_adjust=True)
             out = {}
             for tk in tks:
-                sub = df[tk] if len(tks) > 1 else df
-                hist = []
-                for idx, row in sub.dropna().iterrows():
-                    hist.append({"date": idx.strftime("%Y-%m-%d"),
-                                 "open": row["Open"], "high": row["High"],
-                                 "low": row["Low"], "close": row["Close"],
-                                 "volume": row.get("Volume", 0)})
+                try:
+                    sub = df[tk] if len(tks) > 1 else df
+                    hist = []
+                    for idx, row in sub.dropna().iterrows():
+                        hist.append({"date": idx.strftime("%Y-%m-%d"),
+                                     "open": row["Open"], "high": row["High"],
+                                     "low": row["Low"], "close": row["Close"],
+                                     "volume": row.get("Volume", 0)})
+                except Exception as e:  # noqa: BLE001 - 部分/空フレームで1銘柄が KeyError 等でも他銘柄を継続
+                    print(f"[WARN] fetch_prices reshape {tk}: {e}", file=sys.stderr)
+                    hist = []
                 out[tk] = hist
             return out
     return download_fn(tickers)
@@ -130,6 +138,8 @@ def run_prices(conn, tickers, download_fn=None, info_fn=None):
             info = info_fn(tk) if info_fn else _live_info(tk)
             upsert_ticker_info(conn, tk, map_info_fields(info))
             ok += 1
+            if ok % _COMMIT_EVERY == 0:
+                conn.commit()
         except Exception as e:  # noqa: BLE001
             print(f"[WARN] prices {tk}: {e}", file=sys.stderr)
             failed.append(tk)
@@ -170,6 +180,8 @@ def run_financials(conn, tickers, fin_fn=None):
                 failed.append(tk); continue
             upsert_financials(conn, rows)
             ok += 1
+            if ok % _COMMIT_EVERY == 0:
+                conn.commit()
         except Exception as e:  # noqa: BLE001
             print(f"[WARN] financials {tk}: {e}", file=sys.stderr)
             failed.append(tk)

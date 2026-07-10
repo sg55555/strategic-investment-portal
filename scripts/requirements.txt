@@ -1,0 +1,4 @@
+# Local/GHA script deps for scripts/refresh_market.py and scripts/seed_universe.py.
+# NOT deployed to Vercel (Vercel only reads the repo-root requirements.txt for api/* functions).
+psycopg[binary]>=3
+yfinance>=0.2.40

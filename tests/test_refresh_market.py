@@ -57,6 +57,7 @@ def test_run_prices_partial_failure(monkeypatch):
     class FakeConn:  # upsert を捕捉する軽量ダブル
         def __enter__(self): return self
         def __exit__(self, *a): return False
+        def commit(self): pass  # 中間commit(FIX3)を許容する no-op
     monkeypatch.setattr(R, "upsert_ohlcv", lambda conn, rows: calls["ohlcv"].append(rows) or len(rows))
     monkeypatch.setattr(R, "upsert_ticker_info", lambda conn, tk, f: calls["info"].append((tk, f)))
 

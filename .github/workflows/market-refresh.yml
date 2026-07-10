@@ -32,7 +32,20 @@ jobs:
           python-version: "3.13"
       - name: Install deps
         run: pip install "psycopg[binary]>=3" "yfinance>=0.2.40"
+      - name: Determine mode
+        id: mode
+        # schedule 発火時は inputs が無いため、cron 式から mode を決める。
+        # 土 UTC22:00 (財務週次) → financials／それ以外の schedule (平日株価) → prices／
+        # workflow_dispatch → inputs.mode（既定 prices）。
+        run: |
+          if [ "${{ github.event.schedule }}" = "0 22 * * 6" ]; then
+            echo "mode=financials" >> "$GITHUB_OUTPUT"
+          elif [ -n "${{ github.event.schedule }}" ]; then
+            echo "mode=prices" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=${{ github.event.inputs.mode || 'prices' }}" >> "$GITHUB_OUTPUT"
+          fi
       - name: Refresh market data
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: python scripts/refresh_market.py --${{ github.event.inputs.mode || 'prices' }}
+        run: python scripts/refresh_market.py --${{ steps.mode.outputs.mode }}

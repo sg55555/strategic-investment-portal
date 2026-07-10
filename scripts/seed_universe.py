@@ -53,10 +53,18 @@ def main(argv=None):
     with psycopg.connect(url) as conn:
         n = upsert_tickers(conn, rows)
         if "--prune" in argv:
-            keep = tuple(r["ticker"] for r in rows)
-            with conn.cursor() as cur:
-                cur.execute("DELETE FROM market.ticker_master WHERE ticker <> ALL(%s)", (list(keep),))
-                print(f"[prune] removed {cur.rowcount}", file=sys.stderr)
+            if not rows:
+                # rows が空だと keep=() → `ticker <> ALL(ARRAY[])` は空配列に対し常に真
+                # (vacuous truth) となり全行を削除してしまう。csv が空/ヘッダのみの事故を
+                # 誤って全ticker削除に繋げないためのガード。
+                print("[prune] ABORTED: universe.csv produced 0 rows — refusing to prune "
+                      "(would delete ALL ticker_master rows). Fix the csv and re-run.",
+                      file=sys.stderr)
+            else:
+                keep = tuple(r["ticker"] for r in rows)
+                with conn.cursor() as cur:
+                    cur.execute("DELETE FROM market.ticker_master WHERE ticker <> ALL(%s)", (list(keep),))
+                    print(f"[prune] removed {cur.rowcount}", file=sys.stderr)
         conn.commit()
     print(f"[seed] upserted {n} tickers", file=sys.stderr)
     return 0
