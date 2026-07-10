@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS market.financials_annual (
   financing_cf            DOUBLE PRECISION,
   cf_cash_start           DOUBLE PRECISION,
   cf_cash_end             DOUBLE PRECISION,
+  source                  TEXT NOT NULL DEFAULT 'edinet',   -- 'edinet'(コアJP・保護) | 'yfinance'(拡張)
   PRIMARY KEY (ticker, fiscal_year, fiscal_period)
 );
 

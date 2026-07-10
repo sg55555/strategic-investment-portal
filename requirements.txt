@@ -7,3 +7,4 @@
 psycopg[binary]>=3
 bcrypt>=4
 anthropic>=0.40
+yfinance>=0.2.40
