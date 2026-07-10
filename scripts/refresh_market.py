@@ -231,5 +231,11 @@ def main(argv=None):
     return 0 if total_ok > 0 else 1   # loud-fail: 全失敗は非ゼロ
 
 
+def missing_holdings(universe: set, holdings: set) -> list:
+    """保有(holdings)だがユニバース(universe)に無い ticker を昇順で返す。
+    nexus のウォッチ/保有をユニバースへ自動追加はしない（人手判断・spec §3.7）。"""
+    return sorted(holdings - universe)
+
+
 if __name__ == "__main__":
     raise SystemExit(main())

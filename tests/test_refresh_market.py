@@ -89,3 +89,9 @@ def test_main_loud_fail_when_all_fail(monkeypatch):
     monkeypatch.setattr(R, "_load_tickers", lambda conn: ["X", "Y"])
     rc = R.main(["--prices"])
     assert rc != 0   # 全失敗は非ゼロ終了
+
+
+def test_missing_holdings():
+    from scripts.refresh_market import missing_holdings
+    assert missing_holdings({"AAA", "BBB"}, {"AAA", "ZZZ"}) == ["ZZZ"]
+    assert missing_holdings({"AAA"}, {"AAA"}) == []
