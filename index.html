@@ -2193,7 +2193,7 @@
         const end = Math.min(w.rendered + PORTAL_CHUNK, w.flat.length);
         for (let i = w.rendered; i < end; i++) {
           const item = w.flat[i];
-          if (item.industry !== w.curIndustry) {
+          if (!w.curTbody || item.industry !== w.curIndustry) {   // !curTbody で万一の null/undefined industry でもクラッシュせず先頭セクションを生成（元 for..in の文字列キー化が持っていた耐性を回復）
             w.curIndustry = item.industry;
             const sec = _makePortalSection(item.industry, w.sectorLen[item.industry]);
             if (w.sentinel) w.container.insertBefore(sec.sectionEl, w.sentinel);
