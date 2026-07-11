@@ -38,3 +38,4 @@ scripts/get_stock.py
 # その他
 .DS_Store
 *.swp
+.vercel
