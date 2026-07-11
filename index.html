@@ -2228,6 +2228,11 @@
         requestAnimationFrame(() => {
           if (portalWin !== w) return;                 // 別の filterAndRenderPortal に置換済み → no-op
           if (!w.sentinel || w.rendered >= w.flat.length) return;
+          // ポータルが非表示(display:none 部分木)の間は sentinel の rect が全0になり、
+          //  0 < innerHeight+PREFETCH が常真で全件を隠れコンテナへ描画してしまう＝窓化バイパス。
+          //  非レイアウト(offsetParent===null＝display:none 祖先/detached)なら充填を止める。
+          //  再表示時は navigateToPortal の再描画 or 可視化した sentinel を掴む IntersectionObserver が自己回復。
+          if (w.sentinel.offsetParent === null) return;
           const r = w.sentinel.getBoundingClientRect();
           if (r.top < (window.innerHeight + PORTAL_PREFETCH_PX)) { _renderPortalChunk(); _fillPortalToViewport(); }
         });

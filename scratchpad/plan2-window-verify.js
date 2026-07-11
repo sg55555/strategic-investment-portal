@@ -183,6 +183,30 @@ async function main() {
     check("スクロールで後から出た行のクリックも詳細へ（rows<=CHUNKでskip）", true, "skipped");
   }
 
+  // --- 非表示ポータルへの再描画で全件描画しない（offsetParent ガード・敵対検証で発見した窓化バイパス） ---
+  await page.evaluate(() => { if (window.navigateToPortal) window.navigateToPortal(); else window.showView && window.showView("portal"); });
+  await sleep(300);
+  await page.waitForSelector(".portal-table tbody tr", { timeout: 5000 });
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await sleep(150);
+  const visibleWindowed = await trCount(page);
+  const hiddenCount = await page.evaluate(async () => {
+    const pv = document.getElementById("portal-view");
+    pv.classList.remove("active");                 // .view-section → display:none 化
+    window.setSort("per");                          // 隠れたまま再描画（filterAndRenderPortal）
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await new Promise((r) => setTimeout(r, 350));
+    const n = document.querySelectorAll(".portal-table tbody tr").length;
+    pv.classList.add("active");                     // 復帰
+    return n;
+  });
+  check("非表示ポータルへの再描画は全件描画しない（窓化維持・offsetParentガード）",
+        hiddenCount <= CHUNK + 12, `hiddenCount=${hiddenCount} visibleWindowed=${visibleWindowed}`);
+  await page.evaluate(() => { if (window.navigateToPortal) window.navigateToPortal(); });
+  await sleep(300);
+  const restored = await trCount(page);
+  check("再表示後の再描画で窓化が回復", restored <= CHUNK + 12 && restored >= 1, `restored=${restored}`);
+
   // --- JS 例外 0（gate）／リソース404 は情報（私の JS 変更と独立・要 baseline 突合） ---
   check("JS pageerror 0", pageErrors.length === 0, pageErrors.slice(0, 3).join(" | "));
   check("非リソース console.error 0", consoleErrs.length === 0, consoleErrs.slice(0, 3).join(" | "));
