@@ -10,9 +10,9 @@ on:
       mode:
         description: "prices | financials | all"
         default: "prices"
-  # schedule:
-  #   - cron: "0 21 * * 1-5"   # 平日 UTC21:00 ≒ JST06:00（米クローズ後・日次株価）
-  #   - cron: "0 22 * * 6"     # 週次 財務（土 UTC22:00）
+  schedule:
+    - cron: "0 21 * * 1-5"   # 平日 UTC21:00 ≒ JST06:00（米クローズ後・日次株価）
+    - cron: "0 22 * * 6"     # 週次 財務（土 UTC22:00）
 
 permissions:
   contents: read
