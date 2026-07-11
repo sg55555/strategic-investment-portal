@@ -110,6 +110,22 @@ def build_list() -> dict:
                 year_obj["year"] = fy
                 stocks[tkr]["financials_trend"][str(fy)] = year_obj
 
+    # Plan 2 窓表示ストレス用：PLAN2_INFLATE=N で既存銘柄をラウンドロビン複製し N 件へ増幅（既定OFF）。
+    #  industry/financials_trend を保存複製 → 多セクター・多行のグリッドで窓化を検証できる。
+    inflate = int(os.environ.get("PLAN2_INFLATE") or 0)
+    if inflate and len(stocks) < inflate:
+        base_items = list(stocks.items())
+        i = 0
+        while len(stocks) < inflate and base_items:
+            src_tkr, src = base_items[i % len(base_items)]
+            clone_n = i // len(base_items) + 1
+            new_tkr = f"{src_tkr}~c{clone_n}"
+            if new_tkr not in stocks:
+                clone = json.loads(json.dumps(src))   # deep copy
+                clone["company_name"] = f"{src['company_name']}#{clone_n}"
+                stocks[new_tkr] = clone
+            i += 1
+
     return {"stocks": stocks, "updated_at": "2026-07-01 00:00"}
 
 
@@ -120,7 +136,7 @@ def build_financials(ticker: str) -> dict:
     trend: dict[str, dict] = {}
     with _db() as conn:
         for row in conn.execute(
-            "SELECT * FROM financial_data_v2 WHERE ticker = ?", (ticker,)
+            "SELECT * FROM financial_data_v2 WHERE ticker = ?", (_base_ticker(ticker),)
         ):
             fy = row["fiscal_year"]
             year_obj = {"year": fy, "period": (row["fiscal_period"] or "FY")}
@@ -136,10 +152,15 @@ def build_financials(ticker: str) -> dict:
 
 # ---- /api/market/ohlcv -------------------------------------------------------
 
+def _base_ticker(ticker: str) -> str:
+    """Plan 2 inflate クローン（"AAPL~c1"）はベース銘柄（"AAPL"）の実データへ解決する。"""
+    return ticker.split("~c")[0]
+
+
 def _ticker_known(ticker: str) -> bool:
     with _db() as conn:
         return conn.execute(
-            "SELECT 1 FROM ticker_master WHERE ticker = ? LIMIT 1", (ticker,)
+            "SELECT 1 FROM ticker_master WHERE ticker = ? LIMIT 1", (_base_ticker(ticker),)
         ).fetchone() is not None
 
 
@@ -308,7 +329,8 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    server = ThreadingHTTPServer(("127.0.0.1", 8200), Handler)
+    port = int(os.environ.get("PLAN2_PORT") or 8200)   # 既定 8200（PLAN2_PORT で上書き可＝窓化検証の専用ポート）
+    server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

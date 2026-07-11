@@ -1596,6 +1596,10 @@
       let sortAsc = true;
       let portalSearchTimer = null;      // C3: 検索入力のデバウンス
       let dataLoadState = "loading";     // C2: "loading" | "ready" | "error"（取得失敗を0件と区別）
+      // Plan 2: 一覧窓表示（セクター束ね維持・行だけ窓化）。可視範囲＋増分のみ描画。全て IIFE private。
+      let portalWin = null;              // 窓化の実行状態（filterAndRenderPortal ごとに作り直す・§2.2）
+      const PORTAL_CHUNK = 60;           // 初期＝増分の描画行数
+      const PORTAL_PREFETCH_PX = 600;    // sentinel が viewport 下この距離以内で次チャンクを描画
 
       // F3: 中央ビュールーター。散在していた .view-section の active 付替を単一ソース化（+ hash 同期）。
       const VIEW_IDS = { portal: "portal-view", detail: "detail-view", money: "money-view", ranking: "ranking-view" };
@@ -1900,6 +1904,10 @@
         // C2: データ未ロード/失敗中は状態UIを維持（フィルタ"0件"と取得失敗を取り違えない）。
         if (dataLoadState !== "ready") { renderPortalStatus(); return; }
 
+        // Plan 2: 前回の窓化 observer を破棄（innerHTML="" で旧 sentinel が剥がれる前に・多重発火/リーク防止）。
+        if (portalWin && portalWin.observer) portalWin.observer.disconnect();
+        portalWin = null;
+
         const container = document.getElementById("portal-container");
         container.innerHTML = "";
         const searchQuery = document
@@ -1999,13 +2007,14 @@
           return sortAsc ? valA - valB : valB - valA;
         });
 
-        const groups = {};
+        // Plan 2: sectorOrder を明示構築（integer-like key の並び替え罠回避・挿入順=ソート内初出順で視覚順と一致）。
+        const groups = {}, sectorOrder = [];
         list.forEach((item) => {
-          if (!groups[item.industry]) groups[item.industry] = [];
+          if (!groups[item.industry]) { groups[item.industry] = []; sectorOrder.push(item.industry); }
           groups[item.industry].push(item);
         });
 
-        if (Object.keys(groups).length === 0) {
+        if (sectorOrder.length === 0) {
           const marketOn = screeningMarkets.length > 0;
           const sectorOn = (activeSectorFilter !== "all" && activeSectorFilter !== "stock_only");
           const hint = (marketOn && sectorOn) ? "<br><span style='font-size:0.8rem;color:#5a6c78'>セクター条件と市場条件が重複している可能性があります</span>" : "";
@@ -2013,26 +2022,52 @@
           return;
         }
 
-        for (const ind in groups) {
-          const sectorDiv = document.createElement("div");
-          sectorDiv.className = "sector-section";
+        // Plan 2: セクター束ね順にフラット化 → 先頭チャンク描画 → sentinel + IntersectionObserver で増分。
+        //  視覚順（セクタークラスタ順・各セクター内ソート順）は sectorOrder→groups の連結で完全一致。
+        const flat = [], sectorLen = {};
+        sectorOrder.forEach((ind) => {
+          sectorLen[ind] = groups[ind].length;   // N社バッジは窓外込みの全数
+          groups[ind].forEach((it) => flat.push(it));
+        });
+        const sentinel = flat.length > PORTAL_CHUNK ? _makePortalSentinel() : null;
+        portalWin = { flat, sectorLen, rendered: 0, curIndustry: null, curTbody: null, sentinel, observer: null, container };
+        if (sentinel) container.appendChild(sentinel);   // insertBefore の参照ノードとして先に末尾へ
+        _renderPortalChunk();                            // 先頭チャンク
+        if (sentinel) {
+          portalWin.observer = new IntersectionObserver(_onPortalSentinel, { root: null, rootMargin: PORTAL_PREFETCH_PX + "px 0px" });
+          portalWin.observer.observe(sentinel);
+          _fillPortalToViewport();                       // 初期チャンクが viewport を埋めない場合の追い足し
+        }
 
-          const sectorColor = getSectorColor(ind);
-          const title = document.createElement("div");
-          title.className = "sector-title";
-          title.style.borderLeftColor = sectorColor;
-          title.style.background = `linear-gradient(90deg, ${sectorColor}08, transparent)`;
-          title.innerHTML = `
+        // screening-panel の用語ヘルプは main で1回（各セクション見出しの ? は _renderPortalChunk が増分注入）。
+        if (window.Detail && typeof window.Detail.injectTermHelp === "function") {
+          const panel = document.getElementById("screening-panel");
+          if (panel) window.Detail.injectTermHelp(panel);
+        }
+      }
+
+      // Plan 2: セクター見出し＋テーブル殻を生成（rows は空・後で _makePortalRow を append）。
+      //  §1 の sector-section 構築を move-not-rewrite で切り出し（N社バッジは count＝全数を受け取る）。
+      function _makePortalSection(ind, count) {
+        const sectorDiv = document.createElement("div");
+        sectorDiv.className = "sector-section";
+
+        const sectorColor = getSectorColor(ind);
+        const title = document.createElement("div");
+        title.className = "sector-title";
+        title.style.borderLeftColor = sectorColor;
+        title.style.background = `linear-gradient(90deg, ${sectorColor}08, transparent)`;
+        title.innerHTML = `
             <span style="color:${sectorColor}88;">${esc(ind.replace("US - ", "US ").replace("国内ETF", "JP ETF"))}</span>
-            <span class="sector-count-badge" style="border-color:${sectorColor}33;color:${sectorColor}99;">${groups[ind].length}社</span>
+            <span class="sector-count-badge" style="border-color:${sectorColor}33;color:${sectorColor}99;">${count}社</span>
             <span class="sector-title-line" style="background:linear-gradient(90deg,${sectorColor}22,transparent)"></span>
           `;
-          sectorDiv.appendChild(title);
+        sectorDiv.appendChild(title);
 
-          const table = document.createElement("table");
-          table.className = "portal-table";
+        const table = document.createElement("table");
+        table.className = "portal-table";
 
-          table.innerHTML = `
+        table.innerHTML = `
                 <thead>
                     <tr>
                         <th style="width: 7%;" class="${sortKey === "ticker" ? "active-sort" : ""}" onclick="setSort('ticker')">コード<span class="sort-icon">${sortKey === "ticker" ? (sortAsc ? "▲" : "▼") : "↕"}</span></th>
@@ -2050,60 +2085,70 @@
                 <tbody></tbody>
             `;
 
-          const tbody = table.querySelector("tbody");
-          groups[ind].forEach((item) => {
-            const tr = document.createElement("tr");
-            tr.onclick = () => navigateToDetail(item.ticker);
+        const tbody = table.querySelector("tbody");
 
-            let perStyle = "color: #6b7d8a;";
-            let perText = item.per > 0 ? item.per.toFixed(1) + "x" : "--";
-            let perBadge = "";
-            if (item.per > 0) {
-              if (item.per <= 15.0) { perStyle = "color: #00e676; font-weight: bold;"; perBadge = '<span class="val-badge cheap">割安</span>'; }
-              else if (item.per <= 28.0) { perBadge = '<span class="val-badge fair">標準</span>'; }
-              else { perStyle = "color: #ff5c7a;"; perBadge = '<span class="val-badge exp">割高</span>'; }
-            }
+        // 横スクロール対応のラッパーで囲む（背景色をテーブルに合わせて暗転防止）
+        const scrollWrap = document.createElement("div");
+        scrollWrap.style.cssText = "overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; background-color: #0a0f17; border-radius: 10px;";
+        scrollWrap.appendChild(table);
+        sectorDiv.appendChild(scrollWrap);
+        return { sectionEl: sectorDiv, tbody: tbody };
+      }
 
-            let pbrStyle = "color: #6b7d8a;";
-            let pbrText = item.pbr > 0 ? item.pbr.toFixed(2) + "x" : "--";
-            let pbrBadge = "";
-            if (item.pbr > 0) {
-              if (item.pbr <= 1.0) { pbrStyle = "color: #ffd84d; font-weight: bold;"; pbrBadge = '<span class="val-badge gold">解散値以下</span>'; }
-              else if (item.pbr <= 3.0) { pbrBadge = '<span class="val-badge fair">標準</span>'; }
-              else { pbrStyle = "color: #ff5c7a;"; pbrBadge = '<span class="val-badge exp">高評価</span>'; }
-            }
+      // Plan 2: 1行（銘柄カード）の <tr> を生成。§1 の tr 構築を move-not-rewrite で切り出し（挙動不変）。
+      function _makePortalRow(item) {
+        const tr = document.createElement("tr");
+        tr.onclick = () => navigateToDetail(item.ticker);
 
-            // 健全性スコア (0-100): 自己資本比率40% + 流動比率30% + ROE30%
-            const safetyScore = item.hasFinData ? Math.min(100, Math.round(
-              (Math.min(item.eqRatio, 60) / 60) * 40 +
-              (Math.min(item.curRatio, 200) / 200) * 30 +
-              (Math.min(Math.max(item.roe, 0), 20) / 20) * 30
-            )) : null;
-            const safetyColor = safetyScore === null ? "#2a3a44" : safetyScore >= 70 ? "#00e676" : safetyScore >= 40 ? "#ffd84d" : "#ff5c7a";
+        let perStyle = "color: #6b7d8a;";
+        let perText = item.per > 0 ? item.per.toFixed(1) + "x" : "--";
+        let perBadge = "";
+        if (item.per > 0) {
+          if (item.per <= 15.0) { perStyle = "color: #00e676; font-weight: bold;"; perBadge = '<span class="val-badge cheap">割安</span>'; }
+          else if (item.per <= 28.0) { perBadge = '<span class="val-badge fair">標準</span>'; }
+          else { perStyle = "color: #ff5c7a;"; perBadge = '<span class="val-badge exp">割高</span>'; }
+        }
 
-            let opStyle = "color: #6b7d8a;";
-            let opText = item.opMargin !== null ? item.opMargin.toFixed(1) + "%" : "--";
-            if (item.opMargin > 0) {
-              if (item.opMargin >= 25) { opStyle = "color: #ffd84d; font-weight: bold;"; opText += " " + ICO.sparkle; }
-              else if (item.opMargin >= 15) { opStyle = "color: #00e676; font-weight: bold;"; }
-              else if (item.opMargin >= 5) { opStyle = "color: #8ba2af;"; }
-            }
+        let pbrStyle = "color: #6b7d8a;";
+        let pbrText = item.pbr > 0 ? item.pbr.toFixed(2) + "x" : "--";
+        let pbrBadge = "";
+        if (item.pbr > 0) {
+          if (item.pbr <= 1.0) { pbrStyle = "color: #ffd84d; font-weight: bold;"; pbrBadge = '<span class="val-badge gold">解散値以下</span>'; }
+          else if (item.pbr <= 3.0) { pbrBadge = '<span class="val-badge fair">標準</span>'; }
+          else { pbrStyle = "color: #ff5c7a;"; pbrBadge = '<span class="val-badge exp">高評価</span>'; }
+        }
 
-            let roeStyle = "color: #6b7d8a;";
-            let roeText = item.roe !== null ? item.roe.toFixed(1) + "%" : "--";
-            if (item.roe < 0) { roeStyle = "color: #ff1744;"; }
-            else if (item.roe >= 15) { roeStyle = "color: #ffd60a; font-weight: bold;"; roeText += " " + ICO.sparkle; }
-            else if (item.roe >= 8) { roeStyle = "color: #00e676; font-weight: bold;"; }
+        // 健全性スコア (0-100): 自己資本比率40% + 流動比率30% + ROE30%
+        const safetyScore = item.hasFinData ? Math.min(100, Math.round(
+          (Math.min(item.eqRatio, 60) / 60) * 40 +
+          (Math.min(item.curRatio, 200) / 200) * 30 +
+          (Math.min(Math.max(item.roe, 0), 20) / 20) * 30
+        )) : null;
+        const safetyColor = safetyScore === null ? "#2a3a44" : safetyScore >= 70 ? "#00e676" : safetyScore >= 40 ? "#ffd84d" : "#ff5c7a";
 
-            const isUSD = item.currency === "USD";
-            const currBadge = currencyBadge(item.currency);
-            const capString = fmtMarketCap(item.marketCap, item.currency);
-            const salesText = item.hasFinData
-              ? item.sales.toLocaleString() + " " + FinanceRules.fmtUnit(isUSD ? "USD" : "JPY")
-              : "<span style='color:#5a6c78'>-- (ETF)</span>";
+        let opStyle = "color: #6b7d8a;";
+        let opText = item.opMargin !== null ? item.opMargin.toFixed(1) + "%" : "--";
+        if (item.opMargin > 0) {
+          if (item.opMargin >= 25) { opStyle = "color: #ffd84d; font-weight: bold;"; opText += " " + ICO.sparkle; }
+          else if (item.opMargin >= 15) { opStyle = "color: #00e676; font-weight: bold;"; }
+          else if (item.opMargin >= 5) { opStyle = "color: #8ba2af;"; }
+        }
 
-            const cleanTicker = item.ticker.replace(".", "_");
-            tr.innerHTML = `
+        let roeStyle = "color: #6b7d8a;";
+        let roeText = item.roe !== null ? item.roe.toFixed(1) + "%" : "--";
+        if (item.roe < 0) { roeStyle = "color: #ff1744;"; }
+        else if (item.roe >= 15) { roeStyle = "color: #ffd60a; font-weight: bold;"; roeText += " " + ICO.sparkle; }
+        else if (item.roe >= 8) { roeStyle = "color: #00e676; font-weight: bold;"; }
+
+        const isUSD = item.currency === "USD";
+        const currBadge = currencyBadge(item.currency);
+        const capString = fmtMarketCap(item.marketCap, item.currency);
+        const salesText = item.hasFinData
+          ? item.sales.toLocaleString() + " " + FinanceRules.fmtUnit(isUSD ? "USD" : "JPY")
+          : "<span style='color:#5a6c78'>-- (ETF)</span>";
+
+        const cleanTicker = item.ticker.replace(".", "_");
+        tr.innerHTML = `
                     <td><span class="ticker-code">${item.ticker}</span></td>
                     <td style="white-space: nowrap;">
                       <button class="star-btn${isWatched(item.ticker) ? " watched" : ""}" id="star-${cleanTicker}"
@@ -2128,22 +2173,64 @@
                     <td style="${opStyle}">${item.hasFinData ? opText : "--"}</td>
                     <td style="${roeStyle}">${item.hasFinData ? roeText : "--"}</td>
                 `;
-            tbody.appendChild(tr);
-          });
+        return tr;
+      }
 
-          // 横スクロール対応のラッパーで囲む（背景色をテーブルに合わせて暗転防止）
-          const scrollWrap = document.createElement("div");
-          scrollWrap.style.cssText = "overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; background-color: #0a0f17; border-radius: 10px;";
-          scrollWrap.appendChild(table);
-          sectorDiv.appendChild(scrollWrap);
-          container.appendChild(sectorDiv);
-        }
+      // Plan 2: 無限スクロール検知用センチネル（末尾の 1px 要素）。
+      function _makePortalSentinel() {
+        const s = document.createElement("div");
+        s.className = "portal-sentinel";
+        s.setAttribute("aria-hidden", "true");
+        s.style.height = "1px";
+        return s;
+      }
 
-        if (window.Detail && typeof window.Detail.injectTermHelp === "function") {
-          const panel = document.getElementById("screening-panel");
-          if (panel) window.Detail.injectTermHelp(panel);
-          window.Detail.injectTermHelp(container);   // grid の 3期トレンド列見出し data-term="growth-rate" を活性化
+      // Plan 2: 次の PORTAL_CHUNK 件を描画。セクター境界を跨いだら新セクションを sentinel 手前へ挿入し、
+      //  同一セクター内は既存 tbody へ継続 append。全量到達で observer/sentinel を後片付け。
+      function _renderPortalChunk() {
+        const w = portalWin;
+        if (!w) return;
+        const end = Math.min(w.rendered + PORTAL_CHUNK, w.flat.length);
+        for (let i = w.rendered; i < end; i++) {
+          const item = w.flat[i];
+          if (item.industry !== w.curIndustry) {
+            w.curIndustry = item.industry;
+            const sec = _makePortalSection(item.industry, w.sectorLen[item.industry]);
+            if (w.sentinel) w.container.insertBefore(sec.sectionEl, w.sentinel);
+            else w.container.appendChild(sec.sectionEl);
+            w.curTbody = sec.tbody;
+            // 新セクション見出しの 3期トレンド列 data-term="growth-rate" を活性化（冪等・subtree スコープ）。
+            if (window.Detail && typeof window.Detail.injectTermHelp === "function") window.Detail.injectTermHelp(sec.sectionEl);
+          }
+          w.curTbody.appendChild(_makePortalRow(item));
         }
+        w.rendered = end;
+        if (w.rendered >= w.flat.length && w.observer && w.sentinel) {   // 完了 → 後片付け
+          w.observer.unobserve(w.sentinel);
+          w.observer.disconnect();
+          w.observer = null;
+          if (w.sentinel.parentNode) w.sentinel.parentNode.removeChild(w.sentinel);
+          w.sentinel = null;
+        }
+      }
+
+      // Plan 2: sentinel が可視化したら次チャンク。
+      function _onPortalSentinel(entries) {
+        if (!portalWin) return;
+        if (entries.some((e) => e.isIntersecting)) { _renderPortalChunk(); _fillPortalToViewport(); }
+      }
+
+      // Plan 2: sentinel がまだ viewport＋PREFETCH 内なら rAF で追い足し（初期チャンクが画面を埋めない時の自動充填）。
+      //  rendered 単調増加＋<length ガードで必ず停止。別の描画に置き換わったら（portalWin 変化）破棄。
+      function _fillPortalToViewport() {
+        const w = portalWin;
+        if (!w || !w.sentinel || w.rendered >= w.flat.length) return;
+        requestAnimationFrame(() => {
+          if (portalWin !== w) return;                 // 別の filterAndRenderPortal に置換済み → no-op
+          if (!w.sentinel || w.rendered >= w.flat.length) return;
+          const r = w.sentinel.getBoundingClientRect();
+          if (r.top < (window.innerHeight + PORTAL_PREFETCH_PX)) { _renderPortalChunk(); _fillPortalToViewport(); }
+        });
       }
 
       // P2: 3期トレンドのミニチャートを inline SVG polyline で同期描画（旧 Chart.js 約84インスタンス生成を排除）。
