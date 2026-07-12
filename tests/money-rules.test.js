@@ -207,6 +207,8 @@ const PROD_TOP_KEYS = new Set([
   "satelliteCapPct", "satelliteFillPct", "satelliteIsOver", "satelliteOverByPct", "coreSharePct",
   "investableConfigured", "nextTarget", "goalsCount", "goals", "rulesVersion", "schemaVersion",
   "index", "progressPct", "achieved", "hasDeadline", "monthsToDeadlineBucket",
+  "roadmap", "phase", "coreProgressPct", "coreEstablished", "satelliteUnlocked", "coreTargetSource",
+  "etaToCoreBucket",
 ]);
 // production facts のツリーに現れてはならない生額・PII・注入面のキー（再帰深掘りで検査）。
 const DENYLIST_KEYS = [
@@ -236,6 +238,18 @@ test("modeAFacts(production): denylist キー・生額が一切現れない（�
     nums.forEach((n) => {
       assert.ok(Number.isInteger(n) && n >= 0 && n <= 150, "large/invalid number " + n + " in " + c.name);
     });
+  });
+});
+
+test("modeAFacts(production): roadmap 集約に生¥キーが一切無い（構造テスト）", () => {
+  CASES.forEach((c) => {
+    const prod = R.modeAFacts(c.state, { nowMs: caseNow(c), cashflow: c.cashflow });
+    const rm = prod.roadmap || {};
+    // roadmap 集約は bool/enum/pct のみ＝生¥キー(coreTarget/coreRemaining/thisMonth*)を含まない
+    ["coreTarget", "coreRemaining", "northStarTarget", "thisMonthToCore", "thisMonthToSatellite"].forEach((bad) => {
+      assert.ok(!(bad in rm), c.name + ": production roadmap leaked " + bad);
+    });
+    assert.equal(prod.raw, undefined, c.name + ": production must not have raw"); // production は raw を持たない
   });
 });
 
@@ -328,8 +342,8 @@ const CASHFLOW_FACT_KEYS = new Set([
 ]);
 const CF_RESERVES_KEYS = new Set(["active", "fundedPct", "shortfall"]);
 
-test("FACTS_SCHEMA_VERSION は 2（Slice4 cashflow 追加で bump）", () => {
-  assert.equal(R.FACTS_SCHEMA_VERSION, 2);
+test("FACTS_SCHEMA_VERSION は 3（roadmap 集約追加で bump）", () => {
+  assert.equal(R.FACTS_SCHEMA_VERSION, 3);
 });
 
 test("modeAFacts(production, cashflow): facts.cashflow は allowlist のみ・生額(yen)を漏らさない", () => {

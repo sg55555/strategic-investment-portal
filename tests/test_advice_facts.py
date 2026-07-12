@@ -34,6 +34,8 @@ ALLOW = {
     "satelliteCapPct", "satelliteFillPct", "satelliteIsOver", "satelliteOverByPct", "coreSharePct",
     "investableConfigured", "nextTarget", "goalsCount", "goals", "rulesVersion", "schemaVersion",
     "index", "progressPct", "achieved", "hasDeadline", "monthsToDeadlineBucket",
+    "roadmap", "phase", "coreProgressPct", "coreEstablished", "satelliteUnlocked", "coreTargetSource",
+    "etaToCoreBucket",
 }
 DENY = {
     "raw", "monthlyExpense", "bufferAmount", "bufferTarget", "bufferRemaining", "coreAmount",
@@ -211,8 +213,21 @@ CF_ALLOW = {
 CF_RESERVES_ALLOW = {"active", "fundedPct", "shortfall"}
 
 
-def test_schema_version_2():
-    assert advice.SCHEMA_VERSION == 2
+def test_schema_version_3():
+    assert advice.SCHEMA_VERSION == 3
+
+
+def test_production_roadmap_no_raw_yen():
+    cases_path = os.path.join(os.path.dirname(__file__), "fixtures", "advice_facts_cases.json")
+    import json
+    cases = json.load(open(cases_path))["cases"]
+    for c in cases:
+        prod = advice.mode_a_facts(c["state"], False, c.get("nowMs", 0), cashflow=c.get("cashflow"))
+        rm = prod.get("roadmap", {})
+        # roadmap 集約は bool/enum/pct のみ＝生¥キー(coreTarget/coreRemaining/thisMonth*)を含まない
+        for forbidden in ("coreTarget", "coreRemaining", "northStarTarget", "thisMonthToCore", "thisMonthToSatellite"):
+            assert forbidden not in rm, f"{c['name']}: production roadmap leaked {forbidden}"
+        assert "raw" not in prod  # production は raw を持たない
 
 
 def test_cashflow_production_safety():

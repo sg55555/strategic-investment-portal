@@ -12,7 +12,7 @@
 
   // Slice3: AI規律コーチ。正準 next ターゲット（Python テンプレ map と test 網羅の単一源）。
   var NEXT_TARGETS = ["setup", "buffer", "rebalance", "core"];
-  var FACTS_SCHEMA_VERSION = 2; // v2: Slice4 cashflow（収支連携→投資余力）集約を facts に追加
+  var FACTS_SCHEMA_VERSION = 3; // v3: 投資枠配分ロードマップ（backlog B #1）集約を facts に追加
   // 免責（node↔browser 単一源・全描画経路で決定論と不可分に常時表示）。
   var DISCLAIMER = "本コーチが示す決定論ルールおよび AI の補足はいずれも、資産規律の維持・教育・判断支援を目的とした一般的な情報提供であり、特定の金融商品の売買や投資配分・タイミングを推奨する投資助言ではありません。当ツールは金融商品取引業者・投資助言代理業者として登録された者による助言ではなく、特定の金融商品の勧誘を目的としたものでもありません。将来の利益や成果を保証するものではありません（過去の実績は将来を示しません）。最終的な投資判断はご自身の責任で行ってください。";
   var DISCLAIMER_VERSION = "disc-v1";
@@ -696,6 +696,16 @@
       schemaVersion: FACTS_SCHEMA_VERSION,
     };
 
+    // 投資枠配分ロードマップ（backlog B #1）。state由来の集約は常時・生¥なし。
+    var _cp = coreProgress(s);
+    facts.roadmap = {
+      phase: roadmapPhase(s),
+      coreProgressPct: clamp(_cp.pct, 0, 100),
+      coreEstablished: _cp.established,
+      satelliteUnlocked: satelliteUnlocked(s),
+      coreTargetSource: coreTargetSource(s),
+    };
+
     if (includeRaw) {
       facts.raw = {
         monthlyExpense: num(s.monthlyExpense),
@@ -741,6 +751,13 @@
         dataFresh: cd.dataFresh,
         currencyMismatch: cd.currencyMismatch,
       };
+      // ロードマップ ETA（積立のみ・0%・確保枠ドラッグ）。集約バケツのみ＝生月数は出さない。
+      var _reserveMo = reserveMonthlyTotal(s, nowMs);
+      var _coreContribution = Math.max(0, cd.monthlySurplus - _reserveMo);
+      var _mToBuffer = typeof cd.monthsToBufferComplete === "number" ? cd.monthsToBufferComplete : projectMonths(bufferRemaining(s), cd.monthlySurplus);
+      var _mToCore = projectMonths(coreProgress(s).remaining, _coreContribution);
+      var _cumToCore = (_mToBuffer !== null && _mToCore !== null) ? _mToBuffer + _mToCore : null;
+      facts.roadmap.etaToCoreBucket = cd.available ? etaBucket(_cumToCore) : "none";
       // Slice4.5: 確保枠の補足advisory（NEXT_TARGETS は4据え置き＝新カテゴリにしない）。
       // reserves 設定時のみ付与（未設定 state は既存 facts.cashflow をバイト不変に保つ＝既存パリティ維持）。
       // 集約のみ（active=件数/fundedPct=比率/shortfall=bool）＝production でも生 yen を出さない。
@@ -770,6 +787,14 @@
           facts.raw.cashflow.reservesTotalSaved = cd.reservesTotalSaved;
           facts.raw.cashflow.reservesTotalTarget = cd.reservesTotalTarget;
         }
+        var _plan = allocationPlan(s, cd);
+        facts.raw.roadmap = {
+          coreTarget: coreTarget(s),
+          coreRemaining: coreProgress(s).remaining,
+          northStarTarget: northStarTarget(s),
+          thisMonthToCore: _plan.toCore,
+          thisMonthToSatellite: _plan.toSatellite,
+        };
       }
     }
     return facts;
