@@ -729,3 +729,51 @@ test("GLOSSARY: 主要用語の定義を持つ単一源（term/read/def）", () 
   ["バッファ", "コア", "サテライト", "確保枠", "投資余力"].forEach((t) => assert.ok(terms.includes(t), t + " が用語集にある"));
   R.GLOSSARY.forEach((g) => { assert.equal(typeof g.term, "string"); assert.ok(g.read && g.def); });
 });
+
+// --- Task1: 層1 コア目標・進捗（配分ロードマップ Phase1） ---
+
+test("coreTarget: setup(月支出未設定)は0", () => {
+  const s = R.defaultState();
+  assert.equal(R.coreTarget(s), 0);
+  assert.equal(R.coreTargetSource(s), "setup");
+});
+
+test("coreTarget: goals無しは月支出×CORE_FALLBACK_MONTHS(24)", () => {
+  const s = R.defaultState(); s.monthlyExpense = 300000; // bufferTarget=1,800,000
+  assert.equal(R.coreTarget(s), 300000 * 24); // 7,200,000
+  assert.equal(R.coreTargetSource(s), "fallback");
+});
+
+test("coreTarget: goalがbufferTargetを超えるとgoal逆算(northStar - bufferTarget)", () => {
+  const s = R.defaultState(); s.monthlyExpense = 300000; // bufferTarget=1,800,000
+  s.goals = [{ id: "g1", label: "FIRE", targetAmount: 30000000, deadline: "" },
+             { id: "g2", label: "車", targetAmount: 3000000, deadline: "" }];
+  assert.equal(R.northStarTarget(s), 30000000);
+  assert.equal(R.coreTarget(s), 30000000 - 1800000); // 28,200,000
+  assert.equal(R.coreTargetSource(s), "goal");
+});
+
+test("coreTarget: goalがbufferTarget以下ならfallbackに退避", () => {
+  const s = R.defaultState(); s.monthlyExpense = 300000; // bufferTarget=1,800,000
+  s.goals = [{ id: "g1", label: "小目標", targetAmount: 1000000, deadline: "" }];
+  assert.equal(R.coreTarget(s), 300000 * 24);
+  assert.equal(R.coreTargetSource(s), "fallback");
+});
+
+test("coreProgress: ゼロ除算ガードとestablished", () => {
+  const s = R.defaultState(); s.monthlyExpense = 300000; // coreTarget=7,200,000(fallback)
+  let cp = R.coreProgress(s);
+  assert.equal(cp.progress, 0); assert.equal(cp.pct, 0); assert.equal(cp.remaining, 7200000); assert.equal(cp.established, false);
+  s.buckets.core.amount = 3600000; // 50%
+  cp = R.coreProgress(s);
+  assert.equal(cp.progress, 0.5); assert.equal(cp.pct, 50); assert.equal(cp.remaining, 3600000); assert.equal(cp.established, false);
+  s.buckets.core.amount = 7200000; // 100%
+  cp = R.coreProgress(s);
+  assert.equal(cp.progress, 1); assert.equal(cp.established, true); assert.equal(cp.remaining, 0);
+});
+
+test("coreProgress: coreTarget=0(setup)は全ゼロ", () => {
+  const s = R.defaultState(); s.buckets.core.amount = 999999;
+  const cp = R.coreProgress(s);
+  assert.equal(cp.progress, 0); assert.equal(cp.remaining, 0); assert.equal(cp.established, false);
+});

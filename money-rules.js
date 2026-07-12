@@ -32,6 +32,11 @@
   function num(v) { var n = Number(v); return isFinite(n) && n >= 0 ? n : 0; }
   function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
   function r(x) { return Math.floor(num(x) + 0.5); } // half-up（全値非負前提・Python 還元器とパリティ）
+
+  // 投資枠配分ロードマップ（backlog B #1）定数。state に持たず導出＝migrate/クラウド同期に触れない。
+  var CORE_FALLBACK_MONTHS = 24;      // goals未宣言時のコア目標＝月支出×24（2年分）
+  var SATELLITE_UNLOCK_CORE_PCT = 50; // サテライト解放＝コア目標の50%
+
   function yen(n) { return "¥" + Math.round(num(n)).toLocaleString("ja-JP"); }
   function yenSigned(n) { var x = Math.round(Number(n) || 0); return (x < 0 ? "-¥" : "¥") + Math.abs(x).toLocaleString("ja-JP"); } // 収支(負あり)表示用（cf-balance-zero）
 
@@ -160,6 +165,43 @@
       progress: prog, progressPct: Math.round(prog * 100),
       remaining: Math.max(0, target - t),
       achieved: target > 0 && t >= target,
+    };
+  }
+
+  // 宣言済み goals[] の最大 targetAmount（＝到達点/north star）。無ければ0。
+  function northStarTarget(s) {
+    var goals = Array.isArray(s.goals) ? s.goals : [];
+    var max = 0;
+    for (var i = 0; i < goals.length; i++) {
+      var t = num(goals[i] && goals[i].targetAmount);
+      if (t > max) max = t;
+    }
+    return max;
+  }
+
+  // コアバケツの目標額。goal逆算（安全網を超える成長資本をコアが担う）＋定数フォールバック。
+  function coreTarget(s) {
+    var bt = bufferTarget(s);
+    if (bt <= 0) return 0;                       // setup 未完（月支出未設定）
+    var ns = northStarTarget(s);
+    if (ns > bt) return ns - bt;                 // 目標逆算
+    return num(s.monthlyExpense) * CORE_FALLBACK_MONTHS; // フォールバック
+  }
+
+  function coreTargetSource(s) {
+    if (bufferTarget(s) <= 0) return "setup";
+    return northStarTarget(s) > bufferTarget(s) ? "goal" : "fallback";
+  }
+
+  function coreProgress(s) {
+    var ct = coreTarget(s);
+    var core = num(s.buckets.core.amount);
+    var progress = ct > 0 ? clamp(core / ct, 0, 1) : 0;
+    return {
+      progress: progress,
+      pct: Math.round(progress * 100),
+      remaining: ct > 0 ? Math.max(0, ct - core) : 0,
+      established: ct > 0 && core >= ct,
     };
   }
 
@@ -657,6 +699,9 @@
     bufferTarget: bufferTarget, bufferProgress: bufferProgress, bufferRemaining: bufferRemaining,
     investable: investable, satelliteCap: satelliteCap, satelliteOver: satelliteOver,
     totalAssets: totalAssets, goalProgress: goalProgress,
+    CORE_FALLBACK_MONTHS: CORE_FALLBACK_MONTHS, SATELLITE_UNLOCK_CORE_PCT: SATELLITE_UNLOCK_CORE_PCT,
+    northStarTarget: northStarTarget, coreTarget: coreTarget,
+    coreTargetSource: coreTargetSource, coreProgress: coreProgress,
     nextAllocation: nextAllocation, viewModel: viewModel, yen: yen, yenSigned: yenSigned,
     deadlineBucket: deadlineBucket, modeAFacts: modeAFacts,
     cashflowDerived: cashflowDerived, cashflowViewModel: cashflowViewModel,
