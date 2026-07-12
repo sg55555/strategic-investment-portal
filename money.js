@@ -689,19 +689,37 @@ window.MCC = (function () {
 
   function _rmPhaseRail(rm) {
     var currentKey = _RM_CURRENT_KEY[rm.phase] || "buffer";
-    var items = rm.phases.map(function (p) {
+    // §7.1: バッファ→コアの継ぎ目に「先取り(確保枠)」チップ。確保枠へ月次でコミットしている時のみ（rm.projection.reserveMonthlyTotal>0）。
+    var reserveActive = !!(rm.projection && rm.projection.reserveMonthlyTotal > 0);
+    var parts = [];
+    rm.phases.forEach(function (p, i) {
+      if (i > 0) {
+        if (i === 1 && reserveActive) {
+          parts.push(
+            '<span class="mcc-rm-seam" title="確保枠を先取りしてからコアへ配分します">' +
+              '<span class="mcc-rm-sep"></span>' +
+              '<span class="mcc-rm-seam-chip">先取り(確保枠)</span>' +
+              '<span class="mcc-rm-sep"></span>' +
+            '</span>'
+          );
+        } else {
+          parts.push('<span class="mcc-rm-sep"></span>');
+        }
+      }
       var locked = !!p.locked;
       var current = !locked && p.key === currentKey;
       var done = !locked && !current && p.progress >= 1;
       var cls = locked ? "locked" : (current ? "current" : (done ? "done" : "todo"));
       var icon = locked ? "🔒" : (done ? "✓" : (current ? "●" : "○"));
-      return '<div class="mcc-rm-phase mcc-rm-phase-' + cls + '" data-key="' + p.key + '">' +
-        '<span class="mcc-rm-phase-dot">' + icon + '</span>' +
-        '<span class="mcc-rm-phase-label">' + esc(p.label) + '</span>' +
-        '<span class="mcc-rm-phase-pct">' + p.progressPct + '%</span>' +
-      '</div>';
-    }).join('<span class="mcc-rm-sep"></span>');
-    return '<div class="mcc-rm-rail">' + items + '</div>';
+      parts.push(
+        '<div class="mcc-rm-phase mcc-rm-phase-' + cls + '" data-key="' + p.key + '">' +
+          '<span class="mcc-rm-phase-dot">' + icon + '</span>' +
+          '<span class="mcc-rm-phase-label">' + esc(p.label) + '</span>' +
+          '<span class="mcc-rm-phase-pct">' + p.progressPct + '%</span>' +
+        '</div>'
+      );
+    });
+    return '<div class="mcc-rm-rail">' + parts.join('') + '</div>';
   }
 
   // コア目標ラベル：goal 逆算／フォールバック（月支出×24ヶ月）／setup未完 の3系統。¥はloggedInのみ。
@@ -724,10 +742,16 @@ window.MCC = (function () {
   function _rmThisMonth(rm, loggedIn) {
     var tm = rm.thisMonth;
     var head = '<div class="mcc-rm-thismonth-head">今月の配分プラン' + termHelp("投資余力") + '</div>';
-    if (!rm.timelineAvailable) {
+    // Finding1: 未連携（本当にリンクなし）と連携済み赤字/均衡月（リンク済だが余力なし）を rm.projection.available で区別。
+    // 後者に「家計を連携」CTAを出すと既に連携済のユーザーに誤案内になるため出さない。
+    if (!rm.projection.available) {
       return '<div class="mcc-rm-thismonth" id="mcc-rm-thismonth">' + head +
         '<div class="mcc-rm-note">収支連携すると、今月の配分（バッファ→確保枠→コア' + (tm.satelliteUnlocked ? "→サテライト" : "") + '）が表示されます。' +
         jumpLink("cashflow", "家計（kakeibo）を連携") + '</div></div>';
+    }
+    if (rm.projection.monthlySurplus <= 0) {
+      return '<div class="mcc-rm-thismonth" id="mcc-rm-thismonth">' + head +
+        '<div class="mcc-rm-note">今月は投資に回せる余力がありません（収支が均衡または赤字）。</div></div>';
     }
     var chips = loggedIn
       ? ('<span class="mcc-wf mcc-wf-buffer">バッファ ' + R.yen(tm.toBuffer) + '</span>' +
@@ -744,8 +768,12 @@ window.MCC = (function () {
 
   // タイムライン：積立のみの粗い到達見込み（運用益は含めない・投機を誘発しない注記を必ず添える）。
   function _rmTimeline(rm) {
-    if (!rm.timelineAvailable) {
+    // Finding1: 同上（_rmThisMonth）＝未連携と連携済み赤字/均衡月を区別し、後者ではリンクCTAを出さない。
+    if (!rm.projection.available) {
       return '<div class="mcc-rm-timeline muted">収支連携でタイムラインが表示されます。' + jumpLink("cashflow", "家計（kakeibo）を連携") + '</div>';
+    }
+    if (rm.projection.monthlySurplus <= 0) {
+      return '<div class="mcc-rm-timeline muted">今月は投資に回せる余力がありません（収支が均衡または赤字）。</div>';
     }
     if (rm.projection.cumulativeToCore == null) {
       return '<div class="mcc-rm-timeline muted">確保枠の積立で今月の余力を使い切っているため、コア到達の見込みが立ちません（確保枠の見直しを検討してください）。</div>';
@@ -754,10 +782,20 @@ window.MCC = (function () {
       ' ヶ月（概算・積立のみ／運用益は含めない）</div>';
   }
 
-  // サテライト解放状態チップ（％のみ・¥は含まない＝loggedIn非依存で常時表示可）。
-  function _rmSatChip(rm) {
+  // サテライト解放状態チップ（構造/％は非依存で常時表示・上限までの残り¥はloggedInのみ§7.5）。
+  function _rmSatChip(rm, loggedIn) {
     if (rm.satelliteUnlocked) {
-      return '<div class="mcc-rm-satchip mcc-rm-satchip-unlocked">✓ サテライト解放中</div>';
+      var headroom = "";
+      if (loggedIn) {
+        var satPhase = null;
+        for (var i = 0; i < rm.phases.length; i++) {
+          if (rm.phases[i].key === "satellite") { satPhase = rm.phases[i]; break; }
+        }
+        if (satPhase) {
+          headroom = "・上限まであと " + R.yen(Math.max(0, satPhase.target - satPhase.saved));
+        }
+      }
+      return '<div class="mcc-rm-satchip mcc-rm-satchip-unlocked">✓ サテライト解放中' + headroom + '</div>';
     }
     return '<div class="mcc-rm-satchip mcc-rm-satchip-locked">🔒 解放条件：バッファ達成＋コア' + rm.satelliteUnlockCorePct +
       '%（現在 ' + rm.coreProgress.pct + '%）</div>';
@@ -767,7 +805,7 @@ window.MCC = (function () {
     return '<div class="mcc-roadmap" id="mcc-sec-roadmap">' +
       '<div class="mcc-section-title">ロードマップ</div>' +
       '<div class="mcc-section-desc">守る（バッファ）→ 育てる（コア）→ 攻める（サテライト）の進み具合と、今月の配分。</div>' +
-      _rmPhaseRail(rm) + _rmNorthStar(rm, loggedIn) + _rmThisMonth(rm, loggedIn) + _rmTimeline(rm) + _rmSatChip(rm) +
+      _rmPhaseRail(rm) + _rmNorthStar(rm, loggedIn) + _rmThisMonth(rm, loggedIn) + _rmTimeline(rm) + _rmSatChip(rm, loggedIn) +
     '</div>';
   }
 

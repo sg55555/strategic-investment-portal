@@ -389,6 +389,16 @@
 .mcc-rm-phase-current[data-key="satellite"] .mcc-rm-phase-label { color: var(--c-amber-pale); }
 @media (max-width: 640px) { .mcc-rm-phase-label { font-size: 0.66rem; } .mcc-rm-sep { min-width: 8px; } }
 
+/* §7.1: バッファ→コア継ぎ目の「先取り(確保枠)」チップ。面禁則＝線/glowのみ、塗り面なし（.mcc-wf-reserveと同系のamber） */
+.mcc-rm-seam { display: flex; align-items: center; gap: 4px; flex: 1 1 16px; min-width: 16px; }
+.mcc-rm-seam .mcc-rm-sep { flex: 1 1 6px; min-width: 6px; margin: 0; }
+.mcc-rm-seam-chip {
+  font-size: 0.62rem; color: var(--c-amber-pale); white-space: nowrap; line-height: 1;
+  padding: 3px 7px; border-radius: 6px; border: 1px solid rgba(251,191,36,0.45);
+  box-shadow: 0 0 8px rgba(251,191,36,0.15);
+}
+@media (max-width: 640px) { .mcc-rm-seam { min-width: 8px; } .mcc-rm-seam-chip { font-size: 0.58rem; padding: 2px 5px; } }
+
 .mcc-rm-northstar {
   color: var(--c-text-bright); font-size: 0.8rem; line-height: 1.6; padding: 8px 10px; border-radius: 8px;
   background: rgba(0,0,0,0.18); border-left: 3px solid var(--c-indigo-bright); margin-bottom: 12px;
@@ -747,6 +757,10 @@
 [data-theme="D"] #money-view .mcc-rm-phase-label,
 [data-theme="D"] #money-view .mcc-rm-phase-pct { font-family: var(--mcc-mono); letter-spacing: 0.3px; }
 [data-theme="D"] #money-view .mcc-rm-sep { background: rgba(0,229,255,0.25); }
+[data-theme="D"] #money-view .mcc-rm-seam-chip {
+  border-radius: 2px; font-family: var(--mcc-mono); border-color: rgba(255,179,0,0.5);
+  color: var(--c-amber-pale); box-shadow: 0 0 8px rgba(255,179,0,0.2);
+}
 [data-theme="D"] #money-view .mcc-rm-phase-done .mcc-rm-phase-dot { background: rgba(0,230,118,0.16); border-color: var(--c-emerald-bright); color: var(--c-emerald-soft); box-shadow: 0 0 10px rgba(0,230,118,0.35); }
 [data-theme="D"] #money-view .mcc-rm-phase-locked .mcc-rm-phase-dot { background: rgba(255,179,0,0.1); border-color: rgba(255,179,0,0.4); color: var(--c-amber); }
 [data-theme="D"] #money-view .mcc-rm-phase-current[data-key="buffer"] .mcc-rm-phase-dot { background: rgba(77,93,255,0.16); border-color: var(--c-indigo-bright); color: var(--c-indigo-pale); box-shadow: 0 0 14px rgba(77,93,255,0.5); }

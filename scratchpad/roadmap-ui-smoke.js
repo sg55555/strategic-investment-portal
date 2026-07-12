@@ -15,6 +15,9 @@
 //   4) サテライトのロック⇄解放が state（コア進捗）に追従する（同一ロード内で core.amount を動かして確認）
 //   5) applySurplus クリックで core.amount のみ増加・satellite は不変（localStorage の mcc_state で確認）
 //   6) pageerror 0
+//   7) Finding1回帰: ログイン＋連携済み＋赤字/均衡月（monthlySurplus<=0・available=true）→
+//      今月配分/タイムラインに「余力がありません」の赤字メッセージが出て、「家計（kakeibo）を連携」の
+//      ジャンプリンクは出ない（連携済みユーザーへの誤ったリンクCTAを防ぐ）
 const { chromium } = require("playwright");
 
 const BASE = "http://127.0.0.1:8200";
@@ -28,6 +31,16 @@ const CASHFLOW_ROWS = ["2026-04-01", "2026-05-01", "2026-06-01"].map((period) =>
   period, total_income: 400000, salary_income: 400000, misc_income: 0,
   fixed_expense: 150000, variable_expense: 100000, total_expense: 250000,
   balance: 150000, savings_rate: 37.5, is_complete: true, breakdown: null,
+  pulled_at: "2026-07-01T00:00:00Z",
+}));
+
+// Finding1回帰: 連携済み（=rows あり・available=true）だが赤字月（expense>=income・balance<0）
+// → monthlySurplus は money-rules.js cashflowDerived() の r(Math.max(0, median(...))) により 0 に clamp される
+// （赤字/均衡は同じ枝）。available=true・monthlySurplus<=0 の組み合わせを決定論的に作る。
+const CASHFLOW_ROWS_DEFICIT = ["2026-04-01", "2026-05-01", "2026-06-01"].map((period) => ({
+  period, total_income: 350000, salary_income: 350000, misc_income: 0,
+  fixed_expense: 200000, variable_expense: 160000, total_expense: 360000,
+  balance: -10000, savings_rate: -2.9, is_complete: true, breakdown: null,
   pulled_at: "2026-07-01T00:00:00Z",
 }));
 
@@ -63,12 +76,14 @@ async function roadmapSnapshot(page) {
       text: p.textContent,
     }));
     const thisMonth = document.getElementById("mcc-rm-thismonth");
+    const timeline = el.querySelector(".mcc-rm-timeline");
     return {
       exists: true,
       html: el.innerHTML,
       text: el.textContent,
       phases,
       thisMonthText: thisMonth ? thisMonth.textContent : null,
+      timelineText: timeline ? timeline.textContent : null,
     };
   });
 }
@@ -170,6 +185,29 @@ async function getState(page) {
       results.sec5_satelliteUnchanged = false;
     }
 
+    // ============ フェーズC: ログイン＋連携済み＋赤字/均衡月（Finding1回帰）============
+    // /api/me/cashflow だけを赤字データに差し替えて再読込。session/investment/state ルートはフェーズBのまま。
+    await page.unroute("**/api/me/cashflow").catch(() => {});
+    await page.route("**/api/me/cashflow", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ cashflow: CASHFLOW_ROWS_DEFICIT }) }));
+    await page.reload({ waitUntil: "networkidle" });
+    await page.waitForFunction(
+      () => typeof STOCK_DATA === "object" && STOCK_DATA && Object.keys(STOCK_DATA).length > 0,
+      { timeout: 8000 }
+    ).catch(() => {});
+    await page.click(".mcc-nav-btn");
+    await page.waitForTimeout(600);
+
+    snap = await roadmapSnapshot(page);
+    const deficitMsgRe = /余力がありません/;
+    const jumpLinkRe = /家計（kakeibo）を連携/;
+    results.sec6_thisMonthShowsDeficitMsg = !!snap && !!snap.thisMonthText && deficitMsgRe.test(snap.thisMonthText);
+    results.sec6_thisMonthNoJumpLink = !!snap && !!snap.thisMonthText && !jumpLinkRe.test(snap.thisMonthText);
+    results.sec6_timelineShowsDeficitMsg = !!snap && !!snap.timelineText && deficitMsgRe.test(snap.timelineText);
+    results.sec6_timelineNoJumpLink = !!snap && !!snap.timelineText && !jumpLinkRe.test(snap.timelineText);
+    results.sec6_noJumpLinkAnywhereInRoadmap = !!snap && !jumpLinkRe.test(snap.text);
+    results.sec6_snapshot = snap;
+
     results.pageerrors = errors;
 
     const pass =
@@ -178,6 +216,8 @@ async function getState(page) {
       results.sec3_satelliteUnlockedNow && results.sec3_satChipUnlocked && results.sec3_noYenStillLoggedOut &&
       results.sec4_thisMonthHasYen && results.sec4_railStillRenders &&
       results.applyBtnFound && results.sec5_coreIncreased && results.sec5_satelliteUnchanged &&
+      results.sec6_thisMonthShowsDeficitMsg && results.sec6_thisMonthNoJumpLink &&
+      results.sec6_timelineShowsDeficitMsg && results.sec6_timelineNoJumpLink && results.sec6_noJumpLinkAnywhereInRoadmap &&
       errors.length === 0;
 
     console.log(JSON.stringify(results, null, 2));
