@@ -236,6 +236,99 @@
     return "over_10y";
   }
 
+  // Task3: 確保枠の月次コミット合計（定常寄与＝投影のコアドラッグ）。cd.reserveAlloc(配列)や cd.toReserves(今月実配分・phase依存)は投影に使わない。
+  function reserveMonthlyTotal(s, nowMs) {
+    var reserves = Array.isArray(s.reserves) ? s.reserves : [];
+    var sum = 0;
+    for (var i = 0; i < reserves.length; i++) sum += r(reserveMonthly(reserves[i], nowMs));
+    return sum;
+  }
+
+  // Task3: 今月の配分プラン（cashflowDerived は不変・サテライト分割はここだけ）。
+  function allocationPlan(s, cd) {
+    cd = cd || {};
+    var surplus = num(cd.investableSurplus);
+    var unlocked = satelliteUnlocked(s);
+    var toSat = 0, toCore = surplus;
+    if (unlocked) {
+      var room = Math.max(0, satelliteCap(s) - num(s.buckets.satellite.amount));
+      toSat = Math.min(room, r(surplus * num(s.satelliteCapPct) / 100));
+      toCore = surplus - toSat;
+    }
+    return {
+      phase: roadmapPhase(s), satelliteUnlocked: unlocked,
+      toBuffer: num(cd.toBuffer), toReserves: num(cd.toReserves),
+      reserveAlloc: Array.isArray(cd.reserveAlloc) ? cd.reserveAlloc : [],
+      toCore: toCore, toSatellite: toSat, monthlySurplus: num(cd.monthlySurplus),
+    };
+  }
+
+  // Task3: north star（最大目標）のラベル。
+  function _northStarLabel(s) {
+    var goals = Array.isArray(s.goals) ? s.goals : [];
+    var maxT = 0, label = "";
+    for (var i = 0; i < goals.length; i++) {
+      var t = num(goals[i] && goals[i].targetAmount);
+      if (t > maxT) { maxT = t; label = String((goals[i] && goals[i].label) || ""); }
+    }
+    return label;
+  }
+
+  // Task3: ロードマップ UI VM（UI専用・パリティ不要＝cashflowViewModel と同格）。cd=cashflowDerived の戻り。
+  function roadmap(s, cd, nowMs) {
+    cd = cd || {};
+    var available = !!cd.available;
+    var monthlySurplus = num(cd.monthlySurplus);
+    var reserveMo = reserveMonthlyTotal(s, nowMs);
+    var coreContribution = Math.max(0, monthlySurplus - reserveMo);
+    var cp = coreProgress(s);
+    var ct = coreTarget(s);
+    var bt = bufferTarget(s);
+    var monthsToBuffer = (available && typeof cd.monthsToBufferComplete === "number")
+      ? cd.monthsToBufferComplete
+      : (available ? projectMonths(bufferRemaining(s), monthlySurplus) : null);
+    var monthsToCore = available ? projectMonths(cp.remaining, coreContribution) : null;
+    var cumulativeToCore = (monthsToBuffer !== null && monthsToCore !== null) ? monthsToBuffer + monthsToCore : null;
+    var total = totalAssets(s);
+    var goals = (Array.isArray(s.goals) ? s.goals : []).slice(0, 20);
+    var ns = northStarTarget(s);
+    var milestones = [];
+    for (var i = 0; i < goals.length; i++) {
+      var t = num(goals[i] && goals[i].targetAmount);
+      if (t <= 0) continue;
+      var gp = goalProgress(goals[i], total);
+      milestones.push({
+        index: i, label: String((goals[i] && goals[i].label) || ""), targetAmount: t,
+        progressPct: gp.progressPct, reached: gp.achieved,
+        projectedMonths: available ? projectMonths(Math.max(0, t - total), monthlySurplus) : null,
+      });
+    }
+    return {
+      phase: roadmapPhase(s),
+      phases: [
+        { key: "buffer", label: "守る（生活防衛）", target: bt, saved: num(s.buckets.buffer.amount),
+          remaining: bufferRemaining(s), progress: bufferProgress(s), progressPct: Math.round(bufferProgress(s) * 100),
+          monthlyContribution: monthlySurplus, monthsToComplete: monthsToBuffer, cumulativeMonths: monthsToBuffer },
+        { key: "core", label: "育てる（長期投資）", target: ct, saved: num(s.buckets.core.amount),
+          remaining: cp.remaining, progress: cp.progress, progressPct: cp.pct,
+          monthlyContribution: coreContribution, monthsToComplete: monthsToCore, cumulativeMonths: cumulativeToCore },
+        { key: "satellite", label: "攻める（サテライト）", target: satelliteCap(s), saved: num(s.buckets.satellite.amount),
+          progress: 0, progressPct: 0, locked: !satelliteUnlocked(s), unlockCorePct: SATELLITE_UNLOCK_CORE_PCT },
+      ],
+      northStar: { target: ns, source: coreTargetSource(s), label: _northStarLabel(s) },
+      coreTarget: ct, coreProgress: cp,
+      satelliteUnlocked: satelliteUnlocked(s), satelliteUnlockCorePct: SATELLITE_UNLOCK_CORE_PCT,
+      thisMonth: allocationPlan(s, cd),
+      projection: {
+        available: available, monthlySurplus: monthlySurplus, reserveMonthlyTotal: reserveMo,
+        coreMonthlyContribution: coreContribution, monthsToBuffer: monthsToBuffer,
+        monthsToCore: monthsToCore, cumulativeToCore: cumulativeToCore, etaToCoreBucket: etaBucket(cumulativeToCore),
+      },
+      milestones: milestones,
+      timelineAvailable: available && monthlySurplus > 0,
+    };
+  }
+
   function nextAllocation(s) {
     if (bufferTarget(s) === 0) {
       return { target: "setup", message: "まず「設定」で月の生活費を入力してください（バッファ目標を設定）" };
@@ -735,6 +828,7 @@
     coreTargetSource: coreTargetSource, coreProgress: coreProgress,
     satelliteUnlocked: satelliteUnlocked, roadmapPhase: roadmapPhase,
     projectMonths: projectMonths, etaBucket: etaBucket,
+    reserveMonthlyTotal: reserveMonthlyTotal, allocationPlan: allocationPlan, roadmap: roadmap,
     nextAllocation: nextAllocation, viewModel: viewModel, yen: yen, yenSigned: yenSigned,
     deadlineBucket: deadlineBucket, modeAFacts: modeAFacts,
     cashflowDerived: cashflowDerived, cashflowViewModel: cashflowViewModel,

@@ -825,3 +825,59 @@ test("etaBucket: 境界", () => {
   assert.equal(R.etaBucket(119), "3_10y");
   assert.equal(R.etaBucket(120), "over_10y");
 });
+
+// --- Task3: 層1 今月配分プラン・ロードマップVM ---
+
+test("allocationPlan: 未解放は全額コア", () => {
+  const s = mk(300000, 1800000, 0, 0); // buffer達成・コア0%=未解放
+  const cd = { available: true, investableSurplus: 100000, toBuffer: 0, toReserves: 0, reserveAlloc: [], monthlySurplus: 100000, monthsToBufferComplete: 0 };
+  const p = R.allocationPlan(s, cd);
+  assert.equal(p.satelliteUnlocked, false);
+  assert.equal(p.toSatellite, 0);
+  assert.equal(p.toCore, 100000);
+});
+
+test("allocationPlan: 解放時はcap二重上限で分割", () => {
+  // コア50%で解放。investable=core+sat=3,600,000 → satelliteCap=360,000, sat=0 → room=360,000
+  const s = mk(300000, 1800000, 3600000, 0);
+  const cd = { available: true, investableSurplus: 100000, toBuffer: 0, toReserves: 0, reserveAlloc: [], monthlySurplus: 100000, monthsToBufferComplete: 0 };
+  const p = R.allocationPlan(s, cd);
+  assert.equal(p.satelliteUnlocked, true);
+  assert.equal(p.toSatellite, 10000); // min(room=360000, 100000*10%=10000)
+  assert.equal(p.toCore, 90000);
+});
+
+test("allocationPlan: roomが小さいと過小配分(規律側)", () => {
+  // sat=350,000, investable=core+sat=3,950,000, cap=395,000 → room=45,000
+  const s = mk(300000, 1800000, 3600000, 350000);
+  const cd = { available: true, investableSurplus: 1000000, toBuffer: 0, toReserves: 0, reserveAlloc: [], monthlySurplus: 1000000, monthsToBufferComplete: 0 };
+  const p = R.allocationPlan(s, cd);
+  assert.equal(p.toSatellite, 45000); // min(room=45000, 1000000*10%=100000)
+  assert.equal(p.toCore, 955000);
+});
+
+test("roadmap: VM形状・cashflow無しはtimeline不可", () => {
+  const s = mk(300000, 900000, 0, 0);
+  const rm = R.roadmap(s, { available: false, monthlySurplus: 0 }, 0);
+  assert.equal(rm.phase, "buffer");
+  assert.equal(rm.phases.length, 3);
+  assert.equal(rm.phases[0].key, "buffer");
+  assert.equal(rm.phases[1].key, "core");
+  assert.equal(rm.phases[2].key, "satellite");
+  assert.equal(rm.phases[2].locked, true);
+  assert.equal(rm.timelineAvailable, false);
+  assert.equal(rm.satelliteUnlockCorePct, 50);
+  assert.ok(rm.thisMonth);
+});
+
+test("roadmap: 確保枠ドラッグでコア寄与が目減り", () => {
+  // buffer達成・コア途中・reserves月次合計を差引
+  const s = mk(300000, 1800000, 1000000, 0);
+  s.reserves = [{ id: "r1", label: "新居", target: 1200000, saved: 0, deadline: "", monthlyOverride: 20000 }];
+  const cd = { available: true, monthlySurplus: 100000, investableSurplus: 80000, toBuffer: 0, toReserves: 20000, reserveAlloc: [], monthsToBufferComplete: 0 };
+  const rm = R.roadmap(s, cd, 0);
+  // coreContribution = 100000 - reserveMonthlyTotal(=20000) = 80000
+  assert.equal(rm.projection.coreMonthlyContribution, 80000);
+  assert.ok(rm.projection.monthsToCore > 0);
+  assert.equal(rm.timelineAvailable, true);
+});
