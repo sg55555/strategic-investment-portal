@@ -777,3 +777,51 @@ test("coreProgress: coreTarget=0(setup)は全ゼロ", () => {
   const cp = R.coreProgress(s);
   assert.equal(cp.progress, 0); assert.equal(cp.remaining, 0); assert.equal(cp.established, false);
 });
+
+// --- Task2: 層1 サテライト解放・フェーズ・投影ヘルパ ---
+
+function mk(monthlyExpense, buffer, core, sat, goals) {
+  const s = R.defaultState();
+  s.monthlyExpense = monthlyExpense;
+  s.buckets.buffer.amount = buffer; s.buckets.core.amount = core; s.buckets.satellite.amount = sat;
+  if (goals) s.goals = goals;
+  return s;
+}
+
+test("satelliteUnlocked: バッファ達成かつコア50%以上で解放", () => {
+  // monthlyExpense=300000 → bufferTarget=1,800,000, coreTarget(fallback)=7,200,000
+  assert.equal(R.satelliteUnlocked(mk(300000, 1000000, 3600000, 0)), false); // buffer未達
+  assert.equal(R.satelliteUnlocked(mk(300000, 1800000, 3527999, 0)), false); // コア49%
+  assert.equal(R.satelliteUnlocked(mk(300000, 1800000, 3600000, 0)), true);  // コア50%
+  assert.equal(R.satelliteUnlocked(mk(300000, 1800000, 7200000, 0)), true);  // コア100%
+});
+
+test("roadmapPhase: 全6分岐", () => {
+  assert.equal(R.roadmapPhase(R.defaultState()), "setup");                     // 月支出0
+  assert.equal(R.roadmapPhase(mk(300000, 900000, 0, 0)), "buffer");            // バッファ半分
+  assert.equal(R.roadmapPhase(mk(300000, 1800000, 0, 0)), "core");            // buffer達成/コア0%
+  assert.equal(R.roadmapPhase(mk(300000, 1800000, 3600000, 0)), "satellite");// コア50%(解放)
+  assert.equal(R.roadmapPhase(mk(300000, 1800000, 7200000, 0)), "independence"); // コア100%
+  // rebalance: サテライトが上限超過（investable=core+sat, cap=investable*10%）
+  const over = mk(300000, 1800000, 1000000, 900000); // investable=1.9M, cap=190k, sat=900k>cap
+  assert.equal(R.roadmapPhase(over), "rebalance");
+});
+
+test("projectMonths: rate<=0はnull・端数ceil・負gapは0", () => {
+  assert.equal(R.projectMonths(1000000, 0), null);
+  assert.equal(R.projectMonths(1000000, -5), null);
+  assert.equal(R.projectMonths(1000000, 300000), 4); // ceil(3.33)
+  assert.equal(R.projectMonths(-100, 300000), 0);
+});
+
+test("etaBucket: 境界", () => {
+  assert.equal(R.etaBucket(null), "none");
+  assert.equal(R.etaBucket(5), "lt6");
+  assert.equal(R.etaBucket(6), "6_12");
+  assert.equal(R.etaBucket(11), "6_12");
+  assert.equal(R.etaBucket(12), "1_3y");
+  assert.equal(R.etaBucket(35), "1_3y");
+  assert.equal(R.etaBucket(36), "3_10y");
+  assert.equal(R.etaBucket(119), "3_10y");
+  assert.equal(R.etaBucket(120), "over_10y");
+});

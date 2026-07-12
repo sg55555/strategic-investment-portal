@@ -205,6 +205,37 @@
     };
   }
 
+  // Task2: サテライト解放条件（バッファ達成 AND コア50%以上）
+  function satelliteUnlocked(s) {
+    return bufferProgress(s) >= 1 && coreProgress(s).progress >= SATELLITE_UNLOCK_CORE_PCT / 100;
+  }
+
+  // Task2: ロードマップのフェーズ（6状態）。判定順が意味を持つ。
+  function roadmapPhase(s) {
+    if (bufferTarget(s) <= 0) return "setup";
+    if (bufferProgress(s) < 1) return "buffer";
+    if (satelliteOver(s) > 0) return "rebalance";
+    var cp = coreProgress(s).progress;
+    if (cp >= 1) return "independence";
+    if (satelliteUnlocked(s)) return "satellite";
+    return "core";
+  }
+
+  // Task2: 積立のみ・0%前提の到達月数。rate<=0 は前進不能=null。
+  function projectMonths(gapYen, rateYen) {
+    return rateYen <= 0 ? null : Math.ceil(Math.max(0, gapYen) / rateYen);
+  }
+
+  // Task2: facts 用に生月数を粗化（ログ指紋の解像度低下）。
+  function etaBucket(months) {
+    if (months === null || months === undefined) return "none";
+    if (months < 6) return "lt6";
+    if (months < 12) return "6_12";
+    if (months < 36) return "1_3y";
+    if (months < 120) return "3_10y";
+    return "over_10y";
+  }
+
   function nextAllocation(s) {
     if (bufferTarget(s) === 0) {
       return { target: "setup", message: "まず「設定」で月の生活費を入力してください（バッファ目標を設定）" };
@@ -702,6 +733,8 @@
     CORE_FALLBACK_MONTHS: CORE_FALLBACK_MONTHS, SATELLITE_UNLOCK_CORE_PCT: SATELLITE_UNLOCK_CORE_PCT,
     northStarTarget: northStarTarget, coreTarget: coreTarget,
     coreTargetSource: coreTargetSource, coreProgress: coreProgress,
+    satelliteUnlocked: satelliteUnlocked, roadmapPhase: roadmapPhase,
+    projectMonths: projectMonths, etaBucket: etaBucket,
     nextAllocation: nextAllocation, viewModel: viewModel, yen: yen, yenSigned: yenSigned,
     deadlineBucket: deadlineBucket, modeAFacts: modeAFacts,
     cashflowDerived: cashflowDerived, cashflowViewModel: cashflowViewModel,
