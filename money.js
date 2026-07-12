@@ -446,7 +446,7 @@ window.MCC = (function () {
         '<button class="mcc-goal-addbtn" onclick="MCC.addGoal()">＋ 目標を追加</button>' +
       '</div>';
     var empty = '<div class="mcc-goals-empty">総資産（' + vm.fmt(vm.totalAssets) + '）に対する資産目標を追加できます。</div>';
-    return '<div class="mcc-goals"><div class="mcc-section-title">資産目標</div><div class="mcc-section-desc">総資産に対する目標と達成度（確保枠は含めません）。</div>' +
+    return '<div class="mcc-goals" id="mcc-sec-goals"><div class="mcc-section-title">資産目標</div><div class="mcc-section-desc">総資産に対する目標と達成度（確保枠は含めません）。</div>' +
       (items || empty) + form + '</div>';
   }
 
@@ -680,6 +680,97 @@ window.MCC = (function () {
       (cards || empty) + summary + form + '</div>';
   }
 
+  // ---- Task6: フェーズ型ロードマップ（守る/育てる/攻める）----
+  // rm = R.roadmap(state, cd, nowMs) の VM をそのまま描くだけ（業務mathは持たない）。
+  // ¥ は loggedIn の時のみ（既存 cashflowSection と同一ゲート）・フェーズ構造/％は常時表示。
+  // roadmapPhase() の6状態（setup/buffer/rebalance/core/satellite/independence）を
+  // rail の3フェーズ（buffer/core/satellite）へ縮約する表示専用マッピング（業務mathではない）。
+  var _RM_CURRENT_KEY = { setup: "buffer", buffer: "buffer", rebalance: "core", core: "core", satellite: "satellite", independence: "satellite" };
+
+  function _rmPhaseRail(rm) {
+    var currentKey = _RM_CURRENT_KEY[rm.phase] || "buffer";
+    var items = rm.phases.map(function (p) {
+      var locked = !!p.locked;
+      var current = !locked && p.key === currentKey;
+      var done = !locked && !current && p.progress >= 1;
+      var cls = locked ? "locked" : (current ? "current" : (done ? "done" : "todo"));
+      var icon = locked ? "🔒" : (done ? "✓" : (current ? "●" : "○"));
+      return '<div class="mcc-rm-phase mcc-rm-phase-' + cls + '" data-key="' + p.key + '">' +
+        '<span class="mcc-rm-phase-dot">' + icon + '</span>' +
+        '<span class="mcc-rm-phase-label">' + esc(p.label) + '</span>' +
+        '<span class="mcc-rm-phase-pct">' + p.progressPct + '%</span>' +
+      '</div>';
+    }).join('<span class="mcc-rm-sep"></span>');
+    return '<div class="mcc-rm-rail">' + items + '</div>';
+  }
+
+  // コア目標ラベル：goal 逆算／フォールバック（月支出×24ヶ月）／setup未完 の3系統。¥はloggedInのみ。
+  function _rmNorthStar(rm, loggedIn) {
+    if (rm.northStar.source === "goal") {
+      var amt = loggedIn
+        ? ('コア目標 ' + R.yen(rm.coreTarget) + '（あと ' + R.yen(rm.coreProgress.remaining) + '）')
+        : ('コア目標まで ' + rm.coreProgress.pct + '%');
+      return '<div class="mcc-rm-northstar">目標『' + esc(rm.northStar.label) + '』から逆算 → ' + amt + '</div>';
+    }
+    if (rm.northStar.source === "fallback") {
+      return '<div class="mcc-rm-northstar mcc-rm-northstar-fallback">仮の目安：月支出×24ヶ月（2年分）。実際の目標を宣言するとここが逆算に変わります。' +
+        jumpLink("goals", "資産目標を追加") + '</div>';
+    }
+    return '<div class="mcc-rm-northstar mcc-rm-northstar-setup">' + jumpLink("settings", "「設定」") + 'で月の生活費を入力するとコア目標が決まります。</div>';
+  }
+
+  // 今月の配分プラン：バッファ/確保枠/コア/(解放時)サテライトの ¥（.mcc-wf-* 再利用）。
+  // サテライトは表示のみの目安＝applySurplus は変更しない（コアのみ執行）。
+  function _rmThisMonth(rm, loggedIn) {
+    var tm = rm.thisMonth;
+    var head = '<div class="mcc-rm-thismonth-head">今月の配分プラン' + termHelp("投資余力") + '</div>';
+    if (!rm.timelineAvailable) {
+      return '<div class="mcc-rm-thismonth" id="mcc-rm-thismonth">' + head +
+        '<div class="mcc-rm-note">収支連携すると、今月の配分（バッファ→確保枠→コア' + (tm.satelliteUnlocked ? "→サテライト" : "") + '）が表示されます。' +
+        jumpLink("cashflow", "家計（kakeibo）を連携") + '</div></div>';
+    }
+    var chips = loggedIn
+      ? ('<span class="mcc-wf mcc-wf-buffer">バッファ ' + R.yen(tm.toBuffer) + '</span>' +
+          (tm.toReserves > 0 ? '<span class="mcc-wf mcc-wf-reserve">確保枠 ' + R.yen(tm.toReserves) + '</span>' : "") +
+          '<span class="mcc-wf mcc-wf-core">コア ' + R.yen(tm.toCore) + '</span>' +
+          (tm.satelliteUnlocked ? '<span class="mcc-wf mcc-wf-sat">サテライト ' + R.yen(tm.toSatellite) + '（手動で移す目安）</span>' : ""))
+      : ('<span class="mcc-wf mcc-wf-buffer">バッファ</span>' +
+          (tm.toReserves > 0 ? '<span class="mcc-wf mcc-wf-reserve">確保枠</span>' : "") +
+          '<span class="mcc-wf mcc-wf-core">コア</span>' +
+          (tm.satelliteUnlocked ? '<span class="mcc-wf mcc-wf-sat">サテライト（手動で移す目安）</span>' : "") +
+          '<span class="mcc-rm-note">ログインすると金額が表示されます</span>');
+    return '<div class="mcc-rm-thismonth" id="mcc-rm-thismonth">' + head + '<div class="mcc-rm-wf">' + chips + '</div></div>';
+  }
+
+  // タイムライン：積立のみの粗い到達見込み（運用益は含めない・投機を誘発しない注記を必ず添える）。
+  function _rmTimeline(rm) {
+    if (!rm.timelineAvailable) {
+      return '<div class="mcc-rm-timeline muted">収支連携でタイムラインが表示されます。' + jumpLink("cashflow", "家計（kakeibo）を連携") + '</div>';
+    }
+    if (rm.projection.cumulativeToCore == null) {
+      return '<div class="mcc-rm-timeline muted">確保枠の積立で今月の余力を使い切っているため、コア到達の見込みが立ちません（確保枠の見直しを検討してください）。</div>';
+    }
+    return '<div class="mcc-rm-timeline">この余力ペースなら コア目標到達まで約 ' + rm.projection.cumulativeToCore +
+      ' ヶ月（概算・積立のみ／運用益は含めない）</div>';
+  }
+
+  // サテライト解放状態チップ（％のみ・¥は含まない＝loggedIn非依存で常時表示可）。
+  function _rmSatChip(rm) {
+    if (rm.satelliteUnlocked) {
+      return '<div class="mcc-rm-satchip mcc-rm-satchip-unlocked">✓ サテライト解放中</div>';
+    }
+    return '<div class="mcc-rm-satchip mcc-rm-satchip-locked">🔒 解放条件：バッファ達成＋コア' + rm.satelliteUnlockCorePct +
+      '%（現在 ' + rm.coreProgress.pct + '%）</div>';
+  }
+
+  function roadmapSection(rm, loggedIn) {
+    return '<div class="mcc-roadmap" id="mcc-sec-roadmap">' +
+      '<div class="mcc-section-title">ロードマップ</div>' +
+      '<div class="mcc-section-desc">守る（バッファ）→ 育てる（コア）→ 攻める（サテライト）の進み具合と、今月の配分。</div>' +
+      _rmPhaseRail(rm) + _rmNorthStar(rm, loggedIn) + _rmThisMonth(rm, loggedIn) + _rmTimeline(rm) + _rmSatChip(rm) +
+    '</div>';
+  }
+
   // ① 用語ヘルプ：GLOSSARY(money-rules.js 単一源)から定義を引き ? ツールチップを返す。見出し/バケツ名に添える。
   var _glossaryMap = null;
   function termHelp(term) {
@@ -692,7 +783,7 @@ window.MCC = (function () {
   }
 
   // ① ガイド/ステッパー内の「設定」等のセクション参照 → 該当セクションへスクロール（折りたたみは開く）。
-  var _JUMP_TARGETS = { settings: "mcc-sec-settings", buckets: "mcc-sec-buckets", sync: "mcc-sec-sync", cashflow: "mcc-sec-cashflow" };
+  var _JUMP_TARGETS = { settings: "mcc-sec-settings", buckets: "mcc-sec-buckets", sync: "mcc-sec-sync", cashflow: "mcc-sec-cashflow", goals: "mcc-sec-goals" };
   // 収支セクションは未ログインだと描画されない（認証データ）。連携にはログインが前提なので login 欄へフォールバック。
   var _JUMP_FALLBACK = { cashflow: "sync" };
   function jumpLink(key, label) {
@@ -766,6 +857,10 @@ window.MCC = (function () {
     var vm = R.viewModel(state);
     var cv = R.cashflowViewModel(_cashflowRows, state, Date.now());
     var ob = R.onboardingSteps(state, sync.loggedIn, cv.hasData);
+    // Task6: フェーズ型ロードマップ VM。cd は cashflowViewModel と同じ cashflowDerived(rows,state,now) の生の戻り
+    // （reserveAlloc 等のキー名が cv とは異なるため、cv を渡さず別途算出＝R.roadmap の想定形状に一致させる）。
+    var cd = R.cashflowDerived(_cashflowRows, state, Date.now());
+    var rm = R.roadmap(state, cd, Date.now());
 
     var gaugeStat = vm.bufferConfigured
       ? ('<strong>' + vm.bufferProgressPct + '%</strong> ' +
@@ -836,7 +931,7 @@ window.MCC = (function () {
       '</div>';
 
     var saveWarn = lastSaveOk ? '' : '<div class="mcc-save-warn">⚠ 保存できませんでした（プライベートブラウズ等）。この端末に値が保存されない可能性があります。</div>';
-    root.innerHTML = syncBar() + saveWarn + guideSection() + stepperSection(ob) + gauge + banner + cashflowSection(cv) + reservesSection(cv) + adviceSection(vm) + buckets + goalsSection(vm) + settings + tools;
+    root.innerHTML = syncBar() + saveWarn + guideSection() + stepperSection(ob) + gauge + banner + roadmapSection(rm, sync.loggedIn) + cashflowSection(cv) + reservesSection(cv) + adviceSection(vm) + buckets + goalsSection(vm) + settings + tools;
   }
 
   function exportJSON() {

@@ -356,6 +356,57 @@
 }
 .mcc-rsv-addbtn:hover { background: rgba(251,191,36,0.28); }
 
+/* --- Task6: ロードマップ（フェーズレール＋今月配分＋ETA）。守る=indigo/育てる=emerald/攻める=amber --- */
+.mcc-roadmap {
+  margin-top: 18px; padding: 16px 18px; border-radius: 12px;
+  background: rgba(15,20,34,0.55); border: 1px solid rgba(129,140,248,0.22);
+}
+.mcc-rm-rail { display: flex; align-items: center; flex-wrap: wrap; gap: 0; margin: 10px 0 14px; }
+.mcc-rm-phase { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); }
+.mcc-rm-phase-dot {
+  display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px;
+  border-radius: 50%; font-size: 0.66rem; font-weight: 700; border: 1px solid; flex-shrink: 0;
+}
+.mcc-rm-phase-label { color: var(--c-text-dim); font-size: 0.76rem; white-space: nowrap; }
+.mcc-rm-phase-pct { color: var(--c-text-mute); font-size: 0.66rem; }
+.mcc-rm-sep { flex: 1 1 16px; min-width: 16px; height: 1px; background: rgba(129,140,248,0.25); margin: 0 6px; }
+.mcc-rm-phase-todo .mcc-rm-phase-dot { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.14); color: var(--c-gray); }
+.mcc-rm-phase-todo .mcc-rm-phase-label { color: var(--c-text-mute); }
+.mcc-rm-phase-done .mcc-rm-phase-dot { background: rgba(16,185,129,0.2); border-color: rgba(16,185,129,0.55); color: var(--c-emerald-soft); }
+.mcc-rm-phase-done .mcc-rm-phase-label { color: var(--c-emerald-pale); }
+.mcc-rm-phase-locked { opacity: 0.85; }
+.mcc-rm-phase-locked .mcc-rm-phase-dot { background: rgba(251,191,36,0.12); border-color: rgba(251,191,36,0.4); color: var(--c-amber); }
+.mcc-rm-phase-locked .mcc-rm-phase-label,
+.mcc-rm-phase-locked .mcc-rm-phase-pct { color: var(--c-text-mute); }
+.mcc-rm-phase-current .mcc-rm-phase-dot { box-shadow: 0 0 12px rgba(129,140,248,0.4); }
+.mcc-rm-phase-current .mcc-rm-phase-label { font-weight: 700; }
+/* 現在フェーズのみ意味色（守る=indigo/育てる=emerald/攻める=amber）で発光 */
+.mcc-rm-phase-current[data-key="buffer"] .mcc-rm-phase-dot { background: rgba(129,140,248,0.28); border-color: var(--c-indigo-bright); color: var(--c-indigo-pale); }
+.mcc-rm-phase-current[data-key="buffer"] .mcc-rm-phase-label { color: var(--c-indigo-pale); }
+.mcc-rm-phase-current[data-key="core"] .mcc-rm-phase-dot { background: rgba(16,185,129,0.22); border-color: var(--c-emerald-bright); color: var(--c-emerald-soft); box-shadow: 0 0 12px rgba(16,185,129,0.4); }
+.mcc-rm-phase-current[data-key="core"] .mcc-rm-phase-label { color: var(--c-emerald-pale); }
+.mcc-rm-phase-current[data-key="satellite"] .mcc-rm-phase-dot { background: rgba(251,191,36,0.22); border-color: var(--c-amber-bright); color: var(--c-amber-pale); box-shadow: 0 0 12px rgba(251,191,36,0.4); }
+.mcc-rm-phase-current[data-key="satellite"] .mcc-rm-phase-label { color: var(--c-amber-pale); }
+@media (max-width: 640px) { .mcc-rm-phase-label { font-size: 0.66rem; } .mcc-rm-sep { min-width: 8px; } }
+
+.mcc-rm-northstar {
+  color: var(--c-text-bright); font-size: 0.8rem; line-height: 1.6; padding: 8px 10px; border-radius: 8px;
+  background: rgba(0,0,0,0.18); border-left: 3px solid var(--c-indigo-bright); margin-bottom: 12px;
+}
+.mcc-rm-northstar-fallback, .mcc-rm-northstar-setup { border-left-color: var(--c-slate); color: var(--c-text-dim); }
+
+.mcc-rm-thismonth { margin-bottom: 12px; }
+.mcc-rm-thismonth-head { color: var(--c-text-bright); font-size: 0.78rem; letter-spacing: 0.5px; font-weight: 700; margin-bottom: 6px; }
+.mcc-rm-wf { display: flex; flex-wrap: wrap; gap: 6px; }
+.mcc-rm-note { color: var(--c-text-dim); font-size: 0.72rem; line-height: 1.6; }
+
+.mcc-rm-timeline { color: var(--c-text-dim); font-size: 0.78rem; line-height: 1.6; margin-bottom: 12px; }
+.mcc-rm-timeline.muted { color: var(--c-slate); }
+
+.mcc-rm-satchip { font-size: 0.74rem; padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); display: inline-block; }
+.mcc-rm-satchip-locked { color: var(--c-amber-pale); border-color: rgba(251,191,36,0.4); background: rgba(251,191,36,0.06); }
+.mcc-rm-satchip-unlocked { color: var(--c-emerald-soft); border-color: rgba(16,185,129,0.4); background: rgba(16,185,129,0.08); }
+
 
 /* ============================================================================
    ③ Phase 3b 採用 = テーマ D「ネオン・ターミナル」。<html data-theme="D"> を既定付与し
@@ -684,3 +735,32 @@
 [data-theme="D"] #money-view .mcc-rsv-fund:hover,
 [data-theme="D"] #money-view .mcc-rsv-addbtn:hover { background: rgba(255,179,0,0.2); box-shadow: 0 0 14px rgba(255,179,0,0.3); }
 [data-theme="D"] #money-view .mcc-rsv-editbox summary { font-family: var(--mcc-mono); }
+
+/* ---------- 17. ロードマップ（フェーズレール／今月配分／ETA）---------- */
+[data-theme="D"] #money-view .mcc-roadmap {
+  background: rgba(5,9,15,0.72); border: 1px solid rgba(138,160,255,0.32); border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgba(138,160,255,0.05), 0 0 18px rgba(77,93,255,0.08);
+  backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+}
+[data-theme="D"] #money-view .mcc-rm-phase { border-radius: 2px; font-family: var(--mcc-mono); }
+[data-theme="D"] #money-view .mcc-rm-phase-dot { border-radius: 2px; }
+[data-theme="D"] #money-view .mcc-rm-phase-label,
+[data-theme="D"] #money-view .mcc-rm-phase-pct { font-family: var(--mcc-mono); letter-spacing: 0.3px; }
+[data-theme="D"] #money-view .mcc-rm-sep { background: rgba(0,229,255,0.25); }
+[data-theme="D"] #money-view .mcc-rm-phase-done .mcc-rm-phase-dot { background: rgba(0,230,118,0.16); border-color: var(--c-emerald-bright); color: var(--c-emerald-soft); box-shadow: 0 0 10px rgba(0,230,118,0.35); }
+[data-theme="D"] #money-view .mcc-rm-phase-locked .mcc-rm-phase-dot { background: rgba(255,179,0,0.1); border-color: rgba(255,179,0,0.4); color: var(--c-amber); }
+[data-theme="D"] #money-view .mcc-rm-phase-current[data-key="buffer"] .mcc-rm-phase-dot { background: rgba(77,93,255,0.16); border-color: var(--c-indigo-bright); color: var(--c-indigo-pale); box-shadow: 0 0 14px rgba(77,93,255,0.5); }
+[data-theme="D"] #money-view .mcc-rm-phase-current[data-key="core"] .mcc-rm-phase-dot { background: rgba(0,230,118,0.16); border-color: var(--c-emerald-bright); color: var(--c-emerald-soft); box-shadow: 0 0 14px rgba(0,230,118,0.5); }
+[data-theme="D"] #money-view .mcc-rm-phase-current[data-key="satellite"] .mcc-rm-phase-dot { background: rgba(255,179,0,0.16); border-color: var(--c-amber-bright); color: var(--c-amber-pale); box-shadow: 0 0 14px rgba(255,179,0,0.5); }
+[data-theme="D"] #money-view .mcc-rm-northstar {
+  background: rgba(0,0,0,0.4); border-left: 3px solid var(--c-indigo-bright); border-radius: 2px;
+  color: var(--c-tint-indigo); font-family: var(--mcc-mono);
+}
+[data-theme="D"] #money-view .mcc-rm-northstar-fallback,
+[data-theme="D"] #money-view .mcc-rm-northstar-setup { border-left-color: var(--c-slate); color: var(--c-text-dim); }
+[data-theme="D"] #money-view .mcc-rm-thismonth-head { color: var(--c-cyan); font-family: var(--mcc-mono); letter-spacing: 1px; }
+[data-theme="D"] #money-view .mcc-rm-note,
+[data-theme="D"] #money-view .mcc-rm-timeline { font-family: var(--mcc-mono); }
+[data-theme="D"] #money-view .mcc-rm-satchip { border-radius: 2px; font-family: var(--mcc-mono); background: rgba(0,0,0,0.3); }
+[data-theme="D"] #money-view .mcc-rm-satchip-locked { color: var(--c-amber-pale); border-color: rgba(255,179,0,0.45); box-shadow: 0 0 8px rgba(255,179,0,0.15); }
+[data-theme="D"] #money-view .mcc-rm-satchip-unlocked { color: var(--c-emerald-soft); border-color: rgba(0,230,118,0.45); box-shadow: 0 0 8px rgba(0,230,118,0.18); }
