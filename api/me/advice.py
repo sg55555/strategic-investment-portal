@@ -29,6 +29,8 @@ DISCLAIMER_VERSION = "disc-v1"
 SCHEMA_VERSION = 2  # v2: Slice4 cashflow（収支連携→投資余力）集約を facts に追加
 RULES_VERSION = 2  # money-rules.js CURRENT_VERSION（版ずれ監査）
 NEXT_TARGETS = ["setup", "buffer", "rebalance", "core"]
+CORE_FALLBACK_MONTHS = 24
+SATELLITE_UNLOCK_CORE_PCT = 50
 # 終端は \Z（$ ではない）。Python の $ は『末尾の直前の改行』にもマッチし JS `.test` の $ と不一致になるため、
 # "YYYY-MM-DD\n" 等の末尾改行を両言語で同様に弾く（deadline/period/id のパリティ）。
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}\Z")
@@ -296,6 +298,99 @@ def _next_target(s):
     if _satellite_over(s) > 0:
         return "rebalance"
     return "core"
+
+
+def _north_star_target(s):
+    goals = s["goals"] if isinstance(s.get("goals"), list) else []
+    m = 0
+    for g in goals:
+        t = _num(g.get("targetAmount") if isinstance(g, dict) else 0)
+        if t > m:
+            m = t
+    return m
+
+
+def _core_target(s):
+    bt = _buffer_target(s)
+    if bt <= 0:
+        return 0
+    ns = _north_star_target(s)
+    if ns > bt:
+        return ns - bt
+    return _num(s["monthlyExpense"]) * CORE_FALLBACK_MONTHS
+
+
+def _core_target_source(s):
+    if _buffer_target(s) <= 0:
+        return "setup"
+    return "goal" if _north_star_target(s) > _buffer_target(s) else "fallback"
+
+
+def _core_progress(s):
+    ct = _core_target(s)
+    core = _num(s["buckets"]["core"]["amount"])
+    progress = _clamp(core / ct, 0, 1) if ct > 0 else 0
+    return {
+        "progress": progress,
+        "pct": round(progress * 100),
+        "remaining": max(0, ct - core) if ct > 0 else 0,
+        "established": ct > 0 and core >= ct,
+    }
+
+
+def _satellite_unlocked(s):
+    return _buffer_progress(s) >= 1 and _core_progress(s)["progress"] >= SATELLITE_UNLOCK_CORE_PCT / 100
+
+
+def _roadmap_phase(s):
+    if _buffer_target(s) <= 0:
+        return "setup"
+    if _buffer_progress(s) < 1:
+        return "buffer"
+    if _satellite_over(s) > 0:
+        return "rebalance"
+    cp = _core_progress(s)["progress"]
+    if cp >= 1:
+        return "independence"
+    if _satellite_unlocked(s):
+        return "satellite"
+    return "core"
+
+
+def _project_months(gap_yen, rate_yen):
+    if rate_yen <= 0:
+        return None
+    return math.ceil(max(0, gap_yen) / rate_yen)
+
+
+def _eta_bucket(months):
+    if months is None:
+        return "none"
+    if months < 6:
+        return "lt6"
+    if months < 12:
+        return "6_12"
+    if months < 36:
+        return "1_3y"
+    if months < 120:
+        return "3_10y"
+    return "over_10y"
+
+
+def _reserve_monthly_total(s, now_ms):
+    reserves = s["reserves"] if isinstance(s.get("reserves"), list) else []
+    return sum(_r(_reserve_monthly(rv, now_ms)) for rv in reserves)
+
+
+def _allocation_plan(s, cd):
+    surplus = _num(cd.get("investableSurplus"))
+    unlocked = _satellite_unlocked(s)
+    to_sat, to_core = 0, surplus
+    if unlocked:
+        room = max(0, _satellite_cap(s) - _num(s["buckets"]["satellite"]["amount"]))
+        to_sat = min(room, _r(surplus * _num(s["satelliteCapPct"]) / 100))
+        to_core = surplus - to_sat
+    return {"satelliteUnlocked": unlocked, "toCore": to_core, "toSatellite": to_sat}
 
 
 def _deadline_bucket(deadline, now_ms):

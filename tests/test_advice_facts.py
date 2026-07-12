@@ -404,6 +404,48 @@ def test_mode_a_facts_no_technical_keys():
             assert not leaked, "technical keys leaked into facts: %s (case %s)" % (leaked, c.get("name", "?"))
 
 
+# --- Task 4: 層2 Python 鏡像関数（roadmap 決定論）---
+
+def _st(monthly_expense=0, buffer=0, core=0, sat=0, goals=None):
+    """ロードマップ鏡像テストヘルパー（Task 1-3 mirror と同値期待）。"""
+    return {"monthlyExpense": monthly_expense, "bufferMonths": 6, "satelliteCapPct": 10,
+            "buckets": {"buffer": {"amount": buffer}, "core": {"amount": core}, "satellite": {"amount": sat}},
+            "goals": goals or []}
+
+
+def test_core_target_mirror():
+    assert advice._core_target(advice._migrate(_st())) == 0
+    assert advice._core_target(advice._migrate(_st(300000))) == 300000 * 24
+    s = advice._migrate(_st(300000, goals=[{"targetAmount": 30000000}]))
+    assert advice._core_target(s) == 30000000 - 1800000
+    assert advice._core_target_source(s) == "goal"
+
+
+def test_core_progress_mirror():
+    s = advice._migrate(_st(300000, core=3600000))  # fallback coreTarget=7,200,000
+    cp = advice._core_progress(s)
+    assert cp["progress"] == 0.5 and cp["pct"] == 50 and cp["established"] is False
+
+
+def test_satellite_unlocked_mirror():
+    assert advice._satellite_unlocked(advice._migrate(_st(300000, 1800000, 3600000))) is True
+    assert advice._satellite_unlocked(advice._migrate(_st(300000, 1800000, 3527999))) is False
+
+
+def test_project_and_eta_mirror():
+    assert advice._project_months(1000000, 0) is None
+    assert advice._project_months(1000000, 300000) == 4
+    assert advice._eta_bucket(None) == "none"
+    assert advice._eta_bucket(12) == "1_3y"
+    assert advice._eta_bucket(120) == "over_10y"
+
+
+def test_roadmap_phase_mirror():
+    assert advice._roadmap_phase(advice._migrate(_st())) == "setup"
+    assert advice._roadmap_phase(advice._migrate(_st(300000, 1800000, 3600000))) == "satellite"
+    assert advice._roadmap_phase(advice._migrate(_st(300000, 1800000, 7200000))) == "independence"
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
