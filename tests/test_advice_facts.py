@@ -446,6 +446,39 @@ def test_roadmap_phase_mirror():
     assert advice._roadmap_phase(advice._migrate(_st(300000, 1800000, 7200000))) == "independence"
 
 
+def test_reserve_monthly_total_mirror():
+    s = advice._migrate({"monthlyExpense": 300000, "bufferMonths": 6, "satelliteCapPct": 10,
+                         "buckets": {"buffer": {"amount": 0}, "core": {"amount": 0}, "satellite": {"amount": 0}},
+                         "reserves": [{"id": "r1", "label": "新居", "target": 1200000, "saved": 0, "deadline": "", "monthlyOverride": 20000}]})
+    assert advice._reserve_monthly_total(s, 0) == 20000
+
+
+def test_allocation_plan_mirror():
+    # Case 1: Locked (buffer達成・コア0%＝未解放)
+    s1 = advice._migrate(_st(300000, 1800000, 0, 0))
+    cd1 = {"investableSurplus": 100000}
+    result1 = advice._allocation_plan(s1, cd1)
+    assert result1["satelliteUnlocked"] is False
+    assert result1["toCore"] == 100000
+    assert result1["toSatellite"] == 0
+
+    # Case 2: Unlocked cap-bound
+    s2 = advice._migrate(_st(300000, 1800000, 3600000, 0))
+    cd2 = {"investableSurplus": 100000}
+    result2 = advice._allocation_plan(s2, cd2)
+    assert result2["satelliteUnlocked"] is True
+    assert result2["toSatellite"] == 10000  # min(360000, round(100000*10%))
+    assert result2["toCore"] == 90000
+
+    # Case 3: Room-small
+    s3 = advice._migrate(_st(300000, 1800000, 3600000, 350000))
+    cd3 = {"investableSurplus": 1000000}
+    result3 = advice._allocation_plan(s3, cd3)
+    assert result3["satelliteUnlocked"] is True
+    assert result3["toSatellite"] == 45000
+    assert result3["toCore"] == 955000
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0

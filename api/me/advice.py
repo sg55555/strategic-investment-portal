@@ -301,6 +301,7 @@ def _next_target(s):
 
 
 def _north_star_target(s):
+    # money-rules.js northStarTarget の鏡像
     goals = s["goals"] if isinstance(s.get("goals"), list) else []
     m = 0
     for g in goals:
@@ -311,6 +312,7 @@ def _north_star_target(s):
 
 
 def _core_target(s):
+    # money-rules.js coreTarget の鏡像
     bt = _buffer_target(s)
     if bt <= 0:
         return 0
@@ -321,28 +323,32 @@ def _core_target(s):
 
 
 def _core_target_source(s):
+    # money-rules.js coreTargetSource の鏡像
     if _buffer_target(s) <= 0:
         return "setup"
     return "goal" if _north_star_target(s) > _buffer_target(s) else "fallback"
 
 
 def _core_progress(s):
+    # money-rules.js coreProgress の鏡像
     ct = _core_target(s)
     core = _num(s["buckets"]["core"]["amount"])
     progress = _clamp(core / ct, 0, 1) if ct > 0 else 0
     return {
         "progress": progress,
-        "pct": round(progress * 100),
+        "pct": _r(progress * 100),
         "remaining": max(0, ct - core) if ct > 0 else 0,
         "established": ct > 0 and core >= ct,
     }
 
 
 def _satellite_unlocked(s):
+    # money-rules.js satelliteUnlocked の鏡像
     return _buffer_progress(s) >= 1 and _core_progress(s)["progress"] >= SATELLITE_UNLOCK_CORE_PCT / 100
 
 
 def _roadmap_phase(s):
+    # money-rules.js roadmapPhase の鏡像
     if _buffer_target(s) <= 0:
         return "setup"
     if _buffer_progress(s) < 1:
@@ -358,12 +364,14 @@ def _roadmap_phase(s):
 
 
 def _project_months(gap_yen, rate_yen):
+    # money-rules.js projectMonths の鏡像
     if rate_yen <= 0:
         return None
     return math.ceil(max(0, gap_yen) / rate_yen)
 
 
 def _eta_bucket(months):
+    # money-rules.js etaBucket の鏡像
     if months is None:
         return "none"
     if months < 6:
@@ -378,11 +386,14 @@ def _eta_bucket(months):
 
 
 def _reserve_monthly_total(s, now_ms):
+    # money-rules.js reserveMonthlyTotal の鏡像
     reserves = s["reserves"] if isinstance(s.get("reserves"), list) else []
     return sum(_r(_reserve_monthly(rv, now_ms)) for rv in reserves)
 
 
 def _allocation_plan(s, cd):
+    # money-rules.js allocationPlan の鏡像
+    cd = cd or {}
     surplus = _num(cd.get("investableSurplus"))
     unlocked = _satellite_unlocked(s)
     to_sat, to_core = 0, surplus
