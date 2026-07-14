@@ -63,13 +63,18 @@
     return (n >= 1900 && n <= 9999) ? n : 0;
   }
 
-  // Task2: 年齢グライドパス（currentYear は UTC 導出・degrade 対称・NaN age を !isFinite で捕捉）。
+  // Task2: 年齢グライドパス（currentYear は UTC 導出・degrade 対称）。
+  // 不正/巨大 nowMs（例 1e300）は !isFinite(nd.getTime())（Invalid Date）が先に捕捉し configured:false へ。
+  // cy の妥当年ガードは Py datetime 有効域（1..9999）に合わせ、JS Date が扱える年10000+（例 nowMs 253402300800000）での
+  // JS(configured:true) vs Py(9999で例外→configured:false) 発散を潰す。
   function glidePath(birthYear, nowMs) {
     var nd = new Date(num(nowMs));
     if (!isFinite(nd.getTime())) return { configured: false };
     var cy = nd.getUTCFullYear();
+    if (cy < 1 || cy > 9999) return { configured: false }; // Py datetime 有効域に対称化
     var by = num(birthYear);
     var age = cy - by;
+    // age は上流 num() サニタイズ＋有界 cy ゆえ常に有限（!isFinite 節は spec 準拠で残す実質 dead branch）。
     if (by <= 0 || !isFinite(age) || age < 0 || age > 120) return { configured: false };
     var Rr = clamp(110 - age, 30, 90);
     return { configured: true, age: age, R: Rr, D: 100 - Rr };

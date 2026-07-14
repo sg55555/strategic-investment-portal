@@ -218,13 +218,17 @@ def _r(x):
 
 def _glide_path(birth_year, now_ms):
     """Task2: 年齢グライドパス（money-rules.js glidePath の鏡像）。
-    current_year は UTC 導出・degrade 対称（巨大/負/不正 now_ms は JS Invalid Date と揃え configured:False）。"""
+    current_year は UTC 導出・degrade 対称（巨大/負/不正 now_ms は JS Invalid Date と揃え configured:False）。
+    cy の明示ガード（1..9999）で JS Date(年10000+可) と Py datetime(9999上限) のライブラリ差による発散を潰す（両言語対称）。"""
     try:
         cy = datetime.fromtimestamp(_num(now_ms) / 1000, tz=timezone.utc).year
     except (OverflowError, OSError, ValueError):
         return {"configured": False}
+    if cy < 1 or cy > 9999:  # JS と対称の明示ガード（datetime は 9999 で例外だが依存せず明示）
+        return {"configured": False}
     by = _num(birth_year)
     age = cy - by
+    # age は上流 _num() サニタイズ＋有界 cy ゆえ常に有限（isfinite 節は spec 準拠で残す実質 dead branch）。
     if by <= 0 or not math.isfinite(age) or age < 0 or age > 120:
         return {"configured": False}
     rr = _clamp(110 - age, 30, 90)

@@ -963,11 +963,21 @@ test("glidePath: 40歳→R70/D30、未設定/未来/巨大nowMs→configured:fal
   assert.equal(R.glidePath(0, ms2026).configured, false);       // 未設定
   assert.equal(R.glidePath(2100, ms2026).configured, false);    // 未来（age<0）
   assert.equal(R.glidePath(90, ms2026).configured, false);      // 2桁typo（age>120）
-  assert.equal(R.glidePath(1986, 1e300).configured, false);     // 巨大nowMs（NaN age を !isFinite で捕捉）
+  assert.equal(R.glidePath(1986, 1e300).configured, false);     // 巨大nowMs（Invalid Date→!isFinite(getTime)が先に捕捉）
+  // date-range 対称化: JS Date は年10000+も有効だが Py datetime は9999上限→cyガードで両言語 configured:false に揃える
+  assert.equal(R.glidePath(9950, 253402300800000).configured, false); // cy=10000（>9999）
 });
-test("regionBreakdown: R70で Σ=100・bond=D近似・タイブレークは allowlist順", () => {
+test("regionBreakdown: R70/90/30で Σ=100・端数吸収発火・タイブレークは allowlist順", () => {
   const b = R.regionBreakdown(70);
   assert.equal(Object.values(b).reduce((a,c)=>a+c,0), 100);
   assert.equal(b.cash, 0);
   assert.deepEqual(b, {cash:0, jpEq:12, devEq:36, emEq:12, bond:30, reit:6, gold:4}); // dev=eq*.6=35.7→36吸収
+  // R=90: 独立丸め sum=99→rem=1 を argmax(devEq=46) へ吸収＝実発火ケース
+  const b90 = R.regionBreakdown(90);
+  assert.equal(Object.values(b90).reduce((a,c)=>a+c,0), 100);
+  assert.deepEqual(b90, {cash:0, jpEq:15, devEq:47, emEq:15, bond:10, reit:8, gold:5});
+  // R=30: 下限境界・独立丸めでちょうど Σ=100（rem=0・吸収不発火）
+  const b30 = R.regionBreakdown(30);
+  assert.equal(Object.values(b30).reduce((a,c)=>a+c,0), 100);
+  assert.deepEqual(b30, {cash:0, jpEq:5, devEq:15, emEq:5, bond:70, reit:3, gold:2});
 });

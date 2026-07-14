@@ -563,6 +563,8 @@ def test_glide_path_boundaries_and_degrade():
     assert advice._glide_path(2100, _MS_2026)["configured"] is False    # 未来（age<0）
     assert advice._glide_path(90, _MS_2026)["configured"] is False      # 2桁typo（age>120）
     assert advice._glide_path(1986, 1e300)["configured"] is False       # 巨大now_ms（degrade対称・500を作らない）
+    # date-range 対称化: JS Date は年10000+も有効だが Py datetime は9999上限。cyガードで両言語 configured:false に揃える
+    assert advice._glide_path(9950, 253402300800000)["configured"] is False  # cy=10000（>9999）
 
 
 def test_region_breakdown_sums_to_100_with_tiebreak():
@@ -570,6 +572,14 @@ def test_region_breakdown_sums_to_100_with_tiebreak():
     assert sum(b.values()) == 100
     assert b["cash"] == 0
     assert b == {"cash": 0, "jpEq": 12, "devEq": 36, "emEq": 12, "bond": 30, "reit": 6, "gold": 4}
+    # R=90: 独立丸め sum=99→rem=1 を argmax(devEq=46) へ吸収＝実発火ケース（JS と byte 一致）
+    b90 = advice._region_breakdown(90)
+    assert sum(b90.values()) == 100
+    assert b90 == {"cash": 0, "jpEq": 15, "devEq": 47, "emEq": 15, "bond": 10, "reit": 8, "gold": 5}
+    # R=30: 下限境界・独立丸めでちょうど Σ=100（rem=0・吸収不発火）
+    b30 = advice._region_breakdown(30)
+    assert sum(b30.values()) == 100
+    assert b30 == {"cash": 0, "jpEq": 5, "devEq": 15, "emEq": 5, "bond": 70, "reit": 3, "gold": 2}
 
 
 if __name__ == "__main__":
