@@ -33,6 +33,36 @@
   function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
   function r(x) { return Math.floor(num(x) + 0.5); } // half-up（全値非負前提・Python 還元器とパリティ）
 
+  // B#2 資産クラス比率：7クラスallowlist（不変・タイブレーク基準）。単一定数を全Taskで参照。
+  var ASSET_CLASSES = ["cash", "jpEq", "devEq", "emEq", "bond", "reit", "gold"];
+  var ASSET_BUCKETS = ["buffer", "core", "satellite"];
+  // scalar専用 coerce（num() と違い配列/オブジェクトは 0＝num([5])=5 の発散を排除）。
+  function numScalar(v) {
+    if (typeof v === "number") return isFinite(v) && v >= 0 ? v : 0;
+    if (typeof v === "string") { var n = +v; return isFinite(n) && n >= 0 ? n : 0; }
+    return 0;
+  }
+  // 3バケツ(buffer/core/satellite)×7クラスの完全骨格を常に返す（未知キー破棄・非オブジェクト入力→全0骨格）。
+  function normalizeAssetHoldings(raw) {
+    var src = (raw && typeof raw === "object" && !Array.isArray(raw)) ? raw : {};
+    var out = {};
+    for (var b = 0; b < ASSET_BUCKETS.length; b++) {
+      var bk = ASSET_BUCKETS[b], inner = (src[bk] && typeof src[bk] === "object" && !Array.isArray(src[bk])) ? src[bk] : {};
+      out[bk] = {};
+      for (var c = 0; c < ASSET_CLASSES.length; c++) out[bk][ASSET_CLASSES[c]] = numScalar(inner[ASSET_CLASSES[c]]);
+    }
+    return out;
+  }
+  // migrate 専用 birthYear coerce（有限・整数・0<=n<=9999 以外は 0）。
+  // spec の "1900..currentYear" のうち currentYear は migrate 時に nowMs 無しで得られないため、
+  // 未来年/2桁typo 等の意味的妥当性は Task2 glidePath の age gate（age<0||age>120）が担う。
+  function normalizeBirthYear(v) {
+    var n = Number(v);
+    if (!isFinite(n)) return 0;
+    n = Math.floor(n);
+    return (n >= 0 && n <= 9999) ? n : 0;
+  }
+
   // 投資枠配分ロードマップ（backlog B #1）定数。state に持たず導出＝migrate/クラウド同期に触れない。
   var CORE_FALLBACK_MONTHS = 24;      // goals未宣言時のコア目標＝月支出×24（2年分）
   var SATELLITE_UNLOCK_CORE_PCT = 50; // サテライト解放＝コア目標の50%
@@ -98,6 +128,9 @@
       investmentSource: "manual", // 二軸: "ledger"=投資台帳ETL派生の元本 / "manual"=buckets.core+satellite 直入力（既定=後方互換）
       updatedAt: 0, // last-write-wins 用の epoch ms（刻むのは money.js・ここは受け渡しのみ）
       history: [],
+      birthYear: 0, // B#2 資産クラス比率：年齢glidePath用（0=未設定）
+      assetHoldings: normalizeAssetHoldings(null), // B#2: 3バケツ×7クラス完全骨格（全0）
+      assetSource: "manual", // B#2 二軸: "ledger"=投資台帳ETL派生 / "manual"=直入力（既定=後方互換）
     };
   }
 
@@ -142,6 +175,9 @@
         ? raw.history.filter(function (h) { return h && typeof h.date === "string"; })
             .map(function (h) { return { date: h.date, buffer: num(h.buffer), core: num(h.core), satellite: num(h.satellite) }; })
         : [],
+      birthYear: normalizeBirthYear(raw.birthYear),
+      assetHoldings: normalizeAssetHoldings(raw.assetHoldings),
+      assetSource: raw.assetSource === "ledger" ? "ledger" : "manual",
     };
   }
 
@@ -859,5 +895,6 @@
     cashflowDerived: cashflowDerived, cashflowViewModel: cashflowViewModel,
     normalizeAnchor: normalizeAnchor, cashDerived: cashDerived,
     investmentDerived: investmentDerived,
+    numScalar: numScalar, normalizeAssetHoldings: normalizeAssetHoldings, ASSET_CLASSES: ASSET_CLASSES,
   };
 });

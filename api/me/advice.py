@@ -151,6 +151,11 @@ def _valid_session(cur, token) -> bool:
     return cur.fetchone() is not None
 
 
+# B#2 資産クラス比率：7クラスallowlist（不変・タイブレーク基準・money-rules.js ASSET_CLASSES と鏡像）。
+ASSET_CLASSES = ["cash", "jpEq", "devEq", "emEq", "bond", "reit", "gold"]
+ASSET_BUCKETS = ["buffer", "core", "satellite"]
+
+
 # ---- 純関数の coerce + Mode A 還元器（money-rules.js modeAFacts と鏡像・パリティテスト有）----
 def _num(v):
     try:
@@ -160,6 +165,47 @@ def _num(v):
     if not math.isfinite(n) or n < 0:
         return 0.0
     return n
+
+
+def _num_scalar(v):
+    """scalar専用 coerce（_num() と違い配列/オブジェクトは0＝JS numScalar([5])=0 との鏡像・byte一致）。"""
+    if isinstance(v, bool):
+        return 0
+    if isinstance(v, (int, float)):
+        return v if math.isfinite(v) and v >= 0 else 0
+    if isinstance(v, str):
+        try:
+            n = float(v)
+        except ValueError:
+            return 0
+        return n if math.isfinite(n) and n >= 0 else 0
+    return 0
+
+
+def _normalize_asset_holdings(raw):
+    """3バケツ(buffer/core/satellite)×7クラスの完全骨格を常に返す（money-rules.js normalizeAssetHoldings の鏡像）。
+    未知キー破棄・非dict入力→全0骨格。"""
+    src = raw if isinstance(raw, dict) else {}
+    out = {}
+    for bk in ASSET_BUCKETS:
+        inner = src.get(bk) if isinstance(src.get(bk), dict) else {}
+        out[bk] = {c: _num_scalar(inner.get(c)) for c in ASSET_CLASSES}
+    return out
+
+
+def _normalize_birth_year(v):
+    """migrate 専用 birthYear coerce（有限・整数・0<=n<=9999 以外は 0・money-rules.js normalizeBirthYear の鏡像）。
+    spec の "1900..currentYear" のうち currentYear は migrate 時に nowMs 無しで得られないため、
+    未来年/2桁typo 等の意味的妥当性は Task2 glidePath の age gate（age<0||age>120）が担う。
+    JS Number(v) は bool を 0/1 として扱うため、ここも bool を特別扱いしない（float(v) に委ねてparity維持）。"""
+    try:
+        n = float(v)
+    except (TypeError, ValueError):
+        return 0
+    if not math.isfinite(n):
+        return 0
+    n = int(n // 1)
+    return n if 0 <= n <= 9999 else 0
 
 
 def _clamp(x, lo, hi):
@@ -263,6 +309,9 @@ def _migrate(raw):
         "reserves": reserves,
         "goals": goals,
         "updatedAt": _num(raw.get("updatedAt")),
+        "birthYear": _normalize_birth_year(raw.get("birthYear")),
+        "assetHoldings": _normalize_asset_holdings(raw.get("assetHoldings")),
+        "assetSource": "ledger" if raw.get("assetSource") == "ledger" else "manual",
     }
 
 

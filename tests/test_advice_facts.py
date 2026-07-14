@@ -494,6 +494,58 @@ def test_allocation_plan_mirror():
     assert result3["toCore"] == 955000
 
 
+# --- B#2 資産クラス比率: Task1 state層 ---
+
+def test_num_scalar_parity():
+    assert advice._num_scalar([5]) == 0        # JS numScalar([5]) と一致（num([5])=5 の発散を排除）
+    assert advice._num_scalar("5") == 5
+    assert advice._num_scalar(-3) == 0
+    assert advice._num_scalar(True) == 0
+    assert advice._num_scalar(float("nan")) == 0
+    assert advice._num_scalar(None) == 0
+    assert advice._num_scalar({"a": 1}) == 0
+
+
+def test_normalize_asset_holdings_skeleton():
+    h = advice._normalize_asset_holdings({"core": {"jpEq": 100, "XXX": 9}})
+    assert set(h.keys()) == {"buffer", "core", "satellite"}
+    assert set(h["core"].keys()) == set(advice.ASSET_CLASSES)
+    assert h["core"]["jpEq"] == 100 and h["core"]["cash"] == 0 and "XXX" not in h["core"]
+    assert advice._normalize_asset_holdings([1, 2, 3]) == advice._normalize_asset_holdings(None)  # 非dict→空骨格
+
+
+def test_asset_classes_order():
+    assert advice.ASSET_CLASSES == ["cash", "jpEq", "devEq", "emEq", "bond", "reit", "gold"]
+
+
+def test_migrate_birth_year_asset_fields():
+    assert advice._migrate({"birthYear": 1990})["birthYear"] == 1990
+    assert advice._migrate({"birthYear": 0})["birthYear"] == 0
+    assert advice._migrate({"birthYear": 9999})["birthYear"] == 9999
+    assert advice._migrate({"birthYear": 10000})["birthYear"] == 0  # 上限超は0（age gateはTask2）
+    assert advice._migrate({"birthYear": -5})["birthYear"] == 0
+    assert advice._migrate({"birthYear": 1990.7})["birthYear"] == 1990
+    assert advice._migrate({"birthYear": "1990"})["birthYear"] == 1990
+    assert advice._migrate({"birthYear": float("nan")})["birthYear"] == 0
+    assert advice._migrate({"birthYear": "abc"})["birthYear"] == 0
+    assert advice._migrate({})["birthYear"] == 0
+
+    m1 = advice._migrate({"assetHoldings": {"core": {"jpEq": 500, "XXX": 1}}, "assetSource": "ledger"})
+    assert m1["assetHoldings"]["core"]["jpEq"] == 500
+    assert "XXX" not in m1["assetHoldings"]["core"]
+    assert m1["assetSource"] == "ledger"
+    m2 = advice._migrate({"assetSource": "bogus"})
+    assert m2["assetSource"] == "manual"
+    assert advice._migrate({})["assetHoldings"] == advice._normalize_asset_holdings(None)
+
+
+def test_birth_year_asset_source_parity_fixture():
+    # JS money-rules.js migrate() と同一の期待値（手動突合・money-rules.test.js の同名ケースと対）
+    assert advice._normalize_birth_year(1990) == 1990
+    assert advice._normalize_birth_year(10000) == 0
+    assert advice._normalize_birth_year(-5) == 0
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0

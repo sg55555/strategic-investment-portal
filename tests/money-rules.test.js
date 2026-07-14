@@ -895,3 +895,60 @@ test("roadmap: 確保枠ドラッグでコア寄与が目減り", () => {
   assert.ok(rm.projection.monthsToCore > 0);
   assert.equal(rm.timelineAvailable, true);
 });
+
+// --- B#2 資産クラス比率: Task1 state層 ---
+
+test("numScalar: scalar受理・配列/オブジェクトは0（_num([5])との発散を排除）", () => {
+  assert.equal(R.numScalar(5), 5);
+  assert.equal(R.numScalar("5"), 5);
+  assert.equal(R.numScalar([5]), 0);        // ← num([5])=5 だが numScalar=0
+  assert.equal(R.numScalar(["5"]), 0);
+  assert.equal(R.numScalar(-3), 0);
+  assert.equal(R.numScalar(NaN), 0);
+  assert.equal(R.numScalar(null), 0);
+  assert.equal(R.numScalar({a:1}), 0);
+});
+
+test("normalizeAssetHoldings: 常に3バケツ×7クラス完全骨格・未知キー破棄", () => {
+  const h = R.normalizeAssetHoldings({core:{jpEq:100,XXX:9}, junk:1});
+  assert.deepEqual(Object.keys(h), ["buffer","core","satellite"]);
+  assert.deepEqual(Object.keys(h.core).sort(), ["bond","cash","devEq","emEq","gold","jpEq","reit"]);
+  assert.equal(h.core.jpEq, 100);
+  assert.equal(h.core.cash, 0);
+  assert.equal(h.core.XXX, undefined);
+  assert.deepEqual(R.normalizeAssetHoldings([1,2,3]), R.normalizeAssetHoldings(null)); // 非オブジェクト→空骨格
+});
+
+test("ASSET_CLASSES: 7クラスallowlist順（タイブレーク基準・不変）", () => {
+  assert.deepEqual(R.ASSET_CLASSES, ["cash","jpEq","devEq","emEq","bond","reit","gold"]);
+});
+
+test("defaultState: birthYear/assetHoldings/assetSource の既定値", () => {
+  const s = R.defaultState();
+  assert.equal(s.birthYear, 0);
+  assert.equal(s.assetSource, "manual");
+  assert.deepEqual(s.assetHoldings, R.normalizeAssetHoldings(null));
+});
+
+test("migrate: birthYear は有限整数0..9999のみ受理・範囲外/非数値は0（意味的妥当性はTask2 age gateが担う）", () => {
+  assert.equal(R.migrate({ birthYear: 1990 }).birthYear, 1990);
+  assert.equal(R.migrate({ birthYear: 0 }).birthYear, 0);
+  assert.equal(R.migrate({ birthYear: 9999 }).birthYear, 9999);
+  assert.equal(R.migrate({ birthYear: 10000 }).birthYear, 0);   // 上限超は0（age gateはTask2）
+  assert.equal(R.migrate({ birthYear: -5 }).birthYear, 0);      // 負値は0
+  assert.equal(R.migrate({ birthYear: 1990.7 }).birthYear, 1990); // floor
+  assert.equal(R.migrate({ birthYear: "1990" }).birthYear, 1990);
+  assert.equal(R.migrate({ birthYear: NaN }).birthYear, 0);
+  assert.equal(R.migrate({ birthYear: "abc" }).birthYear, 0);
+  assert.equal(R.migrate({}).birthYear, 0);
+});
+
+test("migrate: assetHoldings/assetSource を coerce（未知キー破棄・ledger以外はmanual）", () => {
+  const m1 = R.migrate({ assetHoldings: { core: { jpEq: 500, XXX: 1 } }, assetSource: "ledger" });
+  assert.equal(m1.assetHoldings.core.jpEq, 500);
+  assert.equal(m1.assetHoldings.core.XXX, undefined);
+  assert.equal(m1.assetSource, "ledger");
+  const m2 = R.migrate({ assetSource: "bogus" });
+  assert.equal(m2.assetSource, "manual");
+  assert.deepEqual(R.migrate({}).assetHoldings, R.normalizeAssetHoldings(null));
+});
