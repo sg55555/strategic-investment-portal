@@ -981,3 +981,12 @@ test("regionBreakdown: R70/90/30で Σ=100・端数吸収発火・タイブレ�
   assert.equal(Object.values(b30).reduce((a,c)=>a+c,0), 100);
   assert.deepEqual(b30, {cash:0, jpEq:5, devEq:15, emEq:5, bond:70, reit:3, gold:2});
 });
+
+test("bucketTargets: buffer=cash100 / satellite=株集中 / core=glidepath", () => {
+  assert.deepEqual(R.bucketTargets("buffer", 70), {cash:100,jpEq:0,devEq:0,emEq:0,bond:0,reit:0,gold:0});
+  assert.deepEqual(R.bucketTargets("satellite", 70), {cash:0,jpEq:20,devEq:60,emEq:20,bond:0,reit:0,gold:0});
+  assert.deepEqual(R.bucketTargets("core", 70), R.regionBreakdown(70));
+});
+test("growDef: core(R70)は成長70/守り30", () => {
+  assert.deepEqual(R.growDef(R.bucketTargets("core",70)), {g:70, d:30});
+});

@@ -582,6 +582,16 @@ def test_region_breakdown_sums_to_100_with_tiebreak():
     assert b30 == {"cash": 0, "jpEq": 5, "devEq": 15, "emEq": 5, "bond": 70, "reit": 3, "gold": 2}
 
 
+def test_bucket_targets_buffer_satellite_core_mirror():
+    assert advice._bucket_targets("buffer", 70) == {"cash": 100, "jpEq": 0, "devEq": 0, "emEq": 0, "bond": 0, "reit": 0, "gold": 0}
+    assert advice._bucket_targets("satellite", 70) == {"cash": 0, "jpEq": 20, "devEq": 60, "emEq": 20, "bond": 0, "reit": 0, "gold": 0}
+    assert advice._bucket_targets("core", 70) == advice._region_breakdown(70)
+
+
+def test_grow_def_core_r70_mirror():
+    assert advice._grow_def(advice._bucket_targets("core", 70)) == {"g": 70, "d": 30}
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0

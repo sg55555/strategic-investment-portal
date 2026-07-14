@@ -79,6 +79,8 @@
     var Rr = clamp(110 - age, 30, 90);
     return { configured: true, age: age, R: Rr, D: 100 - Rr };
   }
+  // Task3: 成長クラス（cash除く6クラスのうち devEq/jpEq/emEq/reit/gold）。GROWTH_CLASSES と合わせ growDef が参照。
+  var GROWTH_CLASSES = ["devEq", "jpEq", "emEq", "reit", "gold"];
   // Task2: R（リスク資産%）を地域内訳（cash除く6クラス）へ写像・端数吸収でΣ=100。
   function regionBreakdown(Rr) {
     var D = 100 - Rr, eq = Rr * 0.85, alt = Rr * 0.15;
@@ -99,6 +101,21 @@
       out[best] += rem;
     }
     return out;
+  }
+
+  // Task3: バケツ（buffer/core/satellite）ごとの目標配分（7クラス整数%）。
+  // buffer=現金100%固定／satellite=株集中（devEq60/jpEq20/emEq20）固定／core=年齢glidepath（regionBreakdown）。
+  function bucketTargets(bucketKey, Rr) {
+    var z = { cash: 0, jpEq: 0, devEq: 0, emEq: 0, bond: 0, reit: 0, gold: 0 };
+    if (bucketKey === "buffer") { z.cash = 100; return z; }
+    if (bucketKey === "satellite") { z.devEq = 60; z.jpEq = 20; z.emEq = 20; return z; }
+    return regionBreakdown(Rr); // core
+  }
+  // Task3: クラスマップ → 成長(g)/守り(d)。g = devEq+jpEq+emEq+reit+gold の和、d = 100-g。
+  function growDef(m) {
+    var g = 0;
+    for (var i = 0; i < GROWTH_CLASSES.length; i++) g += (m[GROWTH_CLASSES[i]] || 0);
+    return { g: g, d: 100 - g };
   }
 
   // 投資枠配分ロードマップ（backlog B #1）定数。state に持たず導出＝migrate/クラウド同期に触れない。
@@ -935,5 +952,6 @@
     investmentDerived: investmentDerived,
     numScalar: numScalar, normalizeAssetHoldings: normalizeAssetHoldings, ASSET_CLASSES: ASSET_CLASSES,
     glidePath: glidePath, regionBreakdown: regionBreakdown,
+    GROWTH_CLASSES: GROWTH_CLASSES, bucketTargets: bucketTargets, growDef: growDef,
   };
 });

@@ -263,6 +263,33 @@ def _region_breakdown(rr):
     })
 
 
+# Task3: 成長クラス（money-rules.js GROWTH_CLASSES の鏡像）。_grow_def が参照。
+GROWTH_CLASSES = ["devEq", "jpEq", "emEq", "reit", "gold"]
+
+
+def _bucket_targets(bucket_key, rr):
+    """Task3: バケツ（buffer/core/satellite）ごとの目標配分（money-rules.js bucketTargets の鏡像）。
+    buffer=現金100%固定／satellite=株集中（devEq60/jpEq20/emEq20）固定／core=年齢glidepath（_region_breakdown）。"""
+    z = {"cash": 0, "jpEq": 0, "devEq": 0, "emEq": 0, "bond": 0, "reit": 0, "gold": 0}
+    if bucket_key == "buffer":
+        z["cash"] = 100
+        return z
+    if bucket_key == "satellite":
+        z["devEq"] = 60
+        z["jpEq"] = 20
+        z["emEq"] = 20
+        return z
+    return _region_breakdown(rr)  # core
+
+
+def _grow_def(m):
+    """Task3: クラスマップ → 成長(g)/守り(d)（money-rules.js growDef の鏡像）。g = devEq+jpEq+emEq+reit+gold の和、d = 100-g。"""
+    g = 0
+    for k in GROWTH_CLASSES:
+        g += m.get(k, 0)
+    return {"g": g, "d": 100 - g}
+
+
 def _normalize_goal(g, i):
     gid = g.get("id") if isinstance(g, dict) else None
     label = g.get("label") if isinstance(g, dict) else None
