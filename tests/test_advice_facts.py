@@ -550,6 +550,28 @@ def test_birth_year_asset_source_parity_fixture():
     assert advice._normalize_birth_year(-5) == 0
 
 
+# --- B#2 資産クラス比率: Task2 グライドパス＋地域内訳 ---
+
+_MS_2026 = 1784073600000  # Date.UTC(2026, 6, 15) と同値（2026-07-15 UTC・JS money-rules.test.js と対）
+
+
+def test_glide_path_boundaries_and_degrade():
+    assert advice._glide_path(1986, _MS_2026) == {"configured": True, "age": 40, "R": 70, "D": 30}
+    assert advice._glide_path(1996, _MS_2026) == {"configured": True, "age": 30, "R": 80, "D": 20}
+    assert advice._glide_path(1946, _MS_2026) == {"configured": True, "age": 80, "R": 30, "D": 70}
+    assert advice._glide_path(0, _MS_2026)["configured"] is False       # 未設定
+    assert advice._glide_path(2100, _MS_2026)["configured"] is False    # 未来（age<0）
+    assert advice._glide_path(90, _MS_2026)["configured"] is False      # 2桁typo（age>120）
+    assert advice._glide_path(1986, 1e300)["configured"] is False       # 巨大now_ms（degrade対称・500を作らない）
+
+
+def test_region_breakdown_sums_to_100_with_tiebreak():
+    b = advice._region_breakdown(70)
+    assert sum(b.values()) == 100
+    assert b["cash"] == 0
+    assert b == {"cash": 0, "jpEq": 12, "devEq": 36, "emEq": 12, "bond": 30, "reit": 6, "gold": 4}
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0

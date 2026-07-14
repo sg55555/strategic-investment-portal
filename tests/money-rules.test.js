@@ -954,3 +954,20 @@ test("migrate: assetHoldings/assetSource を coerce（未知キー破棄・ledge
   assert.equal(m2.assetSource, "manual");
   assert.deepEqual(R.migrate({}).assetHoldings, R.normalizeAssetHoldings(null));
 });
+
+test("glidePath: 40歳→R70/D30、未設定/未来/巨大nowMs→configured:false", () => {
+  const ms2026 = Date.UTC(2026, 6, 15); // 2026-07-15
+  assert.deepEqual(R.glidePath(1986, ms2026), {configured:true, age:40, R:70, D:30});
+  assert.deepEqual(R.glidePath(1996, ms2026), {configured:true, age:30, R:80, D:20});
+  assert.deepEqual(R.glidePath(1946, ms2026), {configured:true, age:80, R:30, D:70});
+  assert.equal(R.glidePath(0, ms2026).configured, false);       // 未設定
+  assert.equal(R.glidePath(2100, ms2026).configured, false);    // 未来（age<0）
+  assert.equal(R.glidePath(90, ms2026).configured, false);      // 2桁typo（age>120）
+  assert.equal(R.glidePath(1986, 1e300).configured, false);     // 巨大nowMs（NaN age を !isFinite で捕捉）
+});
+test("regionBreakdown: R70で Σ=100・bond=D近似・タイブレークは allowlist順", () => {
+  const b = R.regionBreakdown(70);
+  assert.equal(Object.values(b).reduce((a,c)=>a+c,0), 100);
+  assert.equal(b.cash, 0);
+  assert.deepEqual(b, {cash:0, jpEq:12, devEq:36, emEq:12, bond:30, reit:6, gold:4}); // dev=eq*.6=35.7→36吸収
+});

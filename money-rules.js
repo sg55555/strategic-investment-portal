@@ -63,6 +63,39 @@
     return (n >= 1900 && n <= 9999) ? n : 0;
   }
 
+  // Task2: 年齢グライドパス（currentYear は UTC 導出・degrade 対称・NaN age を !isFinite で捕捉）。
+  function glidePath(birthYear, nowMs) {
+    var nd = new Date(num(nowMs));
+    if (!isFinite(nd.getTime())) return { configured: false };
+    var cy = nd.getUTCFullYear();
+    var by = num(birthYear);
+    var age = cy - by;
+    if (by <= 0 || !isFinite(age) || age < 0 || age > 120) return { configured: false };
+    var Rr = clamp(110 - age, 30, 90);
+    return { configured: true, age: age, R: Rr, D: 100 - Rr };
+  }
+  // Task2: R（リスク資産%）を地域内訳（cash除く6クラス）へ写像・端数吸収でΣ=100。
+  function regionBreakdown(Rr) {
+    var D = 100 - Rr, eq = Rr * 0.85, alt = Rr * 0.15;
+    var raw = { cash: 0, jpEq: eq * 0.20, devEq: eq * 0.60, emEq: eq * 0.20, bond: D, reit: alt * 0.60, gold: alt * 0.40 };
+    return _absorbTo100(raw); // Task共通ヘルパ（下記・Task4の総資産集約でも使用）
+  }
+  // 端数吸収ヘルパ（regionBreakdown・総資産集約で共用）：r()整数化→残余を argmax(cash除く)へ・タイは ASSET_CLASSES 順。
+  function _absorbTo100(rawMap) {
+    var out = {}, sum = 0;
+    for (var i = 0; i < ASSET_CLASSES.length; i++) { var k = ASSET_CLASSES[i]; out[k] = r(rawMap[k] || 0); sum += out[k]; }
+    var rem = 100 - sum;
+    if (rem !== 0) {
+      var best = null;
+      for (var j = 0; j < ASSET_CLASSES.length; j++) {
+        var k2 = ASSET_CLASSES[j]; if (k2 === "cash") continue;
+        if (best === null || out[k2] > out[best]) best = k2; // > ゆえ同値は先勝ち＝allowlist順
+      }
+      out[best] += rem;
+    }
+    return out;
+  }
+
   // 投資枠配分ロードマップ（backlog B #1）定数。state に持たず導出＝migrate/クラウド同期に触れない。
   var CORE_FALLBACK_MONTHS = 24;      // goals未宣言時のコア目標＝月支出×24（2年分）
   var SATELLITE_UNLOCK_CORE_PCT = 50; // サテライト解放＝コア目標の50%
@@ -896,5 +929,6 @@
     normalizeAnchor: normalizeAnchor, cashDerived: cashDerived,
     investmentDerived: investmentDerived,
     numScalar: numScalar, normalizeAssetHoldings: normalizeAssetHoldings, ASSET_CLASSES: ASSET_CLASSES,
+    glidePath: glidePath, regionBreakdown: regionBreakdown,
   };
 });

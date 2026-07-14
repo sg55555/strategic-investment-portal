@@ -216,6 +216,49 @@ def _r(x):
     return int(math.floor(_num(x) + 0.5))  # half-up（全値非負・JS r とパリティ）
 
 
+def _glide_path(birth_year, now_ms):
+    """Task2: 年齢グライドパス（money-rules.js glidePath の鏡像）。
+    current_year は UTC 導出・degrade 対称（巨大/負/不正 now_ms は JS Invalid Date と揃え configured:False）。"""
+    try:
+        cy = datetime.fromtimestamp(_num(now_ms) / 1000, tz=timezone.utc).year
+    except (OverflowError, OSError, ValueError):
+        return {"configured": False}
+    by = _num(birth_year)
+    age = cy - by
+    if by <= 0 or not math.isfinite(age) or age < 0 or age > 120:
+        return {"configured": False}
+    rr = _clamp(110 - age, 30, 90)
+    return {"configured": True, "age": age, "R": rr, "D": 100 - rr}
+
+
+def _absorb_to_100(raw_map):
+    """端数吸収ヘルパ（_region_breakdown・総資産集約で共用・money-rules.js _absorbTo100 の鏡像）：
+    r()整数化→残余を argmax(cash除く)へ・タイは ASSET_CLASSES 順先勝ち。"""
+    out, s = {}, 0
+    for k in ASSET_CLASSES:
+        out[k] = _r(raw_map.get(k, 0))
+        s += out[k]
+    rem = 100 - s
+    if rem != 0:
+        best = None
+        for k in ASSET_CLASSES:
+            if k == "cash":
+                continue
+            if best is None or out[k] > out[best]:
+                best = k
+        out[best] += rem
+    return out
+
+
+def _region_breakdown(rr):
+    """Task2: R（リスク資産%）を地域内訳（cash除く6クラス）へ写像・端数吸収でΣ=100（money-rules.js regionBreakdown の鏡像）。"""
+    d, eq, alt = 100 - rr, rr * 0.85, rr * 0.15
+    return _absorb_to_100({
+        "cash": 0, "jpEq": eq * 0.20, "devEq": eq * 0.60, "emEq": eq * 0.20,
+        "bond": d, "reit": alt * 0.60, "gold": alt * 0.40,
+    })
+
+
 def _normalize_goal(g, i):
     gid = g.get("id") if isinstance(g, dict) else None
     label = g.get("label") if isinstance(g, dict) else None
