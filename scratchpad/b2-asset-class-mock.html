@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="ja" data-theme="D">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>B#2 資産クラス比率 モック（A現行 / B detailネオン 比較）</title>
+<link rel="stylesheet" href="../money.css">
+<style>
+  html,body{margin:0;background:#03060b;}
+  #money-view{min-height:100vh;}
+  .mock-note{max-width:1280px;margin:0 auto;padding:10px 18px 0;color:var(--c-text-mute);font-size:.66rem;letter-spacing:.3px;}
+  .mock-note b{color:var(--c-amber);}
+  /* スタイル比較トグル（モック専用） */
+  .stylebar{max-width:1280px;margin:6px auto 0;padding:8px 18px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .stylebar .lb{color:var(--c-text-faint);font-size:.7rem;letter-spacing:1px;}
+  .stylebar button{background:rgba(0,229,255,.08);border:1px solid rgba(0,229,255,.3);color:var(--c-cyan-pale);
+    padding:6px 14px;border-radius:7px;cursor:pointer;font-size:.74rem;font-weight:700;letter-spacing:.5px;font-family:var(--mcc-mono);}
+  .stylebar button.on{background:rgba(0,229,255,.22);color:#fff;box-shadow:0 0 12px rgba(0,229,255,.35);}
+
+  /* ===== B#2 セクション 共通 ===== */
+  [data-theme="D"] #money-view .mcc-ac-card{
+    background:rgba(4,10,18,.5);border:1px solid rgba(0,229,255,.16);border-radius:12px;
+    padding:18px 18px 20px;margin-top:14px;box-shadow:0 0 34px rgba(0,229,255,.06) inset;transition:all .3s;}
+  [data-theme="D"] #money-view .mcc-ac-agerow{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:6px 0 4px;}
+  [data-theme="D"] #money-view .mcc-ac-agerow label{color:var(--c-text-dim);font-size:.72rem;letter-spacing:.5px;}
+  [data-theme="D"] #money-view .mcc-ac-age{width:74px;background:rgba(0,0,0,.35);border:1px solid rgba(0,229,255,.35);
+    color:var(--c-cyan-pale);border-radius:6px;padding:6px 8px;font-family:var(--mcc-mono);font-size:.95rem;text-align:center;}
+  [data-theme="D"] #money-view .mcc-ac-slider{flex:1 1 160px;accent-color:var(--c-cyan);}
+  [data-theme="D"] #money-view .mcc-ac-readout{color:var(--c-text-bright);font-size:.9rem;letter-spacing:.3px;}
+  [data-theme="D"] #money-view .mcc-ac-readout b.g{color:var(--c-emerald-soft);}
+  [data-theme="D"] #money-view .mcc-ac-readout b.d{color:var(--c-cyan-bright);}
+  [data-theme="D"] #money-view .mcc-ac-grid{display:grid;grid-template-columns:230px 1fr;gap:22px;align-items:center;margin-top:8px;}
+  @media(max-width:720px){[data-theme="D"] #money-view .mcc-ac-grid{grid-template-columns:1fr;}}
+  [data-theme="D"] #money-view .mcc-ac-donutwrap{position:relative;width:200px;height:200px;margin:0 auto;}
+  /* conic-gradient ドーナツ（棒と同じ HTML要素＝rgba半透明＋screen で素直に透ける） */
+  [data-theme="D"] #money-view .mcc-ac-donut2{position:absolute;inset:0;border-radius:50%;transition:background .4s ease;
+    -webkit-mask:radial-gradient(circle at 50% 50%, transparent 0 49%, #000 51% 82%, transparent 84%);
+            mask:radial-gradient(circle at 50% 50%, transparent 0 49%, #000 51% 82%, transparent 84%);}
+  [data-theme="D"] #money-view .mcc-ac-donut2.edge{ /* 内外周の細いネオン縁だけ */
+    -webkit-mask:radial-gradient(circle at 50% 50%, transparent 0 50%, #000 50.5% 52.5%, transparent 53% 79.5%, #000 80% 82%, transparent 82.5%);
+            mask:radial-gradient(circle at 50% 50%, transparent 0 50%, #000 50.5% 52.5%, transparent 53% 79.5%, #000 80% 82%, transparent 82.5%);}
+  [data-theme="D"] #money-view .mcc-ac-donut2.glowlayer{pointer-events:none;}
+  [data-theme="D"] #money-view .mcc-ac-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;}
+  [data-theme="D"] #money-view .mcc-ac-center .big{font-size:.78rem;letter-spacing:.5px;}
+  [data-theme="D"] #money-view .mcc-ac-center .big.g{color:var(--c-emerald-soft);}
+  [data-theme="D"] #money-view .mcc-ac-center .big.d{color:var(--c-cyan-bright);}
+  [data-theme="D"] #money-view .mcc-ac-center .sub{color:var(--c-text-mute);font-size:.6rem;letter-spacing:1px;}
+  [data-theme="D"] #money-view .mcc-ac-legend{display:grid;grid-template-columns:repeat(2,1fr);gap:6px 16px;}
+  [data-theme="D"] #money-view .mcc-ac-leg{display:flex;align-items:center;gap:8px;font-size:.76rem;color:var(--c-text-dim);}
+  [data-theme="D"] #money-view .mcc-ac-swatch{width:10px;height:10px;border-radius:2px;flex:0 0 auto;}
+  [data-theme="D"] #money-view .mcc-ac-leg .nm{color:var(--c-text);flex:1 1 auto;}
+  [data-theme="D"] #money-view .mcc-ac-leg .pc{font-family:var(--mcc-mono);color:var(--c-text-bright);}
+  [data-theme="D"] #money-view .mcc-ac-bars{margin-top:18px;}
+  [data-theme="D"] #money-view .mcc-ac-barlab{color:var(--c-text-faint);font-size:.66rem;letter-spacing:1px;margin:10px 0 5px;text-transform:uppercase;}
+  [data-theme="D"] #money-view .mcc-ac-stack{display:flex;height:22px;border-radius:5px;overflow:hidden;border:1px solid rgba(255,255,255,.08);}
+  [data-theme="D"] #money-view .mcc-ac-seg{height:100%;position:relative;}
+  [data-theme="D"] #money-view .mcc-ac-seg + .mcc-ac-seg{border-left:1px solid rgba(3,6,11,.6);}
+  [data-theme="D"] #money-view .mcc-ac-rail{margin-top:18px;display:flex;flex-direction:column;gap:4px;}
+  [data-theme="D"] #money-view .mcc-ac-driftrow{display:grid;grid-template-columns:78px 1fr 76px;align-items:center;gap:10px;
+    padding:5px 10px;border-radius:7px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.015);}
+  [data-theme="D"] #money-view .mcc-ac-driftrow .cn{font-size:.76rem;color:var(--c-text);display:flex;align-items:center;gap:7px;}
+  [data-theme="D"] #money-view .mcc-ac-driftrow .tr{font-family:var(--mcc-mono);font-size:.72rem;color:var(--c-text-dim);}
+  [data-theme="D"] #money-view .mcc-ac-driftrow .dv{font-family:var(--mcc-mono);font-size:.8rem;font-weight:700;text-align:right;}
+  [data-theme="D"] #money-view .mcc-ac-driftrow.over{border-color:rgba(255,179,0,.4);}
+  [data-theme="D"] #money-view .mcc-ac-driftrow.over .dv{color:var(--c-amber);}
+  [data-theme="D"] #money-view .mcc-ac-driftrow.under{border-color:rgba(0,229,255,.34);}
+  [data-theme="D"] #money-view .mcc-ac-driftrow.under .dv{color:var(--c-cyan-bright);}
+  [data-theme="D"] #money-view .mcc-ac-driftrow.match{border-color:rgba(0,230,118,.34);}
+  [data-theme="D"] #money-view .mcc-ac-driftrow.match .dv{color:var(--c-emerald-soft);}
+  [data-theme="D"] #money-view .mcc-ac-bands{margin-top:18px;padding-top:14px;border-top:1px dashed rgba(120,205,225,.14);}
+  [data-theme="D"] #money-view .mcc-ac-bands .cap{color:var(--c-text-faint);font-size:.66rem;letter-spacing:.5px;margin-bottom:8px;}
+  [data-theme="D"] #money-view .mcc-ac-band{display:grid;grid-template-columns:64px 1fr;align-items:center;gap:10px;margin:6px 0;}
+  [data-theme="D"] #money-view .mcc-ac-band .yl{font-family:var(--mcc-mono);font-size:.7rem;color:var(--c-text-dim);}
+  [data-theme="D"] #money-view .mcc-ac-band .yl small{color:var(--c-text-mute);}
+  [data-theme="D"] #money-view .mcc-ac-toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 2px;}
+  [data-theme="D"] #money-view .mcc-ac-tbtn{background:rgba(0,229,255,.08);border:1px solid rgba(0,229,255,.3);color:var(--c-cyan-pale);
+    padding:5px 11px;border-radius:6px;cursor:pointer;font-size:.7rem;font-weight:700;letter-spacing:.5px;font-family:var(--mcc-mono);}
+  [data-theme="D"] #money-view .mcc-ac-tbtn.on{background:rgba(0,229,255,.2);color:#fff;box-shadow:0 0 10px rgba(0,229,255,.3);}
+  [data-theme="D"] #money-view .mcc-ac-disc{color:var(--c-text-mute);font-size:.6rem;line-height:1.5;margin-top:14px;border-top:1px solid rgba(255,255,255,.05);padding-top:10px;}
+
+  /* ===== B案：detail ネオン寄せ（半透明グラス＋自己発光グロー＋発色UP） ===== */
+  [data-theme="D"] #money-view .mcc-ac-card.neonb{
+    /* 下地グリッド（透け先）＋グラス面 */
+    background:
+      linear-gradient(rgba(120,205,225,.055) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(120,205,225,.055) 1px, transparent 1px),
+      linear-gradient(135deg, rgba(8,14,24,.86), rgba(4,8,16,.9));
+    background-size: 26px 26px, 26px 26px, 100% 100%;
+    border:1px solid rgba(0,229,255,.14);
+    box-shadow:0 20px 55px rgba(0,0,0,.6), 0 0 0 1px rgba(0,229,255,.05) inset, 0 0 30px rgba(0,229,255,.07);
+    -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);}
+  .mcc-ac-card.neonb .mcc-ac-swatch{box-shadow:0 0 7px currentColor, 0 0 2px currentColor;}
+  .mcc-ac-card.neonb .mcc-ac-leg .pc{text-shadow:0 0 6px rgba(0,229,255,.3);}
+  .mcc-ac-card.neonb .mcc-ac-readout b{text-shadow:0 0 9px currentColor;}
+  .mcc-ac-card.neonb .mcc-ac-center .big{text-shadow:0 0 9px currentColor;}
+  /* stack 下地は透明にして、バー(screen)から下地グリッドが透ける */
+  .mcc-ac-card.neonb .mcc-ac-stack{border-color:rgba(0,229,255,.16);box-shadow:0 0 12px rgba(0,229,255,.06);background:transparent;overflow:visible;}
+  /* ★加算合成(screen)＝暗背景でも発光しつつ下地グリッドが透ける（発光を確保しつつ透明感） */
+  .mcc-ac-card.neonb .mcc-ac-seg{mix-blend-mode:screen;filter:saturate(1.55) brightness(1.5);} /* 全要素で filter 統一（明るさ・色味を円と一致） */
+  .mcc-ac-card.neonb .mcc-ac-donut2{mix-blend-mode:screen;filter:saturate(1.55) brightness(1.5);} /* 透明度は0.2のまま、色の輝度だけ上げ「じとっと」解消（暗い下地を補償） */
+  .mcc-ac-card.neonb .mcc-ac-band .mcc-ac-seg{mix-blend-mode:screen;}
+  .mcc-ac-card.neonb .mcc-ac-driftrow.over .dv{text-shadow:0 0 9px var(--c-amber);}
+  .mcc-ac-card.neonb .mcc-ac-driftrow.under .dv{text-shadow:0 0 9px var(--c-cyan-bright);}
+  .mcc-ac-card.neonb .mcc-ac-driftrow.match .dv{text-shadow:0 0 9px var(--c-emerald-soft);}
+  .mcc-ac-card.neonb .mcc-ac-driftrow{background:rgba(0,20,32,.28);}
+</style>
+</head>
+<body>
+<div id="money-view" class="view-section">
+  <div class="mcc-wrap">
+    <div class="mock-note">▲ <b>B#2 資産クラス比率</b> 見た目モック（既定=確定案B・実 money.css 読込・テーマD）。<b>クラス色</b>の各ピッカーを触ると即反映／<b>透明度・発光度</b>スライダー／<b>年齢</b>で目標が動く／<b>未分類グレー</b>は「現状に未分類を混ぜて確認」で表示。気に入った値は「現在の色/値を書き出す」で確認して伝えてください。</div>
+    <div class="stylebar">
+      <span class="lb">スタイル比較 ▶</span>
+      <button id="stA" class="on">A：現行（テーマD ソリッド）</button>
+      <button id="stB">B：detail ネオン寄せ（半透明＋グロー＋発色）</button>
+      <span class="lb" style="flex:1;text-align:right;">同じデータ・レイアウトで色味だけ切替</span>
+    </div>
+
+    <div class="mcc-goals" style="opacity:.45;pointer-events:none;">
+      <div class="mcc-section-title">投資枠ロードマップ（既存 B#1・参考表示）</div>
+      <div class="mcc-rm-rail">
+        <div class="mcc-rm-phase mcc-rm-phase-current" data-key="buffer"><span class="mcc-rm-phase-dot">◉</span><span class="mcc-rm-phase-label">守る/バッファ</span></div>
+        <span class="mcc-rm-sep"></span>
+        <div class="mcc-rm-phase mcc-rm-phase-todo" data-key="core"><span class="mcc-rm-phase-dot">○</span><span class="mcc-rm-phase-label">育てる/コア</span></div>
+        <span class="mcc-rm-sep"></span>
+        <div class="mcc-rm-phase mcc-rm-phase-locked" data-key="satellite"><span class="mcc-rm-phase-dot">🔒</span><span class="mcc-rm-phase-label">攻める/サテライト</span></div>
+      </div>
+    </div>
+
+    <div class="mcc-section-title mcc-section-title-gap">資産クラス比率</div>
+    <div class="mcc-section-desc">年齢に合わせた"設計図"（目標）と、今の"現在地"（現状）のズレを見える化します。</div>
+
+    <div class="mcc-ac-card" id="acCard">
+      <div class="mcc-ac-agerow">
+        <label>年齢</label>
+        <input class="mcc-ac-age" id="ageIn" type="number" min="18" max="90" value="40">
+        <input class="mcc-ac-slider" id="ageSlider" type="range" min="18" max="90" value="40">
+        <div class="mcc-ac-readout" id="readout"></div>
+      </div>
+      <div class="mcc-ac-toolbar">
+        <button class="mcc-ac-tbtn on" id="scopeCore">コアの設計図</button>
+        <button class="mcc-ac-tbtn" id="scopeTotal">総資産で俯瞰</button>
+        <span style="flex:1"></span>
+        <button class="mcc-ac-tbtn" id="fillCash">現状は現金のみ</button>
+        <button class="mcc-ac-tbtn on" id="fillSample">サンプル(投資途中)</button>
+      </div>
+      <div class="mcc-ac-toolbar" id="alphaRow" style="display:none;flex-wrap:wrap;row-gap:8px;">
+        <label style="color:var(--c-text-faint);font-size:.7rem;letter-spacing:.5px;min-width:72px;">透明度</label>
+        <input type="range" id="alphaSlider" min="10" max="70" value="40" style="flex:1 1 180px;accent-color:var(--c-cyan);">
+        <span id="alphaVal" style="font-family:var(--mcc-mono);font-size:.72rem;color:var(--c-cyan-bright);min-width:130px;text-align:right;">alpha 0.40（透明⇄明・判別のバランス点）</span>
+        <span style="flex-basis:100%;height:0;"></span>
+        <label style="color:var(--c-text-faint);font-size:.7rem;letter-spacing:.5px;min-width:72px;">発光度</label>
+        <input type="range" id="glowSlider" min="0" max="100" value="100" style="flex:1 1 180px;accent-color:var(--c-emerald);">
+        <span id="glowVal" style="font-family:var(--mcc-mono);font-size:.72rem;color:var(--c-emerald-soft);min-width:96px;text-align:right;">glow 100%</span>
+      </div>
+      <div class="mcc-ac-toolbar" id="colorRow" style="display:none;flex-wrap:wrap;row-gap:10px;align-items:center;">
+        <label style="color:var(--c-text-faint);font-size:.7rem;letter-spacing:.5px;min-width:72px;">クラス色（触ると即反映）</label>
+        <span id="colorPickers" style="display:flex;flex-wrap:wrap;gap:12px;flex:1 1 auto;"></span>
+        <button class="mcc-ac-tbtn" id="resetColors">spec既定に戻す</button>
+        <span style="flex-basis:100%;height:0;"></span>
+        <label style="color:var(--c-text-faint);font-size:.7rem;letter-spacing:.5px;min-width:72px;">未分類色</label>
+        <span style="display:flex;align-items:center;gap:6px;"><input type="color" id="uncPicker" value="#64748b" style="width:34px;height:24px;border:none;background:none;cursor:pointer;"><span id="uncHex" style="font-family:var(--mcc-mono);font-size:.66rem;color:var(--c-text-mute);">#64748b</span></span>
+        <button class="mcc-ac-tbtn" id="toggleUnc">現状に未分類を混ぜて確認</button>
+        <span style="flex:1"></span>
+        <button class="mcc-ac-tbtn" id="dumpVals">現在の色/値を書き出す</button>
+      </div>
+      <pre id="valOut" style="display:none;max-width:100%;overflow-x:auto;background:rgba(0,0,0,.45);border:1px solid rgba(0,229,255,.22);border-radius:6px;padding:10px;color:var(--c-cyan-pale);font-size:.7rem;line-height:1.55;margin:6px 0 0;"></pre>
+      <div class="mcc-ac-grid">
+        <div class="mcc-ac-donutwrap">
+          <div class="mcc-ac-donut2 glowlayer" id="donutGlow"></div>
+          <div class="mcc-ac-donut2" id="donutBody"></div>
+          <div class="mcc-ac-donut2 edge" id="donutEdge"></div>
+          <div class="mcc-ac-center">
+            <div class="big g" id="cGrow">成長 70%</div>
+            <div class="big d" id="cDef">守り 30%</div>
+            <div class="sub">目標</div>
+          </div>
+        </div>
+        <div class="mcc-ac-legend" id="legend"></div>
+      </div>
+      <div class="mcc-ac-bars">
+        <div class="mcc-ac-barlab">設計図（目標）</div>
+        <div class="mcc-ac-stack" id="barTarget"></div>
+        <div class="mcc-ac-barlab">現在地（現状）</div>
+        <div class="mcc-ac-stack" id="barCurrent"></div>
+      </div>
+      <div class="mcc-ac-rail" id="rail"></div>
+      <div class="mcc-ac-bands">
+        <div class="cap">◷ 将来の設計図（年齢とともに"守り"へ寄っていく・表示のみ）</div>
+        <div id="bands"></div>
+      </div>
+      <div class="mcc-ac-disc">※ 本表示は資産規律の維持・教育を目的とした一般的な情報提供であり、特定商品の売買・配分・タイミングを推奨する投資助言ではありません。具体的な銘柄・ETF への落とし込みやリバランス手順は本人専用モードでのみ提示します。</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const r=x=>Math.floor(x+0.5);
+const C=2*Math.PI*70;
+const hexRgb=h=>{const n=parseInt(h.slice(1),16);return[(n>>16)&255,(n>>8)&255,n&255];};
+
+// key,名前, A色(テーマDトークン), B色(detailネオンhex)
+const CLASSES=[ // 7hueを色相環に均等配置（隣接クラスを確実に分離・単一の真実）
+  {key:'devEq',nm:'先進国株',a:'--c-indigo-bright',b:'#b03cff'}, // 紫
+  {key:'jpEq', nm:'国内株',  a:'--c-blue',         b:'#4468ff'}, // 青
+  {key:'emEq', nm:'新興国株',a:'--c-violet',       b:'#ff2a4d'}, // 赤
+  {key:'reit', nm:'REIT',   a:'--c-amber-bright', b:'#f2e400'}, // 黄（緑寄り）
+  {key:'gold', nm:'金',      a:'--c-amber-deep',   b:'#ff7a00'}, // 橙（赤寄り）
+  {key:'bond', nm:'債券',    a:'--c-emerald',      b:'#1fdb5e'}, // 緑
+  {key:'cash', nm:'現金',    a:'--c-cyan',         b:'#12cffa'}, // シアン
+];
+const cget=k=>CLASSES.find(c=>c.key===k); // トークン参照
+const GROWTH=new Set(['devEq','jpEq','emEq','reit','gold']);
+
+function targetCore(age){
+  const R=clamp(110-age,30,90), D=100-R;
+  const eq=R*0.85, alt=R*0.15;
+  let t={devEq:eq*0.60,jpEq:eq*0.20,emEq:eq*0.20,reit:alt*0.60,gold:alt*0.40,bond:D,cash:0};
+  let o={},sum=0;
+  for(const c of CLASSES){o[c.key]=r(t[c.key]);sum+=o[c.key];}
+  o.devEq+=100-sum;
+  return {o,R,D};
+}
+const SAT={devEq:60,jpEq:20,emEq:20,reit:0,gold:0,bond:0,cash:0};
+const CUR_SAMPLE={devEq:25,jpEq:10,emEq:0,reit:0,gold:0,bond:15,cash:50};
+const CUR_CASH  ={devEq:0,jpEq:0,emEq:0,reit:0,gold:0,bond:0,cash:100};
+const CUR_UNC   ={devEq:20,jpEq:0,emEq:0,reit:0,gold:0,bond:10,cash:30}; // 分類済み60%＝残り40%を未分類グレーで表示
+const SPEC_B=CLASSES.map(c=>c.b), SPEC_UNC='#64748b';
+let curMode='sample', scope='core', styleMode='B', alphaTop=0.40, glow=1.0, showUnc=false, UNCLASSIFIED='#64748b';
+
+function growDef(o){let g=0;for(const k in o)if(GROWTH.has(k))g+=o[k];return {g,d:100-g};}
+const isB=()=>styleMode==='B';
+function colOf(c){return isB()? c.b : `var(${c.a})`;}
+function neonBody(R,G,B,bgOverride,alphaArg){ // 縁/glow色=R,G,B／ボディ=bgOverride優先／alphaArg=要素別alpha（省略時alphaTop）
+  const aT=(alphaArg!=null?alphaArg:alphaTop); // 均一alpha（縦グラデ廃止＝円/下部帯と濃さの基準を完全統一）
+  const gi=(1+glow*10).toFixed(1),  ai=(glow*0.45).toFixed(2);      // 内側の縁発光
+  const g1=(2+glow*16).toFixed(1),  a1=(0.14+glow*0.6).toFixed(2);  // 近い縁光
+  const g2=(6+glow*42).toFixed(1),  a2=(glow*0.42).toFixed(2);      // 遠い発光の余波
+  const bg=bgOverride||`rgba(${R},${G},${B},${aT})`; // 単色＝均一（グラデなし）
+  return `background:${bg};`+
+    `box-shadow:`+
+      `inset 0 0 0 1px rgba(${R},${G},${B},.9),`+          /* 全周ネオン縁 */
+      `inset 0 2px 0 rgba(${R},${G},${B},1),`+             /* 上端を最も明るく */
+      `inset 0 0 ${gi}px rgba(${R},${G},${B},${ai}),`+     /* 縁の内側発光 */
+      `0 0 ${g1}px rgba(${R},${G},${B},${a1}),`+           /* 縁の近い発光 */
+      `0 0 ${g2}px rgba(${R},${G},${B},${a2})`;            /* 縁の遠い余波 */
+}
+function segStyle(c){ if(!isB())return `background:var(${c.a})`; const[R,G,B]=hexRgb(c.b); return neonBody(R,G,B); }
+function uncStyle(){ if(!isB())return `background:${UNCLASSIFIED}`; const[R,G,B]=hexRgb(UNCLASSIFIED); return neonBody(R,G,B); }
+function buildDonut(tgt){ // 棒と同じ方式＝conic-gradient(HTML)＋rgba半透明＋screen。body=透ける本体／edge=内外周の細い明色ネオン縁
+  const stops=(alpha)=>{
+    let acc=0, st=[];
+    for(const c of CLASSES){
+      const p=tgt[c.key]||0; if(p<=0)continue;
+      const frac=p/100, gap=0.004;
+      let col;
+      if(isB()){const[R,G,B]=hexRgb(c.b);col=`rgba(${R},${G},${B},${alpha})`;}
+      else col=`var(${c.a})`;
+      const s=(acc*100).toFixed(2), e=((acc+frac-gap)*100).toFixed(2), e2=((acc+frac)*100).toFixed(2);
+      st.push(`${col} ${s}% ${e}%`, `transparent ${e}% ${e2}%`); // セグメント間に透明の隙間
+      acc+=frac;
+    }
+    return st.join(',');
+  };
+  const donutA=alphaTop; // 全要素で透明度統一（下部帯レベル）
+  document.getElementById('donutBody').style.background=`conic-gradient(from 0deg, ${stops(isB()?donutA:1)})`;
+  document.getElementById('donutEdge').style.background= isB()? `conic-gradient(from 0deg, ${stops(0.95)})` : 'transparent';
+  const gl=document.getElementById('donutGlow');
+  if(isB()){ // ぼかした明色コピー＝発光ハロー（濁り回避のため控えめ）
+    gl.style.background=`conic-gradient(from 0deg, ${stops(Math.min(0.8, donutA+0.3))})`;
+    gl.style.filter=`blur(${(3+glow*10).toFixed(1)}px) saturate(1.55) brightness(1.5)`;
+    gl.style.opacity=(0.1+glow*0.32).toFixed(2); // 濁り解消のため大幅減光
+  } else { gl.style.background='transparent'; gl.style.filter='none'; gl.style.opacity='0'; }
+}
+
+function render(){
+  const age=+document.getElementById('ageIn').value||40;
+  const {o:tgtCore}=targetCore(age);
+  const tgt = scope==='core'? tgtCore : SAT;
+  let cur, uncPct=0;
+  if(showUnc){ cur=CUR_UNC; uncPct=100-CLASSES.reduce((s,c)=>s+(CUR_UNC[c.key]||0),0); }
+  else { cur = curMode==='cash'?CUR_CASH:CUR_SAMPLE; }
+  const gd=growDef(tgt);
+
+  document.getElementById('acCard').classList.toggle('neonb', isB());
+  document.getElementById('readout').innerHTML=
+    `あなた(${age}歳)の設計図：成長資産 <b class="g">${gd.g}%</b> / 守り <b class="d">${gd.d}%</b>`;
+  document.getElementById('cGrow').textContent=`成長 ${gd.g}%`;
+  document.getElementById('cDef').textContent=`守り ${gd.d}%`;
+
+  buildDonut(tgt);
+
+  document.getElementById('legend').innerHTML=CLASSES.map(c=>
+    `<div class="mcc-ac-leg"><span class="mcc-ac-swatch" style="background:${colOf(c)};color:${colOf(c)}"></span>
+     <span class="nm">${c.nm}</span><span class="pc">${tgt[c.key]||0}%</span></div>`).join('');
+
+  const stack=(o)=>CLASSES.map(c=>{const p=o[c.key]||0;return p>0?
+    `<div class="mcc-ac-seg" style="width:${p}%;${segStyle(c)}" title="${c.nm} ${p}%"></div>`:''}).join('');
+  document.getElementById('barTarget').innerHTML=stack(tgt);
+  const uncSeg = uncPct>0 ? `<div class="mcc-ac-seg" style="width:${uncPct}%;${uncStyle()}" title="未分類 ${uncPct}%"></div>` : '';
+  document.getElementById('barCurrent').innerHTML=stack(cur)+uncSeg;
+
+  const rows=CLASSES.map(c=>({...c,t:tgt[c.key]||0,cur:cur[c.key]||0,d:(cur[c.key]||0)-(tgt[c.key]||0)}))
+    .sort((a,b)=>Math.abs(b.d)-Math.abs(a.d));
+  document.getElementById('rail').innerHTML=rows.map(x=>{
+    const cls=x.d>0?'over':x.d<0?'under':'match';
+    const sign=x.d>0?'+':'';
+    return `<div class="mcc-ac-driftrow ${cls}">
+      <span class="cn"><span class="mcc-ac-swatch" style="background:${colOf(x)};color:${colOf(x)}"></span>${x.nm}</span>
+      <span class="tr">目標 ${x.t}% → 現状 ${x.cur}%</span>
+      <span class="dv">${sign}${x.d}pt</span></div>`;
+  }).join('');
+
+  const bands=[[0,'now'],[10,'+10年'],[20,'+20年']].map(([dy,lb])=>{
+    const {o}=targetCore(age+dy); const g=growDef(o);
+    const bandA=alphaTop.toFixed(2); // 全要素で透明度統一
+    const emR=hexRgb(cget('emEq').b), goR=hexRgb(cget('gold').b), boR=hexRgb(cget('bond').b); // トークン由来
+    const growBg=`linear-gradient(90deg, rgba(${emR},${bandA}), rgba(${goR},${bandA}))`; // 成長=赤→橙（暖色）
+    const growStyle=isB()?neonBody(emR[0],emR[1],emR[2], growBg, +bandA):'background:linear-gradient(90deg,var(--c-indigo-bright),var(--c-violet))';
+    const defStyle=isB()?neonBody(boR[0],boR[1],boR[2], null, +bandA):'background:var(--c-emerald)';
+    return `<div class="mcc-ac-band"><span class="yl">${lb} <small>(${age+dy}歳)</small></span>
+      <div class="mcc-ac-stack" style="height:16px">
+        <div class="mcc-ac-seg" style="width:${g.g}%;${growStyle}" title="成長 ${g.g}%"></div>
+        <div class="mcc-ac-seg" style="width:${g.d}%;${defStyle}" title="守り ${g.d}%"></div>
+      </div></div>`;
+  }).join('');
+  document.getElementById('bands').innerHTML=bands;
+}
+
+const ageIn=document.getElementById('ageIn'),ageSlider=document.getElementById('ageSlider');
+ageIn.addEventListener('input',()=>{ageSlider.value=ageIn.value;render();});
+ageSlider.addEventListener('input',()=>{ageIn.value=ageSlider.value;render();});
+document.getElementById('scopeCore').addEventListener('click',()=>{scope='core';tog('scopeCore','scopeTotal');render();});
+document.getElementById('scopeTotal').addEventListener('click',()=>{scope='total';tog('scopeTotal','scopeCore');render();});
+document.getElementById('fillSample').addEventListener('click',()=>{curMode='sample';tog('fillSample','fillCash');render();});
+document.getElementById('fillCash').addEventListener('click',()=>{curMode='cash';tog('fillCash','fillSample');render();});
+document.getElementById('stA').addEventListener('click',()=>{styleMode='A';togStyle();render();});
+document.getElementById('stB').addEventListener('click',()=>{styleMode='B';togStyle();render();});
+document.getElementById('alphaSlider').addEventListener('input',e=>{
+  alphaTop=(+e.target.value)/100;
+  document.getElementById('alphaVal').textContent='alpha '+alphaTop.toFixed(2)+'（全要素統一）';
+  render();
+});
+document.getElementById('glowSlider').addEventListener('input',e=>{
+  glow=(+e.target.value)/100;
+  document.getElementById('glowVal').textContent='glow '+(+e.target.value)+'%';
+  render();
+});
+function tog(on,off){document.getElementById(on).classList.add('on');document.getElementById(off).classList.remove('on');}
+function togStyle(){
+  document.getElementById('stA').classList.toggle('on',styleMode==='A');
+  document.getElementById('stB').classList.toggle('on',styleMode==='B');
+  document.getElementById('alphaRow').style.display = styleMode==='B'?'flex':'none';
+  document.getElementById('colorRow').style.display = styleMode==='B'?'flex':'none';
+}
+// --- 色ピッカー／未分類／書き出し ---
+function buildColorPickers(){
+  document.getElementById('colorPickers').innerHTML=CLASSES.map((c,i)=>
+    `<span style="display:flex;align-items:center;gap:5px;"><input type="color" data-i="${i}" value="${c.b}" style="width:30px;height:22px;border:none;background:none;cursor:pointer;"><span style="font-size:.66rem;color:var(--c-text-dim);">${c.nm}</span></span>`).join('');
+  document.querySelectorAll('#colorPickers input[type=color]').forEach(inp=>
+    inp.addEventListener('input',e=>{CLASSES[+e.target.dataset.i].b=e.target.value;render();}));
+}
+buildColorPickers();
+document.getElementById('resetColors').addEventListener('click',()=>{CLASSES.forEach((c,i)=>c.b=SPEC_B[i]);UNCLASSIFIED=SPEC_UNC;document.getElementById('uncPicker').value=SPEC_UNC;document.getElementById('uncHex').textContent=SPEC_UNC;buildColorPickers();render();});
+document.getElementById('uncPicker').addEventListener('input',e=>{UNCLASSIFIED=e.target.value;document.getElementById('uncHex').textContent=e.target.value;render();});
+document.getElementById('toggleUnc').addEventListener('click',()=>{showUnc=!showUnc;document.getElementById('toggleUnc').classList.toggle('on',showUnc);render();});
+document.getElementById('dumpVals').addEventListener('click',()=>{
+  const out=document.getElementById('valOut');
+  const lines=CLASSES.map(c=>`  ${c.key.padEnd(6)} ${c.nm.padEnd(5)} ${c.b}`).join('\n');
+  out.textContent=`// 現在の色/レンダリング値（気に入ったらこのまま伝えてください）\nパレット:\n${lines}\n  未分類  ${UNCLASSIFIED}\nalpha = ${alphaTop.toFixed(2)}\nglow  = ${Math.round(glow*100)}%`;
+  out.style.display = out.style.display==='none'?'block':'none';
+});
+togStyle();
+render();
+</script>
+</body>
+</html>
