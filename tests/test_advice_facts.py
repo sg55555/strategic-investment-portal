@@ -520,7 +520,9 @@ def test_asset_classes_order():
 
 def test_migrate_birth_year_asset_fields():
     assert advice._migrate({"birthYear": 1990})["birthYear"] == 1990
-    assert advice._migrate({"birthYear": 0})["birthYear"] == 0
+    assert advice._migrate({"birthYear": 1900})["birthYear"] == 1900  # 下限（spec §2.2）
+    assert advice._migrate({"birthYear": 1899})["birthYear"] == 0      # 下限未満は0
+    assert advice._migrate({"birthYear": 0})["birthYear"] == 0         # 1900未満は0
     assert advice._migrate({"birthYear": 9999})["birthYear"] == 9999
     assert advice._migrate({"birthYear": 10000})["birthYear"] == 0  # 上限超は0（age gateはTask2）
     assert advice._migrate({"birthYear": -5})["birthYear"] == 0
@@ -542,6 +544,8 @@ def test_migrate_birth_year_asset_fields():
 def test_birth_year_asset_source_parity_fixture():
     # JS money-rules.js migrate() と同一の期待値（手動突合・money-rules.test.js の同名ケースと対）
     assert advice._normalize_birth_year(1990) == 1990
+    assert advice._normalize_birth_year(1900) == 1900  # 下限（spec §2.2）
+    assert advice._normalize_birth_year(1899) == 0     # 下限未満は0
     assert advice._normalize_birth_year(10000) == 0
     assert advice._normalize_birth_year(-5) == 0
 

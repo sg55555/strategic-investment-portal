@@ -930,9 +930,11 @@ test("defaultState: birthYear/assetHoldings/assetSource の既定値", () => {
   assert.deepEqual(s.assetHoldings, R.normalizeAssetHoldings(null));
 });
 
-test("migrate: birthYear は有限整数0..9999のみ受理・範囲外/非数値は0（意味的妥当性はTask2 age gateが担う）", () => {
+test("migrate: birthYear は有限整数1900..9999のみ受理・範囲外/非数値は0（spec §2.2・意味的妥当性はTask2 age gateが担う）", () => {
   assert.equal(R.migrate({ birthYear: 1990 }).birthYear, 1990);
-  assert.equal(R.migrate({ birthYear: 0 }).birthYear, 0);
+  assert.equal(R.migrate({ birthYear: 1900 }).birthYear, 1900);  // 下限（spec §2.2）
+  assert.equal(R.migrate({ birthYear: 1899 }).birthYear, 0);     // 下限未満は0
+  assert.equal(R.migrate({ birthYear: 0 }).birthYear, 0);        // 1900未満は0
   assert.equal(R.migrate({ birthYear: 9999 }).birthYear, 9999);
   assert.equal(R.migrate({ birthYear: 10000 }).birthYear, 0);   // 上限超は0（age gateはTask2）
   assert.equal(R.migrate({ birthYear: -5 }).birthYear, 0);      // 負値は0

@@ -53,14 +53,14 @@
     }
     return out;
   }
-  // migrate 専用 birthYear coerce（有限・整数・0<=n<=9999 以外は 0）。
+  // migrate 専用 birthYear coerce（有限・整数・1900<=n<=9999 以外は 0＝spec §2.2）。
   // spec の "1900..currentYear" のうち currentYear は migrate 時に nowMs 無しで得られないため、
   // 未来年/2桁typo 等の意味的妥当性は Task2 glidePath の age gate（age<0||age>120）が担う。
   function normalizeBirthYear(v) {
     var n = Number(v);
     if (!isFinite(n)) return 0;
     n = Math.floor(n);
-    return (n >= 0 && n <= 9999) ? n : 0;
+    return (n >= 1900 && n <= 9999) ? n : 0;
   }
 
   // 投資枠配分ロードマップ（backlog B #1）定数。state に持たず導出＝migrate/クラウド同期に触れない。

@@ -194,7 +194,7 @@ def _normalize_asset_holdings(raw):
 
 
 def _normalize_birth_year(v):
-    """migrate 専用 birthYear coerce（有限・整数・0<=n<=9999 以外は 0・money-rules.js normalizeBirthYear の鏡像）。
+    """migrate 専用 birthYear coerce（有限・整数・1900<=n<=9999 以外は 0＝spec §2.2・money-rules.js normalizeBirthYear の鏡像）。
     spec の "1900..currentYear" のうち currentYear は migrate 時に nowMs 無しで得られないため、
     未来年/2桁typo 等の意味的妥当性は Task2 glidePath の age gate（age<0||age>120）が担う。
     JS Number(v) は bool を 0/1 として扱うため、ここも bool を特別扱いしない（float(v) に委ねてparity維持）。"""
@@ -205,7 +205,7 @@ def _normalize_birth_year(v):
     if not math.isfinite(n):
         return 0
     n = int(n // 1)
-    return n if 0 <= n <= 9999 else 0
+    return n if 1900 <= n <= 9999 else 0
 
 
 def _clamp(x, lo, hi):
