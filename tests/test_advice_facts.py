@@ -592,6 +592,42 @@ def test_grow_def_core_r70_mirror():
     assert advice._grow_def(advice._bucket_targets("core", 70)) == {"g": 70, "d": 30}
 
 
+# --- B#2 資産クラス比率: Task4 現状集計・総資産集約・符号付きdrift（パリティ最難所） ---
+
+def test_r_signed_half_up_signed_and_zero_mirror():
+    assert advice._r_signed(2.5) == 3
+    assert advice._r_signed(-2.5) == -3
+    assert advice._r_signed(0) == 0
+    assert advice._r_signed(-0.4) == 0
+
+
+def test_total_target_pct_zero_weight_fallback_mirror():
+    t = advice._total_target_pct(70, {"buffer": 0, "core": 0, "satellite": 0})
+    assert t == advice._region_breakdown(70)
+
+
+def test_total_current_pct_partial_funding_sums_to_100_mirror():
+    h = advice._normalize_asset_holdings({"buffer": {"cash": 60}, "core": {}, "satellite": {"devEq": 40}})
+    c = advice._total_current_pct(h)
+    assert sum(c.values()) == 100
+    assert c["cash"] == 60
+    assert c["devEq"] == 40
+
+
+def test_total_current_pct_all_zero_is_none_mirror():
+    assert advice._total_current_pct(advice._normalize_asset_holdings(None)) is None
+
+
+def test_asset_class_drift_current_none_mirror():
+    t = advice._region_breakdown(70)
+    rows = advice._asset_class_drift(t, None)
+    bond = next(x for x in rows if x["key"] == "bond")
+    assert bond["currentPct"] == 0
+    assert bond["driftPct"] == -t["bond"]
+    for x in rows:
+        assert x["driftPct"] == int(x["driftPct"])  # 常に整数
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0

@@ -990,3 +990,28 @@ test("bucketTargets: buffer=cash100 / satellite=株集中 / core=glidepath", () 
 test("growDef: core(R70)は成長70/守り30", () => {
   assert.deepEqual(R.growDef(R.bucketTargets("core",70)), {g:70, d:30});
 });
+
+test("rSigned: 符号付き half-up・±0", () => {
+  assert.equal(R.rSigned(2.5), 3); assert.equal(R.rSigned(-2.5), -3);
+  assert.equal(R.rSigned(0), 0); assert.equal(R.rSigned(-0.4), 0);
+});
+test("totalTargetPct: 全ウェイト0は core分布へ fallback（空ドーナツにしない）", () => {
+  const t = R.totalTargetPct(70, {buffer:0,core:0,satellite:0});
+  assert.deepEqual(t, R.regionBreakdown(70));
+});
+test("totalCurrentPct: partial-funding（一部バケツ空）でも Σ=100", () => {
+  const h = R.normalizeAssetHoldings({buffer:{cash:60}, core:{}, satellite:{devEq:40}});
+  const c = R.totalCurrentPct(h);
+  assert.equal(Object.values(c).reduce((a,x)=>a+x,0), 100);
+  assert.equal(c.cash, 60); assert.equal(c.devEq, 40);
+});
+test("totalCurrentPct: 全0は null（drift側で -target 化）", () => {
+  assert.equal(R.totalCurrentPct(R.normalizeAssetHoldings(null)), null);
+});
+test("assetClassDrift: current=null は各クラス drift=-target・整数", () => {
+  const t = R.regionBreakdown(70);
+  const rows = R.assetClassDrift(t, null);
+  const bond = rows.find(x=>x.key==="bond");
+  assert.equal(bond.currentPct, 0); assert.equal(bond.driftPct, -t.bond);
+  rows.forEach(x=>assert.equal(x.driftPct, Math.trunc(x.driftPct))); // 常に整数
+});

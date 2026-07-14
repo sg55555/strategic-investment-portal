@@ -290,6 +290,67 @@ def _grow_def(m):
     return {"g": g, "d": 100 - g}
 
 
+def _r_signed(x):
+    """Task4: 符号付き half-up（money-rules.js rSigned の鏡像）。_cf_num は符号付き coerce のみで丸めない。
+    Python int の負ゼロは常に 0 と等価（JS の -0 !== 0 問題はここでは発生しない）。"""
+    x = _cf_num(x)
+    return -_r(-x) if x < 0 else _r(x)
+
+
+def _bucket_current_pct(holdings, bucket_key):
+    """Task4: UI用（facts非対象）＝1バケツ内の分類済み実額比率（money-rules.js bucketCurrentPct の鏡像）。
+    合計0は全0＋unclassifiedPct=0。"""
+    inner = (holdings or {}).get(bucket_key) or {}
+    s = sum(inner.get(k, 0) for k in ASSET_CLASSES)
+    pct = {"cash": 0, "jpEq": 0, "devEq": 0, "emEq": 0, "bond": 0, "reit": 0, "gold": 0}
+    if s <= 0:
+        return {"classPct": pct, "unclassifiedPct": 0}
+    raw_map = {k: inner.get(k, 0) / s * 100 for k in ASSET_CLASSES}
+    return {"classPct": _absorb_to_100(raw_map), "unclassifiedPct": 0}
+
+
+def _total_target_pct(rr, weights):
+    """Task4: 総資産の目標側集約＝バケツ目標額ウェイト（buffer/core/satellite）で加重平均
+    （money-rules.js totalTargetPct の鏡像）。Σweight=0はcore分布へfallback。"""
+    w = weights or {}
+    wb, wc, ws = _num(w.get("buffer")), _num(w.get("core")), _num(w.get("satellite"))
+    tot = wb + wc + ws
+    if tot <= 0:
+        return _region_breakdown(rr)  # zero-weight fallback = core分布
+    bt, ct, st = _bucket_targets("buffer", rr), _bucket_targets("core", rr), _bucket_targets("satellite", rr)
+    raw_map = {k: (bt[k] * wb + ct[k] * wc + st[k] * ws) / tot for k in ASSET_CLASSES}
+    return _absorb_to_100(raw_map)
+
+
+def _total_current_pct(holdings):
+    """Task4: 総資産の現状側集約＝各バケツの assetHoldings 実額ウェイト（money-rules.js totalCurrentPct の鏡像・
+    目標側と非対称＝spec §3.3）。全0は None。"""
+    totals = {k: 0 for k in ASSET_CLASSES}
+    grand = 0
+    for bk in ASSET_BUCKETS:
+        inner = (holdings or {}).get(bk) or {}
+        for k in ASSET_CLASSES:
+            v = inner.get(k, 0)
+            totals[k] += v
+            grand += v
+    if grand <= 0:
+        return None
+    raw_map = {k: totals[k] / grand * 100 for k in ASSET_CLASSES}
+    return _absorb_to_100(raw_map)
+
+
+def _asset_class_drift(t, c):
+    """Task4: 符号付きdrift＝現状%−目標% を _r_signed で整数化（money-rules.js assetClassDrift の鏡像）。
+    current=None は各クラス drift=-target。|drift|降順。"""
+    rows = []
+    for k in ASSET_CLASSES:
+        tp = t.get(k, 0)
+        cp = (c.get(k, 0) if c else 0)
+        rows.append({"key": k, "targetPct": tp, "currentPct": cp, "driftPct": _r_signed(cp - tp)})
+    rows.sort(key=lambda row: abs(row["driftPct"]), reverse=True)
+    return rows
+
+
 def _normalize_goal(g, i):
     gid = g.get("id") if isinstance(g, dict) else None
     label = g.get("label") if isinstance(g, dict) else None

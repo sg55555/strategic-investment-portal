@@ -118,6 +118,50 @@
     return { g: g, d: 100 - g };
   }
 
+  // Task4: 符号付き half-up（cfNum は符号付き coerce のみで丸めない・rSigned が丸める）。
+  // 「-r(-x)」は |x| が0へ丸まる時 -0 を生む（IEEE754の符号付きゼロ）ため `|| 0` で +0 へ正規化（assert/strict の Object.is 差異対策）。
+  function rSigned(x) { x = cfNum(x); return (x < 0 ? -r(-x) : r(x)) || 0; }
+  // Task4: UI用（facts非対象）＝1バケツ内の分類済み実額比率。合計0は全0＋unclassifiedPct=0。
+  function bucketCurrentPct(holdings, bucketKey) {
+    var inner = (holdings && holdings[bucketKey]) || {}, sum = 0, i, k;
+    for (i = 0; i < ASSET_CLASSES.length; i++) sum += (inner[ASSET_CLASSES[i]] || 0);
+    var pct = { cash: 0, jpEq: 0, devEq: 0, emEq: 0, bond: 0, reit: 0, gold: 0 };
+    if (sum <= 0) return { classPct: pct, unclassifiedPct: 0 };
+    var rawMap = {}; for (i = 0; i < ASSET_CLASSES.length; i++) { k = ASSET_CLASSES[i]; rawMap[k] = (inner[k] || 0) / sum * 100; }
+    return { classPct: _absorbTo100(rawMap), unclassifiedPct: 0 };
+  }
+  // Task4: 総資産の目標側集約＝バケツ目標額ウェイト（buffer/core/satellite）で加重平均。Σweight=0はcore分布へfallback。
+  function totalTargetPct(Rr, weights) {
+    var w = weights || {}, wb = num(w.buffer), wc = num(w.core), ws = num(w.satellite), tot = wb + wc + ws;
+    if (tot <= 0) return regionBreakdown(Rr); // zero-weight fallback = core分布
+    var bt = bucketTargets("buffer", Rr), ct = bucketTargets("core", Rr), st = bucketTargets("satellite", Rr);
+    var rawMap = {};
+    for (var i = 0; i < ASSET_CLASSES.length; i++) { var k = ASSET_CLASSES[i]; rawMap[k] = (bt[k] * wb + ct[k] * wc + st[k] * ws) / tot; }
+    return _absorbTo100(rawMap);
+  }
+  // Task4: 総資産の現状側集約＝各バケツの assetHoldings 実額ウェイト（目標側と非対称・spec §3.3）。全0は null。
+  function totalCurrentPct(holdings) {
+    var totals = {}, grand = 0, b, i, k;
+    for (i = 0; i < ASSET_CLASSES.length; i++) totals[ASSET_CLASSES[i]] = 0;
+    for (b = 0; b < ASSET_BUCKETS.length; b++) {
+      var inner = (holdings && holdings[ASSET_BUCKETS[b]]) || {};
+      for (i = 0; i < ASSET_CLASSES.length; i++) { k = ASSET_CLASSES[i]; var v = inner[k] || 0; totals[k] += v; grand += v; }
+    }
+    if (grand <= 0) return null;
+    var rawMap = {}; for (i = 0; i < ASSET_CLASSES.length; i++) { k = ASSET_CLASSES[i]; rawMap[k] = totals[k] / grand * 100; }
+    return _absorbTo100(rawMap);
+  }
+  // Task4: 符号付きdrift＝現状%−目標% を rSigned で整数化。current=null は各クラス drift=-target。|drift|降順。
+  function assetClassDrift(t, c) {
+    var rows = [];
+    for (var i = 0; i < ASSET_CLASSES.length; i++) {
+      var k = ASSET_CLASSES[i]; var tp = t[k] || 0; var cp = c ? (c[k] || 0) : 0;
+      rows.push({ key: k, targetPct: tp, currentPct: cp, driftPct: rSigned(cp - tp) });
+    }
+    rows.sort(function (a, b) { return Math.abs(b.driftPct) - Math.abs(a.driftPct); });
+    return rows;
+  }
+
   // 投資枠配分ロードマップ（backlog B #1）定数。state に持たず導出＝migrate/クラウド同期に触れない。
   var CORE_FALLBACK_MONTHS = 24;      // goals未宣言時のコア目標＝月支出×24（2年分）
   var SATELLITE_UNLOCK_CORE_PCT = 50; // サテライト解放＝コア目標の50%
@@ -953,5 +997,7 @@
     numScalar: numScalar, normalizeAssetHoldings: normalizeAssetHoldings, ASSET_CLASSES: ASSET_CLASSES,
     glidePath: glidePath, regionBreakdown: regionBreakdown,
     GROWTH_CLASSES: GROWTH_CLASSES, bucketTargets: bucketTargets, growDef: growDef,
+    rSigned: rSigned, bucketCurrentPct: bucketCurrentPct,
+    totalTargetPct: totalTargetPct, totalCurrentPct: totalCurrentPct, assetClassDrift: assetClassDrift,
   };
 });
