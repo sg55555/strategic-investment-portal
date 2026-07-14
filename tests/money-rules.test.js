@@ -1015,3 +1015,22 @@ test("assetClassDrift: current=null は各クラス drift=-target・整数", () 
   assert.equal(bond.currentPct, 0); assert.equal(bond.driftPct, -t.bond);
   rows.forEach(x=>assert.equal(x.driftPct, Math.trunc(x.driftPct))); // 常に整数
 });
+
+test("bucketCurrentPct: 分類済みholdingsは_absorbTo100でΣ=100・unclassifiedPct:0", () => {
+  const h = R.normalizeAssetHoldings({core:{jpEq:100,devEq:100,cash:100}});
+  const res = R.bucketCurrentPct(h, "core");
+  assert.deepEqual(res, {classPct:{cash:33,jpEq:34,devEq:33,emEq:0,bond:0,reit:0,gold:0}, unclassifiedPct:0});
+  assert.equal(Object.values(res.classPct).reduce((a,x)=>a+x,0), 100);
+});
+test("bucketCurrentPct: 合計0（空バケツ）は全クラス0・unclassifiedPct:0", () => {
+  const res = R.bucketCurrentPct(R.normalizeAssetHoldings(null), "core");
+  assert.deepEqual(res, {classPct:{cash:0,jpEq:0,devEq:0,emEq:0,bond:0,reit:0,gold:0}, unclassifiedPct:0});
+});
+
+test("assetClassDrift: |drift|タイはASSET_CLASSES順（安定ソート・cashがjpEqより前）", () => {
+  const t = {cash:20, jpEq:30, devEq:20, emEq:10, bond:10, reit:5, gold:5};
+  const c = {cash:30, jpEq:20, devEq:20, emEq:10, bond:10, reit:5, gold:5};
+  const rows = R.assetClassDrift(t, c);
+  assert.equal(rows[0].key, "cash"); assert.equal(rows[0].driftPct, 10);
+  assert.equal(rows[1].key, "jpEq"); assert.equal(rows[1].driftPct, -10);
+});

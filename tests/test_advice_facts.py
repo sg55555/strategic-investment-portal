@@ -628,6 +628,34 @@ def test_asset_class_drift_current_none_mirror():
         assert x["driftPct"] == int(x["driftPct"])  # 常に整数
 
 
+def test_bucket_current_pct_classified_sums_to_100_mirror():
+    h = advice._normalize_asset_holdings({"core": {"jpEq": 100, "devEq": 100, "cash": 100}})
+    res = advice._bucket_current_pct(h, "core")
+    assert res == {
+        "classPct": {"cash": 33, "jpEq": 34, "devEq": 33, "emEq": 0, "bond": 0, "reit": 0, "gold": 0},
+        "unclassifiedPct": 0,
+    }
+    assert sum(res["classPct"].values()) == 100
+
+
+def test_bucket_current_pct_all_zero_mirror():
+    res = advice._bucket_current_pct(advice._normalize_asset_holdings(None), "core")
+    assert res == {
+        "classPct": {"cash": 0, "jpEq": 0, "devEq": 0, "emEq": 0, "bond": 0, "reit": 0, "gold": 0},
+        "unclassifiedPct": 0,
+    }
+
+
+def test_asset_class_drift_tie_break_asset_classes_order_mirror():
+    t = {"cash": 20, "jpEq": 30, "devEq": 20, "emEq": 10, "bond": 10, "reit": 5, "gold": 5}
+    c = {"cash": 30, "jpEq": 20, "devEq": 20, "emEq": 10, "bond": 10, "reit": 5, "gold": 5}
+    rows = advice._asset_class_drift(t, c)
+    assert rows[0]["key"] == "cash"
+    assert rows[0]["driftPct"] == 10
+    assert rows[1]["key"] == "jpEq"
+    assert rows[1]["driftPct"] == -10
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
