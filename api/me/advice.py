@@ -161,6 +161,9 @@ ASSET_BUCKETS = ["buffer", "core", "satellite"]
 # 共有 strict-decimal 文法（scalar-coerce パリティ堅牢化 2026-07-15）。ASCII クラス限定＝\d/\s 不使用
 # （\d/\s は Unicode-aware で全角/アラビア数字・Unicode 空白を通し JS Number() と発散復活）。LENIENT 前後 ASCII 空白。
 _DECIMAL_RE = re.compile(r'^[ \t\n\r\f\x0b]*[+-]?(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][+-]?[0-9]+)?[ \t\n\r\f\x0b]*$')
+# #1 共有 strict ISO grammar（money-rules.js parseIsoMs の _ISO_RE と同一）。ASCII クラス限定（[0-9]・\d 不使用）。
+# T か半角空白区切り・tz 無しは UTC。fromisoformat の lenient 受理（+0900 等）と JS regex の差を防ぐ pre-filter。
+_ISO_RE = re.compile(r'^([0-9]{4})-([0-9]{2})-([0-9]{2})(?:[T ]([0-9]{2}):([0-9]{2}):([0-9]{2})(\.[0-9]{1,6})?(Z|[+-][0-9]{2}:[0-9]{2})?)?$')
 
 
 def _parse_num(v):                               # → float（nan/±inf を返し得る・呼び元が gate）
@@ -400,6 +403,8 @@ def _reserve_monthly(rv, now_ms):
         nd = datetime.fromtimestamp(_num(now_ms) / 1000.0, tz=timezone.utc)
     except (OverflowError, OSError, ValueError):
         return 0  # 巨大/不正 now_ms は JS(Invalid Date→0)と揃え 0 へ degrade（500 を防ぐ）
+    if nd.year < 1 or nd.year > 9999:  # #3 JS reserveMonthly の cy ガードと対称（datetime は 9999 で例外だが依存せず明示）
+        return 0
     now_ym = nd.year * 12 + (nd.month - 1)  # JS getUTCMonth() は0始まり
     dl_ym = int(deadline[0:4]) * 12 + (int(deadline[5:7]) - 1)
     months_left = dl_ym - now_ym
@@ -557,9 +562,10 @@ def _roadmap_phase(s):
 
 def _project_months(gap_yen, rate_yen):
     # money-rules.js projectMonths の鏡像
-    if rate_yen <= 0:
+    if rate_yen <= 0 or not math.isfinite(gap_yen):  # #2 ∞/NaN gap は degrade（int(ceil(inf)) OverflowError を JS Infinity と対称化）
         return None
-    return math.ceil(max(0, gap_yen) / rate_yen)
+    q = max(0, gap_yen) / rate_yen
+    return math.ceil(q) if math.isfinite(q) else None  # 有限 gap でも rate 極小で比率が溢れる場合を捕捉
 
 
 def _eta_bucket(months):
@@ -640,6 +646,8 @@ def _parse_iso_ms(v):
         dt = v if v.tzinfo else v.replace(tzinfo=timezone.utc)
         return dt.timestamp() * 1000.0
     if isinstance(v, str) and v:
+        if not _ISO_RE.match(v):  # #1 JS parseIsoMs と同一 grammar で pre-filter（非 ISO/lenient を両言語 reject）
+            return None
         try:
             dt = datetime.fromisoformat(v.replace("Z", "+00:00"))
             if dt.tzinfo is None:
@@ -762,8 +770,8 @@ def _cashflow_derived(rows, s, now_ms):
     to_satellite = 0
     if buffer_achieved:
         months_to_buffer = 0
-    elif monthly_surplus > 0 and buffer_rem > 0:
-        months_to_buffer = int(math.ceil(buffer_rem / monthly_surplus))
+    elif monthly_surplus > 0 and buffer_rem > 0 and math.isfinite(buffer_rem / monthly_surplus):
+        months_to_buffer = int(math.ceil(buffer_rem / monthly_surplus))  # #2 比率有限のみ ceil（bufferTarget overflow は下の None＝JS と対称・500回避）
     else:
         months_to_buffer = None
     destination = _next_target(s)  # nextTarget と単一源で一致（自己矛盾を排除）
@@ -879,13 +887,14 @@ def mode_a_facts(raw_state, include_raw, now_ms, cashflow=None):
     if ac is not None:
         facts["assetClasses"] = ac
 
+    total_g = _num(total)  # #2系: JS goalProgress は t=num(total)＝overflow total(∞)→0 で「達成」にしない（対称化）。raw.totalAssets/remaining は生 total 据置。
     for i, g in enumerate(goals_arr):
         ta = _num(g["targetAmount"])
-        prog = _clamp(total / ta, 0, 1) if ta > 0 else 0
+        prog = _clamp(total_g / ta, 0, 1) if ta > 0 else 0
         facts["goals"].append({
             "index": i,
             "progressPct": _clamp(_r(prog * 100), 0, 100),
-            "achieved": bool(ta > 0 and total >= ta),
+            "achieved": bool(ta > 0 and total_g >= ta),
             "hasDeadline": bool(g["deadline"]),
             "monthsToDeadlineBucket": _deadline_bucket(g["deadline"], now_ms),
         })

@@ -1,0 +1,18 @@
+{
+  "_doc": "共有 ISO パーサ・パリティ battery（follow-up: Date/datetime ライブラリ境界の非対称#1）。money-rules.js parseIsoMs と advice.py _parse_iso_ms が同一の accept/reject・同一 epoch(ms・UTC) を返すことを両言語のテストで golden 固定する。tz 無しは UTC 扱い・T と半角空白の両方を区切りとして受理・非 ISO(スラッシュ/月名/空白以外の崩れ)は reject→null。ms=null は両言語で reject を意味する。",
+  "cases": [
+    { "input": "2026-07-15T12:00:00Z", "ms": 1784116800000, "note": "canonical UTC" },
+    { "input": "2026-07-15T12:00:00", "ms": 1784116800000, "note": "tz-less → UTC（JS Date.parse は LOCAL に化ける発散源）" },
+    { "input": "2026-07-15 12:00:00", "ms": 1784116800000, "note": "半角空白区切り → UTC（fromisoformat 受理・JS Date.parse は LOCAL）" },
+    { "input": "2026-07-15T12:00:00+09:00", "ms": 1784084400000, "note": "明示オフセット" },
+    { "input": "2026-07-15", "ms": 1784073600000, "note": "date-only → UTC 深夜0時" },
+    { "input": "2026-07-15T12:00:00.500Z", "ms": 1784116800500, "note": "小数秒" },
+    { "input": "2026/07/15", "ms": null, "note": "スラッシュ → reject（JS Date.parse は LOCAL で受理する発散源）" },
+    { "input": "Jan 1 2026", "ms": null, "note": "月名 → reject（JS Date.parse は受理する発散源）" },
+    { "input": "not-a-date", "ms": null, "note": "非日付 → reject" },
+    { "input": "2026-13-01", "ms": null, "note": "月13 → カレンダー無効で両言語 reject" },
+    { "input": "2026-02-30", "ms": null, "note": "2月30日 → カレンダー無効で両言語 reject" },
+    { "input": "2026-07-15T25:00:00Z", "ms": null, "note": "時25 → カレンダー無効で両言語 reject" },
+    { "input": "", "ms": null, "note": "空文字 → null" }
+  ]
+}

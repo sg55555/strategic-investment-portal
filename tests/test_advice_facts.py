@@ -323,6 +323,78 @@ def test_reserve_monthly_mirrors_js():
     assert advice._reserve_monthly({"target": 100000, "saved": 0}, 0) == 0  # 期日もoverrideも無し
 
 
+# --- follow-up: Date/datetime・整数overflow のライブラリ境界 非対称3種（非coercion・別スコープ）---
+
+def test_parse_iso_ms_shared_battery():
+    # #1: money-rules.js parseIsoMs と同一の accept/reject・同一 epoch(UTC)。golden=iso_parse_cases.json。
+    with open(os.path.join(HERE, "fixtures", "iso_parse_cases.json"), encoding="utf-8") as f:
+        iso_cases = json.load(f)["cases"]
+    for c in iso_cases:
+        got = advice._parse_iso_ms(c["input"])
+        if c["ms"] is None:
+            assert got is None, "expected reject: %r (%s)" % (c["input"], c.get("note", ""))
+        else:
+            assert got == c["ms"], "mismatch %r: got %r want %r" % (c["input"], got, c["ms"])
+    # datetime オブジェクト経路（DB の pulled_at）は従来どおり epoch へ。
+    import datetime as dt
+    d = dt.datetime(2026, 7, 15, 12, 0, 0, tzinfo=dt.timezone.utc)
+    assert advice._parse_iso_ms(d) == 1784116800000.0
+    # 非文字列・非datetime は None。
+    assert advice._parse_iso_ms(12345) is None
+    assert advice._parse_iso_ms(None) is None
+    assert advice._parse_iso_ms([]) is None
+
+
+def test_reserve_monthly_year_over_9999():
+    # #3: nowMs が year>9999（Py datetime 有効域外）は JS(Invalid domain→0) と対称に 0。
+    now_y10000 = 253402300800000  # datetime.fromtimestamp は year>9999 で例外／JS new Date は year 10000 受理
+    assert advice._reserve_monthly({"target": 300000, "saved": 0, "deadline": "2027-01-01"}, now_y10000) == 0
+    # year≤9999 の正当 nowMs は不変（回帰ガード）。
+    import datetime as dt
+    now_ok = dt.datetime(2026, 6, 1, tzinfo=dt.timezone.utc).timestamp() * 1000
+    assert advice._reserve_monthly({"target": 300000, "saved": 0, "deadline": "2026-11-01"}, now_ok) == 60000
+
+
+def test_project_months_nonfinite_ratio():
+    # #2: 比率が非有限（∞ gap・有限同士でも比率溢れ）は int(ceil(inf)) OverflowError でなく None（JS Infinity と対称化）。
+    assert advice._project_months(float("inf"), 100000) is None
+    assert advice._project_months(1e308, 1e-300) is None  # 有限同士だが比率 1e608=∞
+    assert advice._project_months(float("-inf"), 100000) is None
+    # 有限は不変（回帰ガード）。
+    assert advice._project_months(300000, 50000) == 6
+    assert advice._project_months(100000, 0) is None  # rate<=0 は従来どおり None
+
+
+def test_cashflow_derived_buffer_overflow():
+    # #2 統合: bufferTarget=monthlyExpense×bufferMonths が ∞ で monthsToBufferComplete が None（500 でなく）。
+    s = advice._migrate({"monthlyExpense": 1e308, "bufferMonths": 6, "buckets": {"buffer": {"amount": 0}}})
+    rows = [{
+        "period": p, "total_income": 500000, "salary_income": 500000, "misc_income": 0,
+        "fixed_expense": 0, "variable_expense": 400000, "total_expense": 400000, "balance": 100000,
+        "is_complete": True, "pulled_at": "2026-06-20T00:00:00Z",
+    } for p in ("2026-04-01", "2026-05-01", "2026-06-01")]
+    import datetime as dt
+    now = dt.datetime(2026, 6, 28, tzinfo=dt.timezone.utc).timestamp() * 1000
+    cd = advice._cashflow_derived(rows, s, now)
+    assert cd["monthlySurplus"] > 0  # 前提：余剰あり＝overflow 分岐へ入る
+    assert cd["monthsToBufferComplete"] is None
+
+
+def test_goal_progress_total_overflow():
+    # #2 系（4番目・fuzz 露出）: totalAssets=buckets 合計が ∞ の時、_num(total)→0 で目標を「達成」にしない（JS goalProgress と対称）。
+    s = {"buckets": {"core": {"amount": 1e308}, "satellite": {"amount": 1e308}, "buffer": {"amount": 0}},
+         "goals": [{"id": "g1", "targetAmount": 1000000, "label": "x", "deadline": ""}]}
+    prod = advice.mode_a_facts(s, False, 0, None)
+    assert prod["goals"][0]["achieved"] is False
+    assert prod["goals"][0]["progressPct"] == 0
+    # 有限 total は不変（回帰）：total=150万・target=100万→達成。
+    s2 = {"buckets": {"core": {"amount": 1500000}, "satellite": {"amount": 0}, "buffer": {"amount": 0}},
+          "goals": [{"id": "g1", "targetAmount": 1000000, "label": "x", "deadline": ""}]}
+    f2 = advice.mode_a_facts(s2, False, 0, None)
+    assert f2["goals"][0]["achieved"] is True
+    assert f2["goals"][0]["progressPct"] == 100
+
+
 def test_cashflow_reserves_waterfall_priority():
     c = next(x for x in CASES if x["name"] == "cashflow-reserves-priority")
     f = advice.mode_a_facts(c["state"], False, _case_now(c), c["cashflow"])

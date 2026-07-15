@@ -83,7 +83,7 @@ function genNowMs() {
     }
     case "zero": return 0;
     case "negative": return -randInt(1, 5000) * 86400000; // 1970 直前まで（JS Date/Py datetime 両対応）。極端負値は Date 境界 pre-existing 非対称[別チケット]ゆえ除外
-    case "huge": return pick([Date.UTC(2100, 0, 1), Date.UTC(2099, 11, 31), NOW + 3650 * 86400000]); // year≤9999。253402300800000 等 year>9999 は new Date 受理/datetime 例外の pre-existing 非対称[別チケット]ゆえ除外（num(nowMs) 自体は両側同値）
+    case "huge": return pick([Date.UTC(2100, 0, 1), Date.UTC(2099, 11, 31), NOW + 3650 * 86400000, 253402300800000, 300000000000000]); // 253402300800000=year10000(>9999) を含む＝Date/datetime 境界 #3 を対称化済（reserveMonthly cy>9999→両側0・glidePath/current_year は既存 guard）
     case "fractional": return NOW + rng() * 1000;
     case "stringNumeric": return String(NOW - randInt(0, 1000) * 86400000);
     case "stringNonNumeric": return pick(["not-a-date", "", "abc"]);
@@ -109,7 +109,7 @@ function genScalarAdversarial() {
   switch (cat) {
     case "posNum": return randInt(0, 5000000);
     case "negNum": return -randInt(1, 5000000);
-    case "hugeNum": return pick([1000000, 50000000, 1000000000]); // 現実的な大額。1e300 等の overflow→Infinity は下流 int(math.ceil(inf)) の pre-existing JS/Py 非対称[別チケット]を誘発するため fuzz からは除外（極値 coercion 自体は contract table で 1e300→値/1e309→0 を直接検証済）
+    case "hugeNum": return pick([1000000, 50000000, 1000000000, 1e300, 1e308]); // 1e300/1e308＝monthlyExpense×bufferMonths の積 float64 溢れ→Infinity を誘発＝int(math.ceil(inf)) 境界 #2 を対称化済（比率非有限→両側 null・500 回避）
     case "floatNum": return rng() * 1000000;
     case "stringNumeric": return String(randInt(0, 1000000));
     case "stringNonNumeric": return pick(["abc", "", "12abc", "  ", "1.2.3"]);
@@ -184,8 +184,18 @@ function genState() {
   return s;
 }
 
-// ---- cashflow 行生成（cfNum 経路を通す。timestamp parser は別チケットへ defer ゆえ pulled_at="" で非exercise）----
+// ---- cashflow 行生成（cfNum 経路＋timestamp parser #1 を通す）----
 const CF_MONTHS = ["2026-06-01", "2026-05-01", "2026-04-01", "2026-03-01", "2026-02-01", "2026-01-01"];
+// #1 pulled_at battery：strict 共有 ISO パーサ（parseIsoMs↔_parse_iso_ms）が tz無し/半角空白/オフセット/date-only/
+// 小数秒 を同一 epoch、スラッシュ/月名/カレンダー無効/非文字列 を両側同一 reject にすることを end-to-end で誘発。
+function genPulledAt() {
+  return pick([
+    "", "2026-06-20T00:00:00Z", "2026-06-20T12:34:56", "2026-06-20 12:34:56",
+    "2026-06-20T12:00:00+09:00", "2026-06-20", "2026-06-20T12:00:00.500Z",
+    "2026/06/20", "Jan 1 2026", "2026-13-01", "2026-02-30", "2026-06-20T25:00:00Z",
+    "not-a-date", 12345, null,
+  ]);
+}
 function genCashflowRows() {
   if (maybe(0.4)) return undefined; // 未連携（Slice3 経路＝cashflow なし）
   const n = randInt(1, 4);
@@ -201,7 +211,7 @@ function genCashflowRows() {
       total_expense: genScalarAdversarial(),
       balance: genScalarAdversarial(),
       is_complete: pick([true, false]),
-      pulled_at: "", // defer: Date.parse↔_parse_iso_ms は別チケット・空で両側 no-fresh（cfNum 数値経路のみ検証）
+      pulled_at: genPulledAt(), // #1 strict 共有 ISO パーサで両側同一処理（tz無し/空白/スラッシュ/月名/カレンダー無効/非文字列）
     });
   }
   return rows;

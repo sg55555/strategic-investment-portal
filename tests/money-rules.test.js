@@ -630,6 +630,70 @@ test("reserveMonthly: monthlyOverride は残額でcap・完了/期日無は0", (
   assert.equal(R.reserveMonthly({ target: 100000, saved: 0 }, 0), 0); // 期日もoverrideも無し＝手動まとめ入れ専用
 });
 
+// --- follow-up: Date/datetime・整数overflow のライブラリ境界 非対称3種（非coercion・[[js-python-numeric-coercion-parity]] §別スコープ）---
+
+// #1 timestamp パーサ：Date.parse の lenient/LOCAL 化を strict 共有 ISO パーサ parseIsoMs で潰し、
+// advice.py _parse_iso_ms と同一 accept/reject・同一 epoch(UTC) にする。golden=iso_parse_cases.json。
+const ISO_CASES = require("./fixtures/iso_parse_cases.json").cases;
+test("parseIsoMs: 共有 ISO battery で strict・UTC・非ISO reject（_parse_iso_ms とパリティ）", () => {
+  ISO_CASES.forEach((c) => {
+    assert.equal(R.parseIsoMs(c.input), c.ms, "parseIsoMs mismatch: " + JSON.stringify(c.input) + " (" + (c.note || "") + ")");
+  });
+  // 非文字列は null（JS 経路は常に string だが防御）。
+  assert.equal(R.parseIsoMs(12345), null);
+  assert.equal(R.parseIsoMs(null), null);
+  assert.equal(R.parseIsoMs(undefined), null);
+  assert.equal(R.parseIsoMs([]), null);
+});
+
+// #3 Date year>9999 境界：new Date は year 10000+ を受理するが Py datetime は 9999 上限で例外→0。
+// glidePath と同じ cy>9999 明示ガードで reserveMonthly を対称化（両言語 0 へ degrade）。
+test("reserveMonthly: nowMs が year>9999（Py datetime 有効域外）は 0 へ degrade（_reserve_monthly と対称）", () => {
+  const nowY10000 = 253402300800000; // new Date(...).getUTCFullYear() === 10000（>9999）
+  assert.equal(new Date(nowY10000).getUTCFullYear(), 10000); // 前提の裏取り
+  assert.equal(R.reserveMonthly({ target: 300000, saved: 0, deadline: "2027-01-01" }, nowY10000), 0);
+  // year≤9999 の正当 nowMs は不変（回帰ガード）。
+  assert.equal(R.reserveMonthly({ target: 300000, saved: 0, deadline: "2026-11-01" }, Date.parse("2026-06-01T00:00:00Z")), 60000);
+});
+
+// #2 int(ceil(inf)) overflow：monthlyExpense×bufferMonths の積 float64 溢れ等で比率が非有限化した時、
+// JS は Math.ceil(Infinity)=Infinity で degrade するが Py は OverflowError で 500。両言語 null へ対称化。
+test("projectMonths: 比率が非有限（∞ gap・有限同士でも比率溢れ）は null へ degrade（_project_months と対称）", () => {
+  assert.equal(R.projectMonths(Infinity, 100000), null); // ∞ gap
+  assert.equal(R.projectMonths(1e308, 1e-300), null);     // 有限同士だが比率 1e608=∞
+  assert.equal(R.projectMonths(-Infinity, 100000), null); // max(0,-∞)=0 だが防御
+  // 有限は不変（回帰ガード）。
+  assert.equal(R.projectMonths(300000, 50000), 6);
+  assert.equal(R.projectMonths(100000, 0), null); // rate<=0 は従来どおり null
+});
+
+test("cashflowDerived: bufferTarget overflow(monthlyExpense×bufferMonths=∞) で monthsToBufferComplete が null（Py と対称・500回避）", () => {
+  const s = R.migrate({ monthlyExpense: 1e308, bufferMonths: 6, buckets: { buffer: { amount: 0 } } });
+  const rows = ["2026-04-01", "2026-05-01", "2026-06-01"].map((p) => ({
+    period: p, total_income: 500000, salary_income: 500000, misc_income: 0,
+    fixed_expense: 0, variable_expense: 400000, total_expense: 400000, balance: 100000,
+    is_complete: true, pulled_at: "2026-06-20T00:00:00Z",
+  }));
+  const cd = R.cashflowDerived(rows, s, Date.parse("2026-06-28T00:00:00Z"));
+  assert.equal(cd.monthlySurplus > 0, true); // 前提：余剰あり＝overflow 分岐へ入る
+  assert.equal(cd.monthsToBufferComplete, null); // ∞ でなく null（bucket "never"）
+});
+
+// #2 系（4番目・fuzz 露出）: totalAssets=buckets 合計が overflow(∞) の時、goalProgress は num(total)→0 で
+// 「達成」にしない。JS は goalProgress 内で t=num(total) 済・Py は _goal 計算で _num(total) 対称化。
+test("modeAFacts(goals): totalAssets overflow(∞) を目標『達成』にしない（Py と対称・progressPct 0/achieved false）", () => {
+  const s = { buckets: { core: { amount: 1e308 }, satellite: { amount: 1e308 }, buffer: { amount: 0 } },
+    goals: [{ id: "g1", targetAmount: 1000000, label: "x", deadline: "" }] };
+  const prod = R.modeAFacts(s, { nowMs: 0 });
+  assert.equal(prod.goals[0].achieved, false);
+  assert.equal(prod.goals[0].progressPct, 0);
+  // 有限 total は不変（回帰）：total=150万・target=100万→達成。
+  const s2 = { buckets: { core: { amount: 1500000 }, satellite: { amount: 0 }, buffer: { amount: 0 } },
+    goals: [{ id: "g1", targetAmount: 1000000, label: "x", deadline: "" }] };
+  assert.equal(R.modeAFacts(s2, { nowMs: 0 }).goals[0].achieved, true);
+  assert.equal(R.modeAFacts(s2, { nowMs: 0 }).goals[0].progressPct, 100);
+});
+
 test("cashflowDerived: ウォーターフォール buffer→確保枠→core（優先順位順・不足は下位0）", () => {
   const rows = [
     { period: "2026-03-01", total_income: 400000, total_expense: 300000, balance: 100000, is_complete: true },

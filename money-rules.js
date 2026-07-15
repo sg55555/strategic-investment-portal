@@ -211,7 +211,9 @@
     if (!rv.deadline || !_DATE_RE.test(rv.deadline) || !(num(nowMs) > 0)) return 0;
     var nd = new Date(num(nowMs));
     if (!isFinite(nd.getTime())) return 0; // 巨大/不正 nowMs は Python(fromtimestamp 例外)と揃え 0 へ degrade
-    var nowYM = nd.getUTCFullYear() * 12 + nd.getUTCMonth(); // 月は0始まり
+    var cy = nd.getUTCFullYear();
+    if (cy < 1 || cy > 9999) return 0; // #3 year>9999 は Py datetime 有効域外で例外→0・glidePath と同じ cy ガードで対称化
+    var nowYM = cy * 12 + nd.getUTCMonth(); // 月は0始まり
     var dlYM = parseInt(rv.deadline.slice(0, 4), 10) * 12 + (parseInt(rv.deadline.slice(5, 7), 10) - 1);
     var monthsLeft = dlYM - nowYM;
     if (monthsLeft < 1) monthsLeft = 1; // 期日切迫/超過 → 満額を今月
@@ -368,7 +370,9 @@
 
   // Task2: 積立のみ・0%前提の到達月数。rate<=0 は前進不能=null。
   function projectMonths(gapYen, rateYen) {
-    return rateYen <= 0 ? null : Math.ceil(Math.max(0, gapYen) / rateYen);
+    if (rateYen <= 0 || !isFinite(gapYen)) return null; // #2 ∞/NaN gap は degrade（Py int(ceil(inf)) OverflowError と対称化）
+    var q = Math.max(0, gapYen) / rateYen;
+    return isFinite(q) ? Math.ceil(q) : null; // 有限 gap でも rate 極小で比率が溢れる場合を捕捉
   }
 
   // Task2: facts 用に生月数を粗化（ログ指紋の解像度低下）。
@@ -561,6 +565,34 @@
 
   // ── Slice4: 収支連携 → 投資余力（純関数・advice.py mode_a_facts と鏡像／fixture でパリティ固定）──
   function cfNum(v) { var n = parseNum(v); return isFinite(n) ? n + 0 : 0; } // 符号付き（balance は負あり）・parseNum で scalar-safe・n+0 で -0 正規化
+
+  // #1 共有 strict ISO パーサ（api/me/advice.py _parse_iso_ms の鏡像）。
+  // Date.parse は lenient で tz 無しを LOCAL 化・スラッシュ/月名を受理・2/30 を 3/2 へロールオーバーし Python
+  // fromisoformat と発散するため使わない。明示 ISO サブセット（T か半角空白区切り・tz 無しは UTC）のみを
+  // regex 抽出＋カレンダー検証し Date.UTC で決定論計算。非 ISO/範囲外は null。ASCII クラス限定（[0-9]・\d/\s 不使用）。
+  var _ISO_RE = /^([0-9]{4})-([0-9]{2})-([0-9]{2})(?:[T ]([0-9]{2}):([0-9]{2}):([0-9]{2})(\.[0-9]{1,6})?(Z|[+-][0-9]{2}:[0-9]{2})?)?$/;
+  function _daysInMonth(y, mo) {
+    var leap = (y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0));
+    return [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][mo - 1];
+  }
+  function parseIsoMs(v) {
+    if (typeof v !== "string") return null;
+    var m = _ISO_RE.exec(v);
+    if (!m) return null;
+    var Y = +m[1], Mo = +m[2], D = +m[3];
+    if (Mo < 1 || Mo > 12 || D < 1 || D > _daysInMonth(Y, Mo)) return null; // カレンダー妥当性（Py fromisoformat の厳密拒否と一致）
+    var hh = 0, mi = 0, ss = 0, ms = 0, offMin = 0;
+    if (m[4] != null) {                                          // 時刻部あり
+      hh = +m[4]; mi = +m[5]; ss = +m[6];
+      if (hh > 23 || mi > 59 || ss > 59) return null;            // 25:00/…:60 等は無効（Py 例外と対称）
+      if (m[7]) ms = Math.floor(parseFloat("0" + m[7]) * 1000);  // 小数秒→ms（sub-ms は staleDays 日床で無害）
+      if (m[8] && m[8] !== "Z") {                                // 明示オフセット ±HH:MM
+        offMin = (+m[8].slice(1, 3)) * 60 + (+m[8].slice(4, 6));
+        if (m[8].charAt(0) === "-") offMin = -offMin;
+      }
+    }
+    return Date.UTC(Y, Mo - 1, D, hh, mi, ss, ms) - offMin * 60000; // tz 無し→UTC・オフセットは UTC へ換算
+  }
   function median(arr) {
     if (!arr.length) return 0;
     var a = arr.slice().sort(function (x, y) { return x - y; });
@@ -667,7 +699,7 @@
       if (ra.shortfall) reservesShortfall = true;
     });
     var monthsToBufferComplete = bufferAchieved ? 0
-      : (monthlySurplus > 0 && bufferRem > 0 ? Math.ceil(bufferRem / monthlySurplus) : null);
+      : (monthlySurplus > 0 && bufferRem > 0 && isFinite(bufferRem / monthlySurplus) ? Math.ceil(bufferRem / monthlySurplus) : null); // #2 比率非有限(bufferTarget overflow)は null（Py int(ceil(inf)) と対称）
     var destination = nextAllocation(s).target;  // nextTarget と単一源で一致（同画面の自己矛盾を排除）
 
     // トレンド（直近3 median vs 前3 median・要 prev3 が3ヶ月）。
@@ -693,8 +725,8 @@
     var latest = parsed.length ? parsed[parsed.length - 1] : null;
     var staleDays = null;
     if (latest && latest.pulledAt && num(nowMs) > 0) {
-      var pt = Date.parse(latest.pulledAt);
-      if (isFinite(pt)) staleDays = Math.max(0, Math.floor((num(nowMs) - pt) / 86400000));
+      var pt = parseIsoMs(latest.pulledAt); // #1 strict 共有 ISO パーサ（Date.parse の LOCAL 化/lenient を排し _parse_iso_ms と一致）
+      if (pt !== null) staleDays = Math.max(0, Math.floor((num(nowMs) - pt) / 86400000));
     }
     var dataFresh = staleDays === null ? null : (staleDays < 35);
 
@@ -1025,7 +1057,7 @@
     cashflowDerived: cashflowDerived, cashflowViewModel: cashflowViewModel,
     normalizeAnchor: normalizeAnchor, cashDerived: cashDerived,
     investmentDerived: investmentDerived,
-    parseNum: parseNum, num: num, cfNum: cfNum, normalizeAssetHoldings: normalizeAssetHoldings, ASSET_CLASSES: ASSET_CLASSES,
+    parseNum: parseNum, num: num, cfNum: cfNum, parseIsoMs: parseIsoMs, normalizeAssetHoldings: normalizeAssetHoldings, ASSET_CLASSES: ASSET_CLASSES,
     glidePath: glidePath, regionBreakdown: regionBreakdown,
     GROWTH_CLASSES: GROWTH_CLASSES, bucketTargets: bucketTargets, growDef: growDef,
     rSigned: rSigned, bucketCurrentPct: bucketCurrentPct,
