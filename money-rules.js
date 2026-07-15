@@ -30,19 +30,22 @@
     { term: "資産クラス", read: "お金の種類分け", def: "投資を現金・国内株・先進国株・新興国株・債券・REIT・金などの種類で分けたもの。年齢に応じた配分の「設計図」に使います。" },
   ];
 
-  function num(v) { var n = Number(v); return isFinite(n) && n >= 0 ? n : 0; }
+  // 共有 strict-decimal 文法（scalar-coerce パリティ堅牢化 2026-07-15）。ASCII クラス限定＝\d/\s 不使用
+  // （Python Unicode-aware \d/\s は全角/アラビア数字・Unicode 空白を通し発散復活）。LENIENT 前後 ASCII 空白許容。
+  var _DECIMAL_RE = /^[ \t\n\r\f\x0b]*[+-]?(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][+-]?[0-9]+)?[ \t\n\r\f\x0b]*$/;
+  function parseNum(v) {                            // → Number（NaN/±Infinity を返し得る・呼び元が gate）
+    if (typeof v === "number") return v;            // -0, ±Infinity, NaN はそのまま通す
+    if (typeof v === "string") return _DECIMAL_RE.test(v) ? Number(v) : NaN;
+    return NaN;                                     // boolean, null, undefined, array, object → NaN
+  }
+  function num(v) { var n = parseNum(v); return (isFinite(n) && n >= 0) ? n + 0 : 0; } // 非負・n+0 で -0 正規化
   function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
   function r(x) { return Math.floor(num(x) + 0.5); } // half-up（全値非負前提・Python 還元器とパリティ）
 
   // B#2 資産クラス比率：7クラスallowlist（不変・タイブレーク基準）。単一定数を全Taskで参照。
   var ASSET_CLASSES = ["cash", "jpEq", "devEq", "emEq", "bond", "reit", "gold"];
   var ASSET_BUCKETS = ["buffer", "core", "satellite"];
-  // scalar専用 coerce（num() と違い配列/オブジェクトは 0＝num([5])=5 の発散を排除）。
-  function numScalar(v) {
-    if (typeof v === "number") return isFinite(v) && v >= 0 ? v : 0;
-    if (typeof v === "string") { var n = +v; return isFinite(n) && n >= 0 ? n : 0; }
-    return 0;
-  }
+  // （旧 numScalar は num へ集約＝num 自体が scalar-safe になり配列/オブジェクト/bool→0・非decimal 文字列→0・2026-07-15 パリティ堅牢化）
   // 3バケツ(buffer/core/satellite)×7クラスの完全骨格を常に返す（未知キー破棄・非オブジェクト入力→全0骨格）。
   function normalizeAssetHoldings(raw) {
     var src = (raw && typeof raw === "object" && !Array.isArray(raw)) ? raw : {};
@@ -50,17 +53,17 @@
     for (var b = 0; b < ASSET_BUCKETS.length; b++) {
       var bk = ASSET_BUCKETS[b], inner = (src[bk] && typeof src[bk] === "object" && !Array.isArray(src[bk])) ? src[bk] : {};
       out[bk] = {};
-      for (var c = 0; c < ASSET_CLASSES.length; c++) out[bk][ASSET_CLASSES[c]] = numScalar(inner[ASSET_CLASSES[c]]);
+      for (var c = 0; c < ASSET_CLASSES.length; c++) out[bk][ASSET_CLASSES[c]] = num(inner[ASSET_CLASSES[c]]);
     }
     return out;
   }
   // migrate 専用 birthYear coerce（有限・整数・1900<=n<=9999 以外は 0＝spec §2.2）。
   // spec の "1900..currentYear" のうち currentYear は migrate 時に nowMs 無しで得られないため、
   // 未来年/2桁typo 等の意味的妥当性は Task2 glidePath の age gate（age<0||age>120）が担う。
-  // 基底 coerce は numScalar()（汎用 Number() ではない）＝配列/オブジェクトは常に0（Number([1990])===1990 の
-  // unbox を排除し Python float([1990])→TypeError→0 と byte 一致・Task7 fuzz が捕捉した divergence の修正）。
+  // 基底 coerce は num()（scalar-safe＝配列/オブジェクト/bool→0・非decimal 文字列→0＝"0x7CE" 等も拒否）。
+  // Python _num() と byte 一致（Number([1990])===1990 の unbox も +v 由来の hex 差も排除・2026-07-15 パリティ堅牢化）。
   function normalizeBirthYear(v) {
-    var n = numScalar(v);
+    var n = num(v);
     n = Math.floor(n);
     return (n >= 1900 && n <= 9999) ? n : 0;
   }
@@ -69,10 +72,10 @@
   // 不正/巨大 nowMs（例 1e300）は !isFinite(nd.getTime())（Invalid Date）が先に捕捉し configured:false へ。
   // cy の妥当年ガードは Py datetime 有効域（1..9999）に合わせ、JS Date が扱える年10000+（例 nowMs 253402300800000）での
   // JS(configured:true) vs Py(9999で例外→configured:false) 発散を潰す。
-  // nowMs の基底 coerce は numScalar()（汎用 num() ではない）＝配列/オブジェクトは常に0＝Python _num_scalar() と
-  // byte 一致（本番非到達経路だが Task7 fuzz が捕捉した divergence を塞ぐ）。
+  // nowMs の基底 coerce は num()（scalar-safe＝配列/オブジェクト/bool→0）＝Python _num() と byte 一致
+  // （2026-07-15 パリティ堅牢化で numScalar を num へ集約）。
   function glidePath(birthYear, nowMs) {
-    var nd = new Date(numScalar(nowMs));
+    var nd = new Date(num(nowMs));
     if (!isFinite(nd.getTime())) return { configured: false };
     var cy = nd.getUTCFullYear();
     if (cy < 1 || cy > 9999) return { configured: false }; // Py datetime 有効域に対称化
@@ -252,17 +255,20 @@
     var d = defaultState();
     if (!raw || typeof raw !== "object") return d;
     var b = raw.buckets || {};
+    // migrate gate は parseNum sentinel（num は常に≥0 で satelliteCapPct の >=0 gate が恒真化＝不可）＝
+    // 「absent/invalid→default」と「present 0→0」を区別しつつ、配列/hex 文字列も両言語対称に default へ落とす。
+    var _bm = parseNum(raw.bufferMonths), _scp = parseNum(raw.satelliteCapPct);
     return {
       version: CURRENT_VERSION,
       currency: typeof raw.currency === "string" ? raw.currency : d.currency,
       monthlyExpense: num(raw.monthlyExpense),
-      bufferMonths: Number(raw.bufferMonths) > 0 ? num(raw.bufferMonths) : d.bufferMonths,
+      bufferMonths: _bm > 0 ? num(raw.bufferMonths) : d.bufferMonths,
       buckets: {
         buffer: { amount: num(b.buffer && b.buffer.amount) },
         core: { amount: num(b.core && b.core.amount) },
         satellite: { amount: num(b.satellite && b.satellite.amount) },
       },
-      satelliteCapPct: Number(raw.satelliteCapPct) >= 0 ? num(raw.satelliteCapPct) : d.satelliteCapPct,
+      satelliteCapPct: _scp >= 0 ? num(raw.satelliteCapPct) : d.satelliteCapPct,
       lastAppliedCashflowPeriod: (typeof raw.lastAppliedCashflowPeriod === "string" && _DATE_RE.test(raw.lastAppliedCashflowPeriod)) ? raw.lastAppliedCashflowPeriod : "",
       cashSource: raw.cashSource === "anchor" ? "anchor" : "manual",          // 二軸（既定 manual＝後方互換）
       investmentSource: raw.investmentSource === "ledger" ? "ledger" : "manual",
@@ -554,7 +560,7 @@
   }
 
   // ── Slice4: 収支連携 → 投資余力（純関数・advice.py mode_a_facts と鏡像／fixture でパリティ固定）──
-  function cfNum(v) { var n = Number(v); return isFinite(n) ? n : 0; } // 符号付き（balance は負あり）
+  function cfNum(v) { var n = parseNum(v); return isFinite(n) ? n + 0 : 0; } // 符号付き（balance は負あり）・parseNum で scalar-safe・n+0 で -0 正規化
   function median(arr) {
     if (!arr.length) return 0;
     var a = arr.slice().sort(function (x, y) { return x - y; });
@@ -807,16 +813,11 @@
   function modeAFacts(rawState, opts) {
     opts = opts || {};
     var includeRaw = !!opts.includeRawAmounts;
-    // opts.nowMs の基底 coerce は numScalar()（汎用 num() ではない）＝配列は unbox しない。
-    // Python mode_a_facts は now_ms を一切事前coerceせず raw のまま各ヘルパへ渡す（各ヘルパ内部で個別に coerce）。
-    // ここで num() のまま Number([x])===x を許すと、この後 assetClassesFacts(s, nowMs)→glidePath に渡る時点で
-    // 既に scalar 化済みとなり、glidePath 内部の numScalar 化（Task7 fuzz 修正）が素通りされてしまう
-    // （Python 側は _asset_classes_facts に raw now_ms がそのまま渡り、_glide_path 内の _num_scalar が直接効く＝非対称）。
-    // ⚠スコープ注記: この nowMs は deadlineBucket（goals）と cashflowDerived/reserveMonthlyTotal（cashflow opts）にも渡るが、
-    // それら経路の JS↔Py 一致は「下流の discretize（bucket化/丸め）で差が観測不能になる」ことに依存しており、真の coercion 対称
-    // ではない。特に bool nowMs は JS numScalar(true)=0 vs Python generic _num(True)=1.0（bool ガード無し）で 1ms 差が生じ得る
-    // ＝これは既存 generic num/_num 全般の潜在点であり B#2（birthYear/nowMs の array unbox）スコープ外。ここでは触らない。
-    var nowMs = numScalar(opts.nowMs);
+    // opts.nowMs の基底 coerce は num()（scalar-safe＝配列/オブジェクト/bool→0・非decimal 文字列→0）。
+    // JS はここで nowMs を事前 coerce して下流（glidePath/deadlineBucket/cashflowDerived）へ渡し、Python は raw のまま各ヘルパへ
+    // 渡して内部で _num() する。num/_num は冪等かつ同一 contract ゆえ両経路とも同値（bool nowMs も両側 0・hex/underscore 文字列も両側 0）。
+    // （2026-07-15 パリティ堅牢化で numScalar を num へ集約＝旧「generic num/_num の bool/hex 潜在発散点」を根絶）。
+    var nowMs = num(opts.nowMs);
     var s = migrate(rawState);
     var cur = s.currency === "USD" ? "USD" : "JPY"; // 自由文字列 currency を閉集合へ
     var total = totalAssets(s);
@@ -1024,7 +1025,7 @@
     cashflowDerived: cashflowDerived, cashflowViewModel: cashflowViewModel,
     normalizeAnchor: normalizeAnchor, cashDerived: cashDerived,
     investmentDerived: investmentDerived,
-    numScalar: numScalar, normalizeAssetHoldings: normalizeAssetHoldings, ASSET_CLASSES: ASSET_CLASSES,
+    parseNum: parseNum, num: num, cfNum: cfNum, normalizeAssetHoldings: normalizeAssetHoldings, ASSET_CLASSES: ASSET_CLASSES,
     glidePath: glidePath, regionBreakdown: regionBreakdown,
     GROWTH_CLASSES: GROWTH_CLASSES, bucketTargets: bucketTargets, growDef: growDef,
     rSigned: rSigned, bucketCurrentPct: bucketCurrentPct,

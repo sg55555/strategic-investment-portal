@@ -18,6 +18,7 @@ import re
 import sys
 import time
 from datetime import datetime, timezone
+from decimal import Decimal
 
 import psycopg
 from psycopg.types.json import Jsonb
@@ -157,29 +158,35 @@ ASSET_BUCKETS = ["buffer", "core", "satellite"]
 
 
 # ---- 純関数の coerce + Mode A 還元器（money-rules.js modeAFacts と鏡像・パリティテスト有）----
-def _num(v):
-    try:
-        n = float(v)
-    except (TypeError, ValueError):
-        return 0.0
-    if not math.isfinite(n) or n < 0:
-        return 0.0
-    return n
+# 共有 strict-decimal 文法（scalar-coerce パリティ堅牢化 2026-07-15）。ASCII クラス限定＝\d/\s 不使用
+# （\d/\s は Unicode-aware で全角/アラビア数字・Unicode 空白を通し JS Number() と発散復活）。LENIENT 前後 ASCII 空白。
+_DECIMAL_RE = re.compile(r'^[ \t\n\r\f\x0b]*[+-]?(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][+-]?[0-9]+)?[ \t\n\r\f\x0b]*$')
 
 
-def _num_scalar(v):
-    """scalar専用 coerce（_num() と違い配列/オブジェクトは0＝JS numScalar([5])=0 との鏡像・byte一致）。"""
-    if isinstance(v, bool):
-        return 0
-    if isinstance(v, (int, float)):
-        return v if math.isfinite(v) and v >= 0 else 0
-    if isinstance(v, str):
+def _parse_num(v):                               # → float（nan/±inf を返し得る・呼び元が gate）
+    if isinstance(v, bool):                      # bool を int より先に（Python は bool <: int）
+        return float('nan')
+    if isinstance(v, (int, float, Decimal)):     # Decimal 必須＝advice.py は cashflow の生 Decimal を _cf_num へ直渡し
         try:
-            n = float(v)
-        except ValueError:
-            return 0
-        return n if math.isfinite(n) and n >= 0 else 0
-    return 0
+            return float(v)                      # 巨大 int → double 化＝JS JSON.parse 意味論／float(Decimal) で現行挙動維持
+        except (OverflowError, ValueError):
+            return float('nan')                  # int > ~1.8e308 → JS Infinity → nan → 0
+    if isinstance(v, str):
+        if not _DECIMAL_RE.match(v):             # 0x/0o/0b/underscore/unicode-digit を拒否
+            return float('nan')
+        try:
+            return float(v)
+        except (ValueError, OverflowError):
+            return float('nan')
+    return float('nan')                          # None, list, dict, datetime, ...
+
+
+def _num(v):
+    n = _parse_num(v)
+    return (n + 0.0) if (math.isfinite(n) and n >= 0) else 0.0   # 非負・+0.0 で -0.0 正規化
+
+
+# （旧 _num_scalar は _num へ集約＝_num 自体が scalar-safe になり list/dict/bool→0・非decimal 文字列→0・2026-07-15 パリティ堅牢化）
 
 
 def _normalize_asset_holdings(raw):
@@ -189,7 +196,7 @@ def _normalize_asset_holdings(raw):
     out = {}
     for bk in ASSET_BUCKETS:
         inner = src.get(bk) if isinstance(src.get(bk), dict) else {}
-        out[bk] = {c: _num_scalar(inner.get(c)) for c in ASSET_CLASSES}
+        out[bk] = {c: _num(inner.get(c)) for c in ASSET_CLASSES}
     return out
 
 
@@ -197,10 +204,9 @@ def _normalize_birth_year(v):
     """migrate 専用 birthYear coerce（有限・整数・1900<=n<=9999 以外は 0＝spec §2.2・money-rules.js normalizeBirthYear の鏡像）。
     spec の "1900..currentYear" のうち currentYear は migrate 時に nowMs 無しで得られないため、
     未来年/2桁typo 等の意味的妥当性は Task2 glidePath の age gate（age<0||age>120）が担う。
-    基底 coerce は _num_scalar()（汎用 float() ではない）＝list/dict は常に0（float([1990]) の TypeError→0 と、
-    JS Number([1990])===1990 の unbox を排除した numScalar([1990])===0 が byte 一致・Task7 fuzz が捕捉した
-    divergence の修正）。_num_scalar は bool も 0 扱い（旧 float(v) 委譲時代の bool=0/1 委譲コメントは廃止）。"""
-    n = _num_scalar(v)
+    基底 coerce は _num()（scalar-safe＝list/dict/bool→0・非decimal 文字列→0＝"0x7CE" 等も拒否）。
+    JS num() と byte 一致（float([1990]) TypeError も +v 由来 hex 差も排除・2026-07-15 パリティ堅牢化で _num_scalar を _num へ集約）。"""
+    n = _num(v)
     n = int(n // 1)
     return n if 1900 <= n <= 9999 else 0
 
@@ -217,10 +223,10 @@ def _glide_path(birth_year, now_ms):
     """Task2: 年齢グライドパス（money-rules.js glidePath の鏡像）。
     current_year は UTC 導出・degrade 対称（巨大/負/不正 now_ms は JS Invalid Date と揃え configured:False）。
     cy の明示ガード（1..9999）で JS Date(年10000+可) と Py datetime(9999上限) のライブラリ差による発散を潰す（両言語対称）。
-    now_ms の基底 coerce は _num_scalar()（汎用 _num() ではない）＝list/dict は常に0＝JS numScalar() と byte 一致
-    （本番非到達経路だが Task7 fuzz が捕捉した divergence を塞ぐ）。"""
+    now_ms の基底 coerce は _num()（scalar-safe＝list/dict/bool→0・非decimal 文字列→0）＝JS num() と byte 一致
+    （2026-07-15 パリティ堅牢化で _num_scalar を _num へ集約）。"""
     try:
-        cy = datetime.fromtimestamp(_num_scalar(now_ms) / 1000, tz=timezone.utc).year
+        cy = datetime.fromtimestamp(_num(now_ms) / 1000, tz=timezone.utc).year
     except (OverflowError, OSError, ValueError):
         return {"configured": False}
     if cy < 1 or cy > 9999:  # JS と対称の明示ガード（datetime は 9999 で例外だが依存せず明示）
@@ -409,16 +415,12 @@ def _migrate(raw):
         slot = b.get(key) if isinstance(b.get(key), dict) else {}
         return _num(slot.get("amount"))
 
-    try:
-        bm = float(raw.get("bufferMonths"))
-    except (TypeError, ValueError):
-        bm = 0.0
-    buffer_months = _num(raw.get("bufferMonths")) if bm > 0 else 6.0
-    try:
-        scp = float(raw.get("satelliteCapPct"))
-    except (TypeError, ValueError):
-        scp = -1.0
-    sat_cap_pct = _num(raw.get("satelliteCapPct")) if scp >= 0 else 10.0
+    # migrate gate は _parse_num sentinel（_num は常に≥0 で satelliteCapPct の >=0 gate が恒真化＝不可）＝
+    # 「absent/invalid→default」と「present 0→0」を区別しつつ、list/hex 文字列も JS と対称に default へ落とす。
+    _bm = _parse_num(raw.get("bufferMonths"))
+    buffer_months = _num(raw.get("bufferMonths")) if _bm > 0 else 6.0
+    _scp = _parse_num(raw.get("satelliteCapPct"))
+    sat_cap_pct = _num(raw.get("satelliteCapPct")) if _scp >= 0 else 10.0
 
     goals_raw = raw.get("goals")
     filtered = [g for g in goals_raw if isinstance(g, dict)] if isinstance(goals_raw, list) else []
@@ -613,11 +615,8 @@ def _deadline_bucket(deadline, now_ms):
 
 # ---- Slice4: 収支連携 → 投資余力（money-rules.js cashflowDerived の鏡像・fixture でパリティ固定）----
 def _cf_num(v):
-    try:
-        n = float(v)
-    except (TypeError, ValueError):
-        return 0.0
-    return n if math.isfinite(n) else 0.0  # 符号付き（balance は負あり）
+    n = _parse_num(v)
+    return (n + 0.0) if math.isfinite(n) else 0.0  # 符号付き（balance は負あり）・_parse_num で scalar-safe・+0.0 で -0.0 正規化
 
 
 def _median(arr):

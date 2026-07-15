@@ -170,9 +170,23 @@ sat_cap_pct   = _num(raw.get("satelliteCapPct")) if _scp >= 0 else 10.0
 
 ---
 
-## 6. Follow-up チケット（defer）
+## 6. Follow-up チケット（defer）＝「JS Date/datetime・整数 overflow のライブラリ境界 非対称」（すべて非 coercion・本番非到達=絶対値が非現実的な極値でのみ発生）
 
-**timestamp パリティ（cashflow path）**: `_parse_iso_ms` ↔ `Date.parse(pulledAt)` は実装依存の別リスク（`Date.parse` は緩い）。今回の拡張 fuzz は cashflow に **valid pulled_at のみ**与えて回避し、timestamp パリティは単独で検証する別チケットに切る。`facts.cashflow.dataFresh`/`staleDays` へ流入。
+拡張 fuzz が exercise した結果、**num/_num coercion とは無関係の pre-existing JS/Py 非対称を3種発見**（いずれも coerce 値は新旧同一＝本チケットの変更起因でない）。同カテゴリ（Date/datetime・overflow のライブラリ境界）ゆえ**単独の follow-up チケットにまとめて切る**。今回の fuzz はこれらを誘発しない範囲（現実的な絶対値・year≤9999）に入力を cap して coercion パリティを純粋検証した。
+
+1. **timestamp パーサ**: `_parse_iso_ms` ↔ `Date.parse(pulledAt)`（`Date.parse` は実装依存で緩い）。fuzz は `pulled_at=""` で非 exercise。`facts.cashflow.dataFresh`/`staleDays` へ流入。
+2. **整数 overflow**: `int(math.ceil(inf))` が Python で `OverflowError`（例 `_reserve_monthly` L406・`months_to_buffer` L764）。JS `Math.ceil(Infinity)=Infinity` は degrade（例外にならない）。`monthlyExpense≈1e300` 等が下流の積で Infinity 化した時のみ（本番の金額 ≤1e10 では非到達）。fuzz は huge 値を ≤1e9 に cap。
+3. **Date year 境界**: `reserveMonthly`/`_reserve_monthly` が `nowMs` から日付を作る時、JS `new Date` は year>9999（上限 275760）を受理するが Py `datetime.fromtimestamp` は year 9999 超で例外→0。→ want が JS=満額/Py=0 に発散。**`glidePath`/`_glide_path` は `cy>9999` guard 済だが `reserveMonthly` は未 guard**（1行 guard 追加で対称化可）。`nowMs≈253402300800000`（year 10001）等でのみ（本番 `Date.now()` は year 2026 ゆえ非到達）。fuzz は nowMs を year≤9999 に cap。
+
+**修正方針（follow-up）**: (2)(3) は「JS の非例外・非有限を Python 側でも同じ挙動に揃える」＝Py 側に `isfinite`/`year>9999` guard を足して JS の degrade（0/bucket）に対称化。(1) は共有 ISO パーサ純関数化。いずれも本チケット（coercion）の scope 外。
+
+## 6.5 実測結果（本チケット・GREEN）
+
+- **coercer contract table**（両言語）: JS `money-rules.test.js` / Py `test_advice_facts.py`。array/obj/bool/null→0・hex/8/2進/underscore/全角/アラビア→0・decimal 保持・負(num→0/cfNum 保存)・-0 正規化・Decimal 回帰ガード。
+- **facts-parity**: `satelliteCapPct` 非decimal/配列→両言語 default 10（旧 JS 16/Py 10 等の発散解消）／配列 monthlyExpense/buckets→未設定（旧 JS unbox の誤 configured 解消）。
+- **fuzz**: `scratchpad/b2-parity-fuzz.js`（全 num/cfNum フィールド＋cashflow＋新文字列カテゴリへ拡張）＝**7 seed×4000×2mode=56,000 比較 0 mismatch**（非有限は両側 sentinel 化して比較）。
+- **回帰**: `node --test tests/*.test.js` 275/275・pytest 106/106 緑。
+- **mutation-kill**: ①ASCII `[0-9]`→`\d` で全角が Py 側で漏れ RED（`[0-9]` 保護の非 vacuous 実証）②`_parse_num` の `Decimal` 除去で cashflow Decimal 回帰テスト RED（Decimal 保護の非 vacuous 実証）。他の array/bool/underscore/hex は RED-first で実証済。
 
 ---
 

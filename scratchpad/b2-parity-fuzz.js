@@ -82,8 +82,8 @@ function genNowMs() {
       return pick([Date.UTC(y, 11, 31, 23, 59, 59, 999), Date.UTC(y, 0, 1, 0, 0, 0, 0)]);
     }
     case "zero": return 0;
-    case "negative": return -randInt(1, 1e15);
-    case "huge": return pick([1e300, 253402300800000, 9999999999999999, -1e300]);
+    case "negative": return -randInt(1, 5000) * 86400000; // 1970 直前まで（JS Date/Py datetime 両対応）。極端負値は Date 境界 pre-existing 非対称[別チケット]ゆえ除外
+    case "huge": return pick([Date.UTC(2100, 0, 1), Date.UTC(2099, 11, 31), NOW + 3650 * 86400000]); // year≤9999。253402300800000 等 year>9999 は new Date 受理/datetime 例外の pre-existing 非対称[別チケット]ゆえ除外（num(nowMs) 自体は両側同値）
     case "fractional": return NOW + rng() * 1000;
     case "stringNumeric": return String(NOW - randInt(0, 1000) * 86400000);
     case "stringNonNumeric": return pick(["not-a-date", "", "abc"]);
@@ -103,20 +103,29 @@ function genScalarAdversarial() {
   const cat = pick([
     "posNum", "negNum", "hugeNum", "floatNum", "stringNumeric", "stringNonNumeric",
     "singleArray", "multiArray", "emptyArray", "nestedObject", "null", "bool",
+    // ↓ scalar-coerce パリティ堅牢化（2026-07-15）で追加＝JS Number()/+v ↔ Py float() の文法差を突く
+    "stringHex", "stringOctBin", "stringUnderscore", "stringUnicodeDigit", "stringPadded", "stringSpecial", "nestedArray",
   ]);
   switch (cat) {
     case "posNum": return randInt(0, 5000000);
     case "negNum": return -randInt(1, 5000000);
-    case "hugeNum": return pick([1e15, 1e300]);
+    case "hugeNum": return pick([1000000, 50000000, 1000000000]); // 現実的な大額。1e300 等の overflow→Infinity は下流 int(math.ceil(inf)) の pre-existing JS/Py 非対称[別チケット]を誘発するため fuzz からは除外（極値 coercion 自体は contract table で 1e300→値/1e309→0 を直接検証済）
     case "floatNum": return rng() * 1000000;
     case "stringNumeric": return String(randInt(0, 1000000));
-    case "stringNonNumeric": return pick(["abc", "", "12abc"]);
+    case "stringNonNumeric": return pick(["abc", "", "12abc", "  ", "1.2.3"]);
     case "singleArray": return [randInt(0, 100000)]; // brief: [5] 等の単一要素配列 coercion
     case "multiArray": return [1, 2, 3];
     case "emptyArray": return [];
     case "nestedObject": return { nested: true };
     case "null": return null;
     case "bool": return pick([true, false]);
+    case "stringHex": return pick(["0x10", "0X1F", "0xFF"]);              // JS Number 受理・Py float 拒否
+    case "stringOctBin": return pick(["0o17", "0b101"]);                 // 同上
+    case "stringUnderscore": return pick(["1_000", "1_0", "1_000.5"]);   // Py float 受理・JS Number 拒否（逆方向）
+    case "stringUnicodeDigit": return pick(["１２３", "٥", "５００"]);       // 全角/アラビア（Py float 受理・JS 拒否＝\d 不使用の要）
+    case "stringPadded": return pick([" 5 ", " 100", "42 "]);            // LENIENT 前後 ASCII 空白
+    case "stringSpecial": return pick(["Infinity", "inf", "1e999", "-0", "+5", "007", ".5", "5.", "1e3", "-5"]);
+    case "nestedArray": return pick([[[5]], [["5"]], [[[42]]]]);         // 入れ子配列（JS toString unbox・Py TypeError）
     default: return 0;
   }
 }
@@ -145,20 +154,77 @@ function genAssetHoldings() {
   return out;
 }
 
+// ---- 全 num フィールドを含む state 生成（scalar-coerce パリティ堅牢化 2026-07-15）----
+// birthYear/assetHoldings に加え num()経路の monthlyExpense/bufferMonths/satelliteCapPct/buckets.*.amount/
+// updatedAt/goals[].targetAmount/reserves[].{target,saved,monthlyOverride} を adversarial 値で変動させる。
+const VALID_DEADLINES = ["2030-01-01", "2028-06-15", "2035-12-31"];
+function maybe(p) { return rng() < p; }
+function genState() {
+  const s = { birthYear: genBirthYear(), assetHoldings: genAssetHoldings() };
+  if (maybe(0.85)) s.monthlyExpense = genScalarAdversarial();
+  if (maybe(0.85)) s.bufferMonths = genScalarAdversarial();
+  if (maybe(0.85)) s.satelliteCapPct = genScalarAdversarial();
+  if (maybe(0.7)) s.updatedAt = genScalarAdversarial();
+  if (maybe(0.85)) {
+    s.buckets = {};
+    for (const bk of BUCKETS) if (maybe(0.85)) s.buckets[bk] = { amount: genScalarAdversarial() };
+  }
+  if (maybe(0.55)) {
+    const g = { targetAmount: genScalarAdversarial() };
+    if (maybe(0.6)) g.label = "goal-" + randInt(0, 9);
+    if (maybe(0.6)) g.deadline = pick(VALID_DEADLINES);
+    s.goals = [g];
+  }
+  if (maybe(0.55)) {
+    const rv = { target: genScalarAdversarial(), saved: genScalarAdversarial(), monthlyOverride: genScalarAdversarial() };
+    if (maybe(0.6)) rv.deadline = pick(VALID_DEADLINES);
+    s.reserves = [rv];
+  }
+  if (maybe(0.3)) s.currency = pick(["JPY", "USD", 123, "EUR"]);
+  return s;
+}
+
+// ---- cashflow 行生成（cfNum 経路を通す。timestamp parser は別チケットへ defer ゆえ pulled_at="" で非exercise）----
+const CF_MONTHS = ["2026-06-01", "2026-05-01", "2026-04-01", "2026-03-01", "2026-02-01", "2026-01-01"];
+function genCashflowRows() {
+  if (maybe(0.4)) return undefined; // 未連携（Slice3 経路＝cashflow なし）
+  const n = randInt(1, 4);
+  const rows = [];
+  for (let i = 0; i < n; i++) {
+    rows.push({
+      period: CF_MONTHS[i % CF_MONTHS.length],
+      total_income: genScalarAdversarial(),
+      salary_income: genScalarAdversarial(),
+      misc_income: genScalarAdversarial(),
+      fixed_expense: genScalarAdversarial(),
+      variable_expense: genScalarAdversarial(),
+      total_expense: genScalarAdversarial(),
+      balance: genScalarAdversarial(),
+      is_complete: pick([true, false]),
+      pulled_at: "", // defer: Date.parse↔_parse_iso_ms は別チケット・空で両側 no-fresh（cfNum 数値経路のみ検証）
+    });
+  }
+  return rows;
+}
+
 // ---- ケース生成 ----
 const cases = [];
 for (let i = 0; i < N; i++) {
   cases.push({
     name: "fuzz-" + i,
-    state: { birthYear: genBirthYear(), assetHoldings: genAssetHoldings() },
+    state: genState(),
     nowMs: genNowMs(),
+    cashflow: genCashflowRows(),
   });
 }
 
 // ---- JSON 正規化（キー順ソート・-0→0）----
 function canon(o) {
   if (o === null || typeof o !== "object") {
-    if (typeof o === "number" && Object.is(o, -0)) return 0;
+    if (typeof o === "number") {
+      if (Object.is(o, -0)) return 0;
+      if (!isFinite(o)) return "__nonfinite__:" + (Number.isNaN(o) ? "NaN" : (o > 0 ? "Infinity" : "-Infinity")); // JSON は Infinity/NaN 非対応＝両側 sentinel 化（真の発散は依然検出）
+    }
     return o;
   }
   if (Array.isArray(o)) return o.map(canon);
@@ -170,13 +236,13 @@ function canon(o) {
 
 // ---- JS 側出力（production + personal 両モード）----
 const jsResults = cases.map((c) => {
-  const prod = R.modeAFacts(c.state, { includeRawAmounts: false, nowMs: c.nowMs });
-  const pers = R.modeAFacts(c.state, { includeRawAmounts: true, nowMs: c.nowMs });
-  return { name: c.name, state: c.state, nowMs: c.nowMs, prod: canon(prod), pers: canon(pers) };
+  const prod = R.modeAFacts(c.state, { includeRawAmounts: false, nowMs: c.nowMs, cashflow: c.cashflow });
+  const pers = R.modeAFacts(c.state, { includeRawAmounts: true, nowMs: c.nowMs, cashflow: c.cashflow });
+  return { name: c.name, state: c.state, nowMs: c.nowMs, cashflow: c.cashflow, prod: canon(prod), pers: canon(pers) };
 });
 
 const ioPath = path.join(__dirname, "b2-parity-fuzz-io.json");
-fs.writeFileSync(ioPath, JSON.stringify({ cases: jsResults.map((r) => ({ name: r.name, state: r.state, nowMs: r.nowMs })) }), "utf8");
+fs.writeFileSync(ioPath, JSON.stringify({ cases: jsResults.map((r) => ({ name: r.name, state: r.state, nowMs: r.nowMs, cashflow: r.cashflow })) }), "utf8");
 
 // ---- Python 側実行（PYTHONPATH=api/me で advice.mode_a_facts を呼ぶ）----
 const pyScript = path.join(__dirname, "b2-parity-fuzz-run.py");
@@ -201,12 +267,12 @@ for (const jr of jsResults) {
   const prodStr = JSON.stringify(jr.prod);
   const pyProdStr = JSON.stringify(canon(pr ? pr.prod : undefined));
   if (prodStr !== pyProdStr) {
-    mismatches.push({ name: jr.name, mode: "production", state: jr.state, nowMs: jr.nowMs, js: jr.prod, py: pr ? pr.prod : null });
+    mismatches.push({ name: jr.name, mode: "production", state: jr.state, nowMs: jr.nowMs, cashflow: jr.cashflow, js: jr.prod, py: pr ? pr.prod : null });
   }
   const persStr = JSON.stringify(jr.pers);
   const pyPersStr = JSON.stringify(canon(pr ? pr.pers : undefined));
   if (persStr !== pyPersStr) {
-    mismatches.push({ name: jr.name, mode: "personal", state: jr.state, nowMs: jr.nowMs, js: jr.pers, py: pr ? pr.pers : null });
+    mismatches.push({ name: jr.name, mode: "personal", state: jr.state, nowMs: jr.nowMs, cashflow: jr.cashflow, js: jr.pers, py: pr ? pr.pers : null });
   }
 }
 

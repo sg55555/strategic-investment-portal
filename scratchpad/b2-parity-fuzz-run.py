@@ -6,9 +6,25 @@ Node が書いた入力 JSON（cases: [{name, state, nowMs}]）を読み、
 production/personal 両モードの advice.mode_a_facts 出力を書き出す。検証専用・advice.py は無改変。
 """
 import json
+import math
 import sys
 
 import advice
+
+
+def _sanitize(o):
+    """JS↔Py 比較用: JSON 非対応の非有限 float を JS canon と同一 sentinel へ（両側同値の Infinity は一致・真の発散は依然検出）。"""
+    if isinstance(o, float):
+        if math.isnan(o):
+            return "__nonfinite__:NaN"
+        if math.isinf(o):
+            return "__nonfinite__:Infinity" if o > 0 else "__nonfinite__:-Infinity"
+        return o
+    if isinstance(o, dict):
+        return {k: _sanitize(v) for k, v in o.items()}
+    if isinstance(o, list):
+        return [_sanitize(x) for x in o]
+    return o
 
 
 def main():
@@ -19,17 +35,18 @@ def main():
     for c in data["cases"]:
         state = c["state"]
         now_ms = c["nowMs"]
+        cashflow = c.get("cashflow")  # scalar-coerce パリティ堅牢化: cfNum 経路も検証（None=Slice3 経路）
         try:
-            prod = advice.mode_a_facts(state, False, now_ms)
+            prod = advice.mode_a_facts(state, False, now_ms, cashflow)
         except Exception as e:  # noqa: BLE001 — fuzz は例外自体も mismatch として可視化する
             prod = {"__error__": repr(e)}
         try:
-            pers = advice.mode_a_facts(state, True, now_ms)
+            pers = advice.mode_a_facts(state, True, now_ms, cashflow)
         except Exception as e:  # noqa: BLE001
             pers = {"__error__": repr(e)}
         out.append({"name": c["name"], "prod": prod, "pers": pers})
     with open(out_path, "w", encoding="utf-8") as f:
-        json.dump({"cases": out}, f)
+        json.dump({"cases": _sanitize(out)}, f)
 
 
 if __name__ == "__main__":

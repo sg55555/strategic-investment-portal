@@ -900,15 +900,15 @@ test("roadmap: 確保枠ドラッグでコア寄与が目減り", () => {
 
 // --- B#2 資産クラス比率: Task1 state層 ---
 
-test("numScalar: scalar受理・配列/オブジェクトは0（_num([5])との発散を排除）", () => {
-  assert.equal(R.numScalar(5), 5);
-  assert.equal(R.numScalar("5"), 5);
-  assert.equal(R.numScalar([5]), 0);        // ← num([5])=5 だが numScalar=0
-  assert.equal(R.numScalar(["5"]), 0);
-  assert.equal(R.numScalar(-3), 0);
-  assert.equal(R.numScalar(NaN), 0);
-  assert.equal(R.numScalar(null), 0);
-  assert.equal(R.numScalar({a:1}), 0);
+test("num（旧 numScalar 集約）: scalar受理・配列/オブジェクト/負は0", () => {
+  assert.equal(R.num(5), 5);
+  assert.equal(R.num("5"), 5);
+  assert.equal(R.num([5]), 0);        // ← 旧 num([5])=5 だったが scalar-safe 化で 0
+  assert.equal(R.num(["5"]), 0);
+  assert.equal(R.num(-3), 0);
+  assert.equal(R.num(NaN), 0);
+  assert.equal(R.num(null), 0);
+  assert.equal(R.num({a:1}), 0);
 });
 
 test("normalizeAssetHoldings: 常に3バケツ×7クラス完全骨格・未知キー破棄", () => {
@@ -1103,4 +1103,50 @@ test("modeAFacts: array nowMs は numScalar で0扱い→configured:false→asse
   const arrPers = R.modeAFacts(raw, { includeRawAmounts: true, nowMs: [Date.UTC(2026, 6, 15)] });
   assert.equal("assetClasses" in arrProd, false);
   assert.equal("assetClasses" in arrPers, false);
+});
+
+// ── num/cfNum scalar-coerce パリティ堅牢化（num-scalar-parity・spec 2026-07-15）──
+// Approach A: array/obj/bool/null→0・非decimal string→0・NaN/Inf→0・num は負→0/cfNum は符号保存・-0 正規化。
+test("num: array/object/bool/null/undefined → 0（scalar-safe）", () => {
+  const zeros = [[5], [[5]], [[[5]]], ["5"], [" 5 "], [-5], [], [5, 6], {}, [{}], [[]], { a: 1 }, true, false, null, undefined];
+  for (const v of zeros) assert.equal(R.num(v), 0, "num(" + JSON.stringify(v) + ")");
+});
+test("num: NaN/Infinity/負 → 0", () => {
+  for (const v of [NaN, Infinity, -Infinity, -5, "-5", 1e309]) assert.equal(R.num(v), 0, "num(" + v + ")");
+});
+test("num: 正当 decimal 文字列/数値は保持（LENIENT 前後空白）", () => {
+  const t = [["5", 5], ["007", 7], [".5", 0.5], ["5.", 5], ["1e3", 1000], ["1E-3", 0.001], [" 5 ", 5], ["+5", 5], ["0", 0], [5, 5], [0.5, 0.5], [123456, 123456]];
+  for (const [v, e] of t) assert.equal(R.num(v), e, "num(" + JSON.stringify(v) + ")");
+});
+test("num: 非decimal 文字列（hex/8/2進/underscore/全角/アラビア/Inf語）→ 0", () => {
+  for (const v of ["0x10", "0X1F", "0o17", "0b101", "1_000", "1_0", "1_000.5", "１２３", "٥", "Infinity", "1e999", "inf", "5px", "1.2.3", "", "  "]) assert.equal(R.num(v), 0, "num(" + JSON.stringify(v) + ")");
+});
+test("num/cfNum: -0 は +0 に正規化", () => {
+  assert.ok(Object.is(R.num(-0), 0), "num(-0)");
+  assert.ok(Object.is(R.num("-0"), 0), 'num("-0")');
+  assert.ok(Object.is(R.cfNum(-0), 0), "cfNum(-0)");
+});
+test("cfNum: array/bool/null/NaN/Inf → 0", () => {
+  for (const v of [[5], [-5], [[5]], ["5"], {}, true, false, null, NaN, Infinity, -Infinity]) assert.equal(R.cfNum(v), 0, "cfNum(" + JSON.stringify(v) + ")");
+});
+test("cfNum: 符号付き（負を保存）・decimal 保持・非decimal → 0", () => {
+  assert.equal(R.cfNum(-5), -5);
+  assert.equal(R.cfNum("-5"), -5);
+  assert.equal(R.cfNum(" 5 "), 5);
+  assert.equal(R.cfNum(5), 5);
+  assert.equal(R.cfNum(-123.5), -123.5);
+  for (const v of ["0x10", "1_000", "１２３", "abc"]) assert.equal(R.cfNum(v), 0, "cfNum(" + JSON.stringify(v) + ")");
+});
+test("facts パリティ: satelliteCapPct の非decimal/配列は両言語 default 10（旧 JS Number(\"0x10\")=16/Py 10 等の発散を解消）", () => {
+  for (const v of ["0x10", "1_000", [15], "１２３", { a: 1 }]) {
+    assert.equal(R.modeAFacts({ satelliteCapPct: v }, {}).satelliteCapPct, 10, "satelliteCapPct=" + JSON.stringify(v));
+  }
+  assert.equal(R.modeAFacts({ satelliteCapPct: 25 }, {}).satelliteCapPct, 25); // 正当値は保持
+});
+test("facts パリティ: 配列 monthlyExpense/buckets は num→0＝未設定へ（旧 JS unbox の誤 configured を解消）", () => {
+  const f = R.modeAFacts({ monthlyExpense: [500000], buckets: { core: { amount: [2000000] } } }, {});
+  assert.equal(f.bufferConfigured, false);
+  assert.equal(f.nextTarget, "setup");
+  assert.equal(f.coreSharePct, 0);
+  assert.equal(f.investableConfigured, false);
 });

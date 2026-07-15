@@ -8,6 +8,7 @@ DB/anthropic は不要（純関数のみ）。pytest でも `python tests/test_a
 import importlib.util
 import json
 import os
+from decimal import Decimal
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -498,14 +499,14 @@ def test_allocation_plan_mirror():
 
 # --- B#2 資産クラス比率: Task1 state層 ---
 
-def test_num_scalar_parity():
-    assert advice._num_scalar([5]) == 0        # JS numScalar([5]) と一致（num([5])=5 の発散を排除）
-    assert advice._num_scalar("5") == 5
-    assert advice._num_scalar(-3) == 0
-    assert advice._num_scalar(True) == 0
-    assert advice._num_scalar(float("nan")) == 0
-    assert advice._num_scalar(None) == 0
-    assert advice._num_scalar({"a": 1}) == 0
+def test_num_folded_scalar_parity():
+    assert advice._num([5]) == 0        # JS num([5])=0 と一致（旧 num([5])=5 の発散を scalar-safe 化で排除）
+    assert advice._num("5") == 5
+    assert advice._num(-3) == 0
+    assert advice._num(True) == 0
+    assert advice._num(float("nan")) == 0
+    assert advice._num(None) == 0
+    assert advice._num({"a": 1}) == 0
 
 
 def test_normalize_asset_holdings_skeleton():
@@ -774,6 +775,64 @@ def test_coarsen_asset_classes_case_j_zero_nonaligned_values():
     for row in cf["assetClasses"]["classes"]:
         assert row["currentPct"] % 25 == 0
         assert row["driftPct"] % 25 == 0
+
+
+# ── _num/_cf_num scalar-coerce パリティ堅牢化（num-scalar-parity・spec 2026-07-15）──
+def test_coerce_num_scalar_safe():
+    for v in ([5], [[5]], [[[5]]], ["5"], [" 5 "], [-5], [], [5, 6], {}, [{}], [[]], {"a": 1}, True, False, None):
+        assert advice._num(v) == 0, "num(%r)" % (v,)
+    for v in (float("nan"), float("inf"), float("-inf"), -5, "-5", 1e309):
+        assert advice._num(v) == 0, "num(%r)" % (v,)
+
+
+def test_coerce_num_decimal_string_grammar():
+    for v, e in (("5", 5), ("007", 7), (".5", 0.5), ("5.", 5), ("1e3", 1000), ("1E-3", 0.001),
+                 (" 5 ", 5), ("+5", 5), ("0", 0), (5, 5), (0.5, 0.5), (123456, 123456)):
+        assert advice._num(v) == e, "num(%r)" % (v,)
+    # 非decimal（hex/8/2進/underscore/全角/アラビア/Inf語/その他）→ 0（ASCII [0-9]・\d 不使用の要）
+    for v in ("0x10", "0X1F", "0o17", "0b101", "1_000", "1_0", "1_000.5", "１２３", "٥",
+              "Infinity", "1e999", "inf", "5px", "1.2.3", "", "  "):
+        assert advice._num(v) == 0, "num(%r)" % (v,)
+
+
+def test_coerce_neg_zero_normalized():
+    assert str(advice._num(-0.0)) == "0.0"
+    assert str(advice._num("-0")) == "0.0"
+    assert str(advice._cf_num(-0.0)) == "0.0"
+
+
+def test_coerce_cfnum_signed():
+    for v in ([5], [-5], [[5]], ["5"], {}, True, False, None, float("nan"), float("inf"), float("-inf")):
+        assert advice._cf_num(v) == 0, "cf(%r)" % (v,)
+    assert advice._cf_num(-5) == -5
+    assert advice._cf_num("-5") == -5
+    assert advice._cf_num(" 5 ") == 5
+    assert advice._cf_num(-123.5) == -123.5
+    for v in ("0x10", "1_000", "１２３", "abc"):
+        assert advice._cf_num(v) == 0, "cf(%r)" % (v,)
+
+
+def test_coerce_decimal_regression():
+    # advice.py は cashflow の生 Decimal を _cf_num へ直渡し → float(Decimal) パリティ維持（回帰ガード）
+    assert advice._cf_num(Decimal("123456.78")) == 123456.78
+    assert advice._cf_num(Decimal("-5")) == -5
+    assert advice._num(Decimal("100")) == 100
+    assert advice._cf_num(Decimal("0")) == 0
+
+
+def test_facts_parity_satellite_cap_pct_adversarial():
+    # 旧: JS Number("0x10")=16 vs Py float→10, JS "1_000"→10 vs Py 1000 の発散 → 新: 両言語 default 10
+    for v in ("0x10", "1_000", [15], "１２３", {"a": 1}):
+        assert advice.mode_a_facts({"satelliteCapPct": v}, False, 0)["satelliteCapPct"] == 10, "scp=%r" % (v,)
+    assert advice.mode_a_facts({"satelliteCapPct": 25}, False, 0)["satelliteCapPct"] == 25
+
+
+def test_facts_parity_array_monthly_expense_buckets():
+    f = advice.mode_a_facts({"monthlyExpense": [500000], "buckets": {"core": {"amount": [2000000]}}}, False, 0)
+    assert f["bufferConfigured"] is False
+    assert f["nextTarget"] == "setup"
+    assert f["coreSharePct"] == 0
+    assert f["investableConfigured"] is False
 
 
 if __name__ == "__main__":
