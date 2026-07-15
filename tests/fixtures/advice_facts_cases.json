@@ -1,5 +1,5 @@
 {
-  "_doc": "modeAFacts のパリティ単一源。money-rules.test.js(JS) と test_advice_facts.py(Python還元器) が同一の期待値を読み、両実装のドリフトを防ぐ。cashflow-* は Slice4 収支連携(投資余力)の cashflow 入力を伴うケース。cashflow-* は Slice4 収支連携(投資余力)の cashflow 入力を伴うケース。nowMs=0 で deadline バケツは null（日付バケツは tests 側で別途固定 nowMs で検証）。",
+  "_doc": "modeAFacts のパリティ単一源。money-rules.test.js(JS) と test_advice_facts.py(Python還元器) が同一の期待値を読み、両実装のドリフトを防ぐ。cashflow-* は Slice4 収支連携(投資余力)の cashflow 入力を伴うケース。cashflow-* は Slice4 収支連携(投資余力)の cashflow 入力を伴うケース。nowMs=0 で deadline バケツは null（日付バケツは tests 側で別途固定 nowMs で検証）。 assetclass-* は B#2 資産クラス比率(Task5)の facts.assetClasses 集約ケース(a)-(m)（birthYear未設定/域外nowMsはキー省略・端数吸収タイブレーク・partial-funding・adversarial-coercion等）。",
   "cases": [
     {
       "name": "empty",
@@ -22,7 +22,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -48,7 +48,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -105,7 +105,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "buffer",
           "coreProgressPct": 0,
@@ -131,7 +131,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "buffer",
           "coreProgressPct": 0,
@@ -189,7 +189,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "rebalance",
           "coreProgressPct": 4,
@@ -215,7 +215,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "rebalance",
           "coreProgressPct": 4,
@@ -290,7 +290,7 @@
           }
         ],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "core",
           "coreProgressPct": 14,
@@ -324,7 +324,7 @@
           }
         ],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "core",
           "coreProgressPct": 14,
@@ -415,7 +415,7 @@
           }
         ],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -449,7 +449,7 @@
           }
         ],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -514,7 +514,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -540,7 +540,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -653,7 +653,7 @@
           }
         ],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -715,7 +715,7 @@
           }
         ],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -854,7 +854,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "buffer",
           "coreProgressPct": 0,
@@ -898,7 +898,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "buffer",
           "coreProgressPct": 0,
@@ -1038,7 +1038,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "core",
           "coreProgressPct": 21,
@@ -1082,7 +1082,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "core",
           "coreProgressPct": 21,
@@ -1179,7 +1179,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "buffer",
           "coreProgressPct": 0,
@@ -1223,7 +1223,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "buffer",
           "coreProgressPct": 0,
@@ -1364,7 +1364,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "buffer",
           "coreProgressPct": 0,
@@ -1408,7 +1408,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "buffer",
           "coreProgressPct": 0,
@@ -1590,7 +1590,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "buffer",
           "coreProgressPct": 0,
@@ -1634,7 +1634,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "buffer",
           "coreProgressPct": 0,
@@ -1774,7 +1774,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "core",
           "coreProgressPct": 10,
@@ -1818,7 +1818,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "core",
           "coreProgressPct": 10,
@@ -1958,7 +1958,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "buffer",
           "coreProgressPct": 0,
@@ -2002,7 +2002,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "buffer",
           "coreProgressPct": 0,
@@ -2158,7 +2158,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "core",
           "coreProgressPct": 0,
@@ -2207,7 +2207,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "core",
           "coreProgressPct": 0,
@@ -2364,7 +2364,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "core",
           "coreProgressPct": 0,
@@ -2413,7 +2413,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "core",
           "coreProgressPct": 0,
@@ -2570,7 +2570,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "buffer",
           "coreProgressPct": 0,
@@ -2619,7 +2619,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "buffer",
           "coreProgressPct": 0,
@@ -2776,7 +2776,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "core",
           "coreProgressPct": 0,
@@ -2825,7 +2825,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "core",
           "coreProgressPct": 0,
@@ -2988,7 +2988,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "core",
           "coreProgressPct": 0,
@@ -3037,7 +3037,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "core",
           "coreProgressPct": 0,
@@ -3186,7 +3186,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "core",
           "coreProgressPct": 14,
@@ -3230,7 +3230,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "core",
           "coreProgressPct": 14,
@@ -3342,7 +3342,7 @@
           }
         ],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "core",
           "coreProgressPct": 18,
@@ -3376,7 +3376,7 @@
           }
         ],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "core",
           "coreProgressPct": 18,
@@ -3488,7 +3488,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "satellite",
           "coreProgressPct": 50,
@@ -3532,7 +3532,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "satellite",
           "coreProgressPct": 50,
@@ -3673,7 +3673,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "independence",
           "coreProgressPct": 100,
@@ -3717,7 +3717,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "roadmap": {
           "phase": "independence",
           "coreProgressPct": 100,
@@ -3774,6 +3774,3484 @@
           "windfallPresent": false,
           "dataFresh": true,
           "currencyMismatch": false
+        }
+      }
+    },
+    {
+      "name": "assetclass-a-age-match-zero-drift",
+      "state": {
+        "version": 2,
+        "currency": "JPY",
+        "monthlyExpense": 100000,
+        "bufferMonths": 6,
+        "buckets": {
+          "buffer": {
+            "amount": 600000
+          },
+          "core": {
+            "amount": 2000000
+          },
+          "satellite": {
+            "amount": 200000
+          }
+        },
+        "satelliteCapPct": 10,
+        "lastAppliedCashflowPeriod": "",
+        "cashSource": "manual",
+        "investmentSource": "manual",
+        "anchor": {
+          "date": "",
+          "amount": 0
+        },
+        "reserves": [],
+        "goals": [],
+        "updatedAt": 0,
+        "history": [],
+        "birthYear": 1986,
+        "assetHoldings": {
+          "buffer": {},
+          "core": {
+            "cash": 19000,
+            "jpEq": 10000,
+            "devEq": 32000,
+            "emEq": 10000,
+            "bond": 22000,
+            "reit": 4000,
+            "gold": 3000
+          },
+          "satellite": {}
+        },
+        "assetSource": "manual"
+      },
+      "nowMs": 1784073600000,
+      "production": {
+        "mode": "production",
+        "currency": "JPY",
+        "bufferConfigured": true,
+        "bufferMonths": 6,
+        "bufferProgressPct": 100,
+        "bufferAchieved": true,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 91,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 91,
+        "investableConfigured": true,
+        "nextTarget": "core",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 4,
+        "roadmap": {
+          "phase": "satellite",
+          "coreProgressPct": 83,
+          "coreEstablished": false,
+          "satelliteUnlocked": true,
+          "coreTargetSource": "fallback"
+        },
+        "assetClasses": {
+          "riskAssetPct": 70,
+          "classes": [
+            {
+              "key": "cash",
+              "targetPct": 19,
+              "currentPct": 19,
+              "driftPct": 0
+            },
+            {
+              "key": "jpEq",
+              "targetPct": 10,
+              "currentPct": 10,
+              "driftPct": 0
+            },
+            {
+              "key": "devEq",
+              "targetPct": 32,
+              "currentPct": 32,
+              "driftPct": 0
+            },
+            {
+              "key": "emEq",
+              "targetPct": 10,
+              "currentPct": 10,
+              "driftPct": 0
+            },
+            {
+              "key": "bond",
+              "targetPct": 22,
+              "currentPct": 22,
+              "driftPct": 0
+            },
+            {
+              "key": "reit",
+              "targetPct": 4,
+              "currentPct": 4,
+              "driftPct": 0
+            },
+            {
+              "key": "gold",
+              "targetPct": 3,
+              "currentPct": 3,
+              "driftPct": 0
+            }
+          ]
+        }
+      },
+      "personal": {
+        "mode": "personal",
+        "currency": "JPY",
+        "bufferConfigured": true,
+        "bufferMonths": 6,
+        "bufferProgressPct": 100,
+        "bufferAchieved": true,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 91,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 91,
+        "investableConfigured": true,
+        "nextTarget": "core",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 4,
+        "roadmap": {
+          "phase": "satellite",
+          "coreProgressPct": 83,
+          "coreEstablished": false,
+          "satelliteUnlocked": true,
+          "coreTargetSource": "fallback"
+        },
+        "assetClasses": {
+          "riskAssetPct": 70,
+          "classes": [
+            {
+              "key": "cash",
+              "targetPct": 19,
+              "currentPct": 19,
+              "driftPct": 0
+            },
+            {
+              "key": "jpEq",
+              "targetPct": 10,
+              "currentPct": 10,
+              "driftPct": 0
+            },
+            {
+              "key": "devEq",
+              "targetPct": 32,
+              "currentPct": 32,
+              "driftPct": 0
+            },
+            {
+              "key": "emEq",
+              "targetPct": 10,
+              "currentPct": 10,
+              "driftPct": 0
+            },
+            {
+              "key": "bond",
+              "targetPct": 22,
+              "currentPct": 22,
+              "driftPct": 0
+            },
+            {
+              "key": "reit",
+              "targetPct": 4,
+              "currentPct": 4,
+              "driftPct": 0
+            },
+            {
+              "key": "gold",
+              "targetPct": 3,
+              "currentPct": 3,
+              "driftPct": 0
+            }
+          ]
+        },
+        "raw": {
+          "monthlyExpense": 100000,
+          "bufferAmount": 600000,
+          "bufferTarget": 600000,
+          "bufferRemaining": 0,
+          "coreAmount": 2000000,
+          "satelliteAmount": 200000,
+          "investable": 2200000,
+          "satelliteCap": 220000,
+          "satelliteOver": 0,
+          "totalAssets": 2800000,
+          "goals": []
+        }
+      }
+    },
+    {
+      "name": "assetclass-b-halfup-boundary-signed-drift",
+      "state": {
+        "version": 2,
+        "currency": "JPY",
+        "monthlyExpense": 0,
+        "bufferMonths": 6,
+        "buckets": {
+          "buffer": {
+            "amount": 0
+          },
+          "core": {
+            "amount": 0
+          },
+          "satellite": {
+            "amount": 0
+          }
+        },
+        "satelliteCapPct": 10,
+        "lastAppliedCashflowPeriod": "",
+        "cashSource": "manual",
+        "investmentSource": "manual",
+        "anchor": {
+          "date": "",
+          "amount": 0
+        },
+        "reserves": [],
+        "goals": [],
+        "updatedAt": 0,
+        "history": [],
+        "birthYear": 1966,
+        "assetHoldings": {
+          "buffer": {
+            "cash": 20000
+          },
+          "core": {
+            "jpEq": 9000,
+            "devEq": 26000,
+            "emEq": 9000,
+            "bond": 28000,
+            "reit": 5000,
+            "gold": 3000
+          },
+          "satellite": {}
+        },
+        "assetSource": "manual"
+      },
+      "nowMs": 1784073600000,
+      "production": {
+        "mode": "production",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 4,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        },
+        "assetClasses": {
+          "riskAssetPct": 50,
+          "classes": [
+            {
+              "key": "cash",
+              "targetPct": 0,
+              "currentPct": 20,
+              "driftPct": 20
+            },
+            {
+              "key": "bond",
+              "targetPct": 48,
+              "currentPct": 28,
+              "driftPct": -20
+            },
+            {
+              "key": "jpEq",
+              "targetPct": 9,
+              "currentPct": 9,
+              "driftPct": 0
+            },
+            {
+              "key": "devEq",
+              "targetPct": 26,
+              "currentPct": 26,
+              "driftPct": 0
+            },
+            {
+              "key": "emEq",
+              "targetPct": 9,
+              "currentPct": 9,
+              "driftPct": 0
+            },
+            {
+              "key": "reit",
+              "targetPct": 5,
+              "currentPct": 5,
+              "driftPct": 0
+            },
+            {
+              "key": "gold",
+              "targetPct": 3,
+              "currentPct": 3,
+              "driftPct": 0
+            }
+          ]
+        }
+      },
+      "personal": {
+        "mode": "personal",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 4,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        },
+        "assetClasses": {
+          "riskAssetPct": 50,
+          "classes": [
+            {
+              "key": "cash",
+              "targetPct": 0,
+              "currentPct": 20,
+              "driftPct": 20
+            },
+            {
+              "key": "bond",
+              "targetPct": 48,
+              "currentPct": 28,
+              "driftPct": -20
+            },
+            {
+              "key": "jpEq",
+              "targetPct": 9,
+              "currentPct": 9,
+              "driftPct": 0
+            },
+            {
+              "key": "devEq",
+              "targetPct": 26,
+              "currentPct": 26,
+              "driftPct": 0
+            },
+            {
+              "key": "emEq",
+              "targetPct": 9,
+              "currentPct": 9,
+              "driftPct": 0
+            },
+            {
+              "key": "reit",
+              "targetPct": 5,
+              "currentPct": 5,
+              "driftPct": 0
+            },
+            {
+              "key": "gold",
+              "targetPct": 3,
+              "currentPct": 3,
+              "driftPct": 0
+            }
+          ]
+        },
+        "raw": {
+          "monthlyExpense": 0,
+          "bufferAmount": 0,
+          "bufferTarget": 0,
+          "bufferRemaining": 0,
+          "coreAmount": 0,
+          "satelliteAmount": 0,
+          "investable": 0,
+          "satelliteCap": 0,
+          "satelliteOver": 0,
+          "totalAssets": 0,
+          "goals": []
+        }
+      }
+    },
+    {
+      "name": "assetclass-c-current-all-zero-drift-negative-target",
+      "state": {
+        "version": 2,
+        "currency": "JPY",
+        "monthlyExpense": 0,
+        "bufferMonths": 6,
+        "buckets": {
+          "buffer": {
+            "amount": 0
+          },
+          "core": {
+            "amount": 0
+          },
+          "satellite": {
+            "amount": 0
+          }
+        },
+        "satelliteCapPct": 10,
+        "lastAppliedCashflowPeriod": "",
+        "cashSource": "manual",
+        "investmentSource": "manual",
+        "anchor": {
+          "date": "",
+          "amount": 0
+        },
+        "reserves": [],
+        "goals": [],
+        "updatedAt": 0,
+        "history": [],
+        "birthYear": 1996,
+        "assetHoldings": {
+          "buffer": {
+            "cash": 0,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          },
+          "core": {
+            "cash": 0,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          },
+          "satellite": {
+            "cash": 0,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          }
+        },
+        "assetSource": "manual"
+      },
+      "nowMs": 1784073600000,
+      "production": {
+        "mode": "production",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 4,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        },
+        "assetClasses": {
+          "riskAssetPct": 80,
+          "classes": [
+            {
+              "key": "devEq",
+              "targetPct": 40,
+              "currentPct": 0,
+              "driftPct": -40
+            },
+            {
+              "key": "bond",
+              "targetPct": 20,
+              "currentPct": 0,
+              "driftPct": -20
+            },
+            {
+              "key": "jpEq",
+              "targetPct": 14,
+              "currentPct": 0,
+              "driftPct": -14
+            },
+            {
+              "key": "emEq",
+              "targetPct": 14,
+              "currentPct": 0,
+              "driftPct": -14
+            },
+            {
+              "key": "reit",
+              "targetPct": 7,
+              "currentPct": 0,
+              "driftPct": -7
+            },
+            {
+              "key": "gold",
+              "targetPct": 5,
+              "currentPct": 0,
+              "driftPct": -5
+            },
+            {
+              "key": "cash",
+              "targetPct": 0,
+              "currentPct": 0,
+              "driftPct": 0
+            }
+          ]
+        }
+      },
+      "personal": {
+        "mode": "personal",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 4,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        },
+        "assetClasses": {
+          "riskAssetPct": 80,
+          "classes": [
+            {
+              "key": "devEq",
+              "targetPct": 40,
+              "currentPct": 0,
+              "driftPct": -40
+            },
+            {
+              "key": "bond",
+              "targetPct": 20,
+              "currentPct": 0,
+              "driftPct": -20
+            },
+            {
+              "key": "jpEq",
+              "targetPct": 14,
+              "currentPct": 0,
+              "driftPct": -14
+            },
+            {
+              "key": "emEq",
+              "targetPct": 14,
+              "currentPct": 0,
+              "driftPct": -14
+            },
+            {
+              "key": "reit",
+              "targetPct": 7,
+              "currentPct": 0,
+              "driftPct": -7
+            },
+            {
+              "key": "gold",
+              "targetPct": 5,
+              "currentPct": 0,
+              "driftPct": -5
+            },
+            {
+              "key": "cash",
+              "targetPct": 0,
+              "currentPct": 0,
+              "driftPct": 0
+            }
+          ]
+        },
+        "raw": {
+          "monthlyExpense": 0,
+          "bufferAmount": 0,
+          "bufferTarget": 0,
+          "bufferRemaining": 0,
+          "coreAmount": 0,
+          "satelliteAmount": 0,
+          "investable": 0,
+          "satelliteCap": 0,
+          "satelliteOver": 0,
+          "totalAssets": 0,
+          "goals": []
+        }
+      }
+    },
+    {
+      "name": "assetclass-d1-age-floor-r30",
+      "state": {
+        "version": 2,
+        "currency": "JPY",
+        "monthlyExpense": 0,
+        "bufferMonths": 6,
+        "buckets": {
+          "buffer": {
+            "amount": 0
+          },
+          "core": {
+            "amount": 0
+          },
+          "satellite": {
+            "amount": 0
+          }
+        },
+        "satelliteCapPct": 10,
+        "lastAppliedCashflowPeriod": "",
+        "cashSource": "manual",
+        "investmentSource": "manual",
+        "anchor": {
+          "date": "",
+          "amount": 0
+        },
+        "reserves": [],
+        "goals": [],
+        "updatedAt": 0,
+        "history": [],
+        "birthYear": 1946,
+        "assetHoldings": {
+          "buffer": {
+            "cash": 100000,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          },
+          "core": {
+            "cash": 0,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          },
+          "satellite": {
+            "cash": 0,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          }
+        },
+        "assetSource": "manual"
+      },
+      "nowMs": 1784073600000,
+      "production": {
+        "mode": "production",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 4,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        },
+        "assetClasses": {
+          "riskAssetPct": 30,
+          "classes": [
+            {
+              "key": "cash",
+              "targetPct": 0,
+              "currentPct": 100,
+              "driftPct": 100
+            },
+            {
+              "key": "bond",
+              "targetPct": 70,
+              "currentPct": 0,
+              "driftPct": -70
+            },
+            {
+              "key": "devEq",
+              "targetPct": 15,
+              "currentPct": 0,
+              "driftPct": -15
+            },
+            {
+              "key": "jpEq",
+              "targetPct": 5,
+              "currentPct": 0,
+              "driftPct": -5
+            },
+            {
+              "key": "emEq",
+              "targetPct": 5,
+              "currentPct": 0,
+              "driftPct": -5
+            },
+            {
+              "key": "reit",
+              "targetPct": 3,
+              "currentPct": 0,
+              "driftPct": -3
+            },
+            {
+              "key": "gold",
+              "targetPct": 2,
+              "currentPct": 0,
+              "driftPct": -2
+            }
+          ]
+        }
+      },
+      "personal": {
+        "mode": "personal",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 4,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        },
+        "assetClasses": {
+          "riskAssetPct": 30,
+          "classes": [
+            {
+              "key": "cash",
+              "targetPct": 0,
+              "currentPct": 100,
+              "driftPct": 100
+            },
+            {
+              "key": "bond",
+              "targetPct": 70,
+              "currentPct": 0,
+              "driftPct": -70
+            },
+            {
+              "key": "devEq",
+              "targetPct": 15,
+              "currentPct": 0,
+              "driftPct": -15
+            },
+            {
+              "key": "jpEq",
+              "targetPct": 5,
+              "currentPct": 0,
+              "driftPct": -5
+            },
+            {
+              "key": "emEq",
+              "targetPct": 5,
+              "currentPct": 0,
+              "driftPct": -5
+            },
+            {
+              "key": "reit",
+              "targetPct": 3,
+              "currentPct": 0,
+              "driftPct": -3
+            },
+            {
+              "key": "gold",
+              "targetPct": 2,
+              "currentPct": 0,
+              "driftPct": -2
+            }
+          ]
+        },
+        "raw": {
+          "monthlyExpense": 0,
+          "bufferAmount": 0,
+          "bufferTarget": 0,
+          "bufferRemaining": 0,
+          "coreAmount": 0,
+          "satelliteAmount": 0,
+          "investable": 0,
+          "satelliteCap": 0,
+          "satelliteOver": 0,
+          "totalAssets": 0,
+          "goals": []
+        }
+      }
+    },
+    {
+      "name": "assetclass-d2-age-ceil-r90",
+      "state": {
+        "version": 2,
+        "currency": "JPY",
+        "monthlyExpense": 0,
+        "bufferMonths": 6,
+        "buckets": {
+          "buffer": {
+            "amount": 0
+          },
+          "core": {
+            "amount": 0
+          },
+          "satellite": {
+            "amount": 0
+          }
+        },
+        "satelliteCapPct": 10,
+        "lastAppliedCashflowPeriod": "",
+        "cashSource": "manual",
+        "investmentSource": "manual",
+        "anchor": {
+          "date": "",
+          "amount": 0
+        },
+        "reserves": [],
+        "goals": [],
+        "updatedAt": 0,
+        "history": [],
+        "birthYear": 2006,
+        "assetHoldings": {
+          "buffer": {
+            "cash": 100000,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          },
+          "core": {
+            "cash": 0,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          },
+          "satellite": {
+            "cash": 0,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          }
+        },
+        "assetSource": "manual"
+      },
+      "nowMs": 1784073600000,
+      "production": {
+        "mode": "production",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 4,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        },
+        "assetClasses": {
+          "riskAssetPct": 90,
+          "classes": [
+            {
+              "key": "cash",
+              "targetPct": 0,
+              "currentPct": 100,
+              "driftPct": 100
+            },
+            {
+              "key": "devEq",
+              "targetPct": 47,
+              "currentPct": 0,
+              "driftPct": -47
+            },
+            {
+              "key": "jpEq",
+              "targetPct": 15,
+              "currentPct": 0,
+              "driftPct": -15
+            },
+            {
+              "key": "emEq",
+              "targetPct": 15,
+              "currentPct": 0,
+              "driftPct": -15
+            },
+            {
+              "key": "bond",
+              "targetPct": 10,
+              "currentPct": 0,
+              "driftPct": -10
+            },
+            {
+              "key": "reit",
+              "targetPct": 8,
+              "currentPct": 0,
+              "driftPct": -8
+            },
+            {
+              "key": "gold",
+              "targetPct": 5,
+              "currentPct": 0,
+              "driftPct": -5
+            }
+          ]
+        }
+      },
+      "personal": {
+        "mode": "personal",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 4,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        },
+        "assetClasses": {
+          "riskAssetPct": 90,
+          "classes": [
+            {
+              "key": "cash",
+              "targetPct": 0,
+              "currentPct": 100,
+              "driftPct": 100
+            },
+            {
+              "key": "devEq",
+              "targetPct": 47,
+              "currentPct": 0,
+              "driftPct": -47
+            },
+            {
+              "key": "jpEq",
+              "targetPct": 15,
+              "currentPct": 0,
+              "driftPct": -15
+            },
+            {
+              "key": "emEq",
+              "targetPct": 15,
+              "currentPct": 0,
+              "driftPct": -15
+            },
+            {
+              "key": "bond",
+              "targetPct": 10,
+              "currentPct": 0,
+              "driftPct": -10
+            },
+            {
+              "key": "reit",
+              "targetPct": 8,
+              "currentPct": 0,
+              "driftPct": -8
+            },
+            {
+              "key": "gold",
+              "targetPct": 5,
+              "currentPct": 0,
+              "driftPct": -5
+            }
+          ]
+        },
+        "raw": {
+          "monthlyExpense": 0,
+          "bufferAmount": 0,
+          "bufferTarget": 0,
+          "bufferRemaining": 0,
+          "coreAmount": 0,
+          "satelliteAmount": 0,
+          "investable": 0,
+          "satelliteCap": 0,
+          "satelliteOver": 0,
+          "totalAssets": 0,
+          "goals": []
+        }
+      }
+    },
+    {
+      "name": "assetclass-e-birthyear-unset-key-absent",
+      "state": {
+        "version": 2,
+        "currency": "JPY",
+        "monthlyExpense": 0,
+        "bufferMonths": 6,
+        "buckets": {
+          "buffer": {
+            "amount": 0
+          },
+          "core": {
+            "amount": 0
+          },
+          "satellite": {
+            "amount": 0
+          }
+        },
+        "satelliteCapPct": 10,
+        "lastAppliedCashflowPeriod": "",
+        "cashSource": "manual",
+        "investmentSource": "manual",
+        "anchor": {
+          "date": "",
+          "amount": 0
+        },
+        "reserves": [],
+        "goals": [],
+        "updatedAt": 0,
+        "history": [],
+        "birthYear": 0,
+        "assetHoldings": {
+          "buffer": {
+            "cash": 100000,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          },
+          "core": {
+            "cash": 0,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          },
+          "satellite": {
+            "cash": 0,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          }
+        },
+        "assetSource": "manual"
+      },
+      "nowMs": 1784073600000,
+      "production": {
+        "mode": "production",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 4,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        }
+      },
+      "personal": {
+        "mode": "personal",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 4,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        },
+        "raw": {
+          "monthlyExpense": 0,
+          "bufferAmount": 0,
+          "bufferTarget": 0,
+          "bufferRemaining": 0,
+          "coreAmount": 0,
+          "satelliteAmount": 0,
+          "investable": 0,
+          "satelliteCap": 0,
+          "satelliteOver": 0,
+          "totalAssets": 0,
+          "goals": []
+        }
+      }
+    },
+    {
+      "name": "assetclass-f-zero-weight-core-fallback",
+      "state": {
+        "version": 2,
+        "currency": "JPY",
+        "monthlyExpense": 0,
+        "bufferMonths": 6,
+        "buckets": {
+          "buffer": {
+            "amount": 0
+          },
+          "core": {
+            "amount": 0
+          },
+          "satellite": {
+            "amount": 0
+          }
+        },
+        "satelliteCapPct": 10,
+        "lastAppliedCashflowPeriod": "",
+        "cashSource": "manual",
+        "investmentSource": "manual",
+        "anchor": {
+          "date": "",
+          "amount": 0
+        },
+        "reserves": [],
+        "goals": [],
+        "updatedAt": 0,
+        "history": [],
+        "birthYear": 1986,
+        "assetHoldings": {
+          "buffer": {
+            "cash": 0,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          },
+          "core": {
+            "cash": 0,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          },
+          "satellite": {
+            "cash": 0,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          }
+        },
+        "assetSource": "manual"
+      },
+      "nowMs": 1784073600000,
+      "production": {
+        "mode": "production",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 4,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        },
+        "assetClasses": {
+          "riskAssetPct": 70,
+          "classes": [
+            {
+              "key": "devEq",
+              "targetPct": 36,
+              "currentPct": 0,
+              "driftPct": -36
+            },
+            {
+              "key": "bond",
+              "targetPct": 30,
+              "currentPct": 0,
+              "driftPct": -30
+            },
+            {
+              "key": "jpEq",
+              "targetPct": 12,
+              "currentPct": 0,
+              "driftPct": -12
+            },
+            {
+              "key": "emEq",
+              "targetPct": 12,
+              "currentPct": 0,
+              "driftPct": -12
+            },
+            {
+              "key": "reit",
+              "targetPct": 6,
+              "currentPct": 0,
+              "driftPct": -6
+            },
+            {
+              "key": "gold",
+              "targetPct": 4,
+              "currentPct": 0,
+              "driftPct": -4
+            },
+            {
+              "key": "cash",
+              "targetPct": 0,
+              "currentPct": 0,
+              "driftPct": 0
+            }
+          ]
+        }
+      },
+      "personal": {
+        "mode": "personal",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 4,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        },
+        "assetClasses": {
+          "riskAssetPct": 70,
+          "classes": [
+            {
+              "key": "devEq",
+              "targetPct": 36,
+              "currentPct": 0,
+              "driftPct": -36
+            },
+            {
+              "key": "bond",
+              "targetPct": 30,
+              "currentPct": 0,
+              "driftPct": -30
+            },
+            {
+              "key": "jpEq",
+              "targetPct": 12,
+              "currentPct": 0,
+              "driftPct": -12
+            },
+            {
+              "key": "emEq",
+              "targetPct": 12,
+              "currentPct": 0,
+              "driftPct": -12
+            },
+            {
+              "key": "reit",
+              "targetPct": 6,
+              "currentPct": 0,
+              "driftPct": -6
+            },
+            {
+              "key": "gold",
+              "targetPct": 4,
+              "currentPct": 0,
+              "driftPct": -4
+            },
+            {
+              "key": "cash",
+              "targetPct": 0,
+              "currentPct": 0,
+              "driftPct": 0
+            }
+          ]
+        },
+        "raw": {
+          "monthlyExpense": 0,
+          "bufferAmount": 0,
+          "bufferTarget": 0,
+          "bufferRemaining": 0,
+          "coreAmount": 0,
+          "satelliteAmount": 0,
+          "investable": 0,
+          "satelliteCap": 0,
+          "satelliteOver": 0,
+          "totalAssets": 0,
+          "goals": []
+        }
+      }
+    },
+    {
+      "name": "assetclass-g1-tiebreak-age55-r55",
+      "state": {
+        "version": 2,
+        "currency": "JPY",
+        "monthlyExpense": 100000,
+        "bufferMonths": 6,
+        "buckets": {
+          "buffer": {
+            "amount": 600000
+          },
+          "core": {
+            "amount": 2000000
+          },
+          "satellite": {
+            "amount": 200000
+          }
+        },
+        "satelliteCapPct": 10,
+        "lastAppliedCashflowPeriod": "",
+        "cashSource": "manual",
+        "investmentSource": "manual",
+        "anchor": {
+          "date": "",
+          "amount": 0
+        },
+        "reserves": [],
+        "goals": [],
+        "updatedAt": 0,
+        "history": [],
+        "birthYear": 1971,
+        "assetHoldings": {
+          "buffer": {
+            "cash": 0,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          },
+          "core": {
+            "cash": 0,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          },
+          "satellite": {
+            "cash": 0,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          }
+        },
+        "assetSource": "manual"
+      },
+      "nowMs": 1784073600000,
+      "production": {
+        "mode": "production",
+        "currency": "JPY",
+        "bufferConfigured": true,
+        "bufferMonths": 6,
+        "bufferProgressPct": 100,
+        "bufferAchieved": true,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 91,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 91,
+        "investableConfigured": true,
+        "nextTarget": "core",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 4,
+        "roadmap": {
+          "phase": "satellite",
+          "coreProgressPct": 83,
+          "coreEstablished": false,
+          "satelliteUnlocked": true,
+          "coreTargetSource": "fallback"
+        },
+        "assetClasses": {
+          "riskAssetPct": 55,
+          "classes": [
+            {
+              "key": "bond",
+              "targetPct": 34,
+              "currentPct": 0,
+              "driftPct": -34
+            },
+            {
+              "key": "devEq",
+              "targetPct": 25,
+              "currentPct": 0,
+              "driftPct": -25
+            },
+            {
+              "key": "cash",
+              "targetPct": 19,
+              "currentPct": 0,
+              "driftPct": -19
+            },
+            {
+              "key": "jpEq",
+              "targetPct": 8,
+              "currentPct": 0,
+              "driftPct": -8
+            },
+            {
+              "key": "emEq",
+              "targetPct": 8,
+              "currentPct": 0,
+              "driftPct": -8
+            },
+            {
+              "key": "reit",
+              "targetPct": 4,
+              "currentPct": 0,
+              "driftPct": -4
+            },
+            {
+              "key": "gold",
+              "targetPct": 2,
+              "currentPct": 0,
+              "driftPct": -2
+            }
+          ]
+        }
+      },
+      "personal": {
+        "mode": "personal",
+        "currency": "JPY",
+        "bufferConfigured": true,
+        "bufferMonths": 6,
+        "bufferProgressPct": 100,
+        "bufferAchieved": true,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 91,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 91,
+        "investableConfigured": true,
+        "nextTarget": "core",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 4,
+        "roadmap": {
+          "phase": "satellite",
+          "coreProgressPct": 83,
+          "coreEstablished": false,
+          "satelliteUnlocked": true,
+          "coreTargetSource": "fallback"
+        },
+        "assetClasses": {
+          "riskAssetPct": 55,
+          "classes": [
+            {
+              "key": "bond",
+              "targetPct": 34,
+              "currentPct": 0,
+              "driftPct": -34
+            },
+            {
+              "key": "devEq",
+              "targetPct": 25,
+              "currentPct": 0,
+              "driftPct": -25
+            },
+            {
+              "key": "cash",
+              "targetPct": 19,
+              "currentPct": 0,
+              "driftPct": -19
+            },
+            {
+              "key": "jpEq",
+              "targetPct": 8,
+              "currentPct": 0,
+              "driftPct": -8
+            },
+            {
+              "key": "emEq",
+              "targetPct": 8,
+              "currentPct": 0,
+              "driftPct": -8
+            },
+            {
+              "key": "reit",
+              "targetPct": 4,
+              "currentPct": 0,
+              "driftPct": -4
+            },
+            {
+              "key": "gold",
+              "targetPct": 2,
+              "currentPct": 0,
+              "driftPct": -2
+            }
+          ]
+        },
+        "raw": {
+          "monthlyExpense": 100000,
+          "bufferAmount": 600000,
+          "bufferTarget": 600000,
+          "bufferRemaining": 0,
+          "coreAmount": 2000000,
+          "satelliteAmount": 200000,
+          "investable": 2200000,
+          "satelliteCap": 220000,
+          "satelliteOver": 0,
+          "totalAssets": 2800000,
+          "goals": []
+        }
+      }
+    },
+    {
+      "name": "assetclass-g2-tiebreak-age80-r30",
+      "state": {
+        "version": 2,
+        "currency": "JPY",
+        "monthlyExpense": 100000,
+        "bufferMonths": 6,
+        "buckets": {
+          "buffer": {
+            "amount": 600000
+          },
+          "core": {
+            "amount": 2000000
+          },
+          "satellite": {
+            "amount": 200000
+          }
+        },
+        "satelliteCapPct": 10,
+        "lastAppliedCashflowPeriod": "",
+        "cashSource": "manual",
+        "investmentSource": "manual",
+        "anchor": {
+          "date": "",
+          "amount": 0
+        },
+        "reserves": [],
+        "goals": [],
+        "updatedAt": 0,
+        "history": [],
+        "birthYear": 1946,
+        "assetHoldings": {
+          "buffer": {
+            "cash": 0,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          },
+          "core": {
+            "cash": 0,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          },
+          "satellite": {
+            "cash": 0,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          }
+        },
+        "assetSource": "manual"
+      },
+      "nowMs": 1784073600000,
+      "production": {
+        "mode": "production",
+        "currency": "JPY",
+        "bufferConfigured": true,
+        "bufferMonths": 6,
+        "bufferProgressPct": 100,
+        "bufferAchieved": true,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 91,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 91,
+        "investableConfigured": true,
+        "nextTarget": "core",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 4,
+        "roadmap": {
+          "phase": "satellite",
+          "coreProgressPct": 83,
+          "coreEstablished": false,
+          "satelliteUnlocked": true,
+          "coreTargetSource": "fallback"
+        },
+        "assetClasses": {
+          "riskAssetPct": 30,
+          "classes": [
+            {
+              "key": "bond",
+              "targetPct": 53,
+              "currentPct": 0,
+              "driftPct": -53
+            },
+            {
+              "key": "cash",
+              "targetPct": 19,
+              "currentPct": 0,
+              "driftPct": -19
+            },
+            {
+              "key": "devEq",
+              "targetPct": 15,
+              "currentPct": 0,
+              "driftPct": -15
+            },
+            {
+              "key": "jpEq",
+              "targetPct": 5,
+              "currentPct": 0,
+              "driftPct": -5
+            },
+            {
+              "key": "emEq",
+              "targetPct": 5,
+              "currentPct": 0,
+              "driftPct": -5
+            },
+            {
+              "key": "reit",
+              "targetPct": 2,
+              "currentPct": 0,
+              "driftPct": -2
+            },
+            {
+              "key": "gold",
+              "targetPct": 1,
+              "currentPct": 0,
+              "driftPct": -1
+            }
+          ]
+        }
+      },
+      "personal": {
+        "mode": "personal",
+        "currency": "JPY",
+        "bufferConfigured": true,
+        "bufferMonths": 6,
+        "bufferProgressPct": 100,
+        "bufferAchieved": true,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 91,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 91,
+        "investableConfigured": true,
+        "nextTarget": "core",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 4,
+        "roadmap": {
+          "phase": "satellite",
+          "coreProgressPct": 83,
+          "coreEstablished": false,
+          "satelliteUnlocked": true,
+          "coreTargetSource": "fallback"
+        },
+        "assetClasses": {
+          "riskAssetPct": 30,
+          "classes": [
+            {
+              "key": "bond",
+              "targetPct": 53,
+              "currentPct": 0,
+              "driftPct": -53
+            },
+            {
+              "key": "cash",
+              "targetPct": 19,
+              "currentPct": 0,
+              "driftPct": -19
+            },
+            {
+              "key": "devEq",
+              "targetPct": 15,
+              "currentPct": 0,
+              "driftPct": -15
+            },
+            {
+              "key": "jpEq",
+              "targetPct": 5,
+              "currentPct": 0,
+              "driftPct": -5
+            },
+            {
+              "key": "emEq",
+              "targetPct": 5,
+              "currentPct": 0,
+              "driftPct": -5
+            },
+            {
+              "key": "reit",
+              "targetPct": 2,
+              "currentPct": 0,
+              "driftPct": -2
+            },
+            {
+              "key": "gold",
+              "targetPct": 1,
+              "currentPct": 0,
+              "driftPct": -1
+            }
+          ]
+        },
+        "raw": {
+          "monthlyExpense": 100000,
+          "bufferAmount": 600000,
+          "bufferTarget": 600000,
+          "bufferRemaining": 0,
+          "coreAmount": 2000000,
+          "satelliteAmount": 200000,
+          "investable": 2200000,
+          "satelliteCap": 220000,
+          "satelliteOver": 0,
+          "totalAssets": 2800000,
+          "goals": []
+        }
+      }
+    },
+    {
+      "name": "assetclass-h1-year-boundary-utc-eve",
+      "state": {
+        "version": 2,
+        "currency": "JPY",
+        "monthlyExpense": 0,
+        "bufferMonths": 6,
+        "buckets": {
+          "buffer": {
+            "amount": 0
+          },
+          "core": {
+            "amount": 0
+          },
+          "satellite": {
+            "amount": 0
+          }
+        },
+        "satelliteCapPct": 10,
+        "lastAppliedCashflowPeriod": "",
+        "cashSource": "manual",
+        "investmentSource": "manual",
+        "anchor": {
+          "date": "",
+          "amount": 0
+        },
+        "reserves": [],
+        "goals": [],
+        "updatedAt": 0,
+        "history": [],
+        "birthYear": 1990,
+        "assetHoldings": {
+          "buffer": {
+            "cash": 100000,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          },
+          "core": {
+            "cash": 0,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          },
+          "satellite": {
+            "cash": 0,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          }
+        },
+        "assetSource": "manual"
+      },
+      "nowMs": 1767225540000,
+      "production": {
+        "mode": "production",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 4,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        },
+        "assetClasses": {
+          "riskAssetPct": 75,
+          "classes": [
+            {
+              "key": "cash",
+              "targetPct": 0,
+              "currentPct": 100,
+              "driftPct": 100
+            },
+            {
+              "key": "devEq",
+              "targetPct": 37,
+              "currentPct": 0,
+              "driftPct": -37
+            },
+            {
+              "key": "bond",
+              "targetPct": 25,
+              "currentPct": 0,
+              "driftPct": -25
+            },
+            {
+              "key": "jpEq",
+              "targetPct": 13,
+              "currentPct": 0,
+              "driftPct": -13
+            },
+            {
+              "key": "emEq",
+              "targetPct": 13,
+              "currentPct": 0,
+              "driftPct": -13
+            },
+            {
+              "key": "reit",
+              "targetPct": 7,
+              "currentPct": 0,
+              "driftPct": -7
+            },
+            {
+              "key": "gold",
+              "targetPct": 5,
+              "currentPct": 0,
+              "driftPct": -5
+            }
+          ]
+        }
+      },
+      "personal": {
+        "mode": "personal",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 4,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        },
+        "assetClasses": {
+          "riskAssetPct": 75,
+          "classes": [
+            {
+              "key": "cash",
+              "targetPct": 0,
+              "currentPct": 100,
+              "driftPct": 100
+            },
+            {
+              "key": "devEq",
+              "targetPct": 37,
+              "currentPct": 0,
+              "driftPct": -37
+            },
+            {
+              "key": "bond",
+              "targetPct": 25,
+              "currentPct": 0,
+              "driftPct": -25
+            },
+            {
+              "key": "jpEq",
+              "targetPct": 13,
+              "currentPct": 0,
+              "driftPct": -13
+            },
+            {
+              "key": "emEq",
+              "targetPct": 13,
+              "currentPct": 0,
+              "driftPct": -13
+            },
+            {
+              "key": "reit",
+              "targetPct": 7,
+              "currentPct": 0,
+              "driftPct": -7
+            },
+            {
+              "key": "gold",
+              "targetPct": 5,
+              "currentPct": 0,
+              "driftPct": -5
+            }
+          ]
+        },
+        "raw": {
+          "monthlyExpense": 0,
+          "bufferAmount": 0,
+          "bufferTarget": 0,
+          "bufferRemaining": 0,
+          "coreAmount": 0,
+          "satelliteAmount": 0,
+          "investable": 0,
+          "satelliteCap": 0,
+          "satelliteOver": 0,
+          "totalAssets": 0,
+          "goals": []
+        }
+      }
+    },
+    {
+      "name": "assetclass-h2-year-boundary-utc-newyear",
+      "state": {
+        "version": 2,
+        "currency": "JPY",
+        "monthlyExpense": 0,
+        "bufferMonths": 6,
+        "buckets": {
+          "buffer": {
+            "amount": 0
+          },
+          "core": {
+            "amount": 0
+          },
+          "satellite": {
+            "amount": 0
+          }
+        },
+        "satelliteCapPct": 10,
+        "lastAppliedCashflowPeriod": "",
+        "cashSource": "manual",
+        "investmentSource": "manual",
+        "anchor": {
+          "date": "",
+          "amount": 0
+        },
+        "reserves": [],
+        "goals": [],
+        "updatedAt": 0,
+        "history": [],
+        "birthYear": 1990,
+        "assetHoldings": {
+          "buffer": {
+            "cash": 100000,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          },
+          "core": {
+            "cash": 0,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          },
+          "satellite": {
+            "cash": 0,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          }
+        },
+        "assetSource": "manual"
+      },
+      "nowMs": 1767225600000,
+      "production": {
+        "mode": "production",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 4,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        },
+        "assetClasses": {
+          "riskAssetPct": 74,
+          "classes": [
+            {
+              "key": "cash",
+              "targetPct": 0,
+              "currentPct": 100,
+              "driftPct": 100
+            },
+            {
+              "key": "devEq",
+              "targetPct": 37,
+              "currentPct": 0,
+              "driftPct": -37
+            },
+            {
+              "key": "bond",
+              "targetPct": 26,
+              "currentPct": 0,
+              "driftPct": -26
+            },
+            {
+              "key": "jpEq",
+              "targetPct": 13,
+              "currentPct": 0,
+              "driftPct": -13
+            },
+            {
+              "key": "emEq",
+              "targetPct": 13,
+              "currentPct": 0,
+              "driftPct": -13
+            },
+            {
+              "key": "reit",
+              "targetPct": 7,
+              "currentPct": 0,
+              "driftPct": -7
+            },
+            {
+              "key": "gold",
+              "targetPct": 4,
+              "currentPct": 0,
+              "driftPct": -4
+            }
+          ]
+        }
+      },
+      "personal": {
+        "mode": "personal",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 4,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        },
+        "assetClasses": {
+          "riskAssetPct": 74,
+          "classes": [
+            {
+              "key": "cash",
+              "targetPct": 0,
+              "currentPct": 100,
+              "driftPct": 100
+            },
+            {
+              "key": "devEq",
+              "targetPct": 37,
+              "currentPct": 0,
+              "driftPct": -37
+            },
+            {
+              "key": "bond",
+              "targetPct": 26,
+              "currentPct": 0,
+              "driftPct": -26
+            },
+            {
+              "key": "jpEq",
+              "targetPct": 13,
+              "currentPct": 0,
+              "driftPct": -13
+            },
+            {
+              "key": "emEq",
+              "targetPct": 13,
+              "currentPct": 0,
+              "driftPct": -13
+            },
+            {
+              "key": "reit",
+              "targetPct": 7,
+              "currentPct": 0,
+              "driftPct": -7
+            },
+            {
+              "key": "gold",
+              "targetPct": 4,
+              "currentPct": 0,
+              "driftPct": -4
+            }
+          ]
+        },
+        "raw": {
+          "monthlyExpense": 0,
+          "bufferAmount": 0,
+          "bufferTarget": 0,
+          "bufferRemaining": 0,
+          "coreAmount": 0,
+          "satelliteAmount": 0,
+          "investable": 0,
+          "satelliteCap": 0,
+          "satelliteOver": 0,
+          "totalAssets": 0,
+          "goals": []
+        }
+      }
+    },
+    {
+      "name": "assetclass-i-adversarial-coercion",
+      "state": {
+        "version": 2,
+        "currency": "JPY",
+        "monthlyExpense": 0,
+        "bufferMonths": 6,
+        "buckets": {
+          "buffer": {
+            "amount": 0
+          },
+          "core": {
+            "amount": 0
+          },
+          "satellite": {
+            "amount": 0
+          }
+        },
+        "satelliteCapPct": 10,
+        "lastAppliedCashflowPeriod": "",
+        "cashSource": "manual",
+        "investmentSource": "manual",
+        "anchor": {
+          "date": "",
+          "amount": 0
+        },
+        "reserves": [],
+        "goals": [],
+        "updatedAt": 0,
+        "history": [],
+        "birthYear": 1986,
+        "assetHoldings": {
+          "buffer": {
+            "cash": 0,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          },
+          "core": {
+            "cash": 0,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          },
+          "satellite": {
+            "cash": 0,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 12000,
+            "gold": 3000
+          }
+        },
+        "assetSource": "manual"
+      },
+      "nowMs": 1784073600000,
+      "production": {
+        "mode": "production",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 4,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        },
+        "assetClasses": {
+          "riskAssetPct": 70,
+          "classes": [
+            {
+              "key": "reit",
+              "targetPct": 6,
+              "currentPct": 80,
+              "driftPct": 74
+            },
+            {
+              "key": "devEq",
+              "targetPct": 36,
+              "currentPct": 0,
+              "driftPct": -36
+            },
+            {
+              "key": "bond",
+              "targetPct": 30,
+              "currentPct": 0,
+              "driftPct": -30
+            },
+            {
+              "key": "gold",
+              "targetPct": 4,
+              "currentPct": 20,
+              "driftPct": 16
+            },
+            {
+              "key": "jpEq",
+              "targetPct": 12,
+              "currentPct": 0,
+              "driftPct": -12
+            },
+            {
+              "key": "emEq",
+              "targetPct": 12,
+              "currentPct": 0,
+              "driftPct": -12
+            },
+            {
+              "key": "cash",
+              "targetPct": 0,
+              "currentPct": 0,
+              "driftPct": 0
+            }
+          ]
+        }
+      },
+      "personal": {
+        "mode": "personal",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 4,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        },
+        "assetClasses": {
+          "riskAssetPct": 70,
+          "classes": [
+            {
+              "key": "reit",
+              "targetPct": 6,
+              "currentPct": 80,
+              "driftPct": 74
+            },
+            {
+              "key": "devEq",
+              "targetPct": 36,
+              "currentPct": 0,
+              "driftPct": -36
+            },
+            {
+              "key": "bond",
+              "targetPct": 30,
+              "currentPct": 0,
+              "driftPct": -30
+            },
+            {
+              "key": "gold",
+              "targetPct": 4,
+              "currentPct": 20,
+              "driftPct": 16
+            },
+            {
+              "key": "jpEq",
+              "targetPct": 12,
+              "currentPct": 0,
+              "driftPct": -12
+            },
+            {
+              "key": "emEq",
+              "targetPct": 12,
+              "currentPct": 0,
+              "driftPct": -12
+            },
+            {
+              "key": "cash",
+              "targetPct": 0,
+              "currentPct": 0,
+              "driftPct": 0
+            }
+          ]
+        },
+        "raw": {
+          "monthlyExpense": 0,
+          "bufferAmount": 0,
+          "bufferTarget": 0,
+          "bufferRemaining": 0,
+          "coreAmount": 0,
+          "satelliteAmount": 0,
+          "investable": 0,
+          "satelliteCap": 0,
+          "satelliteOver": 0,
+          "totalAssets": 0,
+          "goals": []
+        }
+      }
+    },
+    {
+      "name": "assetclass-j-coarsen-nonaligned-source",
+      "state": {
+        "version": 2,
+        "currency": "JPY",
+        "monthlyExpense": 0,
+        "bufferMonths": 6,
+        "buckets": {
+          "buffer": {
+            "amount": 0
+          },
+          "core": {
+            "amount": 0
+          },
+          "satellite": {
+            "amount": 0
+          }
+        },
+        "satelliteCapPct": 10,
+        "lastAppliedCashflowPeriod": "",
+        "cashSource": "manual",
+        "investmentSource": "manual",
+        "anchor": {
+          "date": "",
+          "amount": 0
+        },
+        "reserves": [],
+        "goals": [],
+        "updatedAt": 0,
+        "history": [],
+        "birthYear": 1981,
+        "assetHoldings": {
+          "buffer": {
+            "cash": 37000,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          },
+          "core": {
+            "cash": 0,
+            "jpEq": 61000,
+            "devEq": 84000,
+            "emEq": 0,
+            "bond": 22000,
+            "reit": 0,
+            "gold": 0
+          },
+          "satellite": {
+            "cash": 0,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 13000,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          }
+        },
+        "assetSource": "manual"
+      },
+      "nowMs": 1784073600000,
+      "production": {
+        "mode": "production",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 4,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        },
+        "assetClasses": {
+          "riskAssetPct": 65,
+          "classes": [
+            {
+              "key": "bond",
+              "targetPct": 35,
+              "currentPct": 10,
+              "driftPct": -25
+            },
+            {
+              "key": "cash",
+              "targetPct": 0,
+              "currentPct": 17,
+              "driftPct": 17
+            },
+            {
+              "key": "jpEq",
+              "targetPct": 11,
+              "currentPct": 28,
+              "driftPct": 17
+            },
+            {
+              "key": "devEq",
+              "targetPct": 33,
+              "currentPct": 39,
+              "driftPct": 6
+            },
+            {
+              "key": "reit",
+              "targetPct": 6,
+              "currentPct": 0,
+              "driftPct": -6
+            },
+            {
+              "key": "emEq",
+              "targetPct": 11,
+              "currentPct": 6,
+              "driftPct": -5
+            },
+            {
+              "key": "gold",
+              "targetPct": 4,
+              "currentPct": 0,
+              "driftPct": -4
+            }
+          ]
+        }
+      },
+      "personal": {
+        "mode": "personal",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 4,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        },
+        "assetClasses": {
+          "riskAssetPct": 65,
+          "classes": [
+            {
+              "key": "bond",
+              "targetPct": 35,
+              "currentPct": 10,
+              "driftPct": -25
+            },
+            {
+              "key": "cash",
+              "targetPct": 0,
+              "currentPct": 17,
+              "driftPct": 17
+            },
+            {
+              "key": "jpEq",
+              "targetPct": 11,
+              "currentPct": 28,
+              "driftPct": 17
+            },
+            {
+              "key": "devEq",
+              "targetPct": 33,
+              "currentPct": 39,
+              "driftPct": 6
+            },
+            {
+              "key": "reit",
+              "targetPct": 6,
+              "currentPct": 0,
+              "driftPct": -6
+            },
+            {
+              "key": "emEq",
+              "targetPct": 11,
+              "currentPct": 6,
+              "driftPct": -5
+            },
+            {
+              "key": "gold",
+              "targetPct": 4,
+              "currentPct": 0,
+              "driftPct": -4
+            }
+          ]
+        },
+        "raw": {
+          "monthlyExpense": 0,
+          "bufferAmount": 0,
+          "bufferTarget": 0,
+          "bufferRemaining": 0,
+          "coreAmount": 0,
+          "satelliteAmount": 0,
+          "investable": 0,
+          "satelliteCap": 0,
+          "satelliteOver": 0,
+          "totalAssets": 0,
+          "goals": []
+        }
+      }
+    },
+    {
+      "name": "assetclass-k1-huge-nowms-unconfigured",
+      "state": {
+        "version": 2,
+        "currency": "JPY",
+        "monthlyExpense": 0,
+        "bufferMonths": 6,
+        "buckets": {
+          "buffer": {
+            "amount": 0
+          },
+          "core": {
+            "amount": 0
+          },
+          "satellite": {
+            "amount": 0
+          }
+        },
+        "satelliteCapPct": 10,
+        "lastAppliedCashflowPeriod": "",
+        "cashSource": "manual",
+        "investmentSource": "manual",
+        "anchor": {
+          "date": "",
+          "amount": 0
+        },
+        "reserves": [],
+        "goals": [],
+        "updatedAt": 0,
+        "history": [],
+        "birthYear": 1986,
+        "assetHoldings": {
+          "buffer": {
+            "cash": 100000,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          },
+          "core": {
+            "cash": 0,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          },
+          "satellite": {
+            "cash": 0,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          }
+        },
+        "assetSource": "manual"
+      },
+      "nowMs": 1e+300,
+      "production": {
+        "mode": "production",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 4,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        }
+      },
+      "personal": {
+        "mode": "personal",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 4,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        },
+        "raw": {
+          "monthlyExpense": 0,
+          "bufferAmount": 0,
+          "bufferTarget": 0,
+          "bufferRemaining": 0,
+          "coreAmount": 0,
+          "satelliteAmount": 0,
+          "investable": 0,
+          "satelliteCap": 0,
+          "satelliteOver": 0,
+          "totalAssets": 0,
+          "goals": []
+        }
+      }
+    },
+    {
+      "name": "assetclass-k2-negative-nowms-unconfigured",
+      "state": {
+        "version": 2,
+        "currency": "JPY",
+        "monthlyExpense": 0,
+        "bufferMonths": 6,
+        "buckets": {
+          "buffer": {
+            "amount": 0
+          },
+          "core": {
+            "amount": 0
+          },
+          "satellite": {
+            "amount": 0
+          }
+        },
+        "satelliteCapPct": 10,
+        "lastAppliedCashflowPeriod": "",
+        "cashSource": "manual",
+        "investmentSource": "manual",
+        "anchor": {
+          "date": "",
+          "amount": 0
+        },
+        "reserves": [],
+        "goals": [],
+        "updatedAt": 0,
+        "history": [],
+        "birthYear": 1986,
+        "assetHoldings": {
+          "buffer": {
+            "cash": 100000,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          },
+          "core": {
+            "cash": 0,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          },
+          "satellite": {
+            "cash": 0,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          }
+        },
+        "assetSource": "manual"
+      },
+      "nowMs": -1e+300,
+      "production": {
+        "mode": "production",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 4,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        }
+      },
+      "personal": {
+        "mode": "personal",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 4,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        },
+        "raw": {
+          "monthlyExpense": 0,
+          "bufferAmount": 0,
+          "bufferTarget": 0,
+          "bufferRemaining": 0,
+          "coreAmount": 0,
+          "satelliteAmount": 0,
+          "investable": 0,
+          "satelliteCap": 0,
+          "satelliteOver": 0,
+          "totalAssets": 0,
+          "goals": []
+        }
+      }
+    },
+    {
+      "name": "assetclass-l-partial-funding-sums-100",
+      "state": {
+        "version": 2,
+        "currency": "JPY",
+        "monthlyExpense": 0,
+        "bufferMonths": 6,
+        "buckets": {
+          "buffer": {
+            "amount": 0
+          },
+          "core": {
+            "amount": 0
+          },
+          "satellite": {
+            "amount": 0
+          }
+        },
+        "satelliteCapPct": 10,
+        "lastAppliedCashflowPeriod": "",
+        "cashSource": "manual",
+        "investmentSource": "manual",
+        "anchor": {
+          "date": "",
+          "amount": 0
+        },
+        "reserves": [],
+        "goals": [],
+        "updatedAt": 0,
+        "history": [],
+        "birthYear": 1986,
+        "assetHoldings": {
+          "buffer": {
+            "cash": 300000,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          },
+          "core": {
+            "cash": 0,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          },
+          "satellite": {
+            "cash": 0,
+            "jpEq": 0,
+            "devEq": 200000,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          }
+        },
+        "assetSource": "manual"
+      },
+      "nowMs": 1784073600000,
+      "production": {
+        "mode": "production",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 4,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        },
+        "assetClasses": {
+          "riskAssetPct": 70,
+          "classes": [
+            {
+              "key": "cash",
+              "targetPct": 0,
+              "currentPct": 60,
+              "driftPct": 60
+            },
+            {
+              "key": "bond",
+              "targetPct": 30,
+              "currentPct": 0,
+              "driftPct": -30
+            },
+            {
+              "key": "jpEq",
+              "targetPct": 12,
+              "currentPct": 0,
+              "driftPct": -12
+            },
+            {
+              "key": "emEq",
+              "targetPct": 12,
+              "currentPct": 0,
+              "driftPct": -12
+            },
+            {
+              "key": "reit",
+              "targetPct": 6,
+              "currentPct": 0,
+              "driftPct": -6
+            },
+            {
+              "key": "devEq",
+              "targetPct": 36,
+              "currentPct": 40,
+              "driftPct": 4
+            },
+            {
+              "key": "gold",
+              "targetPct": 4,
+              "currentPct": 0,
+              "driftPct": -4
+            }
+          ]
+        }
+      },
+      "personal": {
+        "mode": "personal",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 4,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        },
+        "assetClasses": {
+          "riskAssetPct": 70,
+          "classes": [
+            {
+              "key": "cash",
+              "targetPct": 0,
+              "currentPct": 60,
+              "driftPct": 60
+            },
+            {
+              "key": "bond",
+              "targetPct": 30,
+              "currentPct": 0,
+              "driftPct": -30
+            },
+            {
+              "key": "jpEq",
+              "targetPct": 12,
+              "currentPct": 0,
+              "driftPct": -12
+            },
+            {
+              "key": "emEq",
+              "targetPct": 12,
+              "currentPct": 0,
+              "driftPct": -12
+            },
+            {
+              "key": "reit",
+              "targetPct": 6,
+              "currentPct": 0,
+              "driftPct": -6
+            },
+            {
+              "key": "devEq",
+              "targetPct": 36,
+              "currentPct": 40,
+              "driftPct": 4
+            },
+            {
+              "key": "gold",
+              "targetPct": 4,
+              "currentPct": 0,
+              "driftPct": -4
+            }
+          ]
+        },
+        "raw": {
+          "monthlyExpense": 0,
+          "bufferAmount": 0,
+          "bufferTarget": 0,
+          "bufferRemaining": 0,
+          "coreAmount": 0,
+          "satelliteAmount": 0,
+          "investable": 0,
+          "satelliteCap": 0,
+          "satelliteOver": 0,
+          "totalAssets": 0,
+          "goals": []
+        }
+      }
+    },
+    {
+      "name": "assetclass-m-aggregate-blend-tiebreak-cash-deveq",
+      "state": {
+        "version": 2,
+        "currency": "JPY",
+        "monthlyExpense": 6250,
+        "bufferMonths": 24,
+        "buckets": {
+          "buffer": {
+            "amount": 0
+          },
+          "core": {
+            "amount": 0
+          },
+          "satellite": {
+            "amount": 160000
+          }
+        },
+        "satelliteCapPct": 100,
+        "lastAppliedCashflowPeriod": "",
+        "cashSource": "manual",
+        "investmentSource": "manual",
+        "anchor": {
+          "date": "",
+          "amount": 0
+        },
+        "reserves": [],
+        "goals": [],
+        "updatedAt": 0,
+        "history": [],
+        "birthYear": 1986,
+        "assetHoldings": {
+          "buffer": {
+            "cash": 0,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          },
+          "core": {
+            "cash": 0,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          },
+          "satellite": {
+            "cash": 0,
+            "jpEq": 0,
+            "devEq": 0,
+            "emEq": 0,
+            "bond": 0,
+            "reit": 0,
+            "gold": 0
+          }
+        },
+        "assetSource": "manual"
+      },
+      "nowMs": 1784073600000,
+      "production": {
+        "mode": "production",
+        "currency": "JPY",
+        "bufferConfigured": true,
+        "bufferMonths": 24,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 100,
+        "satelliteFillPct": 100,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": true,
+        "nextTarget": "buffer",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 4,
+        "roadmap": {
+          "phase": "buffer",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "fallback"
+        },
+        "assetClasses": {
+          "riskAssetPct": 70,
+          "classes": [
+            {
+              "key": "cash",
+              "targetPct": 33,
+              "currentPct": 0,
+              "driftPct": -33
+            },
+            {
+              "key": "devEq",
+              "targetPct": 32,
+              "currentPct": 0,
+              "driftPct": -32
+            },
+            {
+              "key": "jpEq",
+              "targetPct": 11,
+              "currentPct": 0,
+              "driftPct": -11
+            },
+            {
+              "key": "emEq",
+              "targetPct": 11,
+              "currentPct": 0,
+              "driftPct": -11
+            },
+            {
+              "key": "bond",
+              "targetPct": 10,
+              "currentPct": 0,
+              "driftPct": -10
+            },
+            {
+              "key": "reit",
+              "targetPct": 2,
+              "currentPct": 0,
+              "driftPct": -2
+            },
+            {
+              "key": "gold",
+              "targetPct": 1,
+              "currentPct": 0,
+              "driftPct": -1
+            }
+          ]
+        }
+      },
+      "personal": {
+        "mode": "personal",
+        "currency": "JPY",
+        "bufferConfigured": true,
+        "bufferMonths": 24,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 100,
+        "satelliteFillPct": 100,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": true,
+        "nextTarget": "buffer",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 4,
+        "roadmap": {
+          "phase": "buffer",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "fallback"
+        },
+        "assetClasses": {
+          "riskAssetPct": 70,
+          "classes": [
+            {
+              "key": "cash",
+              "targetPct": 33,
+              "currentPct": 0,
+              "driftPct": -33
+            },
+            {
+              "key": "devEq",
+              "targetPct": 32,
+              "currentPct": 0,
+              "driftPct": -32
+            },
+            {
+              "key": "jpEq",
+              "targetPct": 11,
+              "currentPct": 0,
+              "driftPct": -11
+            },
+            {
+              "key": "emEq",
+              "targetPct": 11,
+              "currentPct": 0,
+              "driftPct": -11
+            },
+            {
+              "key": "bond",
+              "targetPct": 10,
+              "currentPct": 0,
+              "driftPct": -10
+            },
+            {
+              "key": "reit",
+              "targetPct": 2,
+              "currentPct": 0,
+              "driftPct": -2
+            },
+            {
+              "key": "gold",
+              "targetPct": 1,
+              "currentPct": 0,
+              "driftPct": -1
+            }
+          ]
+        },
+        "raw": {
+          "monthlyExpense": 6250,
+          "bufferAmount": 0,
+          "bufferTarget": 150000,
+          "bufferRemaining": 150000,
+          "coreAmount": 0,
+          "satelliteAmount": 160000,
+          "investable": 160000,
+          "satelliteCap": 160000,
+          "satelliteOver": 0,
+          "totalAssets": 160000,
+          "goals": []
         }
       }
     }
