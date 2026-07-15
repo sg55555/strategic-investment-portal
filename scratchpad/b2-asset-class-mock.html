@@ -34,11 +34,11 @@
   [data-theme="D"] #money-view .mcc-ac-donutwrap{position:relative;width:200px;height:200px;margin:0 auto;}
   /* conic-gradient ドーナツ（棒と同じ HTML要素＝rgba半透明＋screen で素直に透ける） */
   [data-theme="D"] #money-view .mcc-ac-donut2{position:absolute;inset:0;border-radius:50%;transition:background .4s ease;
-    -webkit-mask:radial-gradient(circle at 50% 50%, transparent 0 49%, #000 51% 82%, transparent 84%);
-            mask:radial-gradient(circle at 50% 50%, transparent 0 49%, #000 51% 82%, transparent 84%);}
+    -webkit-mask:radial-gradient(circle closest-side at 50% 50%, transparent 0 49%, #000 51% 82%, transparent 84%);
+            mask:radial-gradient(circle closest-side at 50% 50%, transparent 0 49%, #000 51% 82%, transparent 84%);}
   [data-theme="D"] #money-view .mcc-ac-donut2.edge{ /* 内外周の細いネオン縁だけ */
-    -webkit-mask:radial-gradient(circle at 50% 50%, transparent 0 50%, #000 50.5% 52.5%, transparent 53% 79.5%, #000 80% 82%, transparent 82.5%);
-            mask:radial-gradient(circle at 50% 50%, transparent 0 50%, #000 50.5% 52.5%, transparent 53% 79.5%, #000 80% 82%, transparent 82.5%);}
+    -webkit-mask:radial-gradient(circle closest-side at 50% 50%, transparent 0 50%, #000 50.5% 52.5%, transparent 53% 79.5%, #000 80% 82%, transparent 82.5%);
+            mask:radial-gradient(circle closest-side at 50% 50%, transparent 0 50%, #000 50.5% 52.5%, transparent 53% 79.5%, #000 80% 82%, transparent 82.5%);}
   [data-theme="D"] #money-view .mcc-ac-donut2.glowlayer{pointer-events:none;}
   [data-theme="D"] #money-view .mcc-ac-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;}
   [data-theme="D"] #money-view .mcc-ac-center .big{font-size:.78rem;letter-spacing:.5px;}

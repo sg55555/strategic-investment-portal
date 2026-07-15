@@ -64,6 +64,9 @@ async function acSnapshot(page) {
       inputFieldCount: el.querySelectorAll(".mcc-ac-input input[type=number]").length,
       yenReadoutExists: !!el.querySelector(".mcc-ac-yen"),
       yenReadoutText: (el.querySelector(".mcc-ac-yen") || {}).textContent || null,
+      // Important1: 凡例swatchのinline styleに background と color の両方（hue一致glow）
+      swatchStyleAttrs: [...el.querySelectorAll(".mcc-ac-leg .mcc-ac-swatch")].map((s) => s.getAttribute("style") || ""),
+      driftSwatchStyleAttrs: [...el.querySelectorAll(".mcc-ac-driftrow .mcc-ac-swatch")].map((s) => s.getAttribute("style") || ""),
     };
   });
 }
@@ -174,7 +177,19 @@ async function getState(page) {
 
     snap = await acSnapshot(page);
     results.sec8_yenReadoutAppearsLoggedIn = !!snap && snap.yenReadoutExists;
+    // Important1: 凡例/ドリフト swatch は background と color を両方持つ（14個すべて・グロー hue 一致）
+    results.sec11_legendSwatchHasColor =
+      !!snap && snap.swatchStyleAttrs.length === 7 && snap.swatchStyleAttrs.every((s) => /background:/.test(s) && /color:/.test(s));
+    results.sec11_driftSwatchHasColor =
+      !!snap && snap.driftSwatchStyleAttrs.length === 7 && snap.driftSwatchStyleAttrs.every((s) => /background:/.test(s) && /color:/.test(s));
     results.sec8_snapshotLoggedIn = snap;
+
+    // ============ フェーズG: ログイン済 × birthYear 未設定でも ¥readout が出る（Minor4）============
+    await page.evaluate(() => { MCC.setField("birthYear", 0); }); // 未設定へ戻す
+    await page.waitForTimeout(150);
+    snap = await acSnapshot(page);
+    results.sec12_yenReadoutWhenLoggedInButUnconfigured = !!snap && snap.yenReadoutExists && snap.readoutMuted;
+    results.sec12_noDonutWhenUnconfigured = !!snap && !snap.donutExists;
 
     results.pageerrors = errors;
 
@@ -189,6 +204,8 @@ async function getState(page) {
       results.sec9_scopeToggleChangesHtml && results.sec9_totalBtnActive &&
       results.sec10_quickFillSetsCashToTotal &&
       results.sec8_yenReadoutAppearsLoggedIn &&
+      results.sec11_legendSwatchHasColor && results.sec11_driftSwatchHasColor &&
+      results.sec12_yenReadoutWhenLoggedInButUnconfigured && results.sec12_noDonutWhenUnconfigured &&
       errors.length === 0;
 
     console.log(JSON.stringify(results, null, 2));

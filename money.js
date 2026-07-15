@@ -835,7 +835,9 @@ window.MCC = (function () {
   var AC_BUCKET_NAMES = { buffer: "バッファ（現金）", core: "コア", satellite: "サテライト" };
   var AC_UNCLASSIFIED_COLOR = "#64748b"; // spec §6.1: 低chromaスレート（現在地バー限定・facts非出力）
   // spec §6.3 MINOR-27: 下部帯(成長/守り2値)はidentity 7色と非衝突のニュートラル暖色。守り=緑(bond域)。
-  var AC_BAND_GROW_COLOR = "#e0993d";
+  // gold(#ff7a00・hue~29°/彩度~100%)と近接しないよう、脱彩度した warm tan（hue~45°/彩度~20%）を採用＝
+  // 共有の filter:saturate(1.55) 適用後も gold の鮮やかなオレンジへ収束しない（太田さん最終実機で微調整余地あり）。
+  var AC_BAND_GROW_COLOR = "#aca283";
 
   function _hexRgb(h) {
     var n = parseInt(h.slice(1), 16);
@@ -898,7 +900,7 @@ window.MCC = (function () {
       var cls = x.driftPct > 0 ? "over" : x.driftPct < 0 ? "under" : "match";
       var sign = x.driftPct > 0 ? "+" : "";
       return '<div class="mcc-ac-driftrow ' + cls + '">' +
-        '<span class="cn"><span class="mcc-ac-swatch" style="background:' + AC_COLORS[x.key] + '"></span>' + esc(AC_NAMES[x.key]) + '</span>' +
+        '<span class="cn"><span class="mcc-ac-swatch" style="background:' + AC_COLORS[x.key] + ';color:' + AC_COLORS[x.key] + '"></span>' + esc(AC_NAMES[x.key]) + '</span>' +
         '<span class="tr">目標 ' + x.targetPct + '% → 現状 ' + x.currentPct + '%</span>' +
         '<span class="dv">' + sign + x.driftPct + 'pt</span></div>';
     }).join("");
@@ -987,7 +989,7 @@ window.MCC = (function () {
       var legendHtml = "";
       for (var li = 0; li < R.ASSET_CLASSES.length; li++) {
         var lk = R.ASSET_CLASSES[li];
-        legendHtml += '<div class="mcc-ac-leg"><span class="mcc-ac-swatch" style="background:' + AC_COLORS[lk] + '"></span>' +
+        legendHtml += '<div class="mcc-ac-leg"><span class="mcc-ac-swatch" style="background:' + AC_COLORS[lk] + ';color:' + AC_COLORS[lk] + '"></span>' +
           '<span class="nm">' + esc(AC_NAMES[lk]) + '</span><span class="pc">' + (target[lk] || 0) + '%</span></div>';
       }
       // spec §5-3/§6.1: 目標ドーナツは7クラスのみ（未分類グレーは現在地バー限定＝ここには出さない）。
@@ -1002,12 +1004,6 @@ window.MCC = (function () {
           '<div class="mcc-ac-legend">' + legendHtml + '</div>' +
         '</div>';
 
-      // spec §5-9: ¥readout（派生・保有総額）は sync.loggedIn 時のみ。%・手入力欄は常時表示（readout gateであってinput gateでない）。
-      var yenReadout = "";
-      if (sync.loggedIn) {
-        var hSum = _acHoldingsSum(holdings, scope);
-        yenReadout = '<div class="mcc-ac-yen">現状の保有合計（' + (scope === "total" ? "総資産" : "コア") + '）<strong>' + vm.fmt(hSum) + '</strong></div>';
-      }
       var barTarget = _acStack(target);
       var barCurrent = _acStack(currentMap || {}) +
         (uncPct > 0 ? '<div class="mcc-ac-seg" style="width:' + uncPct + '%;' + _acUncStyle() + '" title="未分類 ' + uncPct + '%"></div>' : "");
@@ -1015,12 +1011,20 @@ window.MCC = (function () {
         '<div class="mcc-ac-bars">' +
           '<div class="mcc-ac-barlab">設計図（目標）</div><div class="mcc-ac-stack">' + barTarget + '</div>' +
           '<div class="mcc-ac-barlab">現在地（現状）</div><div class="mcc-ac-stack">' + barCurrent + '</div>' +
-        '</div>' + yenReadout;
+        '</div>';
 
       railHtml = '<div class="mcc-ac-rail">' + _acDriftRail(drift) + '</div>';
 
       bandsHtml = '<div class="mcc-ac-bands"><div class="cap">◷ 将来の設計図（年齢とともに"守り"へ寄っていく・表示のみ）</div>' +
         _acBands(state.birthYear, nowMs) + '</div>';
+    }
+
+    // spec §5-9/MINOR-29: ¥readout（派生・保有合計）は sync.loggedIn のみでゲート（birthYear 未設定と独立＝gp.configured 外）。
+    // %・手入力欄は常時表示（readout gate であって input gate ではない）。_acHoldingsSum は gp/target 非依存。
+    var yenReadoutHtml = "";
+    if (sync.loggedIn) {
+      var hSum = _acHoldingsSum(holdings, scope);
+      yenReadoutHtml = '<div class="mcc-ac-yen">現状の保有合計（' + (scope === "total" ? "総資産" : "コア") + '）<strong>' + vm.fmt(hSum) + '</strong></div>';
     }
 
     var ageRow =
@@ -1038,7 +1042,7 @@ window.MCC = (function () {
       '<div class="mcc-section-title mcc-section-title-gap">資産クラス比率' + termHelp("資産クラス") + '</div>' +
       '<div class="mcc-section-desc">年齢に合わせた"設計図"（目標）と、今の"現在地"（現状）のズレを見える化します。</div>' +
       '<div class="mcc-ac-card neonb">' +
-        ageRow + toolbar + donutHtml + acInputHtml + barsHtml + railHtml + bandsHtml + disc +
+        ageRow + toolbar + donutHtml + acInputHtml + yenReadoutHtml + barsHtml + railHtml + bandsHtml + disc +
       '</div>' +
     '</div>';
   }

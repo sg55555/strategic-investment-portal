@@ -887,7 +887,6 @@
 [data-theme="D"] #money-view .mcc-ac-card.neonb .mcc-ac-seg { mix-blend-mode: screen; filter: saturate(1.55) brightness(1.5); }
 [data-theme="D"] #money-view .mcc-ac-card.neonb .mcc-ac-donut2 { mix-blend-mode: screen; filter: saturate(1.55) brightness(1.5); }
 [data-theme="D"] #money-view .mcc-ac-card.neonb .mcc-ac-donut2.glowlayer { filter: blur(13px) saturate(1.55) brightness(1.5); opacity: 0.42; }
-[data-theme="D"] #money-view .mcc-ac-card.neonb .mcc-ac-band .mcc-ac-seg { mix-blend-mode: screen; }
 [data-theme="D"] #money-view .mcc-ac-card.neonb .mcc-ac-driftrow.over .dv { text-shadow: 0 0 9px var(--c-amber); }
 [data-theme="D"] #money-view .mcc-ac-card.neonb .mcc-ac-driftrow.under .dv { text-shadow: 0 0 9px var(--c-cyan-bright); }
 [data-theme="D"] #money-view .mcc-ac-card.neonb .mcc-ac-driftrow.match .dv { text-shadow: 0 0 9px var(--c-emerald-soft); }
