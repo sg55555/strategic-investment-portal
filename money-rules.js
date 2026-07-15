@@ -12,7 +12,7 @@
 
   // Slice3: AI規律コーチ。正準 next ターゲット（Python テンプレ map と test 網羅の単一源）。
   var NEXT_TARGETS = ["setup", "buffer", "rebalance", "core"];
-  var FACTS_SCHEMA_VERSION = 4; // v4: 資産クラス比率（backlog B #2）assetClasses 集約を facts に追加
+  var FACTS_SCHEMA_VERSION = 5; // v5: NISA枠（backlog B #3）nisa 集約を facts に追加
   // B#3 NISA枠（非課税枠）法定枠定数（2024新NISA・facts非出力＝公開既知値。年度改定時はここを更新）。
   var NISA_ANNUAL_TSUMITATE = 1200000;   // つみたて投資枠 年間上限
   var NISA_ANNUAL_GROWTH = 2400000;      // 成長投資枠 年間上限

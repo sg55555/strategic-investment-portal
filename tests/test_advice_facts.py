@@ -217,8 +217,8 @@ CF_ALLOW = {
 CF_RESERVES_ALLOW = {"active", "fundedPct", "shortfall"}
 
 
-def test_schema_version_4():
-    assert advice.SCHEMA_VERSION == 4
+def test_schema_version_5():
+    assert advice.SCHEMA_VERSION == 5
 
 
 def test_production_roadmap_no_raw_yen():
@@ -824,9 +824,9 @@ def test_asset_classes_facts_out_of_range_now_ms_is_none_mirror():
     assert advice._asset_classes_facts(s, 1e300) is None
 
 
-def test_mode_a_facts_schema_version_4_and_asset_classes_key_absent_when_unset():
+def test_mode_a_facts_schema_version_5_and_asset_classes_key_absent_when_unset():
     f = advice.mode_a_facts(advice._migrate({"birthYear": 0}), False, _MS_2026_UTC0715)
-    assert f["schemaVersion"] == 4
+    assert f["schemaVersion"] == 5
     assert "assetClasses" not in f
 
 

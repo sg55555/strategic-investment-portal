@@ -344,8 +344,8 @@ const CASHFLOW_FACT_KEYS = new Set([
 ]);
 const CF_RESERVES_KEYS = new Set(["active", "fundedPct", "shortfall"]);
 
-test("FACTS_SCHEMA_VERSION は 4（資産クラス比率 assetClasses 集約追加で bump）", () => {
-  assert.equal(R.FACTS_SCHEMA_VERSION, 4);
+test("FACTS_SCHEMA_VERSION は 5（NISA枠 nisa 集約追加で bump）", () => {
+  assert.equal(R.FACTS_SCHEMA_VERSION, 5);
 });
 
 test("modeAFacts(production, cashflow): facts.cashflow は allowlist のみ・生額(yen)を漏らさない", () => {
@@ -1139,9 +1139,9 @@ test("assetClassesFacts: 域外nowMs（glidePath非configured）も undefined", 
   const s = R.migrate({birthYear:1986});
   assert.equal(R.assetClassesFacts(s, 1e300), undefined);
 });
-test("modeAFacts: schemaVersion=4・未設定 birthYear で assetClasses キー不在", () => {
+test("modeAFacts: schemaVersion=5・未設定 birthYear で assetClasses キー不在", () => {
   const f = R.modeAFacts(R.migrate({birthYear:0}), {nowMs: Date.UTC(2026,6,15)});
-  assert.equal(f.schemaVersion, 4);
+  assert.equal(f.schemaVersion, 5);
   assert.equal("assetClasses" in f, false);
 });
 test("modeAFacts: birthYear設定時は production/personal 両方に assetClasses が同値で載る（age は raw 隔離不要）", () => {

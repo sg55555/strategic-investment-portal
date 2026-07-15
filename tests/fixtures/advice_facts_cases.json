@@ -22,7 +22,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -48,7 +48,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -105,7 +105,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "buffer",
           "coreProgressPct": 0,
@@ -131,7 +131,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "buffer",
           "coreProgressPct": 0,
@@ -189,7 +189,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "rebalance",
           "coreProgressPct": 4,
@@ -215,7 +215,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "rebalance",
           "coreProgressPct": 4,
@@ -290,7 +290,7 @@
           }
         ],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "core",
           "coreProgressPct": 14,
@@ -324,7 +324,7 @@
           }
         ],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "core",
           "coreProgressPct": 14,
@@ -415,7 +415,7 @@
           }
         ],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -449,7 +449,7 @@
           }
         ],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -514,7 +514,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -540,7 +540,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -653,7 +653,7 @@
           }
         ],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -715,7 +715,7 @@
           }
         ],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -854,7 +854,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "buffer",
           "coreProgressPct": 0,
@@ -898,7 +898,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "buffer",
           "coreProgressPct": 0,
@@ -1038,7 +1038,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "core",
           "coreProgressPct": 21,
@@ -1082,7 +1082,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "core",
           "coreProgressPct": 21,
@@ -1179,7 +1179,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "buffer",
           "coreProgressPct": 0,
@@ -1223,7 +1223,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "buffer",
           "coreProgressPct": 0,
@@ -1364,7 +1364,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "buffer",
           "coreProgressPct": 0,
@@ -1408,7 +1408,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "buffer",
           "coreProgressPct": 0,
@@ -1590,7 +1590,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "buffer",
           "coreProgressPct": 0,
@@ -1634,7 +1634,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "buffer",
           "coreProgressPct": 0,
@@ -1774,7 +1774,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "core",
           "coreProgressPct": 10,
@@ -1818,7 +1818,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "core",
           "coreProgressPct": 10,
@@ -1958,7 +1958,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "buffer",
           "coreProgressPct": 0,
@@ -2002,7 +2002,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "buffer",
           "coreProgressPct": 0,
@@ -2158,7 +2158,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "core",
           "coreProgressPct": 0,
@@ -2207,7 +2207,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "core",
           "coreProgressPct": 0,
@@ -2364,7 +2364,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "core",
           "coreProgressPct": 0,
@@ -2413,7 +2413,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "core",
           "coreProgressPct": 0,
@@ -2570,7 +2570,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "buffer",
           "coreProgressPct": 0,
@@ -2619,7 +2619,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "buffer",
           "coreProgressPct": 0,
@@ -2776,7 +2776,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "core",
           "coreProgressPct": 0,
@@ -2825,7 +2825,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "core",
           "coreProgressPct": 0,
@@ -2988,7 +2988,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "core",
           "coreProgressPct": 0,
@@ -3037,7 +3037,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "core",
           "coreProgressPct": 0,
@@ -3186,7 +3186,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "core",
           "coreProgressPct": 14,
@@ -3230,7 +3230,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "core",
           "coreProgressPct": 14,
@@ -3342,7 +3342,7 @@
           }
         ],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "core",
           "coreProgressPct": 18,
@@ -3376,7 +3376,7 @@
           }
         ],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "core",
           "coreProgressPct": 18,
@@ -3488,7 +3488,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "satellite",
           "coreProgressPct": 50,
@@ -3532,7 +3532,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "satellite",
           "coreProgressPct": 50,
@@ -3673,7 +3673,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "independence",
           "coreProgressPct": 100,
@@ -3717,7 +3717,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "independence",
           "coreProgressPct": 100,
@@ -3841,7 +3841,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "satellite",
           "coreProgressPct": 83,
@@ -3914,7 +3914,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "satellite",
           "coreProgressPct": 83,
@@ -4049,7 +4049,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -4122,7 +4122,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -4272,7 +4272,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -4345,7 +4345,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -4495,7 +4495,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -4568,7 +4568,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -4718,7 +4718,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -4791,7 +4791,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -4941,7 +4941,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -4967,7 +4967,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -5070,7 +5070,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -5143,7 +5143,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -5293,7 +5293,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "satellite",
           "coreProgressPct": 83,
@@ -5366,7 +5366,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "satellite",
           "coreProgressPct": 83,
@@ -5516,7 +5516,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "satellite",
           "coreProgressPct": 83,
@@ -5589,7 +5589,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "satellite",
           "coreProgressPct": 83,
@@ -5739,7 +5739,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -5812,7 +5812,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -5962,7 +5962,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -6035,7 +6035,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -6146,7 +6146,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -6219,7 +6219,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -6369,7 +6369,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -6442,7 +6442,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -6592,7 +6592,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -6618,7 +6618,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -6721,7 +6721,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -6747,7 +6747,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -6850,7 +6850,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -6923,7 +6923,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "setup",
           "coreProgressPct": 0,
@@ -7073,7 +7073,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "buffer",
           "coreProgressPct": 0,
@@ -7146,7 +7146,7 @@
         "goalsCount": 0,
         "goals": [],
         "rulesVersion": 2,
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "roadmap": {
           "phase": "buffer",
           "coreProgressPct": 0,
