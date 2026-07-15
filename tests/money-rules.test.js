@@ -947,6 +947,14 @@ test("migrate: birthYear は有限整数1900..9999のみ受理・範囲外/非�
   assert.equal(R.migrate({}).birthYear, 0);
 });
 
+test("migrate: birthYear 単一要素配列は unbox せず0（Task7 fuzz回帰・Number([1990])===1990 と Python float([1990])→TypeError→0 の発散修正）", () => {
+  assert.equal(R.migrate({ birthYear: [1990] }).birthYear, 0);   // JS Number([1990])===1990 だが numScalar は配列を拒否
+  assert.equal(R.migrate({ birthYear: [1] }).birthYear, 0);      // 域外の単一要素も同様に0（元々0だった経路は不変）
+  assert.equal(R.migrate({ birthYear: [] }).birthYear, 0);       // 空配列
+  assert.equal(R.migrate({ birthYear: [1990, 1991] }).birthYear, 0); // 複数要素配列
+  assert.equal(R.migrate({ birthYear: { a: 1990 } }).birthYear, 0);  // オブジェクト
+});
+
 test("migrate: assetHoldings/assetSource を coerce（未知キー破棄・ledger以外はmanual）", () => {
   const m1 = R.migrate({ assetHoldings: { core: { jpEq: 500, XXX: 1 } }, assetSource: "ledger" });
   assert.equal(m1.assetHoldings.core.jpEq, 500);
@@ -968,6 +976,14 @@ test("glidePath: 40歳→R70/D30、未設定/未来/巨大nowMs→configured:fal
   assert.equal(R.glidePath(1986, 1e300).configured, false);     // 巨大nowMs（Invalid Date→!isFinite(getTime)が先に捕捉）
   // date-range 対称化: JS Date は年10000+も有効だが Py datetime は9999上限→cyガードで両言語 configured:false に揃える
   assert.equal(R.glidePath(9950, 253402300800000).configured, false); // cy=10000（>9999）
+});
+test("glidePath: nowMs 単一要素配列は unbox せず0扱い（Task7 fuzz回帰・本番非到達だが byte一致のため塞ぐ）", () => {
+  const ms2026 = Date.UTC(2026, 6, 15);
+  // numScalar(nowMs)=0（配列は unbox しない）→ new Date(0)=1970-01-01 UTC。
+  assert.deepEqual(R.glidePath(1986, [ms2026]), R.glidePath(1986, 0));
+  assert.equal(R.glidePath(1986, [ms2026]).configured, false); // 1970年時点では by=1986 は未来（age<0）
+  assert.deepEqual(R.glidePath(1946, [ms2026]), R.glidePath(1946, 0)); // 1970-1946=24歳として configured:true
+  assert.equal(R.glidePath(1946, [ms2026]).configured, true);
 });
 test("regionBreakdown: R70/90/30で Σ=100・端数吸収発火・タイブレークは allowlist順", () => {
   const b = R.regionBreakdown(70);
@@ -1064,4 +1080,11 @@ test("modeAFacts: birthYear設定時は production/personal 両方に assetClass
   assert.ok(prod.assetClasses);
   assert.deepEqual(prod.assetClasses, pers.assetClasses); // 両モードトップレベル同値（差は raw のみ）
   assert.equal(prod.assetClasses.riskAssetPct, 70);
+});
+test("modeAFacts: 単一要素配列 birthYear は migrate で0へ落ち assetClasses キー不在（Task7 fuzz回帰・Python mode_a_facts と鏡像挙動）", () => {
+  const raw = { birthYear: [1990], assetHoldings: { buffer: { cash: 100 } } };
+  const prod = R.modeAFacts(raw, { nowMs: Date.UTC(2026, 6, 15) });
+  const pers = R.modeAFacts(raw, { includeRawAmounts: true, nowMs: Date.UTC(2026, 6, 15) });
+  assert.equal("assetClasses" in prod, false);
+  assert.equal("assetClasses" in pers, false);
 });

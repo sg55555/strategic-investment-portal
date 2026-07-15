@@ -552,6 +552,18 @@ def test_birth_year_asset_source_parity_fixture():
     assert advice._normalize_birth_year(-5) == 0
 
 
+def test_normalize_birth_year_single_element_list_not_unboxed():
+    """Task7 fuzz回帰: Python float([1990]) は元々 TypeError→0（JS Number([1990])===1990 の unbox 側が発散源
+    だった）。_num_scalar 化後も 0 のまま・かつ money-rules.js normalizeBirthYear（numScalar化）と鏡像で
+    byte一致することを固定する。"""
+    assert advice._normalize_birth_year([1990]) == 0
+    assert advice._normalize_birth_year([1]) == 0
+    assert advice._normalize_birth_year([]) == 0
+    assert advice._normalize_birth_year([1990, 1991]) == 0
+    assert advice._normalize_birth_year({"a": 1990}) == 0
+    assert advice._migrate({"birthYear": [1990]})["birthYear"] == 0
+
+
 # --- B#2 資産クラス比率: Task2 グライドパス＋地域内訳 ---
 
 _MS_2026 = 1784073600000  # Date.UTC(2026, 6, 15) と同値（2026-07-15 UTC・JS money-rules.test.js と対）
@@ -567,6 +579,15 @@ def test_glide_path_boundaries_and_degrade():
     assert advice._glide_path(1986, 1e300)["configured"] is False       # 巨大now_ms（degrade対称・500を作らない）
     # date-range 対称化: JS Date は年10000+も有効だが Py datetime は9999上限。cyガードで両言語 configured:false に揃える
     assert advice._glide_path(9950, 253402300800000)["configured"] is False  # cy=10000（>9999）
+
+
+def test_glide_path_now_ms_single_element_list_not_unboxed():
+    """Task7 fuzz回帰: now_ms が単一要素配列でも _num_scalar 化後は unbox せず0扱い
+    （money-rules.js glidePath の numScalar 化と鏡像・本番非到達経路だが byte一致のため固定）。"""
+    assert advice._glide_path(1986, [_MS_2026]) == advice._glide_path(1986, 0)
+    assert advice._glide_path(1986, [_MS_2026])["configured"] is False  # 1970年基準では1986年生まれは未来
+    assert advice._glide_path(1946, [_MS_2026]) == advice._glide_path(1946, 0)
+    assert advice._glide_path(1946, [_MS_2026])["configured"] is True
 
 
 def test_region_breakdown_sums_to_100_with_tiebreak():
@@ -692,6 +713,17 @@ def test_mode_a_facts_asset_classes_top_level_parity_both_modes():
     assert prod["assetClasses"]
     assert prod["assetClasses"] == pers["assetClasses"]  # 両モードトップレベル同値（差は raw のみ）
     assert prod["assetClasses"]["riskAssetPct"] == 70
+
+
+def test_mode_a_facts_single_element_array_birth_year_key_absent_parity():
+    """Task7 fuzz回帰: birthYear=[1990]（単一要素配列）は _migrate で0へ落ち assetClasses キー不在
+    （money-rules.js modeAFacts の同名テストと鏡像・JS側は既に0/キー不在で一致・修正前は
+    Python のみ 0/キー不在・JS のみ 1990/キー存在で発散していた）。"""
+    raw = {"birthYear": [1990], "assetHoldings": {"buffer": {"cash": 100}}}
+    prod = advice.mode_a_facts(raw, False, _MS_2026_UTC0715)
+    pers = advice.mode_a_facts(raw, True, _MS_2026_UTC0715)
+    assert "assetClasses" not in prod
+    assert "assetClasses" not in pers
 
 
 def test_coarsen_asset_classes_buckets_current_and_signed_drift_not_target():

@@ -57,9 +57,10 @@
   // migrate 専用 birthYear coerce（有限・整数・1900<=n<=9999 以外は 0＝spec §2.2）。
   // spec の "1900..currentYear" のうち currentYear は migrate 時に nowMs 無しで得られないため、
   // 未来年/2桁typo 等の意味的妥当性は Task2 glidePath の age gate（age<0||age>120）が担う。
+  // 基底 coerce は numScalar()（汎用 Number() ではない）＝配列/オブジェクトは常に0（Number([1990])===1990 の
+  // unbox を排除し Python float([1990])→TypeError→0 と byte 一致・Task7 fuzz が捕捉した divergence の修正）。
   function normalizeBirthYear(v) {
-    var n = Number(v);
-    if (!isFinite(n)) return 0;
+    var n = numScalar(v);
     n = Math.floor(n);
     return (n >= 1900 && n <= 9999) ? n : 0;
   }
@@ -68,8 +69,10 @@
   // 不正/巨大 nowMs（例 1e300）は !isFinite(nd.getTime())（Invalid Date）が先に捕捉し configured:false へ。
   // cy の妥当年ガードは Py datetime 有効域（1..9999）に合わせ、JS Date が扱える年10000+（例 nowMs 253402300800000）での
   // JS(configured:true) vs Py(9999で例外→configured:false) 発散を潰す。
+  // nowMs の基底 coerce は numScalar()（汎用 num() ではない）＝配列/オブジェクトは常に0＝Python _num_scalar() と
+  // byte 一致（本番非到達経路だが Task7 fuzz が捕捉した divergence を塞ぐ）。
   function glidePath(birthYear, nowMs) {
-    var nd = new Date(num(nowMs));
+    var nd = new Date(numScalar(nowMs));
     if (!isFinite(nd.getTime())) return { configured: false };
     var cy = nd.getUTCFullYear();
     if (cy < 1 || cy > 9999) return { configured: false }; // Py datetime 有効域に対称化
@@ -804,7 +807,12 @@
   function modeAFacts(rawState, opts) {
     opts = opts || {};
     var includeRaw = !!opts.includeRawAmounts;
-    var nowMs = num(opts.nowMs);
+    // opts.nowMs の基底 coerce は numScalar()（汎用 num() ではない）＝配列は unbox しない。
+    // Python mode_a_facts は now_ms を一切事前coerceせず raw のまま各ヘルパへ渡す（各ヘルパ内部で個別に coerce）。
+    // ここで num() のまま Number([x])===x を許すと、この後 assetClassesFacts(s, nowMs)→glidePath に渡る時点で
+    // 既に scalar 化済みとなり、glidePath 内部の numScalar 化（Task7 fuzz 修正）が素通りされてしまう
+    // （Python 側は _asset_classes_facts に raw now_ms がそのまま渡り、_glide_path 内の _num_scalar が直接効く＝非対称）。
+    var nowMs = numScalar(opts.nowMs);
     var s = migrate(rawState);
     var cur = s.currency === "USD" ? "USD" : "JPY"; // 自由文字列 currency を閉集合へ
     var total = totalAssets(s);

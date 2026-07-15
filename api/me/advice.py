@@ -197,13 +197,10 @@ def _normalize_birth_year(v):
     """migrate 専用 birthYear coerce（有限・整数・1900<=n<=9999 以外は 0＝spec §2.2・money-rules.js normalizeBirthYear の鏡像）。
     spec の "1900..currentYear" のうち currentYear は migrate 時に nowMs 無しで得られないため、
     未来年/2桁typo 等の意味的妥当性は Task2 glidePath の age gate（age<0||age>120）が担う。
-    JS Number(v) は bool を 0/1 として扱うため、ここも bool を特別扱いしない（float(v) に委ねてparity維持）。"""
-    try:
-        n = float(v)
-    except (TypeError, ValueError):
-        return 0
-    if not math.isfinite(n):
-        return 0
+    基底 coerce は _num_scalar()（汎用 float() ではない）＝list/dict は常に0（float([1990]) の TypeError→0 と、
+    JS Number([1990])===1990 の unbox を排除した numScalar([1990])===0 が byte 一致・Task7 fuzz が捕捉した
+    divergence の修正）。_num_scalar は bool も 0 扱い（旧 float(v) 委譲時代の bool=0/1 委譲コメントは廃止）。"""
+    n = _num_scalar(v)
     n = int(n // 1)
     return n if 1900 <= n <= 9999 else 0
 
@@ -219,9 +216,11 @@ def _r(x):
 def _glide_path(birth_year, now_ms):
     """Task2: 年齢グライドパス（money-rules.js glidePath の鏡像）。
     current_year は UTC 導出・degrade 対称（巨大/負/不正 now_ms は JS Invalid Date と揃え configured:False）。
-    cy の明示ガード（1..9999）で JS Date(年10000+可) と Py datetime(9999上限) のライブラリ差による発散を潰す（両言語対称）。"""
+    cy の明示ガード（1..9999）で JS Date(年10000+可) と Py datetime(9999上限) のライブラリ差による発散を潰す（両言語対称）。
+    now_ms の基底 coerce は _num_scalar()（汎用 _num() ではない）＝list/dict は常に0＝JS numScalar() と byte 一致
+    （本番非到達経路だが Task7 fuzz が捕捉した divergence を塞ぐ）。"""
     try:
-        cy = datetime.fromtimestamp(_num(now_ms) / 1000, tz=timezone.utc).year
+        cy = datetime.fromtimestamp(_num_scalar(now_ms) / 1000, tz=timezone.utc).year
     except (OverflowError, OSError, ValueError):
         return {"configured": False}
     if cy < 1 or cy > 9999:  # JS と対称の明示ガード（datetime は 9999 で例外だが依存せず明示）
