@@ -13,6 +13,16 @@
     { "input": "2026-13-01", "ms": null, "note": "月13 → カレンダー無効で両言語 reject" },
     { "input": "2026-02-30", "ms": null, "note": "2月30日 → カレンダー無効で両言語 reject" },
     { "input": "2026-07-15T25:00:00Z", "ms": null, "note": "時25 → カレンダー無効で両言語 reject" },
-    { "input": "", "ms": null, "note": "空文字 → null" }
+    { "input": "", "ms": null, "note": "空文字 → null" },
+    { "input": "2026-07-15T24:00:00", "ms": null, "note": "hour 24（ISO 真夜中表記）→ 両言語 reject（wf-A・Py fromisoformat は翌日へロールし受理するため明示除外）" },
+    { "input": "2026-07-15T24:00:00Z", "ms": null, "note": "hour 24 + Z → reject（wf-A）" },
+    { "input": "2026-07-15T24:30:00", "ms": null, "note": "hour 24+分 → 両言語 reject（Py も元々 None）" },
+    { "input": "0050-06-15", "ms": -60575040000000, "note": "西暦50 → 字面年（wf-B・JS Date.UTC の2桁年1900写像を setUTCFullYear で回避）" },
+    { "input": "0001-01-01", "ms": -62135596800000, "note": "西暦1 → 字面年（wf-B）" },
+    { "input": "0099-12-31", "ms": -59011545600000, "note": "西暦99 → 字面年（wf-B・境界）" },
+    { "input": "0000-01-01", "ms": null, "note": "西暦0 → reject（wf-B・Py datetime 有効域 1..9999・year<1 ガード）" },
+    { "input": "2026-07-15T10:30:00.999999", "ms": 1784111400999, "note": "小数秒6桁 → ms へ floor（wf-C・µs 捨て両言語一致）" },
+    { "input": "2026-07-15T10:30:00.123456", "ms": 1784111400123, "note": "小数秒6桁（wf-C）" },
+    { "input": "2026-07-15T12:00:00+0900", "ms": null, "note": "コロン無オフセット → reject（wf-F・regex pre-filter が load-bearing＝fromisoformat は受理するが両言語 reject へ）" }
   ]
 }

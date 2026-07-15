@@ -605,6 +605,8 @@ def _allocation_plan(s, cd):
 def _deadline_bucket(deadline, now_ms):
     if not deadline or not _DATE_RE.match(deadline) or not (_num(now_ms) > 0):
         return None
+    if int(deadline[0:4]) < 1:  # wf-E: 西暦0 は datetime 有効域外（strptime も ValueError だが JS deadlineBucket の year<1 ガードと明示ミラー）
+        return None
     try:
         t = datetime.strptime(deadline, "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp() * 1000.0
     except ValueError:
@@ -641,18 +643,21 @@ def _mean(arr):
 
 
 def _parse_iso_ms(v):
-    """ISO 文字列(fixture)も datetime(DB の pulled_at)も epoch ms へ（JS Date.parse と等価・UTC）。"""
+    """ISO 文字列(fixture)も datetime(DB の pulled_at)も epoch ms へ（money-rules.js parseIsoMs と byte-parity・UTC・ms floor）。"""
     if isinstance(v, datetime):
         dt = v if v.tzinfo else v.replace(tzinfo=timezone.utc)
-        return dt.timestamp() * 1000.0
+        return math.floor(dt.timestamp() * 1000)  # wf-C: ms へ floor（DB datetime 経路も JS の isoformat 文字列 floor と一致）
     if isinstance(v, str) and v:
-        if not _ISO_RE.match(v):  # #1 JS parseIsoMs と同一 grammar で pre-filter（非 ISO/lenient を両言語 reject）
+        m = _ISO_RE.match(v)
+        if not m:  # #1 JS parseIsoMs と同一 grammar で pre-filter（非 ISO/lenient を両言語 reject）
+            return None
+        if m.group(4) is not None and int(m.group(4)) > 23:  # wf-A: JS は hh>23 を reject（fromisoformat は 24:00:00 を翌日へロールし受理するため明示除外）
             return None
         try:
             dt = datetime.fromisoformat(v.replace("Z", "+00:00"))
             if dt.tzinfo is None:
                 dt = dt.replace(tzinfo=timezone.utc)
-            return dt.timestamp() * 1000.0
+            return math.floor(dt.timestamp() * 1000)  # wf-C: JS 同様 ms へ floor（µs 精度を捨て parseIsoMs と一致）
         except ValueError:
             return None
     return None

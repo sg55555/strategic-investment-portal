@@ -395,6 +395,14 @@ def test_goal_progress_total_overflow():
     assert f2["goals"][0]["progressPct"] == 100
 
 
+def test_deadline_bucket_year_below_one():
+    # #3 系（wf-E）: year<1 は Py strptime 有効域外・JS も対称に None（year<1 明示ガード）。
+    import datetime as dt
+    now = dt.datetime(2026, 6, 28, tzinfo=dt.timezone.utc).timestamp() * 1000
+    assert advice._deadline_bucket("0000-06-15", now) is None
+    assert advice._deadline_bucket("2027-06-15", now) is not None  # 正当年は不変（回帰）
+
+
 def test_cashflow_reserves_waterfall_priority():
     c = next(x for x in CASES if x["name"] == "cashflow-reserves-priority")
     f = advice.mode_a_facts(c["state"], False, _case_now(c), c["cashflow"])

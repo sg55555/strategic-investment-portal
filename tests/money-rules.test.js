@@ -694,6 +694,13 @@ test("modeAFacts(goals): totalAssets overflow(∞) を目標『達成』にし�
   assert.equal(R.modeAFacts(s2, { nowMs: 0 }).goals[0].progressPct, 100);
 });
 
+// #3 系（wf-E）: deadlineBucket の year<1 は Py strptime 有効域外につき両側 null（glidePath/reserveMonthly の cy ガードと一貫）。
+test("deadlineBucket: 西暦0(year<1)は両側 null（Py strptime 有効域外と対称）", () => {
+  const now = Date.parse("2026-06-28T00:00:00Z");
+  assert.equal(R.deadlineBucket("0000-06-15", now), null);
+  assert.notEqual(R.deadlineBucket("2027-06-15", now), null); // 正当年は従来どおりバケツ（回帰）
+});
+
 test("cashflowDerived: ウォーターフォール buffer→確保枠→core（優先順位順・不足は下位0）", () => {
   const rows = [
     { period: "2026-03-01", total_income: 400000, total_expense: 300000, balance: 100000, is_complete: true },

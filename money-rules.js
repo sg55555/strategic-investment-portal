@@ -548,6 +548,7 @@
   // deadline(YYYY-MM-DD) を now(epoch ms)基準の粗バケツへ写す（純粋・生日付は出さない）。
   function deadlineBucket(deadline, nowMs) {
     if (!deadline || !_DATE_RE.test(deadline) || !(num(nowMs) > 0)) return null;
+    if (parseInt(deadline.slice(0, 4), 10) < 1) return null; // wf-E: 西暦0 は Py strptime 有効域外（year>=1）・glidePath/reserveMonthly の cy ガードと一貫
     var t = Date.parse(deadline + "T00:00:00Z");
     if (!isFinite(t)) return null;
     // カレンダー妥当性: Date.parse のロールオーバー(2026-02-30→3-02 等)を弾き Python strptime(拒否)と一致させる。
@@ -580,18 +581,21 @@
     var m = _ISO_RE.exec(v);
     if (!m) return null;
     var Y = +m[1], Mo = +m[2], D = +m[3];
-    if (Mo < 1 || Mo > 12 || D < 1 || D > _daysInMonth(Y, Mo)) return null; // カレンダー妥当性（Py fromisoformat の厳密拒否と一致）
+    if (Y < 1 || Mo < 1 || Mo > 12 || D < 1 || D > _daysInMonth(Y, Mo)) return null; // 西暦0＋カレンダー妥当性（Py datetime 有効域 1..9999・fromisoformat 拒否と一致）
     var hh = 0, mi = 0, ss = 0, ms = 0, offMin = 0;
     if (m[4] != null) {                                          // 時刻部あり
       hh = +m[4]; mi = +m[5]; ss = +m[6];
-      if (hh > 23 || mi > 59 || ss > 59) return null;            // 25:00/…:60 等は無効（Py 例外と対称）
-      if (m[7]) ms = Math.floor(parseFloat("0" + m[7]) * 1000);  // 小数秒→ms（sub-ms は staleDays 日床で無害）
+      if (hh > 23 || mi > 59 || ss > 59) return null;            // hour24/25:00/…:60 等は無効（Py も明示 reject し対称）
+      if (m[7]) ms = Math.floor(parseFloat("0" + m[7]) * 1000);  // 小数秒→ms へ floor（µs は捨て Py も floor で一致）
       if (m[8] && m[8] !== "Z") {                                // 明示オフセット ±HH:MM
         offMin = (+m[8].slice(1, 3)) * 60 + (+m[8].slice(4, 6));
         if (m[8].charAt(0) === "-") offMin = -offMin;
       }
     }
-    return Date.UTC(Y, Mo - 1, D, hh, mi, ss, ms) - offMin * 60000; // tz 無し→UTC・オフセットは UTC へ換算
+    var d = new Date(0);
+    d.setUTCFullYear(Y, Mo - 1, D);                              // Date.UTC の2桁年(Y<100→1900+Y)レガシー写像を回避し字面年で計算
+    d.setUTCHours(hh, mi, ss, ms);
+    return d.getTime() - offMin * 60000;                        // tz 無し→UTC・オフセットは UTC へ換算
   }
   function median(arr) {
     if (!arr.length) return 0;
