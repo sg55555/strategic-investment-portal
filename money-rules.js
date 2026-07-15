@@ -490,6 +490,27 @@
     };
   }
 
+  // B#3: UI描画専用VM（¥+%・パリティ不要＝money.js が描く。業務mathはここに集約）。
+  function nisaViewModel(state, cd, nowMs) {
+    var d = nisaDerive(state, nowMs);
+    var pace = (cd && cd.investableSurplus > 0) ? cd.investableSurplus : 0;
+    var fillEta = etaBucket(projectMonths(d.lifetimeRemaining, pace));
+    return {
+      configured: d.configured,
+      annual: {
+        tsumitate: { cap: NISA_ANNUAL_TSUMITATE, used: d.atUsed, remaining: d.annualTsumitateRemaining, usedPct: d.annualTsumitateUsedPct, over: d.atUsed > NISA_ANNUAL_TSUMITATE },
+        growth: { cap: NISA_ANNUAL_GROWTH, used: d.agUsed, remaining: d.annualGrowthRemaining, usedPct: d.annualGrowthUsedPct, over: d.agUsed > NISA_ANNUAL_GROWTH },
+        total: { cap: NISA_ANNUAL_TOTAL, used: d.atTotal, remaining: d.annualTotalRemaining, usedPct: d.annualTotalUsedPct, over: d.atTotal > NISA_ANNUAL_TOTAL },
+      },
+      lifetime: { cap: NISA_LIFETIME, used: d.lifeUsed, remaining: d.lifetimeRemaining, usedPct: d.lifetimeUsedPct, over: d.lifeUsed > NISA_LIFETIME, tsumitatePortion: d.n.tsumitateLifetime, growthPortion: d.n.growthLifetime },
+      growthCap: { cap: NISA_GROWTH_LIFETIME_CAP, used: d.n.growthLifetime, remaining: d.growthCapRemaining, usedPct: d.growthCapUsedPct, over: d.n.growthLifetime > NISA_GROWTH_LIFETIME_CAP },
+      restoration: { sold: d.n.soldThisYearAtCost, restoresYear: d.restoresYear, hasPending: d.hasRestorationPending },
+      staleYear: d.staleAnchorYear, monthlyPace: pace, fillEta: fillEta,
+      monthlyToFillTsumitate: d.monthlyToFillTsumitate, monthlyToFillGrowth: d.monthlyToFillGrowth,
+      monthsLeft: d.monthsLeft, year: d.year,
+    };
+  }
+
   // Task3: 確保枠の月次コミット合計（定常寄与＝投影のコアドラッグ）。cd.reserveAlloc(配列)や cd.toReserves(今月実配分・phase依存)は投影に使わない。
   function reserveMonthlyTotal(s, nowMs) {
     var reserves = Array.isArray(s.reserves) ? s.reserves : [];
@@ -1178,5 +1199,6 @@
     NISA_GROWTH_LIFETIME_CAP: NISA_GROWTH_LIFETIME_CAP,
     nisaNow: nisaNow, nisaDerive: nisaDerive,
     nisaFacts: nisaFacts, nisaRaw: nisaRaw,
+    nisaViewModel: nisaViewModel,
   };
 });

@@ -1320,3 +1320,24 @@ test("nisaRaw: 未設定は undefined／設定時は生¥ブロック", () => {
     lifetimeRemaining:12800000, growthCapRemaining:9000000, monthlyToFillTsumitate:100000, restoresYear:2027,
   });
 });
+
+test("nisaViewModel: UI用VM（枠¥+%・fillEta・積立接続）", () => {
+  const st = R.migrate({ nisa:{ anchorYear:2026, tsumitateThisYear:600000, growthThisYear:1000000,
+    tsumitateLifetime:2200000, growthLifetime:3000000, soldThisYearAtCost:800000 } });
+  const cd = { investableSurplus: 150000 };
+  const vm = R.nisaViewModel(st, cd, Date.UTC(2026,6,15));
+  assert.equal(vm.configured, true);
+  assert.equal(vm.annual.tsumitate.cap, 1200000);
+  assert.equal(vm.annual.tsumitate.used, 600000);
+  assert.equal(vm.annual.tsumitate.remaining, 600000);
+  assert.equal(vm.annual.tsumitate.usedPct, 50);
+  assert.equal(vm.lifetime.used, 5200000);
+  assert.equal(vm.lifetime.tsumitatePortion, 2200000);
+  assert.equal(vm.lifetime.growthPortion, 3000000);
+  assert.equal(vm.growthCap.cap, 12000000);
+  assert.equal(vm.restoration.restoresYear, 2027);
+  assert.equal(vm.restoration.hasPending, true);
+  assert.equal(vm.monthlyPace, 150000);
+  assert.equal(vm.fillEta, "3_10y");          // 1280万/15万=85.3→ceil86ヶ月。etaBucket(86)=36<=86<120→"3_10y"
+  assert.equal(vm.monthlyToFillTsumitate, 100000);
+});
