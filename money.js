@@ -26,6 +26,9 @@ window.MCC = (function () {
   var _investmentRows = [];
   var _refreshing = false; // 「最新に更新」ボタンの多重起動ガード（in-session 再取得）
 
+  // Task6b (backlog B#2): 資産クラス比率のスコープ表示切替（永続 state でない・モジュール view 変数）。
+  var _acScope = "core"; // "core"=コアの設計図（心臓部）/ "total"=総資産で俯瞰。既定=core。
+
   // 基準（アンカー）の月を「2026年7月」表記へ整形（YYYY-MM-01 / YYYY-MM どちらも受ける）。
   function fmtAnchorMonth(d) {
     var m = /^(\d{4})-(\d{2})/.exec(String(d == null ? "" : d));
@@ -809,6 +812,237 @@ window.MCC = (function () {
     '</div>';
   }
 
+  // ---- Task6 (backlog B#2): 資産クラス比率。業務mathはすべて R.*（money-rules.js Task1-5純関数）へ委譲・ここは薄いUI層。----
+
+  function acSetScope(which) {
+    _acScope = which === "total" ? "total" : "core";
+    render();
+  }
+
+  // 「現状は現金のみ」クイックフィル：既存 buckets.amount 合計（R.totalAssets・純関数）を assetHoldings.buffer.cash へ一括投入
+  // （現金のみ・投資未開始でも盤面が空にならない・spec §3.4）。
+  function acFillCashOnly() {
+    if (!state) load();
+    setField("assetHoldings.buffer.cash", R.totalAssets(state)); // save()+render() 込み
+  }
+
+  // spec §6.1: 7hue色相環＋未分類の単一トークン（太田さん実機確認済 2026-07-14＝alpha0.4/glow100%で確定・実装値ロック）。
+  var AC_COLORS = {
+    devEq: "#b03cff", jpEq: "#4468ff", emEq: "#ff2a4d",
+    reit: "#f2e400", gold: "#ff7a00", bond: "#1fdb5e", cash: "#12cffa",
+  };
+  var AC_NAMES = { devEq: "先進国株", jpEq: "国内株", emEq: "新興国株", reit: "REIT", gold: "金", bond: "債券", cash: "現金" };
+  var AC_BUCKET_NAMES = { buffer: "バッファ（現金）", core: "コア", satellite: "サテライト" };
+  var AC_UNCLASSIFIED_COLOR = "#64748b"; // spec §6.1: 低chromaスレート（現在地バー限定・facts非出力）
+  // spec §6.3 MINOR-27: 下部帯(成長/守り2値)はidentity 7色と非衝突のニュートラル暖色。守り=緑(bond域)。
+  var AC_BAND_GROW_COLOR = "#e0993d";
+
+  function _hexRgb(h) {
+    var n = parseInt(h.slice(1), 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+
+  // spec §6.2: 発光塗り（alpha既定0.4・glow100%固定・チャート符号化要素で完全同一の適用）。
+  function _acNeon(rr, gg, bb, alphaArg) {
+    var a = alphaArg != null ? alphaArg : 0.4;
+    return "background:rgba(" + rr + "," + gg + "," + bb + "," + a + ");box-shadow:" +
+      "inset 0 0 0 1px rgba(" + rr + "," + gg + "," + bb + ",.9)," +
+      "inset 0 2px 0 rgba(" + rr + "," + gg + "," + bb + ",1)," +
+      "inset 0 0 11px rgba(" + rr + "," + gg + "," + bb + ",.45)," +
+      "0 0 18px rgba(" + rr + "," + gg + "," + bb + ",.74)," +
+      "0 0 48px rgba(" + rr + "," + gg + "," + bb + ",.42);";
+  }
+  function _acSegStyle(key) { var c = _hexRgb(AC_COLORS[key]); return _acNeon(c[0], c[1], c[2]); }
+  function _acUncStyle() { var c = _hexRgb(AC_UNCLASSIFIED_COLOR); return _acNeon(c[0], c[1], c[2]); }
+
+  // spec §6.3: ドーナツ=棒と同じHTML要素方式(conic-gradient・rgba半透明＋screen)。alpha違いでbody/edge/glow 3層に流用。
+  function _acConicStops(map, alpha) {
+    var acc = 0, out = [];
+    for (var i = 0; i < R.ASSET_CLASSES.length; i++) {
+      var k = R.ASSET_CLASSES[i], p = (map && map[k]) || 0;
+      if (p <= 0) continue;
+      var frac = p / 100, gap = 0.004;
+      var c = _hexRgb(AC_COLORS[k]);
+      var s = (acc * 100).toFixed(2), e = ((acc + frac - gap) * 100).toFixed(2), e2 = ((acc + frac) * 100).toFixed(2);
+      out.push("rgba(" + c[0] + "," + c[1] + "," + c[2] + "," + alpha + ") " + s + "% " + e + "%", "transparent " + e + "% " + e2 + "%");
+      acc += frac;
+    }
+    return out.join(",");
+  }
+
+  function _acSum(map) {
+    var s = 0;
+    for (var i = 0; i < R.ASSET_CLASSES.length; i++) s += (map && map[R.ASSET_CLASSES[i]]) || 0;
+    return s;
+  }
+  // 「保有総額」¥readout用の単純合計（既に手入力済みの生値を足すだけ＝新規の業務式ではない）。
+  function _acHoldingsSum(holdings, scope) {
+    var buckets = scope === "total" ? ["buffer", "core", "satellite"] : ["core"];
+    var s = 0;
+    for (var b = 0; b < buckets.length; b++) s += _acSum(holdings[buckets[b]]);
+    return s;
+  }
+
+  function _acStack(map) {
+    var out = "";
+    for (var i = 0; i < R.ASSET_CLASSES.length; i++) {
+      var k = R.ASSET_CLASSES[i], p = (map && map[k]) || 0;
+      if (p <= 0) continue;
+      out += '<div class="mcc-ac-seg" style="width:' + p + '%;' + _acSegStyle(k) + '" title="' + esc(AC_NAMES[k]) + " " + p + '%"></div>';
+    }
+    return out;
+  }
+
+  function _acDriftRail(rows) {
+    return rows.map(function (x) {
+      var cls = x.driftPct > 0 ? "over" : x.driftPct < 0 ? "under" : "match";
+      var sign = x.driftPct > 0 ? "+" : "";
+      return '<div class="mcc-ac-driftrow ' + cls + '">' +
+        '<span class="cn"><span class="mcc-ac-swatch" style="background:' + AC_COLORS[x.key] + '"></span>' + esc(AC_NAMES[x.key]) + '</span>' +
+        '<span class="tr">目標 ' + x.targetPct + '% → 現状 ' + x.currentPct + '%</span>' +
+        '<span class="dv">' + sign + x.driftPct + 'pt</span></div>';
+    }).join("");
+  }
+
+  // spec §5-4: now/+10/+20年の設計図（display-only・facts非出力）。UTC年をdyシフトしR.glidePathへ再入力するのみ
+  // ＝時刻算術のみで新規の業務式は追加しない（実際の目標%はすべてR.bucketTargets/R.growDefへ委譲）。
+  function _acBands(birthYear, nowMs) {
+    var pairs = [[0, "now"], [10, "+10年"], [20, "+20年"]];
+    var growC = _hexRgb(AC_BAND_GROW_COLOR), defC = _hexRgb(AC_COLORS.bond);
+    return pairs.map(function (pair) {
+      var d = new Date(nowMs);
+      d.setUTCFullYear(d.getUTCFullYear() + pair[0]);
+      var gpN = R.glidePath(birthYear, d.getTime());
+      if (!gpN.configured) return "";
+      var core = R.bucketTargets("core", gpN.R);
+      var gd = R.growDef(core);
+      var growStyle = _acNeon(growC[0], growC[1], growC[2]);
+      var defStyle = _acNeon(defC[0], defC[1], defC[2]);
+      return '<div class="mcc-ac-band"><span class="yl">' + esc(pair[1]) + ' <small>(' + gpN.age + '歳)</small></span>' +
+        '<div class="mcc-ac-stack" style="height:16px">' +
+          '<div class="mcc-ac-seg" style="width:' + gd.g + '%;' + growStyle + '" title="成長 ' + gd.g + '%"></div>' +
+          '<div class="mcc-ac-seg" style="width:' + gd.d + '%;' + defStyle + '" title="守り ' + gd.d + '%"></div>' +
+        '</div></div>';
+    }).join("");
+  }
+
+  // 資産クラス比率セクション（backlog B#2）。目標=年齢glidepath（R.glidePath/R.bucketTargets/R.totalTargetPct）、
+  // 現状=手入力assetHoldings（R.bucketCurrentPct/R.totalCurrentPct）、ドリフト=R.assetClassDrift。
+  // vm は render() が渡す標準 viewModel（vm.fmt/vm.totalAssets/vm.coreAmount を使用）。sync.loggedIn/state はクロージャ経由
+  // （adviceSection 等の既存パターンと同型）。id="mcc-sec-assets"（_JUMP_TARGETS 登録）。
+  function assetClassSection(vm) {
+    var nowMs = Date.now();
+    var gp = R.glidePath(state.birthYear, nowMs);
+    var scope = _acScope;
+    var holdings = R.normalizeAssetHoldings(state.assetHoldings);
+    var currentYear = new Date(nowMs).getUTCFullYear();
+
+    var readoutHtml = gp.configured ? "" :
+      '<div class="mcc-ac-readout mcc-ac-readout-muted">生年を入力すると、年齢に合わせた設計図（目標比率）が表示されます</div>';
+
+    var toolbar =
+      '<div class="mcc-ac-toolbar">' +
+        '<button type="button" class="mcc-ac-tbtn' + (scope === "core" ? " on" : "") + '" onclick="MCC.acSetScope(\'core\')">コアの設計図</button>' +
+        '<button type="button" class="mcc-ac-tbtn' + (scope === "total" ? " on" : "") + '" onclick="MCC.acSetScope(\'total\')">総資産で俯瞰</button>' +
+        '<span style="flex:1"></span>' +
+        '<button type="button" class="mcc-ac-tbtn" onclick="MCC.acFillCashOnly()">現状は現金のみ</button>' +
+      '</div>';
+
+    // spec §3.4/§5-7: 現状入力（buffer=cashのみ／core・satellite=クラス別）。¥ゲート対象外＝未ログインでも常時表示。
+    var acInputHtml =
+      '<details class="mcc-ac-input" id="mcc-ac-input"><summary>現状の保有額を入力</summary>' +
+        '<div class="mcc-ac-input-bucket"><div class="mcc-ac-input-bktitle">' + esc(AC_BUCKET_NAMES.buffer) + '</div>' +
+          moneyInput("現金", "assetHoldings.buffer.cash", holdings.buffer.cash) +
+        '</div>' +
+        '<div class="mcc-ac-input-bucket"><div class="mcc-ac-input-bktitle">' + esc(AC_BUCKET_NAMES.core) + '</div>' +
+          '<div class="mcc-ac-input-grid">' + R.ASSET_CLASSES.map(function (k) {
+            return moneyInput(esc(AC_NAMES[k]), "assetHoldings.core." + k, holdings.core[k]);
+          }).join("") + '</div></div>' +
+        '<div class="mcc-ac-input-bucket"><div class="mcc-ac-input-bktitle">' + esc(AC_BUCKET_NAMES.satellite) + '</div>' +
+          '<div class="mcc-ac-input-grid">' + R.ASSET_CLASSES.map(function (k) {
+            return moneyInput(esc(AC_NAMES[k]), "assetHoldings.satellite." + k, holdings.satellite[k]);
+          }).join("") + '</div></div>' +
+      '</details>';
+
+    var donutHtml = "", barsHtml = "", railHtml = "", bandsHtml = "";
+
+    if (gp.configured) {
+      var weights = { buffer: R.bufferTarget(state), core: R.coreTarget(state), satellite: R.satelliteCap(state) };
+      // spec §3.3: targetPctはバケツ目標額ウェイト、currentPctはassetHoldings実額ウェイト（非対称・R.totalTargetPct/R.totalCurrentPctへ委譲）。
+      var target = scope === "total" ? R.totalTargetPct(gp.R, weights) : R.bucketTargets("core", gp.R);
+      var currentMap = scope === "total" ? R.totalCurrentPct(holdings) : R.bucketCurrentPct(holdings, "core").classPct;
+      // spec §3.4: あるバケツ(または総資産)のclassesが全0だがamount>0の場合、既存amountを「未分類」1本として現在地バー限定で計上。
+      var amountForUnc = scope === "total" ? vm.totalAssets : vm.coreAmount;
+      var classSum = currentMap ? _acSum(currentMap) : 0;
+      var uncPct = (classSum <= 0 && amountForUnc > 0) ? 100 : 0;
+      var gd = R.growDef(target);
+      var drift = R.assetClassDrift(target, currentMap);
+
+      readoutHtml = '<div class="mcc-ac-readout">あなた(' + gp.age + '歳)の設計図：成長資産 <b class="g">' + gd.g +
+        '%</b> / 守り <b class="d">' + gd.d + '%</b></div>';
+
+      var donutBody = "conic-gradient(from 0deg, " + _acConicStops(target, 0.4) + ")";
+      var donutEdge = "conic-gradient(from 0deg, " + _acConicStops(target, 0.95) + ")";
+      var donutGlow = "conic-gradient(from 0deg, " + _acConicStops(target, 0.7) + ")";
+      var legendHtml = "";
+      for (var li = 0; li < R.ASSET_CLASSES.length; li++) {
+        var lk = R.ASSET_CLASSES[li];
+        legendHtml += '<div class="mcc-ac-leg"><span class="mcc-ac-swatch" style="background:' + AC_COLORS[lk] + '"></span>' +
+          '<span class="nm">' + esc(AC_NAMES[lk]) + '</span><span class="pc">' + (target[lk] || 0) + '%</span></div>';
+      }
+      // spec §5-3/§6.1: 目標ドーナツは7クラスのみ（未分類グレーは現在地バー限定＝ここには出さない）。
+      donutHtml =
+        '<div class="mcc-ac-grid">' +
+          '<div class="mcc-ac-donutwrap">' +
+            '<div class="mcc-ac-donut2 glowlayer" style="background:' + donutGlow + '"></div>' +
+            '<div class="mcc-ac-donut2" style="background:' + donutBody + '"></div>' +
+            '<div class="mcc-ac-donut2 edge" style="background:' + donutEdge + '"></div>' +
+            '<div class="mcc-ac-center"><div class="big g">成長 ' + gd.g + '%</div><div class="big d">守り ' + gd.d + '%</div><div class="sub">目標</div></div>' +
+          '</div>' +
+          '<div class="mcc-ac-legend">' + legendHtml + '</div>' +
+        '</div>';
+
+      // spec §5-9: ¥readout（派生・保有総額）は sync.loggedIn 時のみ。%・手入力欄は常時表示（readout gateであってinput gateでない）。
+      var yenReadout = "";
+      if (sync.loggedIn) {
+        var hSum = _acHoldingsSum(holdings, scope);
+        yenReadout = '<div class="mcc-ac-yen">現状の保有合計（' + (scope === "total" ? "総資産" : "コア") + '）<strong>' + vm.fmt(hSum) + '</strong></div>';
+      }
+      var barTarget = _acStack(target);
+      var barCurrent = _acStack(currentMap || {}) +
+        (uncPct > 0 ? '<div class="mcc-ac-seg" style="width:' + uncPct + '%;' + _acUncStyle() + '" title="未分類 ' + uncPct + '%"></div>' : "");
+      barsHtml =
+        '<div class="mcc-ac-bars">' +
+          '<div class="mcc-ac-barlab">設計図（目標）</div><div class="mcc-ac-stack">' + barTarget + '</div>' +
+          '<div class="mcc-ac-barlab">現在地（現状）</div><div class="mcc-ac-stack">' + barCurrent + '</div>' +
+        '</div>' + yenReadout;
+
+      railHtml = '<div class="mcc-ac-rail">' + _acDriftRail(drift) + '</div>';
+
+      bandsHtml = '<div class="mcc-ac-bands"><div class="cap">◷ 将来の設計図（年齢とともに"守り"へ寄っていく・表示のみ）</div>' +
+        _acBands(state.birthYear, nowMs) + '</div>';
+    }
+
+    var ageRow =
+      '<div class="mcc-ac-agerow">' +
+        '<label for="mcc-ac-birthyear">生年</label>' +
+        '<input class="mcc-ac-age" id="mcc-ac-birthyear" type="number" min="1900" max="' + currentYear + '" ' +
+          'value="' + (state.birthYear > 0 ? state.birthYear : "") + '" placeholder="例: 1986" ' +
+          'onchange="MCC.setField(\'birthYear\', this.value)">' +
+        readoutHtml +
+      '</div>';
+
+    var disc = '<div class="mcc-ac-disc">' + esc(R.DISCLAIMER) + ' 目標は絶対的な正解ではなく、年齢別の一般的な目安です。</div>';
+
+    return '<div class="mcc-assets" id="mcc-sec-assets">' +
+      '<div class="mcc-section-title mcc-section-title-gap">資産クラス比率' + termHelp("資産クラス") + '</div>' +
+      '<div class="mcc-section-desc">年齢に合わせた"設計図"（目標）と、今の"現在地"（現状）のズレを見える化します。</div>' +
+      '<div class="mcc-ac-card neonb">' +
+        ageRow + toolbar + donutHtml + acInputHtml + barsHtml + railHtml + bandsHtml + disc +
+      '</div>' +
+    '</div>';
+  }
+
   // ① 用語ヘルプ：GLOSSARY(money-rules.js 単一源)から定義を引き ? ツールチップを返す。見出し/バケツ名に添える。
   var _glossaryMap = null;
   function termHelp(term) {
@@ -821,7 +1055,7 @@ window.MCC = (function () {
   }
 
   // ① ガイド/ステッパー内の「設定」等のセクション参照 → 該当セクションへスクロール（折りたたみは開く）。
-  var _JUMP_TARGETS = { settings: "mcc-sec-settings", buckets: "mcc-sec-buckets", sync: "mcc-sec-sync", cashflow: "mcc-sec-cashflow", goals: "mcc-sec-goals" };
+  var _JUMP_TARGETS = { settings: "mcc-sec-settings", buckets: "mcc-sec-buckets", sync: "mcc-sec-sync", cashflow: "mcc-sec-cashflow", goals: "mcc-sec-goals", assets: "mcc-sec-assets" };
   // 収支セクションは未ログインだと描画されない（認証データ）。連携にはログインが前提なので login 欄へフォールバック。
   var _JUMP_FALLBACK = { cashflow: "sync" };
   function jumpLink(key, label) {
@@ -969,7 +1203,7 @@ window.MCC = (function () {
       '</div>';
 
     var saveWarn = lastSaveOk ? '' : '<div class="mcc-save-warn">⚠ 保存できませんでした（プライベートブラウズ等）。この端末に値が保存されない可能性があります。</div>';
-    root.innerHTML = syncBar() + saveWarn + guideSection() + stepperSection(ob) + gauge + banner + roadmapSection(rm, sync.loggedIn) + cashflowSection(cv) + reservesSection(cv) + adviceSection(vm) + buckets + goalsSection(vm) + settings + tools;
+    root.innerHTML = syncBar() + saveWarn + guideSection() + stepperSection(ob) + gauge + banner + roadmapSection(rm, sync.loggedIn) + assetClassSection(vm) + cashflowSection(cv) + reservesSection(cv) + adviceSection(vm) + buckets + goalsSection(vm) + settings + tools;
   }
 
   function exportJSON() {
@@ -1020,5 +1254,6 @@ window.MCC = (function () {
     requestAdvice: requestAdvice, applySurplus: applySurplus,
     saveAnchor: saveAnchor, editAnchor: editAnchor, refreshData: refreshData, jumpTo: jumpTo, adoptAvgExpense: adoptAvgExpense,
     addReserve: addReserve, removeReserve: removeReserve, fundReserve: fundReserve, setReserveField: setReserveField,
+    acSetScope: acSetScope, acFillCashOnly: acFillCashOnly,
   };
 })();
