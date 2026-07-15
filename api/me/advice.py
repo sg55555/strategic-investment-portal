@@ -169,8 +169,10 @@ def _parse_num(v):                               # → float（nan/±inf を返�
     if isinstance(v, (int, float, Decimal)):     # Decimal 必須＝advice.py は cashflow の生 Decimal を _cf_num へ直渡し
         try:
             return float(v)                      # 巨大 int → double 化＝JS JSON.parse 意味論／float(Decimal) で現行挙動維持
-        except (OverflowError, ValueError):
-            return float('nan')                  # int > ~1.8e308 → JS Infinity → nan → 0
+        except OverflowError:
+            return float('inf') if v > 0 else float('-inf')  # 巨大 int/Decimal(>~1.8e308) → JS JSON.parse の ±Infinity と対称（migrate gate の >0/>=0 判定を JS と一致・num/cfNum では非有限ゲートで 0 へ collapse）
+        except (ValueError, TypeError):
+            return float('nan')                  # Decimal('sNaN') 等の到達不能例外の保険
     if isinstance(v, str):
         if not _DECIMAL_RE.match(v):             # 0x/0o/0b/underscore/unicode-digit を拒否
             return float('nan')

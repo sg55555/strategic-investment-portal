@@ -835,6 +835,14 @@ def test_facts_parity_array_monthly_expense_buckets():
     assert f["investableConfigured"] is False
 
 
+def test_migrate_huge_int_gate_parity():
+    # JS JSON.parse(>309桁int)=Infinity と対称: Py の巨大 int は float overflow→±inf（旧: nan→default で JS(0) と発散）。
+    assert advice._migrate({"bufferMonths": 10 ** 400})["bufferMonths"] == 0
+    assert advice._migrate({"satelliteCapPct": 10 ** 400})["satelliteCapPct"] == 0
+    assert advice._migrate({"satelliteCapPct": -(10 ** 400)})["satelliteCapPct"] == 10  # 負は gate `>=0` 偽 → default
+    assert advice._migrate({"bufferMonths": float("inf")})["bufferMonths"] == 0
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0

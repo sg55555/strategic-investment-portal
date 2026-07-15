@@ -186,7 +186,8 @@ sat_cap_pct   = _num(raw.get("satelliteCapPct")) if _scp >= 0 else 10.0
 - **facts-parity**: `satelliteCapPct` 非decimal/配列→両言語 default 10（旧 JS 16/Py 10 等の発散解消）／配列 monthlyExpense/buckets→未設定（旧 JS unbox の誤 configured 解消）。
 - **fuzz**: `scratchpad/b2-parity-fuzz.js`（全 num/cfNum フィールド＋cashflow＋新文字列カテゴリへ拡張）＝**7 seed×4000×2mode=56,000 比較 0 mismatch**（非有限は両側 sentinel 化して比較）。
 - **回帰**: `node --test tests/*.test.js` 275/275・pytest 106/106 緑。
-- **mutation-kill**: ①ASCII `[0-9]`→`\d` で全角が Py 側で漏れ RED（`[0-9]` 保護の非 vacuous 実証）②`_parse_num` の `Decimal` 除去で cashflow Decimal 回帰テスト RED（Decimal 保護の非 vacuous 実証）。他の array/bool/underscore/hex は RED-first で実証済。
+- **mutation-kill**: ①ASCII `[0-9]`→`\d` で全角が Py 側で漏れ RED（`[0-9]` 保護の非 vacuous 実証）②`_parse_num` の `Decimal` 除去で cashflow Decimal 回帰テスト RED（Decimal 保護の非 vacuous 実証）③`_parse_num` の OverflowError→`nan`（旧）で huge-int gate テスト RED。他の array/bool/underscore/hex は RED-first で実証済。
+- **whole-branch 敵対検証 wf（`wxpjc2f3b`・4観点×実測 refute）**: regression/completeness/regulatory=**clean**・deferrals sound・core coercer は 160+入力/80,000 fuzz で bit-identical。**確定 minor 1件を修正**＝migrate gate の >309桁純整数で JS `JSON.parse→Infinity`（gate 真→num 0）vs Py `float(hugeint)→OverflowError→nan`（gate 偽→default）の発散 → **Py `_parse_num` の OverflowError を符号付き ±inf にして JS の ±Infinity と対称化**（JS 無変更・num/cfNum 値は非有限ゲートで 0 collapse ゆえ不変・migrate gate の >0/>=0 判定のみ一致）。副次で旧コードの `int > 1.8e308` 未捕捉 OverflowError クラッシュも解消。実測: JS `migrate({bufferMonths:Infinity})`=0 ↔ Py `_migrate({"bufferMonths":10**400})`=0.0（負は両側 default）。
 
 ---
 

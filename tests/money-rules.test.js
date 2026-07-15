@@ -1150,3 +1150,9 @@ test("facts パリティ: 配列 monthlyExpense/buckets は num→0＝未設定�
   assert.equal(f.coreSharePct, 0);
   assert.equal(f.investableConfigured, false);
 });
+test("facts パリティ: 巨大整数(>309桁)/Infinity の bufferMonths/satelliteCapPct（JS Infinity vs Py OverflowError 非対称を解消）", () => {
+  // JS: JSON.parse(>309桁int)→Infinity。parseNum(Infinity)=Infinity で gate `>0`/`>=0` 真 → num(Infinity)=0（非有限）。
+  assert.equal(R.migrate({ bufferMonths: Infinity }).bufferMonths, 0);
+  assert.equal(R.migrate({ satelliteCapPct: Infinity }).satelliteCapPct, 0);
+  assert.equal(R.migrate({ satelliteCapPct: -Infinity }).satelliteCapPct, 10); // 負 Infinity は gate `>=0` 偽 → default
+});
