@@ -12,7 +12,7 @@
 
   // Slice3: AI規律コーチ。正準 next ターゲット（Python テンプレ map と test 網羅の単一源）。
   var NEXT_TARGETS = ["setup", "buffer", "rebalance", "core"];
-  var FACTS_SCHEMA_VERSION = 3; // v3: 投資枠配分ロードマップ（backlog B #1）集約を facts に追加
+  var FACTS_SCHEMA_VERSION = 4; // v4: 資産クラス比率（backlog B #2）assetClasses 集約を facts に追加
   // 免責（node↔browser 単一源・全描画経路で決定論と不可分に常時表示）。
   var DISCLAIMER = "本コーチが示す決定論ルールおよび AI の補足はいずれも、資産規律の維持・教育・判断支援を目的とした一般的な情報提供であり、特定の金融商品の売買や投資配分・タイミングを推奨する投資助言ではありません。当ツールは金融商品取引業者・投資助言代理業者として登録された者による助言ではなく、特定の金融商品の勧誘を目的としたものでもありません。将来の利益や成果を保証するものではありません（過去の実績は将来を示しません）。最終的な投資判断はご自身の責任で行ってください。";
   var DISCLAIMER_VERSION = "disc-v1";
@@ -783,6 +783,18 @@
     };
   }
 
+  // Task5: 資産クラス比率（backlog B #2）の総資産集約facts。state は migrate() 済みを想定（modeAFacts 内 s を渡す）。
+  // birthYear 未設定/域外（glidePath 非configured）は undefined を返す＝facts.assetClasses キー自体を省く（spec §7）。
+  function assetClassesFacts(state, nowMs) {
+    var gp = glidePath(state.birthYear, nowMs);
+    if (!gp.configured) return undefined;
+    var weights = { buffer: bufferTarget(state), core: coreTarget(state), satellite: satelliteCap(state) };
+    var target = totalTargetPct(gp.R, weights);
+    var current = totalCurrentPct(normalizeAssetHoldings(state.assetHoldings));
+    var classes = assetClassDrift(target, current);
+    return { riskAssetPct: gp.R, classes: classes };
+  }
+
   // Slice3: 生 state → Mode A 集約ファクト（純粋）。AI規律コーチへ渡す唯一の境界。
   // 必ず migrate() で全フィールドを coerce（文字列/NaN/巨大配列/不正日付を強制正規化）してから、
   // allowlist キーのみで新規 dict を構築する（viewModel をスプレッドしない・history を走査しない）。
@@ -840,6 +852,11 @@
       satelliteUnlocked: satelliteUnlocked(s),
       coreTargetSource: coreTargetSource(s),
     };
+
+    // Task5: 資産クラス比率（backlog B #2）。未設定（birthYear未設定/域外nowMs）は assetClasses キー自体を省く。
+    // age は公開教育値ゆえ raw 隔離不要＝両モードトップレベル同値（spec §3.5/§7 A案）。
+    var acFacts = assetClassesFacts(s, nowMs);
+    if (acFacts) facts.assetClasses = acFacts;
 
     if (includeRaw) {
       facts.raw = {
@@ -999,5 +1016,6 @@
     GROWTH_CLASSES: GROWTH_CLASSES, bucketTargets: bucketTargets, growDef: growDef,
     rSigned: rSigned, bucketCurrentPct: bucketCurrentPct,
     totalTargetPct: totalTargetPct, totalCurrentPct: totalCurrentPct, assetClassDrift: assetClassDrift,
+    assetClassesFacts: assetClassesFacts,
   };
 });

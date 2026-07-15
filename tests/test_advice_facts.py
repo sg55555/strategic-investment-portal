@@ -36,6 +36,7 @@ ALLOW = {
     "index", "progressPct", "achieved", "hasDeadline", "monthsToDeadlineBucket",
     "roadmap", "phase", "coreProgressPct", "coreEstablished", "satelliteUnlocked", "coreTargetSource",
     "etaToCoreBucket",
+    "assetClasses", "riskAssetPct", "classes", "key", "targetPct", "currentPct", "driftPct",  # Task5 B#2
 }
 DENY = {
     "raw", "monthlyExpense", "bufferAmount", "bufferTarget", "bufferRemaining", "coreAmount",
@@ -90,7 +91,8 @@ def test_production_no_raw_no_denylist():
         for d in DENY:
             assert d not in keys, ("denylist key leaked", c["name"], d)
         for n in nums:
-            assert 0 <= n <= 150, ("large/invalid number", c["name"], n)
+            # driftPct（Task5 B#2）は符号付き pt（超過+/不足-）で唯一の負値を許容＝下限を -100 に拡張。
+            assert -100 <= n <= 150, ("large/invalid number", c["name"], n)
 
 
 def test_personal_has_raw():
@@ -213,8 +215,8 @@ CF_ALLOW = {
 CF_RESERVES_ALLOW = {"active", "fundedPct", "shortfall"}
 
 
-def test_schema_version_3():
-    assert advice.SCHEMA_VERSION == 3
+def test_schema_version_4():
+    assert advice.SCHEMA_VERSION == 4
 
 
 def test_production_roadmap_no_raw_yen():
@@ -654,6 +656,75 @@ def test_asset_class_drift_tie_break_asset_classes_order_mirror():
     assert rows[0]["driftPct"] == 10
     assert rows[1]["key"] == "jpEq"
     assert rows[1]["driftPct"] == -10
+
+
+# --- B#2 資産クラス比率: Task5 _asset_classes_facts + mode_a_facts 配線 + coarsen ---
+
+_MS_2026_UTC0715 = 1784073600000  # Date.UTC(2026,6,15) と同値（JS money-rules.test.js と対）
+
+
+def test_asset_classes_facts_unset_is_none_and_shape_mirror():
+    s = advice._migrate({"birthYear": 0})  # 未設定
+    assert advice._asset_classes_facts(s, _MS_2026_UTC0715) is None
+    s2 = advice._migrate({"birthYear": 1986, "assetHoldings": {"buffer": {"cash": 100}}})
+    f = advice._asset_classes_facts(s2, _MS_2026_UTC0715)
+    assert f["riskAssetPct"] == 70
+    assert len(f["classes"]) == 7
+    for x in f["classes"]:
+        assert x["driftPct"] == int(x["driftPct"])  # 常に整数
+
+
+def test_asset_classes_facts_out_of_range_now_ms_is_none_mirror():
+    s = advice._migrate({"birthYear": 1986})
+    assert advice._asset_classes_facts(s, 1e300) is None
+
+
+def test_mode_a_facts_schema_version_4_and_asset_classes_key_absent_when_unset():
+    f = advice.mode_a_facts(advice._migrate({"birthYear": 0}), False, _MS_2026_UTC0715)
+    assert f["schemaVersion"] == 4
+    assert "assetClasses" not in f
+
+
+def test_mode_a_facts_asset_classes_top_level_parity_both_modes():
+    raw = {"birthYear": 1986, "assetHoldings": {"buffer": {"cash": 100}}}
+    prod = advice.mode_a_facts(raw, False, _MS_2026_UTC0715)
+    pers = advice.mode_a_facts(raw, True, _MS_2026_UTC0715)
+    assert prod["assetClasses"]
+    assert prod["assetClasses"] == pers["assetClasses"]  # 両モードトップレベル同値（差は raw のみ）
+    assert prod["assetClasses"]["riskAssetPct"] == 70
+
+
+def test_coarsen_asset_classes_buckets_current_and_signed_drift_not_target():
+    raw = {"birthYear": 1986, "assetHoldings": {"buffer": {"cash": 100}}}
+    f = advice.mode_a_facts(raw, True, _MS_2026_UTC0715)
+    cf = advice.coarsen_facts(f)
+    for orig, coarse in zip(f["assetClasses"]["classes"], cf["assetClasses"]["classes"]):
+        assert coarse["currentPct"] % 25 == 0            # currentPct は 25刻み
+        assert coarse["driftPct"] % 25 == 0              # driftPct も符号付き25刻み
+        assert coarse["targetPct"] == orig["targetPct"]  # targetPct は非粗化(不変)
+        assert coarse["key"] == orig["key"]
+    assert cf["assetClasses"]["riskAssetPct"] == f["assetClasses"]["riskAssetPct"]  # riskAssetPct も非粗化
+
+
+def test_bucket25_signed_sign_preserving():
+    assert advice._bucket25_signed(-36) == -25
+    assert advice._bucket25_signed(36) == 25
+    assert advice._bucket25_signed(0) == 0
+    assert advice._bucket25_signed(-100) == -100
+
+
+def test_coarsen_asset_classes_case_j_zero_nonaligned_values():
+    # spec §7/§9 (j): pre-coarsen facts に非25刻みの currentPct/driftPct を持つ実 fixture ケースに対し、
+    # coarsen 後は非25刻み値がゼロ件であることを確認（監査ログの指紋解像度が確実に下がる）。
+    c = next(x for x in CASES if x["name"] == "assetclass-j-coarsen-nonaligned-source")
+    f = advice.mode_a_facts(c["state"], True, _case_now(c))
+    pre = f["assetClasses"]["classes"]
+    assert any(row["currentPct"] % 25 != 0 for row in pre) or any(row["driftPct"] % 25 != 0 for row in pre), \
+        "fixture case does not actually exercise non-25-aligned source values"
+    cf = advice.coarsen_facts(f)
+    for row in cf["assetClasses"]["classes"]:
+        assert row["currentPct"] % 25 == 0
+        assert row["driftPct"] % 25 == 0
 
 
 if __name__ == "__main__":

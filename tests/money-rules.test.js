@@ -209,6 +209,7 @@ const PROD_TOP_KEYS = new Set([
   "index", "progressPct", "achieved", "hasDeadline", "monthsToDeadlineBucket",
   "roadmap", "phase", "coreProgressPct", "coreEstablished", "satelliteUnlocked", "coreTargetSource",
   "etaToCoreBucket",
+  "assetClasses", "riskAssetPct", "classes", "key", "targetPct", "currentPct", "driftPct", // Task5 B#2
 ]);
 // production facts のツリーに現れてはならない生額・PII・注入面のキー（再帰深掘りで検査）。
 const DENYLIST_KEYS = [
@@ -234,9 +235,10 @@ test("modeAFacts(production): denylist キー・生額が一切現れない（�
     // production の全キーは allowlist 内
     keys.forEach((k) => assert.ok(PROD_TOP_KEYS.has(k), "unexpected key '" + k + "' in " + c.name));
     DENYLIST_KEYS.forEach((bad) => assert.ok(!keys.includes(bad), "denylist key '" + bad + "' leaked in " + c.name));
-    // production の数値はすべて小さい（≤150）＝history/raw 由来の大きな生額が混ざっていない
+    // production の数値はすべて小さい（≤150）＝history/raw 由来の大きな生額が混ざっていない。
+    // driftPct（Task5 B#2）は符号付き pt（超過+/不足-）で唯一の負値を許容＝下限を -100 に拡張。
     nums.forEach((n) => {
-      assert.ok(Number.isInteger(n) && n >= 0 && n <= 150, "large/invalid number " + n + " in " + c.name);
+      assert.ok(Number.isInteger(n) && n >= -100 && n <= 150, "large/invalid number " + n + " in " + c.name);
     });
   });
 });
@@ -342,8 +344,8 @@ const CASHFLOW_FACT_KEYS = new Set([
 ]);
 const CF_RESERVES_KEYS = new Set(["active", "fundedPct", "shortfall"]);
 
-test("FACTS_SCHEMA_VERSION は 3（roadmap 集約追加で bump）", () => {
-  assert.equal(R.FACTS_SCHEMA_VERSION, 3);
+test("FACTS_SCHEMA_VERSION は 4（資産クラス比率 assetClasses 集約追加で bump）", () => {
+  assert.equal(R.FACTS_SCHEMA_VERSION, 4);
 });
 
 test("modeAFacts(production, cashflow): facts.cashflow は allowlist のみ・生額(yen)を漏らさない", () => {
@@ -1033,4 +1035,33 @@ test("assetClassDrift: |drift|タイはASSET_CLASSES順（安定ソート・cash
   const rows = R.assetClassDrift(t, c);
   assert.equal(rows[0].key, "cash"); assert.equal(rows[0].driftPct, 10);
   assert.equal(rows[1].key, "jpEq"); assert.equal(rows[1].driftPct, -10);
+});
+
+// --- B#2 資産クラス比率: Task5 assetClassesFacts + modeAFacts 配線 ---
+
+test("assetClassesFacts: 未設定は undefined／設定時は riskAssetPct+classes7本", () => {
+  const s = R.migrate({birthYear:0}); // 未設定
+  assert.equal(R.assetClassesFacts(s, Date.UTC(2026,6,15)), undefined);
+  const s2 = R.migrate({birthYear:1986, assetHoldings:{buffer:{cash:100}}});
+  const f = R.assetClassesFacts(s2, Date.UTC(2026,6,15));
+  assert.equal(f.riskAssetPct, 70);
+  assert.equal(f.classes.length, 7);
+  f.classes.forEach(x=>assert.equal(x.driftPct, Math.trunc(x.driftPct)));
+});
+test("assetClassesFacts: 域外nowMs（glidePath非configured）も undefined", () => {
+  const s = R.migrate({birthYear:1986});
+  assert.equal(R.assetClassesFacts(s, 1e300), undefined);
+});
+test("modeAFacts: schemaVersion=4・未設定 birthYear で assetClasses キー不在", () => {
+  const f = R.modeAFacts(R.migrate({birthYear:0}), {nowMs: Date.UTC(2026,6,15)});
+  assert.equal(f.schemaVersion, 4);
+  assert.equal("assetClasses" in f, false);
+});
+test("modeAFacts: birthYear設定時は production/personal 両方に assetClasses が同値で載る（age は raw 隔離不要）", () => {
+  const raw = {birthYear:1986, assetHoldings:{buffer:{cash:100}}};
+  const prod = R.modeAFacts(raw, {nowMs: Date.UTC(2026,6,15)});
+  const pers = R.modeAFacts(raw, {includeRawAmounts:true, nowMs: Date.UTC(2026,6,15)});
+  assert.ok(prod.assetClasses);
+  assert.deepEqual(prod.assetClasses, pers.assetClasses); // 両モードトップレベル同値（差は raw のみ）
+  assert.equal(prod.assetClasses.riskAssetPct, 70);
 });

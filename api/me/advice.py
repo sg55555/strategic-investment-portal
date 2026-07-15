@@ -26,7 +26,7 @@ COOKIE = "wc_session"
 MODEL = "claude-sonnet-4-6"
 PROMPT_VERSION = "advice-sys-v1"
 DISCLAIMER_VERSION = "disc-v1"
-SCHEMA_VERSION = 3  # v3: 投資枠配分ロードマップ（backlog B #1）集約を facts に追加
+SCHEMA_VERSION = 4  # v4: 資産クラス比率（backlog B #2）assetClasses 集約を facts に追加
 RULES_VERSION = 2  # money-rules.js CURRENT_VERSION（版ずれ監査）
 NEXT_TARGETS = ["setup", "buffer", "rebalance", "core"]
 CORE_FALLBACK_MONTHS = 24
@@ -811,6 +811,20 @@ def _cashflow_derived(rows, s, now_ms):
     }
 
 
+def _asset_classes_facts(state, now_ms):
+    """Task5: 資産クラス比率（backlog B #2）の総資産集約facts（money-rules.js assetClassesFacts の鏡像）。
+    state は _migrate 済みを想定（mode_a_facts 内 s を渡す）。birthYear 未設定/域外（_glide_path 非configured）は
+    None を返す＝facts["assetClasses"] キー自体を省く（spec §7）。"""
+    gp = _glide_path(state["birthYear"], now_ms)
+    if not gp["configured"]:
+        return None
+    weights = {"buffer": _buffer_target(state), "core": _core_target(state), "satellite": _satellite_cap(state)}
+    target = _total_target_pct(gp["R"], weights)
+    current = _total_current_pct(_normalize_asset_holdings(state["assetHoldings"]))
+    classes = _asset_class_drift(target, current)
+    return {"riskAssetPct": gp["R"], "classes": classes}
+
+
 def mode_a_facts(raw_state, include_raw, now_ms, cashflow=None):
     """生 state → Mode A 集約ファクト（純粋）。include_raw=True（personal）でのみ raw に生額/ラベルを同梱。
     必ず _migrate で全フィールドを coerce してから allowlist キーのみで dict を構築する。"""
@@ -858,6 +872,12 @@ def mode_a_facts(raw_state, include_raw, now_ms, cashflow=None):
         "satelliteUnlocked": _satellite_unlocked(s),
         "coreTargetSource": _core_target_source(s),
     }
+
+    # Task5: 資産クラス比率（backlog B #2）。未設定は assetClasses キー自体を省く（money-rules.js の鏡像）。
+    # age は公開教育値ゆえ raw 隔離不要＝両モードトップレベル同値（spec §3.5/§7 A案）。
+    ac = _asset_classes_facts(s, now_ms)
+    if ac is not None:
+        facts["assetClasses"] = ac
 
     for i, g in enumerate(goals_arr):
         ta = _num(g["targetAmount"])
@@ -1009,6 +1029,18 @@ def _bucket25(p):
     return int(round(_num(p) / 25.0)) * 25  # 0/25/50/75/100
 
 
+def _bucket25_signed(p):
+    """Task5: 符号付き25刻み粗バケツ化（driftPct 用・spec §7 = sign×_bucket25(|d|)）。
+    _bucket25 は _num() 経由で負値を0へクランプするため signed drift には使えない（別実装）。"""
+    try:
+        n = float(p)
+    except (TypeError, ValueError):
+        n = 0.0
+    if not math.isfinite(n):
+        n = 0.0
+    return (-1 if n < 0 else 1) * _bucket25(abs(n))
+
+
 def coarsen_facts(facts):
     """ログ用：progress 系を粗バケツ化し raw を除去（生額・label を永続化しない＝指紋解像度を下げる）。"""
     out = {k: v for k, v in facts.items() if k != "raw"}
@@ -1022,6 +1054,16 @@ def coarsen_facts(facts):
         ]
     if isinstance(out.get("roadmap"), dict) and "coreProgressPct" in out["roadmap"]:
         out["roadmap"] = {**out["roadmap"], "coreProgressPct": _bucket25(out["roadmap"]["coreProgressPct"])}
+    # Task5: assetClasses は非再帰 allowlist の対象外ゆえ明示走査（coarsen_facts は再帰しない＝spec §7 MINOR-2）。
+    # currentPct は _bucket25／driftPct は符号付き _bucket25_signed／riskAssetPct・targetPct は age 由来の公開値ゆえ非粗化。
+    if isinstance(out.get("assetClasses"), dict) and isinstance(out["assetClasses"].get("classes"), list):
+        ac = dict(out["assetClasses"])
+        ac["classes"] = [
+            ({**c, "currentPct": _bucket25(c.get("currentPct")), "driftPct": _bucket25_signed(c.get("driftPct"))}
+             if isinstance(c, dict) else c)
+            for c in ac["classes"]
+        ]
+        out["assetClasses"] = ac
     # cashflow 集約も比率を粗バケツ化（raw.cashflow は "raw" 除去で既に落ちている）。
     # surplusToExpensePct は余剰が月支出を超え得るため 0..300 を25刻み（progress 系の 0..100 と範囲が異なる）。
     if isinstance(out.get("cashflow"), dict):
