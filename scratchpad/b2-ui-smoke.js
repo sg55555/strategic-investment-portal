@@ -18,6 +18,10 @@
 //   9) スコープトグル(acSetScope)でバー/legend が変わる
 //   10) 「現状は現金のみ」クイックフィル→assetHoldings.buffer.cash が総額になる
 //   11) pageerror 0
+//
+// Task7 統合スモーク追補（フェーズH）: 司令室全体を描画した状態で
+//   12) #money-view に既存セクション（ロードマップ/収支/バケツ）が #mcc-sec-assets と共存し中身がある（統合破壊なし）
+//   13) theme D（ネオン・ターミナル）が適用されている（<html data-theme="D"> ＋ --c-cyan トークンが D 値に上書き）
 const { chromium } = require("playwright");
 
 const BASE = "http://127.0.0.1:8200";
@@ -191,6 +195,34 @@ async function getState(page) {
     results.sec12_yenReadoutWhenLoggedInButUnconfigured = !!snap && snap.yenReadoutExists && snap.readoutMuted;
     results.sec12_noDonutWhenUnconfigured = !!snap && !snap.donutExists;
 
+    // ============ フェーズH: 統合チェック（Task7）＝既存セクション健全性＋theme D 発色 ============
+    // 生年を再設定（フェーズGで0へ戻した）し、司令室フル描画状態で全セクション共存を確認する。
+    await page.evaluate(() => { MCC.setField("birthYear", 1986); });
+    await page.waitForTimeout(150);
+    const integ = await page.evaluate(() => {
+      function nonEmpty(id) {
+        const el = document.getElementById(id);
+        return !!el && el.textContent.trim().length > 20;
+      }
+      const cs = getComputedStyle(document.documentElement);
+      return {
+        roadmapPresent: nonEmpty("mcc-sec-roadmap"),
+        cashflowPresent: nonEmpty("mcc-sec-cashflow"),
+        bucketsPresent: nonEmpty("mcc-sec-buckets"),
+        assetsPresent: nonEmpty("mcc-sec-assets"),
+        settingsPresent: nonEmpty("mcc-sec-settings"),
+        syncPresent: nonEmpty("mcc-sec-sync"),
+        dataTheme: document.documentElement.getAttribute("data-theme"),
+        cCyanToken: cs.getPropertyValue("--c-cyan").trim(),
+        moneyViewBg: getComputedStyle(document.getElementById("money-view")).backgroundColor,
+      };
+    });
+    results.sec13_allSectionsCoexist =
+      integ.roadmapPresent && integ.cashflowPresent && integ.bucketsPresent &&
+      integ.assetsPresent && integ.settingsPresent && integ.syncPresent;
+    results.sec14_themeDApplied = integ.dataTheme === "D" && integ.cCyanToken === "#00e5ff";
+    results.integrationSnapshot = integ;
+
     results.pageerrors = errors;
 
     const pass =
@@ -206,6 +238,7 @@ async function getState(page) {
       results.sec8_yenReadoutAppearsLoggedIn &&
       results.sec11_legendSwatchHasColor && results.sec11_driftSwatchHasColor &&
       results.sec12_yenReadoutWhenLoggedInButUnconfigured && results.sec12_noDonutWhenUnconfigured &&
+      results.sec13_allSectionsCoexist && results.sec14_themeDApplied &&
       errors.length === 0;
 
     console.log(JSON.stringify(results, null, 2));
