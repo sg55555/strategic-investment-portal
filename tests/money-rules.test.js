@@ -1254,3 +1254,40 @@ test("defaultState/migrate: nisa 骨格が常在（三所配線）", () => {
   assert.equal(R.migrate({ nisa:{ tsumitateThisYear:"120000", source:"ledger" } }).nisa.tsumitateThisYear, 120000);
   assert.equal(R.migrate({ nisa:{ source:"ledger" } }).nisa.source, "ledger");
 });
+
+test("nisaNow: UTC年/月0基・[1,9999]ガード", () => {
+  const a = R.nisaNow(Date.UTC(2026,6,15)); // 7月
+  assert.deepEqual(a, { year:2026, monthIndex:6, valid:true });
+  assert.deepEqual(R.nisaNow(1e300), { year:0, monthIndex:0, valid:false }); // 域外→invalid
+});
+test("nisaDerive: 未設定は configured=false", () => {
+  const d = R.nisaDerive(R.migrate({}), Date.UTC(2026,6,15));
+  assert.equal(d.configured, false);
+});
+test("nisaDerive: 枠計算・%clamp・残・over・復活・stale・積立接続", () => {
+  const st = R.migrate({ nisa:{ anchorYear:2026, tsumitateThisYear:600000, growthThisYear:1000000,
+    tsumitateLifetime:2200000, growthLifetime:3000000, soldThisYearAtCost:800000 } });
+  const d = R.nisaDerive(st, Date.UTC(2026,6,15)); // 7月→残6ヶ月(12-6)
+  assert.equal(d.configured, true);
+  assert.equal(d.annualTsumitateUsedPct, 50);  // 60万/120万
+  assert.equal(d.annualGrowthUsedPct, 42);     // 100万/240万=41.67→42
+  assert.equal(d.lifetimeUsedPct, 29);         // 520万/1800万=28.9→29
+  assert.equal(d.growthCapUsedPct, 25);        // 300万/1200万
+  assert.equal(d.annualTsumitateRemaining, 600000);
+  assert.equal(d.lifetimeRemaining, 12800000);
+  assert.equal(d.growthCapRemaining, 9000000);
+  assert.equal(d.overContribution, false);
+  assert.equal(d.hasRestorationPending, true);
+  assert.equal(d.staleAnchorYear, false);
+  assert.equal(d.monthsLeft, 6);
+  assert.equal(d.monthlyToFillTsumitate, 100000); // 60万/6
+  assert.equal(d.restoresYear, 2027);
+});
+test("nisaDerive: over-contribution と staleAnchorYear", () => {
+  const st = R.migrate({ nisa:{ anchorYear:2025, tsumitateThisYear:1500000, growthLifetime:13000000 } });
+  const d = R.nisaDerive(st, Date.UTC(2026,0,10));
+  assert.equal(d.overContribution, true);          // つみたて>120万 & 成長生涯>1200万
+  assert.equal(d.annualTsumitateUsedPct, 100);     // clamp
+  assert.equal(d.growthCapUsedPct, 100);           // clamp
+  assert.equal(d.staleAnchorYear, true);           // 2025<2026
+});

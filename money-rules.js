@@ -407,6 +407,50 @@
     return "over_10y";
   }
 
+  // B#3: nowMs から UTC 年/月(0基)を導出（glidePath と同一の [1,9999] ガードで Py datetime と対称化）。
+  function nisaNow(nowMs) {
+    var d = new Date(num(nowMs));
+    var y = d.getUTCFullYear();
+    if (!isFinite(y) || y < 1 || y > 9999) return { year: 0, monthIndex: 0, valid: false };
+    return { year: y, monthIndex: d.getUTCMonth(), valid: true };
+  }
+
+  // B#3: NISA使用状況の全導出（単一計算源＝nisaFacts/nisaRaw/nisaViewModel が参照）。
+  function nisaDerive(state, nowMs) {
+    var n = normalizeNisa(state && state.nisa);
+    var configured = n.anchorYear > 0 || n.tsumitateThisYear > 0 || n.growthThisYear > 0 ||
+      n.tsumitateLifetime > 0 || n.growthLifetime > 0 || n.soldThisYearAtCost > 0;
+    var now = nisaNow(nowMs);
+    var atUsed = n.tsumitateThisYear, agUsed = n.growthThisYear, atTotal = atUsed + agUsed;
+    var lifeUsed = n.tsumitateLifetime + n.growthLifetime;
+    var annualTsumitateRemaining = Math.max(0, NISA_ANNUAL_TSUMITATE - atUsed);
+    var annualGrowthRemaining = Math.max(0, NISA_ANNUAL_GROWTH - agUsed);
+    var annualTotalRemaining = Math.max(0, NISA_ANNUAL_TOTAL - atTotal);
+    var lifetimeRemaining = Math.max(0, NISA_LIFETIME - lifeUsed);
+    var growthCapRemaining = Math.max(0, NISA_GROWTH_LIFETIME_CAP - n.growthLifetime);
+    var monthsLeft = now.valid ? (12 - now.monthIndex) : 0;
+    return {
+      configured: configured, n: n, year: now.year, monthIndex: now.monthIndex, valid: now.valid,
+      atUsed: atUsed, agUsed: agUsed, atTotal: atTotal,
+      annualTsumitateRemaining: annualTsumitateRemaining, annualGrowthRemaining: annualGrowthRemaining,
+      annualTotalRemaining: annualTotalRemaining, lifeUsed: lifeUsed,
+      lifetimeRemaining: lifetimeRemaining, growthCapRemaining: growthCapRemaining,
+      annualTsumitateUsedPct: clamp(r(atUsed / NISA_ANNUAL_TSUMITATE * 100), 0, 100),
+      annualGrowthUsedPct: clamp(r(agUsed / NISA_ANNUAL_GROWTH * 100), 0, 100),
+      annualTotalUsedPct: clamp(r(atTotal / NISA_ANNUAL_TOTAL * 100), 0, 100),
+      lifetimeUsedPct: clamp(r(lifeUsed / NISA_LIFETIME * 100), 0, 100),
+      growthCapUsedPct: clamp(r(n.growthLifetime / NISA_GROWTH_LIFETIME_CAP * 100), 0, 100),
+      overContribution: atUsed > NISA_ANNUAL_TSUMITATE || agUsed > NISA_ANNUAL_GROWTH ||
+        atTotal > NISA_ANNUAL_TOTAL || lifeUsed > NISA_LIFETIME || n.growthLifetime > NISA_GROWTH_LIFETIME_CAP,
+      hasRestorationPending: n.soldThisYearAtCost > 0,
+      staleAnchorYear: now.valid && n.anchorYear > 0 && n.anchorYear < now.year,
+      monthsLeft: monthsLeft,
+      monthlyToFillTsumitate: monthsLeft > 0 ? Math.ceil(annualTsumitateRemaining / monthsLeft) : 0,
+      monthlyToFillGrowth: monthsLeft > 0 ? Math.ceil(annualGrowthRemaining / monthsLeft) : 0,
+      restoresYear: now.valid ? now.year + 1 : 0,
+    };
+  }
+
   // Task3: 確保枠の月次コミット合計（定常寄与＝投影のコアドラッグ）。cd.reserveAlloc(配列)や cd.toReserves(今月実配分・phase依存)は投影に使わない。
   function reserveMonthlyTotal(s, nowMs) {
     var reserves = Array.isArray(s.reserves) ? s.reserves : [];
@@ -1093,5 +1137,6 @@
     NISA_ANNUAL_TSUMITATE: NISA_ANNUAL_TSUMITATE, NISA_ANNUAL_GROWTH: NISA_ANNUAL_GROWTH,
     NISA_ANNUAL_TOTAL: NISA_ANNUAL_TOTAL, NISA_LIFETIME: NISA_LIFETIME,
     NISA_GROWTH_LIFETIME_CAP: NISA_GROWTH_LIFETIME_CAP,
+    nisaNow: nisaNow, nisaDerive: nisaDerive,
   };
 });
