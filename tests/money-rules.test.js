@@ -1088,3 +1088,19 @@ test("modeAFacts: 単一要素配列 birthYear は migrate で0へ落ち assetCl
   assert.equal("assetClasses" in prod, false);
   assert.equal("assetClasses" in pers, false);
 });
+// site3 lock: modeAFacts 冒頭の opts.nowMs 事前coerce を numScalar()（配列 unbox しない）で固定する回帰。
+// birthYear は有効なスカラ 1986 に固定し、assetClasses の有無を分けるのは nowMs のみ＝配列 nowMs を直接 exercise。
+// この行を num()（旧・Number([x])===x で unbox）へ revert すると配列が 2026 へ化けて configured:true→
+// assetClasses が出現し、下の array 側 assert が RED になる（Py 側は now_ms を事前coerceしないため常に不在＝発散源）。
+test("modeAFacts: array nowMs は numScalar で0扱い→configured:false→assetClasses キー不在（site3 lock・scalar nowMs 対照）", () => {
+  const raw = { birthYear: 1986, assetHoldings: { core: { devEq: 100 } } };
+  // 対照: 同一 raw にスカラ nowMs を渡すと age=40→configured:true→assetClasses が載る（差の源が nowMs だけと確定）。
+  const scalarProd = R.modeAFacts(raw, { nowMs: Date.UTC(2026, 6, 15) });
+  assert.equal("assetClasses" in scalarProd, true);
+  assert.equal(scalarProd.assetClasses.riskAssetPct, 70);
+  // 本題: 単一要素配列 nowMs は numScalar→0→1970→age=-16→configured:false→キー省略（両モード）。
+  const arrProd = R.modeAFacts(raw, { nowMs: [Date.UTC(2026, 6, 15)] });
+  const arrPers = R.modeAFacts(raw, { includeRawAmounts: true, nowMs: [Date.UTC(2026, 6, 15)] });
+  assert.equal("assetClasses" in arrProd, false);
+  assert.equal("assetClasses" in arrPers, false);
+});

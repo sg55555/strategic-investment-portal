@@ -726,6 +726,23 @@ def test_mode_a_facts_single_element_array_birth_year_key_absent_parity():
     assert "assetClasses" not in pers
 
 
+def test_mode_a_facts_array_now_ms_key_absent_site3_lock():
+    """site3 lock（JS money-rules.test.js の同名テストと鏡像）: JS 側 modeAFacts は opts.nowMs を numScalar() で
+    事前coerceし配列を unbox しない。Python の mode_a_facts は now_ms を一切事前coerceせず _asset_classes_facts→
+    _glide_path の _num_scalar が直接効く。よって array now_ms は両言語とも configured:false→assetClasses キー不在。
+    scalar now_ms（対照）は age=40→configured:true→キー存在＝差の源が now_ms だけと確定。"""
+    raw = {"birthYear": 1986, "assetHoldings": {"core": {"devEq": 100}}}
+    # 対照: scalar now_ms はキー存在。
+    scalar_prod = advice.mode_a_facts(raw, False, _MS_2026_UTC0715)
+    assert "assetClasses" in scalar_prod
+    assert scalar_prod["assetClasses"]["riskAssetPct"] == 70
+    # 本題: array now_ms は _num_scalar→0→1970→age=-16→configured:false→キー省略（両モード）。
+    arr_prod = advice.mode_a_facts(raw, False, [_MS_2026_UTC0715])
+    arr_pers = advice.mode_a_facts(raw, True, [_MS_2026_UTC0715])
+    assert "assetClasses" not in arr_prod
+    assert "assetClasses" not in arr_pers
+
+
 def test_coarsen_asset_classes_buckets_current_and_signed_drift_not_target():
     raw = {"birthYear": 1986, "assetHoldings": {"buffer": {"cash": 100}}}
     f = advice.mode_a_facts(raw, True, _MS_2026_UTC0715)

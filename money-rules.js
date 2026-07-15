@@ -812,6 +812,10 @@
     // ここで num() のまま Number([x])===x を許すと、この後 assetClassesFacts(s, nowMs)→glidePath に渡る時点で
     // 既に scalar 化済みとなり、glidePath 内部の numScalar 化（Task7 fuzz 修正）が素通りされてしまう
     // （Python 側は _asset_classes_facts に raw now_ms がそのまま渡り、_glide_path 内の _num_scalar が直接効く＝非対称）。
+    // ⚠スコープ注記: この nowMs は deadlineBucket（goals）と cashflowDerived/reserveMonthlyTotal（cashflow opts）にも渡るが、
+    // それら経路の JS↔Py 一致は「下流の discretize（bucket化/丸め）で差が観測不能になる」ことに依存しており、真の coercion 対称
+    // ではない。特に bool nowMs は JS numScalar(true)=0 vs Python generic _num(True)=1.0（bool ガード無し）で 1ms 差が生じ得る
+    // ＝これは既存 generic num/_num 全般の潜在点であり B#2（birthYear/nowMs の array unbox）スコープ外。ここでは触らない。
     var nowMs = numScalar(opts.nowMs);
     var s = migrate(rawState);
     var cur = s.currency === "USD" ? "USD" : "JPY"; // 自由文字列 currency を閉集合へ
