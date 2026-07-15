@@ -6108,64 +6108,25 @@
     {
       "name": "assetclass-i-adversarial-coercion",
       "state": {
-        "version": 2,
-        "currency": "JPY",
-        "monthlyExpense": 0,
-        "bufferMonths": 6,
-        "buckets": {
-          "buffer": {
-            "amount": 0
-          },
-          "core": {
-            "amount": 0
-          },
-          "satellite": {
-            "amount": 0
-          }
-        },
-        "satelliteCapPct": 10,
-        "lastAppliedCashflowPeriod": "",
-        "cashSource": "manual",
-        "investmentSource": "manual",
-        "anchor": {
-          "date": "",
-          "amount": 0
-        },
-        "reserves": [],
-        "goals": [],
-        "updatedAt": 0,
-        "history": [],
         "birthYear": 1986,
         "assetHoldings": {
-          "buffer": {
-            "cash": 0,
-            "jpEq": 0,
-            "devEq": 0,
-            "emEq": 0,
-            "bond": 0,
-            "reit": 0,
-            "gold": 0
-          },
           "core": {
-            "cash": 0,
-            "jpEq": 0,
-            "devEq": 0,
-            "emEq": 0,
-            "bond": 0,
-            "reit": 0,
-            "gold": 0
+            "devEq": 30000,
+            "jpEq": "10000",
+            "reit": [
+              20000
+            ],
+            "gold": "NaN",
+            "emEq": {
+              "nested": 1
+            },
+            "bond": -50,
+            "unknownKey": 999
           },
-          "satellite": {
-            "cash": 0,
-            "jpEq": 0,
-            "devEq": 0,
-            "emEq": 0,
-            "bond": 0,
-            "reit": 12000,
-            "gold": 3000
+          "unknownBucket": {
+            "cash": 1
           }
-        },
-        "assetSource": "manual"
+        }
       },
       "nowMs": 1784073600000,
       "production": {
@@ -6197,16 +6158,10 @@
           "riskAssetPct": 70,
           "classes": [
             {
-              "key": "reit",
-              "targetPct": 6,
-              "currentPct": 80,
-              "driftPct": 74
-            },
-            {
               "key": "devEq",
               "targetPct": 36,
-              "currentPct": 0,
-              "driftPct": -36
+              "currentPct": 75,
+              "driftPct": 39
             },
             {
               "key": "bond",
@@ -6215,22 +6170,28 @@
               "driftPct": -30
             },
             {
-              "key": "gold",
-              "targetPct": 4,
-              "currentPct": 20,
-              "driftPct": 16
-            },
-            {
               "key": "jpEq",
               "targetPct": 12,
-              "currentPct": 0,
-              "driftPct": -12
+              "currentPct": 25,
+              "driftPct": 13
             },
             {
               "key": "emEq",
               "targetPct": 12,
               "currentPct": 0,
               "driftPct": -12
+            },
+            {
+              "key": "reit",
+              "targetPct": 6,
+              "currentPct": 0,
+              "driftPct": -6
+            },
+            {
+              "key": "gold",
+              "targetPct": 4,
+              "currentPct": 0,
+              "driftPct": -4
             },
             {
               "key": "cash",
@@ -6270,16 +6231,10 @@
           "riskAssetPct": 70,
           "classes": [
             {
-              "key": "reit",
-              "targetPct": 6,
-              "currentPct": 80,
-              "driftPct": 74
-            },
-            {
               "key": "devEq",
               "targetPct": 36,
-              "currentPct": 0,
-              "driftPct": -36
+              "currentPct": 75,
+              "driftPct": 39
             },
             {
               "key": "bond",
@@ -6288,22 +6243,28 @@
               "driftPct": -30
             },
             {
-              "key": "gold",
-              "targetPct": 4,
-              "currentPct": 20,
-              "driftPct": 16
-            },
-            {
               "key": "jpEq",
               "targetPct": 12,
-              "currentPct": 0,
-              "driftPct": -12
+              "currentPct": 25,
+              "driftPct": 13
             },
             {
               "key": "emEq",
               "targetPct": 12,
               "currentPct": 0,
               "driftPct": -12
+            },
+            {
+              "key": "reit",
+              "targetPct": 6,
+              "currentPct": 0,
+              "driftPct": -6
+            },
+            {
+              "key": "gold",
+              "targetPct": 4,
+              "currentPct": 0,
+              "driftPct": -4
             },
             {
               "key": "cash",
