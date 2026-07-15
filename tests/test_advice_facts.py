@@ -39,6 +39,10 @@ ALLOW = {
     "roadmap", "phase", "coreProgressPct", "coreEstablished", "satelliteUnlocked", "coreTargetSource",
     "etaToCoreBucket",
     "assetClasses", "riskAssetPct", "classes", "key", "targetPct", "currentPct", "driftPct",  # Task5 B#2
+    "nisa", "annualTsumitateUsedPct", "annualGrowthUsedPct", "annualTotalUsedPct",
+    "lifetimeUsedPct", "growthCapUsedPct", "annualRoomRemaining", "lifetimeRoomRemaining",
+    "growthCapRoomRemaining", "overContribution", "hasRestorationPending", "staleAnchorYear",
+    "lifetimeFillEtaBucket", "source",  # B#3 NISA
 }
 DENY = {
     "raw", "monthlyExpense", "bufferAmount", "bufferTarget", "bufferRemaining", "coreAmount",
@@ -898,6 +902,14 @@ def test_coarsen_asset_classes_case_j_zero_nonaligned_values():
     for row in cf["assetClasses"]["classes"]:
         assert row["currentPct"] % 25 == 0
         assert row["driftPct"] % 25 == 0
+
+
+def test_coarsen_nisa_buckets_pct():
+    st = advice._migrate({"nisa":{"anchorYear":2026,"tsumitateThisYear":600000}})
+    f = advice.mode_a_facts(st, False, 1784073600000)
+    c = advice.coarsen_facts(f)
+    assert c["nisa"]["annualTsumitateUsedPct"] in (0,25,50,75,100)
+    assert "raw" not in c
 
 
 # ── _num/_cf_num scalar-coerce パリティ堅牢化（num-scalar-parity・spec 2026-07-15）──

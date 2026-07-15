@@ -1034,6 +1034,10 @@
     var acFacts = assetClassesFacts(s, nowMs);
     if (acFacts) facts.assetClasses = acFacts;
 
+    // B#3: NISA枠（backlog B #3）。未設定は nisa キー自体を省く（assetClasses と同型・両モード同値）。
+    var niFacts = nisaFacts(s, nowMs);
+    if (niFacts) facts.nisa = niFacts;
+
     if (includeRaw) {
       facts.raw = {
         monthlyExpense: num(s.monthlyExpense),
@@ -1056,6 +1060,8 @@
           };
         }),
       };
+      var niRaw = nisaRaw(s, nowMs);
+      if (niRaw) facts.raw.nisa = niRaw;
     }
 
     // Slice4: cashflow（収支連携）。opts.cashflow が渡された時のみ facts.cashflow を付与。
@@ -1086,6 +1092,8 @@
       var _mToCore = projectMonths(coreProgress(s).remaining, _coreContribution);
       var _cumToCore = (_mToBuffer !== null && _mToCore !== null) ? _mToBuffer + _mToCore : null;
       facts.roadmap.etaToCoreBucket = cd.available ? etaBucket(_cumToCore) : "none";
+      // B#3: 生涯枠充填 ETA も cashflow ペースで上書き（roadmap.etaToCoreBucket と同型・既定'none'を実バケツへ）。
+      if (facts.nisa) facts.nisa.lifetimeFillEtaBucket = cd.available ? etaBucket(projectMonths(nisaDerive(s, nowMs).lifetimeRemaining, cd.investableSurplus)) : "none";
       // Slice4.5: 確保枠の補足advisory（NEXT_TARGETS は4据え置き＝新カテゴリにしない）。
       // reserves 設定時のみ付与（未設定 state は既存 facts.cashflow をバイト不変に保つ＝既存パリティ維持）。
       // 集約のみ（active=件数/fundedPct=比率/shortfall=bool）＝production でも生 yen を出さない。

@@ -210,6 +210,11 @@ const PROD_TOP_KEYS = new Set([
   "roadmap", "phase", "coreProgressPct", "coreEstablished", "satelliteUnlocked", "coreTargetSource",
   "etaToCoreBucket",
   "assetClasses", "riskAssetPct", "classes", "key", "targetPct", "currentPct", "driftPct", // Task5 B#2
+  "nisa", "annualTsumitateUsedPct", "annualGrowthUsedPct", "annualTotalUsedPct",
+  "lifetimeUsedPct", "growthCapUsedPct", "annualRoomRemaining", "lifetimeRoomRemaining",
+  "growthCapRoomRemaining", "overContribution", "hasRestorationPending", "staleAnchorYear",
+  "lifetimeFillEtaBucket", // B#3 NISA（source は既存キー名と衝突しないため別途: 下行）
+  "source",
 ]);
 // production facts のツリーに現れてはならない生額・PII・注入面のキー（再帰深掘りで検査）。
 const DENYLIST_KEYS = [
