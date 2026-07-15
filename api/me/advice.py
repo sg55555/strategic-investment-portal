@@ -410,7 +410,7 @@ def _reserve_monthly(rv, now_ms):
     months_left = dl_ym - now_ym
     if months_left < 1:
         months_left = 1  # 期日切迫/超過 → 満額を今月
-    return int(math.ceil(remaining / months_left))
+    return float(math.ceil(remaining / months_left))  # follow-up D: float64 collapse（int(ceil) の任意精度 int を回避し JS Math.ceil の float64 と型/表現を対称化）
 
 
 def _migrate(raw):
@@ -565,7 +565,7 @@ def _project_months(gap_yen, rate_yen):
     if rate_yen <= 0 or not math.isfinite(gap_yen):  # #2 ∞/NaN gap は degrade（int(ceil(inf)) OverflowError を JS Infinity と対称化）
         return None
     q = max(0, gap_yen) / rate_yen
-    return math.ceil(q) if math.isfinite(q) else None  # 有限 gap でも rate 極小で比率が溢れる場合を捕捉
+    return float(math.ceil(q)) if math.isfinite(q) else None  # 有限 gap でも rate 極小で比率が溢れる場合を捕捉（follow-up D: math.ceil の任意精度 int を float64 へ collapse＝JS Math.ceil と対称）
 
 
 def _eta_bucket(months):
@@ -776,7 +776,7 @@ def _cashflow_derived(rows, s, now_ms):
     if buffer_achieved:
         months_to_buffer = 0
     elif monthly_surplus > 0 and buffer_rem > 0 and math.isfinite(buffer_rem / monthly_surplus):
-        months_to_buffer = int(math.ceil(buffer_rem / monthly_surplus))  # #2 比率有限のみ ceil（bufferTarget overflow は下の None＝JS と対称・500回避）
+        months_to_buffer = float(math.ceil(buffer_rem / monthly_surplus))  # #2 比率有限のみ ceil（bufferTarget overflow は下の None＝JS と対称・500回避）／follow-up D: float64 collapse（任意精度 int を回避し JS Math.ceil と対称）
     else:
         months_to_buffer = None
     destination = _next_target(s)  # nextTarget と単一源で一致（自己矛盾を排除）
@@ -947,7 +947,9 @@ def mode_a_facts(raw_state, include_raw, now_ms, cashflow=None):
         # ロードマップ ETA（積立のみ・0%・確保枠ドラッグ）。集約バケツのみ＝生月数は出さない（money-rules.js の鏡像）。
         reserve_mo = _reserve_monthly_total(s, now_ms)
         core_contribution = max(0, cd["monthlySurplus"] - reserve_mo)
-        m_to_buffer = cd["monthsToBufferComplete"] if isinstance(cd["monthsToBufferComplete"], int) else _project_months(_buffer_remaining(s), cd["monthlySurplus"])
+        # monthsToBufferComplete が number(0 or float ceil)なら直接使用・None(overflow)のみ再計算＝JS `typeof==="number"` の鏡像。
+        # follow-up D で ceil sink が int→float 化したため int 限定 proxy を (int,float) へ拡張（値は 0/float/None のみ＝bool 混入なし）。
+        m_to_buffer = cd["monthsToBufferComplete"] if isinstance(cd["monthsToBufferComplete"], (int, float)) else _project_months(_buffer_remaining(s), cd["monthlySurplus"])
         m_to_core = _project_months(_core_progress(s)["remaining"], core_contribution)
         cum_to_core = (m_to_buffer + m_to_core) if (m_to_buffer is not None and m_to_core is not None) else None
         facts["roadmap"]["etaToCoreBucket"] = _eta_bucket(cum_to_core) if cd["available"] else "none"

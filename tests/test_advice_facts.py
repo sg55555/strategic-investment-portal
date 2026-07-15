@@ -7,6 +7,7 @@ DB/anthropic は不要（純関数のみ）。pytest でも `python tests/test_a
 """
 import importlib.util
 import json
+import math
 import os
 from decimal import Decimal
 
@@ -378,6 +379,48 @@ def test_cashflow_derived_buffer_overflow():
     cd = advice._cashflow_derived(rows, s, now)
     assert cd["monthlySurplus"] > 0  # 前提：余剰あり＝overflow 分岐へ入る
     assert cd["monthsToBufferComplete"] is None
+
+
+# --- follow-up D: int(math.ceil()) の float64↔任意精度int 精度パリティ（全 ceil sink を float64 ドメインへ collapse）---
+# Python の int(math.ceil(x)) は任意精度 int を返すが JS Math.ceil(x) は float64 を返す。有限巨大入力（>2^53）で
+# 型/表現が発散する。本番非到達（下流の clamp/floor と fuzz の JS JSON.parse 往復で潰れる＝出力レベルは 0 mismatch）
+# だが、プリミティブ契約を JS number（float64）と対称に保つ＝「2^53 collapse 哲学（float64 へ揃える）」を ceil sink
+# にも適用する。値は数学的に一致する（float64 の厳密 ceil は常に float64 表現可）ため、distinguisher は「返り値が
+# float64 ドメイン＝isinstance(float)」であること（任意精度 int でない）。
+
+def test_reserve_monthly_float64_collapse_huge_target():
+    import datetime as dt
+    now = dt.datetime(2026, 7, 15, tzinfo=dt.timezone.utc).timestamp() * 1000
+    # target 1e300 / 残3ヶ月（2026-07→2026-10）→ v = 1e300/3。JS reserveMonthly は Math.ceil(v)（float64）を返す。
+    result = advice._reserve_monthly({"target": 1e300, "saved": 0, "deadline": "2026-10-01"}, now)
+    assert result == math.ceil(1e300 / 3)   # 値は float64 の厳密 ceil と一致（回帰なし）
+    assert isinstance(result, float)         # float64 ドメイン（任意精度 int でない）＝D fix の核
+
+
+def test_project_months_float64_collapse_huge():
+    # gap 1e300 / rate 1 → q = 1e300（有限）。JS projectMonths は Math.ceil(q)（float64）を返す。
+    result = advice._project_months(1e300, 1)
+    assert result == math.ceil(1e300)
+    assert isinstance(result, float)         # float64 ドメイン＝D fix の核
+
+
+def test_months_to_buffer_float64_collapse_huge():
+    # monthsToBufferComplete = ceil(buffer_rem / monthly_surplus)。buffer_rem=3e299（有限・overflow でない）/
+    # surplus=1e5 → 有限巨大比率 3e294。JS cashflowDerived は Math.ceil（float64）を返す。
+    s = advice._migrate({"monthlyExpense": 1e299, "bufferMonths": 3, "buckets": {"buffer": {"amount": 0}}})
+    rows = [{
+        "period": p, "total_income": 500000, "salary_income": 500000, "misc_income": 0,
+        "fixed_expense": 0, "variable_expense": 400000, "total_expense": 400000, "balance": 100000,
+        "is_complete": True, "pulled_at": "2026-06-20T00:00:00Z",
+    } for p in ("2026-04-01", "2026-05-01", "2026-06-01")]
+    import datetime as dt
+    now = dt.datetime(2026, 6, 28, tzinfo=dt.timezone.utc).timestamp() * 1000
+    cd = advice._cashflow_derived(rows, s, now)
+    assert cd["monthlySurplus"] > 0  # 前提：余剰あり＝ceil 分岐へ
+    ratio = cd["bufferRemaining"] / cd["monthlySurplus"]
+    assert math.isfinite(ratio)      # 前提：有限比率（overflow=None 分岐でない）
+    assert cd["monthsToBufferComplete"] == math.ceil(ratio)  # 値は float64 の厳密 ceil と一致
+    assert isinstance(cd["monthsToBufferComplete"], float)   # float64 ドメイン＝D fix の核
 
 
 def test_goal_progress_total_overflow():

@@ -217,7 +217,7 @@
     var dlYM = parseInt(rv.deadline.slice(0, 4), 10) * 12 + (parseInt(rv.deadline.slice(5, 7), 10) - 1);
     var monthsLeft = dlYM - nowYM;
     if (monthsLeft < 1) monthsLeft = 1; // 期日切迫/超過 → 満額を今月
-    return Math.ceil(remaining / monthsLeft);
+    return Math.ceil(remaining / monthsLeft); // float64（follow-up D: Py _reserve_monthly は float(math.ceil) で任意精度 int を回避しこの float64 と対称）
   }
 
   function defaultState() {
@@ -372,7 +372,7 @@
   function projectMonths(gapYen, rateYen) {
     if (rateYen <= 0 || !isFinite(gapYen)) return null; // #2 ∞/NaN gap は degrade（Py int(ceil(inf)) OverflowError と対称化）
     var q = Math.max(0, gapYen) / rateYen;
-    return isFinite(q) ? Math.ceil(q) : null; // 有限 gap でも rate 極小で比率が溢れる場合を捕捉
+    return isFinite(q) ? Math.ceil(q) : null; // 有限 gap でも rate 極小で比率が溢れる場合を捕捉（float64・follow-up D: Py _project_months は float(math.ceil) で対称）
   }
 
   // Task2: facts 用に生月数を粗化（ログ指紋の解像度低下）。
@@ -703,7 +703,7 @@
       if (ra.shortfall) reservesShortfall = true;
     });
     var monthsToBufferComplete = bufferAchieved ? 0
-      : (monthlySurplus > 0 && bufferRem > 0 && isFinite(bufferRem / monthlySurplus) ? Math.ceil(bufferRem / monthlySurplus) : null); // #2 比率非有限(bufferTarget overflow)は null（Py int(ceil(inf)) と対称）
+      : (monthlySurplus > 0 && bufferRem > 0 && isFinite(bufferRem / monthlySurplus) ? Math.ceil(bufferRem / monthlySurplus) : null); // #2 比率非有限(bufferTarget overflow)は null（Py int(ceil(inf)) と対称）／float64: follow-up D で Py も float(math.ceil) 化し対称
     var destination = nextAllocation(s).target;  // nextTarget と単一源で一致（同画面の自己矛盾を排除）
 
     // トレンド（直近3 median vs 前3 median・要 prev3 が3ヶ月）。
