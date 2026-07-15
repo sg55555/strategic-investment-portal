@@ -966,6 +966,39 @@ def test_migrate_huge_int_gate_parity():
     assert advice._migrate({"bufferMonths": float("inf")})["bufferMonths"] == 0
 
 
+# --- B#3 NISA枠: Task5 Python鏡像（_normalize_nisa/_nisa_facts/_nisa_raw） ---
+
+def test_normalize_nisa_shape():
+    z = advice._normalize_nisa(None)
+    assert z == {"source":"manual","anchorYear":0,"tsumitateThisYear":0,"growthThisYear":0,
+                 "tsumitateLifetime":0,"growthLifetime":0,"soldThisYearAtCost":0}
+    n = advice._normalize_nisa({"source":"bogus","tsumitateThisYear":"600000","growthThisYear":[1],"XXX":9})
+    assert n["source"] == "manual"
+    assert n["tsumitateThisYear"] == 600000
+    assert n["growthThisYear"] == 0
+    assert "XXX" not in n
+
+
+def test_nisa_facts_mirror():
+    st = advice._migrate({"nisa":{"anchorYear":2026,"tsumitateThisYear":600000,"growthThisYear":1000000,
+        "tsumitateLifetime":2200000,"growthLifetime":3000000,"soldThisYearAtCost":800000}})
+    now = 1784073600000  # 2026-07 UTC 相当（JS Date.UTC(2026,6,15) と同月）
+    f = advice._nisa_facts(st, now)
+    assert f["annualTsumitateUsedPct"] == 50
+    assert f["lifetimeUsedPct"] == 29
+    assert f["hasRestorationPending"] is True
+    assert f["lifetimeFillEtaBucket"] == "none"
+    assert advice._nisa_facts(advice._migrate({}), now) is None  # 未設定→None
+
+
+def test_nisa_raw_mirror():
+    st = advice._migrate({"nisa":{"anchorYear":2026,"tsumitateThisYear":600000,"growthThisYear":1000000,
+        "tsumitateLifetime":2200000,"growthLifetime":3000000,"soldThisYearAtCost":800000}})
+    rw = advice._nisa_raw(st, 1784073600000)
+    assert rw["lifetimeRemaining"] == 12800000
+    assert rw["restoresYear"] == 2027
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
