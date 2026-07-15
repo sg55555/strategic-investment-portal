@@ -1291,3 +1291,32 @@ test("nisaDerive: over-contribution と staleAnchorYear", () => {
   assert.equal(d.growthCapUsedPct, 100);           // clamp
   assert.equal(d.staleAnchorYear, true);           // 2025<2026
 });
+
+test("nisaFacts: 未設定は undefined／設定時は production キーのみ（生¥なし・[-100,150]）", () => {
+  assert.equal(R.nisaFacts(R.migrate({}), Date.UTC(2026,6,15)), undefined);
+  const st = R.migrate({ nisa:{ anchorYear:2026, tsumitateThisYear:600000, growthThisYear:1000000,
+    tsumitateLifetime:2200000, growthLifetime:3000000, soldThisYearAtCost:800000 } });
+  const f = R.nisaFacts(st, Date.UTC(2026,6,15));
+  assert.deepEqual(f, {
+    source:"manual", annualTsumitateUsedPct:50, annualGrowthUsedPct:42, annualTotalUsedPct:44,
+    lifetimeUsedPct:29, growthCapUsedPct:25, annualRoomRemaining:true, lifetimeRoomRemaining:true,
+    growthCapRoomRemaining:true, overContribution:false, hasRestorationPending:true,
+    staleAnchorYear:false, lifetimeFillEtaBucket:"none",
+  });
+  // 生¥キーが production に無い
+  assert.equal("lifetimeRemaining" in f, false);
+  assert.equal("tsumitateThisYear" in f, false);
+  // 全数値leafが整数[-100,150]
+  Object.values(f).forEach(v => { if (typeof v === "number") assert.ok(Number.isInteger(v) && v>=-100 && v<=150); });
+});
+test("nisaRaw: 未設定は undefined／設定時は生¥ブロック", () => {
+  assert.equal(R.nisaRaw(R.migrate({}), Date.UTC(2026,6,15)), undefined);
+  const st = R.migrate({ nisa:{ anchorYear:2026, tsumitateThisYear:600000, growthThisYear:1000000,
+    tsumitateLifetime:2200000, growthLifetime:3000000, soldThisYearAtCost:800000 } });
+  const rw = R.nisaRaw(st, Date.UTC(2026,6,15));
+  assert.deepEqual(rw, {
+    tsumitateThisYear:600000, growthThisYear:1000000, tsumitateLifetime:2200000, growthLifetime:3000000,
+    soldThisYearAtCost:800000, annualTsumitateRemaining:600000, annualGrowthRemaining:1400000,
+    lifetimeRemaining:12800000, growthCapRemaining:9000000, monthlyToFillTsumitate:100000, restoresYear:2027,
+  });
+});

@@ -451,6 +451,45 @@
     };
   }
 
+  // B#3: production 集約facts（両モード同値・生¥ゼロ・全数値leaf整数[-100,150]）。未設定は undefined＝キー省略。
+  // lifetimeFillEtaBucket は cashflow ペース由来ゆえ既定'none'＝modeAFacts の cashflow ブロックが上書き（roadmap.etaToCoreBucket と同型）。
+  function nisaFacts(state, nowMs) {
+    var d = nisaDerive(state, nowMs);
+    if (!d.configured) return undefined;
+    return {
+      source: d.n.source,
+      annualTsumitateUsedPct: d.annualTsumitateUsedPct,
+      annualGrowthUsedPct: d.annualGrowthUsedPct,
+      annualTotalUsedPct: d.annualTotalUsedPct,
+      lifetimeUsedPct: d.lifetimeUsedPct,
+      growthCapUsedPct: d.growthCapUsedPct,
+      annualRoomRemaining: d.annualTotalRemaining > 0,
+      lifetimeRoomRemaining: d.lifetimeRemaining > 0,
+      growthCapRoomRemaining: d.growthCapRemaining > 0,
+      overContribution: d.overContribution,
+      hasRestorationPending: d.hasRestorationPending,
+      staleAnchorYear: d.staleAnchorYear,
+      lifetimeFillEtaBucket: "none",
+    };
+  }
+
+  // B#3: personal のみの生¥ブロック（facts.raw.nisa）。未設定は undefined＝キー省略。
+  function nisaRaw(state, nowMs) {
+    var d = nisaDerive(state, nowMs);
+    if (!d.configured) return undefined;
+    return {
+      tsumitateThisYear: d.atUsed, growthThisYear: d.agUsed,
+      tsumitateLifetime: d.n.tsumitateLifetime, growthLifetime: d.n.growthLifetime,
+      soldThisYearAtCost: d.n.soldThisYearAtCost,
+      annualTsumitateRemaining: d.annualTsumitateRemaining,
+      annualGrowthRemaining: d.annualGrowthRemaining,
+      lifetimeRemaining: d.lifetimeRemaining,
+      growthCapRemaining: d.growthCapRemaining,
+      monthlyToFillTsumitate: d.monthlyToFillTsumitate,
+      restoresYear: d.restoresYear,
+    };
+  }
+
   // Task3: 確保枠の月次コミット合計（定常寄与＝投影のコアドラッグ）。cd.reserveAlloc(配列)や cd.toReserves(今月実配分・phase依存)は投影に使わない。
   function reserveMonthlyTotal(s, nowMs) {
     var reserves = Array.isArray(s.reserves) ? s.reserves : [];
@@ -1138,5 +1177,6 @@
     NISA_ANNUAL_TOTAL: NISA_ANNUAL_TOTAL, NISA_LIFETIME: NISA_LIFETIME,
     NISA_GROWTH_LIFETIME_CAP: NISA_GROWTH_LIFETIME_CAP,
     nisaNow: nisaNow, nisaDerive: nisaDerive,
+    nisaFacts: nisaFacts, nisaRaw: nisaRaw,
   };
 });
