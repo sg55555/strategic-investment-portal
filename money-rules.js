@@ -13,6 +13,13 @@
   // Slice3: AI規律コーチ。正準 next ターゲット（Python テンプレ map と test 網羅の単一源）。
   var NEXT_TARGETS = ["setup", "buffer", "rebalance", "core"];
   var FACTS_SCHEMA_VERSION = 4; // v4: 資産クラス比率（backlog B #2）assetClasses 集約を facts に追加
+  // B#3 NISA枠（非課税枠）法定枠定数（2024新NISA・facts非出力＝公開既知値。年度改定時はここを更新）。
+  var NISA_ANNUAL_TSUMITATE = 1200000;   // つみたて投資枠 年間上限
+  var NISA_ANNUAL_GROWTH = 2400000;      // 成長投資枠 年間上限
+  var NISA_ANNUAL_TOTAL = 3600000;       // 年間合計上限（= つみたて+成長）
+  var NISA_LIFETIME = 18000000;          // 生涯非課税保有限度額（簿価）
+  var NISA_GROWTH_LIFETIME_CAP = 12000000; // うち成長投資枠の生涯内数上限
+  var NISA_SOURCES = ["manual", "history", "ledger"]; // 二軸source（Stage1=manual・Stage2/3で拡張）
   // 免責（node↔browser 単一源・全描画経路で決定論と不可分に常時表示）。
   var DISCLAIMER = "本コーチが示す決定論ルールおよび AI の補足はいずれも、資産規律の維持・教育・判断支援を目的とした一般的な情報提供であり、特定の金融商品の売買や投資配分・タイミングを推奨する投資助言ではありません。当ツールは金融商品取引業者・投資助言代理業者として登録された者による助言ではなく、特定の金融商品の勧誘を目的としたものでもありません。将来の利益や成果を保証するものではありません（過去の実績は将来を示しません）。最終的な投資判断はご自身の責任で行ってください。";
   var DISCLAIMER_VERSION = "disc-v1";
@@ -56,6 +63,19 @@
       for (var c = 0; c < ASSET_CLASSES.length; c++) out[bk][ASSET_CLASSES[c]] = num(inner[ASSET_CLASSES[c]]);
     }
     return out;
+  }
+  // B#3: NISA使用状況の固定形状を常に返す（非オブジェクト入力→全0骨格・allowlist キーのみ・scalar-only coerce・未知キー破棄）。
+  function normalizeNisa(raw) {
+    var s = (raw && typeof raw === "object" && !Array.isArray(raw)) ? raw : {};
+    return {
+      source: NISA_SOURCES.indexOf(s.source) >= 0 ? s.source : "manual",
+      anchorYear: num(s.anchorYear),
+      tsumitateThisYear: num(s.tsumitateThisYear),
+      growthThisYear: num(s.growthThisYear),
+      tsumitateLifetime: num(s.tsumitateLifetime),
+      growthLifetime: num(s.growthLifetime),
+      soldThisYearAtCost: num(s.soldThisYearAtCost),
+    };
   }
   // migrate 専用 birthYear coerce（有限・整数・1900<=n<=9999 以外は 0＝spec §2.2）。
   // spec の "1900..currentYear" のうち currentYear は migrate 時に nowMs 無しで得られないため、
@@ -239,6 +259,7 @@
       birthYear: 0, // B#2 資産クラス比率：年齢glidePath用（0=未設定）
       assetHoldings: normalizeAssetHoldings(null), // B#2: 3バケツ×7クラス完全骨格（全0）
       assetSource: "manual", // B#2 二軸: "ledger"=投資台帳ETL派生 / "manual"=直入力（既定=後方互換）
+      nisa: normalizeNisa(null), // B#3 NISA枠：非課税枠トラッキング（Stage1手入力・全0骨格）
     };
   }
 
@@ -289,6 +310,7 @@
       birthYear: normalizeBirthYear(raw.birthYear),
       assetHoldings: normalizeAssetHoldings(raw.assetHoldings),
       assetSource: raw.assetSource === "ledger" ? "ledger" : "manual",
+      nisa: normalizeNisa(raw.nisa), // B#3 NISA枠（前方互換・normalizeで固定形状）
     };
   }
 
@@ -1067,5 +1089,9 @@
     rSigned: rSigned, bucketCurrentPct: bucketCurrentPct,
     totalTargetPct: totalTargetPct, totalCurrentPct: totalCurrentPct, assetClassDrift: assetClassDrift,
     assetClassesFacts: assetClassesFacts,
+    normalizeNisa: normalizeNisa,
+    NISA_ANNUAL_TSUMITATE: NISA_ANNUAL_TSUMITATE, NISA_ANNUAL_GROWTH: NISA_ANNUAL_GROWTH,
+    NISA_ANNUAL_TOTAL: NISA_ANNUAL_TOTAL, NISA_LIFETIME: NISA_LIFETIME,
+    NISA_GROWTH_LIFETIME_CAP: NISA_GROWTH_LIFETIME_CAP,
   };
 });

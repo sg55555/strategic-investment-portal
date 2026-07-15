@@ -1227,3 +1227,30 @@ test("facts パリティ: 巨大整数(>309桁)/Infinity の bufferMonths/satell
   assert.equal(R.migrate({ satelliteCapPct: Infinity }).satelliteCapPct, 0);
   assert.equal(R.migrate({ satelliteCapPct: -Infinity }).satelliteCapPct, 10); // 負 Infinity は gate `>=0` 偽 → default
 });
+
+test("normalizeNisa: 非オブジェクト入力→全0既定・source=manual", () => {
+  const z = R.normalizeNisa(null);
+  assert.deepEqual(z, { source:"manual", anchorYear:0, tsumitateThisYear:0, growthThisYear:0,
+    tsumitateLifetime:0, growthLifetime:0, soldThisYearAtCost:0 });
+  assert.deepEqual(R.normalizeNisa("x"), z);
+  assert.deepEqual(R.normalizeNisa([1,2]), z);
+});
+test("normalizeNisa: scalar-only coerce・未知キー破棄・enum・負/配列→0", () => {
+  const n = R.normalizeNisa({ source:"history", anchorYear:2026, tsumitateThisYear:"600000",
+    growthThisYear:[1], growthLifetime:-5, soldThisYearAtCost:"0x10", XXX:9 });
+  assert.equal(n.source, "history");
+  assert.equal(n.anchorYear, 2026);
+  assert.equal(n.tsumitateThisYear, 600000);   // 数値文字列OK
+  assert.equal(n.growthThisYear, 0);            // 配列→0
+  assert.equal(n.growthLifetime, 0);            // 負→0
+  assert.equal(n.soldThisYearAtCost, 0);        // hex文字列→0
+  assert.equal("XXX" in n, false);              // 未知キー破棄
+  assert.equal(R.normalizeNisa({ source:"bogus" }).source, "manual"); // enum外→manual
+  assert.equal(R.normalizeNisa({ source:"ledger" }).source, "ledger");
+});
+test("defaultState/migrate: nisa 骨格が常在（三所配線）", () => {
+  assert.deepEqual(R.defaultState().nisa, R.normalizeNisa(null));
+  assert.deepEqual(R.migrate({}).nisa, R.normalizeNisa(null));
+  assert.equal(R.migrate({ nisa:{ tsumitateThisYear:"120000", source:"ledger" } }).nisa.tsumitateThisYear, 120000);
+  assert.equal(R.migrate({ nisa:{ source:"ledger" } }).nisa.source, "ledger");
+});
