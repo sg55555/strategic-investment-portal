@@ -834,10 +834,9 @@ window.MCC = (function () {
   var AC_NAMES = { devEq: "先進国株", jpEq: "国内株", emEq: "新興国株", reit: "REIT", gold: "金", bond: "債券", cash: "現金" };
   var AC_BUCKET_NAMES = { buffer: "バッファ（現金）", core: "コア", satellite: "サテライト" };
   var AC_UNCLASSIFIED_COLOR = "#64748b"; // spec §6.1: 低chromaスレート（現在地バー限定・facts非出力）
-  // spec §6.3 MINOR-27: 下部帯(成長/守り2値)はidentity 7色と非衝突のニュートラル暖色。守り=緑(bond域)。
-  // gold(#ff7a00・hue~29°/彩度~100%)と近接しないよう、脱彩度した warm tan（hue~45°/彩度~20%）を採用＝
-  // 共有の filter:saturate(1.55) 適用後も gold の鮮やかなオレンジへ収束しない（太田さん最終実機で微調整余地あり）。
-  var AC_BAND_GROW_COLOR = "#aca283";
+  // spec §6.3: 下部帯(成長/守り2値)。太田さん実機FB(2026-07-15)で mock 準拠の「成長=赤→橙グラデ(emEq→gold)」に確定
+  // （§6.3の"identity非衝突ニュートラル暖色"案は不採用＝本人が mock で確定した赤系統を優先。gold等との混同は帯の凡例で解消）。
+  // 守り=緑(bond域)。左端が赤(emEq #ff2a4d)→右へ橙(gold #ff7a00)のグラデ。
 
   function _hexRgb(h) {
     var n = parseInt(h.slice(1), 16);
@@ -845,9 +844,10 @@ window.MCC = (function () {
   }
 
   // spec §6.2: 発光塗り（alpha既定0.4・glow100%固定・チャート符号化要素で完全同一の適用）。
-  function _acNeon(rr, gg, bb, alphaArg) {
+  function _acNeon(rr, gg, bb, alphaArg, bgOverride) {
     var a = alphaArg != null ? alphaArg : 0.4;
-    return "background:rgba(" + rr + "," + gg + "," + bb + "," + a + ");box-shadow:" +
+    var bg = bgOverride || ("rgba(" + rr + "," + gg + "," + bb + "," + a + ")");
+    return "background:" + bg + ";box-shadow:" +
       "inset 0 0 0 1px rgba(" + rr + "," + gg + "," + bb + ",.9)," +
       "inset 0 2px 0 rgba(" + rr + "," + gg + "," + bb + ",1)," +
       "inset 0 0 11px rgba(" + rr + "," + gg + "," + bb + ",.45)," +
@@ -910,7 +910,9 @@ window.MCC = (function () {
   // ＝時刻算術のみで新規の業務式は追加しない（実際の目標%はすべてR.bucketTargets/R.growDefへ委譲）。
   function _acBands(birthYear, nowMs) {
     var pairs = [[0, "now"], [10, "+10年"], [20, "+20年"]];
-    var growC = _hexRgb(AC_BAND_GROW_COLOR), defC = _hexRgb(AC_COLORS.bond);
+    var emC = _hexRgb(AC_COLORS.emEq), goC = _hexRgb(AC_COLORS.gold), defC = _hexRgb(AC_COLORS.bond);
+    // 成長=赤→橙グラデ（左端 emEq赤→右 gold橙・mock準拠）＋emEq(赤)グロー
+    var growBg = "linear-gradient(90deg,rgba(" + emC[0] + "," + emC[1] + "," + emC[2] + ",.4),rgba(" + goC[0] + "," + goC[1] + "," + goC[2] + ",.4))";
     return pairs.map(function (pair) {
       var d = new Date(nowMs);
       d.setUTCFullYear(d.getUTCFullYear() + pair[0]);
@@ -918,7 +920,7 @@ window.MCC = (function () {
       if (!gpN.configured) return "";
       var core = R.bucketTargets("core", gpN.R);
       var gd = R.growDef(core);
-      var growStyle = _acNeon(growC[0], growC[1], growC[2]);
+      var growStyle = _acNeon(emC[0], emC[1], emC[2], 0.4, growBg);
       var defStyle = _acNeon(defC[0], defC[1], defC[2]);
       return '<div class="mcc-ac-band"><span class="yl">' + esc(pair[1]) + ' <small>(' + gpN.age + '歳)</small></span>' +
         '<div class="mcc-ac-stack" style="height:16px">' +
@@ -1016,6 +1018,10 @@ window.MCC = (function () {
       railHtml = '<div class="mcc-ac-rail">' + _acDriftRail(drift) + '</div>';
 
       bandsHtml = '<div class="mcc-ac-bands"><div class="cap">◷ 将来の設計図（年齢とともに"守り"へ寄っていく・表示のみ）</div>' +
+        '<div class="mcc-ac-band-legend">' +
+          '<span class="mcc-ac-bk"><i class="grow"></i>成長資産（株・REIT・金）</span>' +
+          '<span class="mcc-ac-bk"><i class="def"></i>守り（債券）</span>' +
+        '</div>' +
         _acBands(state.birthYear, nowMs) + '</div>';
     }
 

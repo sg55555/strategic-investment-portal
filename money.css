@@ -478,6 +478,11 @@
 .mcc-ac-driftrow.match .dv { color: var(--c-emerald-soft); }
 .mcc-ac-bands { margin-top: 18px; padding-top: 14px; border-top: 1px dashed rgba(148,163,184,0.14); }
 .mcc-ac-bands .cap { color: var(--c-text-faint); font-size: 0.66rem; letter-spacing: 0.5px; margin-bottom: 8px; }
+.mcc-ac-band-legend { display: flex; flex-wrap: wrap; gap: 16px; margin: 0 0 10px; }
+.mcc-ac-bk { display: flex; align-items: center; gap: 6px; font-size: 0.66rem; color: var(--c-text-dim); }
+.mcc-ac-bk i { width: 16px; height: 8px; border-radius: 2px; display: inline-block; flex: 0 0 auto; }
+.mcc-ac-bk i.grow { background: linear-gradient(90deg, #ff2a4d, #ff7a00); }
+.mcc-ac-bk i.def { background: #1fdb5e; }
 .mcc-ac-band { display: grid; grid-template-columns: 64px 1fr; align-items: center; gap: 10px; margin: 6px 0; }
 .mcc-ac-band .yl { font-size: 0.7rem; color: var(--c-text-dim); }
 .mcc-ac-band .yl small { color: var(--c-text-mute); }
@@ -877,6 +882,8 @@
 [data-theme="D"] #money-view .mcc-ac-input summary { color: var(--c-cyan-pale); font-family: var(--mcc-mono); letter-spacing: 1px; }
 [data-theme="D"] #money-view .mcc-ac-input-bktitle { color: var(--c-cyan-pale); font-family: var(--mcc-mono); letter-spacing: 0.5px; }
 [data-theme="D"] #money-view .mcc-ac-yen strong { text-shadow: 0 0 10px rgba(0,229,255,0.5); }
+[data-theme="D"] #money-view .mcc-ac-bk i.grow { box-shadow: 0 0 7px rgba(255,42,77,0.65), 0 0 2px rgba(255,122,0,0.6); }
+[data-theme="D"] #money-view .mcc-ac-bk i.def { box-shadow: 0 0 7px rgba(31,219,94,0.6); }
 
 /* neonb: 加算合成(screen)＝暗背景でも発光しつつ下地グリッドが透ける（透明度は0.4のまま・発光のみUP＝spec §6.2確定） */
 [data-theme="D"] #money-view .mcc-ac-card.neonb .mcc-ac-swatch { box-shadow: 0 0 7px currentColor, 0 0 2px currentColor; }
