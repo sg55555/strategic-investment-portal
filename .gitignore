@@ -39,3 +39,6 @@ scripts/get_stock.py
 .DS_Store
 *.swp
 .vercel
+
+# superpowers brainstorm visual companion (local mockups)
+.superpowers/
