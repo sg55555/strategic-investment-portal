@@ -450,6 +450,44 @@
     return { year: y, monthIndex: d.getUTCMonth(), valid: true };
   }
 
+  // B#3 Stage2: 年別履歴 → Stage1 と同じ5スカラーへの畳み込み（唯一の Stage2 計算）。
+  // 制度モデル：売却簿価は「翌年1/1」に生涯枠へ復活する＝当年(currentYear)の売却は生涯枠から控除しない。
+  // 未来年の行は無視（currentYear=0＝無効時刻なら全行が対象外＝全0へ degrade）。
+  function nisaHistoryFold(history, currentYear) {
+    var h = Array.isArray(history) ? history : [];
+    var tThis = 0, gThis = 0, soldThis = 0, tLife = 0, gLife = 0;
+    for (var i = 0; i < h.length; i++) {
+      var row = h[i];
+      if (!(row.year > 0) || row.year > currentYear) continue;
+      tLife += row.tsumitate;
+      gLife += row.growth;
+      if (row.year === currentYear) {
+        tThis = row.tsumitate;
+        gThis = row.growth;
+        soldThis = row.soldTsumitate + row.soldGrowth;
+      } else {
+        tLife -= row.soldTsumitate;   // 過去年の売却＝翌年1/1に復活済み
+        gLife -= row.soldGrowth;
+      }
+    }
+    return {
+      tsumitateThisYear: tThis, growthThisYear: gThis, soldThisYearAtCost: soldThis,
+      tsumitateLifetime: Math.max(0, tLife), growthLifetime: Math.max(0, gLife),
+    };
+  }
+  // B#3 Stage2: 実効値（source='history' なら履歴の畳み込みで5スカラーを差替）。
+  // これにより nisaDerive 以降の下流（Pct/over/ETA/facts/raw/VM）は d.n.* を読むだけで無改修のまま精度が上がる。
+  function nisaEffective(n, currentYear) {
+    if (n.source !== "history") return n;
+    var f = nisaHistoryFold(n.history, currentYear);
+    return {
+      source: n.source, anchorYear: n.anchorYear, history: n.history,
+      tsumitateThisYear: f.tsumitateThisYear, growthThisYear: f.growthThisYear,
+      tsumitateLifetime: f.tsumitateLifetime, growthLifetime: f.growthLifetime,
+      soldThisYearAtCost: f.soldThisYearAtCost,
+    };
+  }
+
   // B#3: NISA使用状況の全導出（単一計算源＝nisaFacts/nisaRaw/nisaViewModel が参照）。
   function nisaDerive(state, nowMs) {
     var n = normalizeNisa(state && state.nisa);
@@ -1238,6 +1276,10 @@
     totalTargetPct: totalTargetPct, totalCurrentPct: totalCurrentPct, assetClassDrift: assetClassDrift,
     assetClassesFacts: assetClassesFacts,
     normalizeNisa: normalizeNisa,
+    normalizeNisaYear: normalizeNisaYear, normalizeNisaHistory: normalizeNisaHistory,
+    nisaHistoryFold: nisaHistoryFold, nisaEffective: nisaEffective,
+    NISA_MIN_YEAR: NISA_MIN_YEAR, NISA_HISTORY_MAX: NISA_HISTORY_MAX,
+    NISA_SOURCES: NISA_SOURCES,   // Stage1 では未export＝Task9 の setNisaSource が R.NISA_SOURCES を使うため追加
     NISA_ANNUAL_TSUMITATE: NISA_ANNUAL_TSUMITATE, NISA_ANNUAL_GROWTH: NISA_ANNUAL_GROWTH,
     NISA_ANNUAL_TOTAL: NISA_ANNUAL_TOTAL, NISA_LIFETIME: NISA_LIFETIME,
     NISA_GROWTH_LIFETIME_CAP: NISA_GROWTH_LIFETIME_CAP,

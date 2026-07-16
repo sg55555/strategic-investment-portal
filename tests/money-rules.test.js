@@ -1400,3 +1400,54 @@ test("normalizeNisaHistory: 非配列→[] / 要素filter / slice(50) / 無効�
   assert.deepEqual(Object.keys(R.normalizeNisa({ history: [{ year: 2024, bogus: 1 }] }).history[0]),
     ["year", "tsumitate", "growth", "soldTsumitate", "soldGrowth"]);
 });
+
+test("nisaHistoryFold: 当年売却は生涯枠から控除しない／過去年売却は復活済み／枠別", () => {
+  const h = R.normalizeNisa({ history: [
+    { year: 2024, tsumitate: 1200000, growth: 2400000, soldTsumitate: 0, soldGrowth: 0 },
+    { year: 2025, tsumitate: 1000000, growth: 1000000, soldTsumitate: 200000, soldGrowth: 500000 },
+    { year: 2026, tsumitate: 600000, growth: 300000, soldTsumitate: 100000, soldGrowth: 400000 },
+  ] }).history;
+
+  const f = R.nisaHistoryFold(h, 2026);
+  // 当年（2026）の拠出はそのまま
+  assert.equal(f.tsumitateThisYear, 600000);
+  assert.equal(f.growthThisYear, 300000);
+  // 当年売却は合算して soldThisYearAtCost（翌年復活の予定）
+  assert.equal(f.soldThisYearAtCost, 500000);
+  // 生涯＝Σ拠出 − Σ(過去年の売却)。当年(2026)の売却は控除しない
+  assert.equal(f.tsumitateLifetime, 1200000 + 1000000 + 600000 - 200000);
+  assert.equal(f.growthLifetime, 2400000 + 1000000 + 300000 - 500000);
+
+  // 翌年に進むと 2026 の売却が復活＝生涯が減る
+  const g = R.nisaHistoryFold(h, 2027);
+  assert.equal(g.tsumitateLifetime, 1200000 + 1000000 + 600000 - 200000 - 100000);
+  assert.equal(g.growthLifetime, 2400000 + 1000000 + 300000 - 500000 - 400000);
+  assert.equal(g.tsumitateThisYear, 0);   // 2027 の行が無い＝当年拠出0（年ロールオーバーが自動）
+  assert.equal(g.soldThisYearAtCost, 0);
+});
+
+test("nisaHistoryFold: 未来年は無視／currentYear=0（無効時刻）は全0／売却>拠出は0クランプ", () => {
+  const h = R.normalizeNisa({ history: [
+    { year: 2024, tsumitate: 100 }, { year: 2030, tsumitate: 999999 },
+  ] }).history;
+  assert.equal(R.nisaHistoryFold(h, 2026).tsumitateLifetime, 100);   // 2030 は無視
+  assert.equal(R.nisaHistoryFold(h, 0).tsumitateLifetime, 0);        // 無効時刻→全0 degrade
+  assert.equal(R.nisaHistoryFold(h, 0).tsumitateThisYear, 0);
+
+  const over = R.normalizeNisa({ history: [{ year: 2024, tsumitate: 100, soldTsumitate: 500 }] }).history;
+  assert.equal(R.nisaHistoryFold(over, 2026).tsumitateLifetime, 0);  // 負値にしない
+});
+
+test("nisaEffective: manual は素通し／history は5スカラーだけ差替（source/anchorYear/history は保持）", () => {
+  const manual = R.normalizeNisa({ source: "manual", tsumitateThisYear: 50, history: [{ year: 2024, tsumitate: 999 }] });
+  assert.equal(R.nisaEffective(manual, 2026).tsumitateThisYear, 50);   // 履歴があっても manual なら無視
+
+  const hist = R.normalizeNisa({ source: "history", anchorYear: 2024, tsumitateThisYear: 50,
+    history: [{ year: 2026, tsumitate: 999 }] });
+  const e = R.nisaEffective(hist, 2026);
+  assert.equal(e.tsumitateThisYear, 999);   // 履歴が勝つ（排他）
+  assert.equal(e.source, "history");
+  assert.equal(e.anchorYear, 2024);
+  assert.equal(e.history.length, 1);
+  assert.deepEqual(Object.keys(e).sort(), Object.keys(hist).sort());   // 形状同一
+});
