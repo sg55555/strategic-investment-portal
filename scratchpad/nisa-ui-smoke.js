@@ -64,6 +64,7 @@ async function nisaSnapshot(page) {
       hasYen: /¥/.test(dataText),
       readoutMuted: !!el.querySelector(".mcc-nisa-readout-muted"),
       hudCount: el.querySelectorAll(".mcc-nisa-hud .h").length,
+      hudHtml: (el.querySelector(".mcc-nisa-hud") || {}).innerHTML || "",
       donutExists: !!el.querySelector(".mcc-nisa-donutwrap"),
       gaugeCount: el.querySelectorAll(".mcc-nisa-grid2 .mcc-nisa-card").length,
       chipCount: el.querySelectorAll(".mcc-nisa-chip").length,
@@ -128,6 +129,17 @@ async function getState(page) {
     // ============ フェーズC: 未ログインで ¥ は一切出ない（%/バー/構造は出る）============
     results.sec4_noYenLoggedOut = !!snap && !snap.hasYen;
     results.sec4_hasPercentSign = !!snap && /%/.test(snap.text || "");
+
+    // Task9 follow-up: 未ログイン時、HUDの「残」ラベル(年間枠 残/生涯枠 残/成長内数 残)は
+    // remainingPct(VM由来の残り%)を表示し、usedPct+「使用」(意味矛盾)を出さないこと。
+    // フィクスチャ(tsumitate600000/growth1000000/tsumitateLifetime2200000/growthLifetime3000000)では
+    // 年間枠残=2000000/3600000*100=56% / 生涯枠残=12800000/18000000*100=71% / 成長内数残=9000000/12000000*100=75%
+    // （money-rules.test.js の nisaViewModel テストと同じ丸めで一致確認済）。
+    const hudHtml = (snap && snap.hudHtml) || "";
+    results.sec9_hudAnnualRemainingPct = /年間枠 残<\/span><span class="v am">56%<\/span>/.test(hudHtml);
+    results.sec9_hudLifetimeRemainingPct = /生涯枠 残<\/span><span class="v vi">71%<\/span>/.test(hudHtml);
+    results.sec9_hudGrowthCapRemainingPct = /成長内数 残<\/span><span class="v em">75%<\/span>/.test(hudHtml);
+    results.sec9_hudNoUsedWordNearRemainLabel = !/使用/.test(hudHtml);
 
     // 未ログインでの手入力保存確認（localStorage）
     const stateAfterInput = await getState(page);
@@ -207,6 +219,8 @@ async function getState(page) {
       results.sec3_hudRenders && results.sec3_donutRenders && results.sec3_gaugesRender &&
       results.sec3_segsRender && results.sec3_chipsRender &&
       results.sec4_noYenLoggedOut && results.sec4_hasPercentSign &&
+      results.sec9_hudAnnualRemainingPct && results.sec9_hudLifetimeRemainingPct &&
+      results.sec9_hudGrowthCapRemainingPct && results.sec9_hudNoUsedWordNearRemainLabel &&
       results.sec6_inputsSavedLocally &&
       results.sec7_jumpToResolves &&
       results.sec5_yenAppearsLoggedIn && results.sec5_legendShowsYenNotPercent &&

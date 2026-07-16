@@ -502,13 +502,13 @@
     return {
       configured: d.configured,
       annual: {
-        tsumitate: { cap: NISA_ANNUAL_TSUMITATE, used: d.atUsed, remaining: d.annualTsumitateRemaining, usedPct: d.annualTsumitateUsedPct, over: d.atUsed > NISA_ANNUAL_TSUMITATE },
-        growth: { cap: NISA_ANNUAL_GROWTH, used: d.agUsed, remaining: d.annualGrowthRemaining, usedPct: d.annualGrowthUsedPct, over: d.agUsed > NISA_ANNUAL_GROWTH },
-        total: { cap: NISA_ANNUAL_TOTAL, used: d.atTotal, remaining: d.annualTotalRemaining, usedPct: d.annualTotalUsedPct, over: d.atTotal > NISA_ANNUAL_TOTAL },
+        tsumitate: { cap: NISA_ANNUAL_TSUMITATE, used: d.atUsed, remaining: d.annualTsumitateRemaining, usedPct: d.annualTsumitateUsedPct, remainingPct: clamp(r(d.annualTsumitateRemaining / NISA_ANNUAL_TSUMITATE * 100), 0, 100), over: d.atUsed > NISA_ANNUAL_TSUMITATE },
+        growth: { cap: NISA_ANNUAL_GROWTH, used: d.agUsed, remaining: d.annualGrowthRemaining, usedPct: d.annualGrowthUsedPct, remainingPct: clamp(r(d.annualGrowthRemaining / NISA_ANNUAL_GROWTH * 100), 0, 100), over: d.agUsed > NISA_ANNUAL_GROWTH },
+        total: { cap: NISA_ANNUAL_TOTAL, used: d.atTotal, remaining: d.annualTotalRemaining, usedPct: d.annualTotalUsedPct, remainingPct: clamp(r(d.annualTotalRemaining / NISA_ANNUAL_TOTAL * 100), 0, 100), over: d.atTotal > NISA_ANNUAL_TOTAL },
       },
-      lifetime: { cap: NISA_LIFETIME, used: d.lifeUsed, remaining: d.lifetimeRemaining, usedPct: d.lifetimeUsedPct, over: d.lifeUsed > NISA_LIFETIME, tsumitatePortion: d.n.tsumitateLifetime, growthPortion: d.n.growthLifetime,
+      lifetime: { cap: NISA_LIFETIME, used: d.lifeUsed, remaining: d.lifetimeRemaining, usedPct: d.lifetimeUsedPct, remainingPct: clamp(r(d.lifetimeRemaining / NISA_LIFETIME * 100), 0, 100), over: d.lifeUsed > NISA_LIFETIME, tsumitatePortion: d.n.tsumitateLifetime, growthPortion: d.n.growthLifetime,
         tsumitatePortionPct: clamp(r(d.n.tsumitateLifetime / NISA_LIFETIME * 100), 0, 100), growthPortionPct: clamp(r(d.n.growthLifetime / NISA_LIFETIME * 100), 0, 100) },
-      growthCap: { cap: NISA_GROWTH_LIFETIME_CAP, used: d.n.growthLifetime, remaining: d.growthCapRemaining, usedPct: d.growthCapUsedPct, over: d.n.growthLifetime > NISA_GROWTH_LIFETIME_CAP },
+      growthCap: { cap: NISA_GROWTH_LIFETIME_CAP, used: d.n.growthLifetime, remaining: d.growthCapRemaining, usedPct: d.growthCapUsedPct, remainingPct: clamp(r(d.growthCapRemaining / NISA_GROWTH_LIFETIME_CAP * 100), 0, 100), over: d.n.growthLifetime > NISA_GROWTH_LIFETIME_CAP },
       restoration: { sold: d.n.soldThisYearAtCost, restoresYear: d.restoresYear, hasPending: d.hasRestorationPending },
       staleYear: d.staleAnchorYear, monthlyPace: pace, fillEta: fillEta,
       monthlyToFillTsumitate: d.monthlyToFillTsumitate, monthlyToFillGrowth: d.monthlyToFillGrowth,

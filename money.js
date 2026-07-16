@@ -1080,10 +1080,11 @@ window.MCC = (function () {
       bodyHtml = '<div class="mcc-nisa-readout mcc-nisa-readout-muted">使用状況を入力すると、年間枠・生涯枠の消化状況が表示されます</div>';
     } else {
       // HUD: 年間枠残／生涯枠残／成長内数残／充填ペース／来年復活。¥項目は loggedIn のみ。未ログインは
-      // 100-usedPct の計算をせず、vm由来のusedPctをそのまま使用率として表示（review Important対応）。
-      var hudAnnual = loggedIn ? R.yen(vm.annual.total.remaining) : vm.annual.total.usedPct + "% 使用";
-      var hudLifetime = loggedIn ? R.yen(vm.lifetime.remaining) : vm.lifetime.usedPct + "% 使用";
-      var hudGrowthCap = loggedIn ? R.yen(vm.growthCap.remaining) : vm.growthCap.usedPct + "% 使用";
+      // 「残」ラベルの下に使用率(usedPct)を出す意味矛盾（review Important）を解消し、vm由来の
+      // remainingPct（money-rules.js算出・使用率と別のUI専用leaf）をそのまま残り%として表示する。
+      var hudAnnual = loggedIn ? R.yen(vm.annual.total.remaining) : vm.annual.total.remainingPct + "%";
+      var hudLifetime = loggedIn ? R.yen(vm.lifetime.remaining) : vm.lifetime.remainingPct + "%";
+      var hudGrowthCap = loggedIn ? R.yen(vm.growthCap.remaining) : vm.growthCap.remainingPct + "%";
       var hudEta = NISA_ETA_LABELS[vm.fillEta] || "—";
       var hudRestore = vm.restoration.hasPending ? (loggedIn ? "+" + R.yen(vm.restoration.sold) : "予定あり") : "—";
       var hud =

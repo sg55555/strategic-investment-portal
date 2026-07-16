@@ -1336,6 +1336,11 @@ test("nisaViewModel: UI用VM（枠¥+%・fillEta・積立接続）", () => {
   assert.equal(vm.annual.tsumitate.used, 600000);
   assert.equal(vm.annual.tsumitate.remaining, 600000);
   assert.equal(vm.annual.tsumitate.usedPct, 50);
+  // remainingPct（review Important対応・未ログイン時の「残」ラベルにusedPctを流用しない=VM由来の残り%）。
+  // 600000/1200000*100=50
+  assert.equal(vm.annual.tsumitate.remainingPct, 50);
+  // 2000000/3600000*100=55.555→56
+  assert.equal(vm.annual.total.remainingPct, 56);
   assert.equal(vm.lifetime.used, 5200000);
   assert.equal(vm.lifetime.tsumitatePortion, 2200000);
   assert.equal(vm.lifetime.growthPortion, 3000000);
@@ -1343,7 +1348,11 @@ test("nisaViewModel: UI用VM（枠¥+%・fillEta・積立接続）", () => {
   // 2200000/18000000*100=12.222→r(12.722)=12 / 3000000/18000000*100=16.666→r(17.166)=17
   assert.equal(vm.lifetime.tsumitatePortionPct, 12);
   assert.equal(vm.lifetime.growthPortionPct, 17);
+  // 12800000/18000000*100=71.111→71
+  assert.equal(vm.lifetime.remainingPct, 71);
   assert.equal(vm.growthCap.cap, 12000000);
+  // 9000000/12000000*100=75
+  assert.equal(vm.growthCap.remainingPct, 75);
   assert.equal(vm.restoration.restoresYear, 2027);
   assert.equal(vm.restoration.hasPending, true);
   assert.equal(vm.monthlyPace, 150000);
