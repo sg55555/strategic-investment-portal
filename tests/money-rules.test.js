@@ -1297,6 +1297,55 @@ test("nisaDerive: over-contribution と staleAnchorYear", () => {
   assert.equal(d.staleAnchorYear, true);           // 2025<2026
 });
 
+test("nisaDerive: history モードで facts 相当の値が履歴から導出される（形状は不変）", () => {
+  const st = { nisa: { source: "history", history: [
+    { year: 2024, tsumitate: 1200000, growth: 2400000 },
+    { year: 2025, tsumitate: 0, growth: 0, soldTsumitate: 1200000, soldGrowth: 0 },
+    { year: 2026, tsumitate: 600000, growth: 0, soldTsumitate: 0, soldGrowth: 300000 },
+  ] } };
+  const now = Date.UTC(2026, 5, 10);
+  const d = R.nisaDerive(st, now);
+
+  assert.equal(d.configured, true);                    // 履歴だけでも configured
+  assert.equal(d.atUsed, 600000);                      // 当年つみたて＝2026行
+  assert.equal(d.agUsed, 0);
+  // 生涯つみたて＝1200000+0+600000 − (2025の売却1200000) ＝ 600000
+  assert.equal(d.n.tsumitateLifetime, 600000);
+  assert.equal(d.n.growthLifetime, 2400000);           // 当年(2026)の成長売却300000は控除しない
+  assert.equal(d.hasRestorationPending, true);         // 当年売却あり
+  assert.equal(d.restoresYear, 2027);
+});
+
+test("nisaDerive: configured は history のみでも true（スカラー全0）", () => {
+  const st = { nisa: { source: "history", history: [{ year: 2024, tsumitate: 1 }] } };
+  assert.equal(R.nisaDerive(st, Date.UTC(2026, 0, 1)).configured, true);
+  // 履歴が空なら従来どおり false
+  assert.equal(R.nisaDerive({ nisa: { source: "history", history: [] } }, Date.UTC(2026, 0, 1)).configured, false);
+});
+
+test("nisaDerive: staleAnchorYear は history モードで常に false（意味の縮退）", () => {
+  const st = { nisa: { source: "history", anchorYear: 2024, history: [{ year: 2024, tsumitate: 1 }] } };
+  assert.equal(R.nisaDerive(st, Date.UTC(2026, 5, 10)).staleAnchorYear, false);
+  // manual では従来どおり true
+  const stM = { nisa: { source: "manual", anchorYear: 2024, tsumitateThisYear: 1 } };
+  assert.equal(R.nisaDerive(stM, Date.UTC(2026, 5, 10)).staleAnchorYear, true);
+});
+
+test("nisaDerive: stored は未畳みの正規化値（VM のリコンサイル参照用）", () => {
+  const st = { nisa: { source: "history", tsumitateLifetime: 5000000,
+    history: [{ year: 2024, tsumitate: 1000000 }] } };
+  const d = R.nisaDerive(st, Date.UTC(2026, 5, 10));
+  assert.equal(d.stored.tsumitateLifetime, 5000000);   // 手入力の参照値は保持
+  assert.equal(d.n.tsumitateLifetime, 1000000);        // 実効値は履歴由来
+});
+
+test("nisaDerive: manual モードは Stage1 と完全に同じ（回帰なし）", () => {
+  const st = { nisa: { tsumitateThisYear: 600000, growthLifetime: 3000000, history: [{ year: 2024, tsumitate: 9 }] } };
+  const d = R.nisaDerive(st, Date.UTC(2026, 5, 10));
+  assert.equal(d.atUsed, 600000);
+  assert.equal(d.n.growthLifetime, 3000000);           // 履歴は無視される
+});
+
 test("nisaFacts: 未設定は undefined／設定時は production キーのみ（生¥なし・[-100,150]）", () => {
   assert.equal(R.nisaFacts(R.migrate({}), Date.UTC(2026,6,15)), undefined);
   const st = R.migrate({ nisa:{ anchorYear:2026, tsumitateThisYear:600000, growthThisYear:1000000,

@@ -490,10 +490,12 @@
 
   // B#3: NISA使用状況の全導出（単一計算源＝nisaFacts/nisaRaw/nisaViewModel が参照）。
   function nisaDerive(state, nowMs) {
-    var n = normalizeNisa(state && state.nisa);
-    var configured = n.anchorYear > 0 || n.tsumitateThisYear > 0 || n.growthThisYear > 0 ||
-      n.tsumitateLifetime > 0 || n.growthLifetime > 0 || n.soldThisYearAtCost > 0;
+    var stored = normalizeNisa(state && state.nisa);
     var now = nisaNow(nowMs);
+    var n = nisaEffective(stored, now.year);   // Stage2: history なら履歴の畳み込みに差替（下流は無改修）
+    var configured = stored.anchorYear > 0 || stored.tsumitateThisYear > 0 || stored.growthThisYear > 0 ||
+      stored.tsumitateLifetime > 0 || stored.growthLifetime > 0 || stored.soldThisYearAtCost > 0 ||
+      stored.history.length > 0;
     var atUsed = n.tsumitateThisYear, agUsed = n.growthThisYear, atTotal = atUsed + agUsed;
     var lifeUsed = n.tsumitateLifetime + n.growthLifetime;
     var annualTsumitateRemaining = Math.max(0, NISA_ANNUAL_TSUMITATE - atUsed);
@@ -503,7 +505,7 @@
     var growthCapRemaining = Math.max(0, NISA_GROWTH_LIFETIME_CAP - n.growthLifetime);
     var monthsLeft = now.valid ? (12 - now.monthIndex) : 0;
     return {
-      configured: configured, n: n, year: now.year, monthIndex: now.monthIndex, valid: now.valid,
+      configured: configured, n: n, stored: stored, year: now.year, monthIndex: now.monthIndex, valid: now.valid,
       atUsed: atUsed, agUsed: agUsed, atTotal: atTotal,
       annualTsumitateRemaining: annualTsumitateRemaining, annualGrowthRemaining: annualGrowthRemaining,
       annualTotalRemaining: annualTotalRemaining, lifeUsed: lifeUsed,
@@ -516,7 +518,7 @@
       overContribution: atUsed > NISA_ANNUAL_TSUMITATE || agUsed > NISA_ANNUAL_GROWTH ||
         atTotal > NISA_ANNUAL_TOTAL || lifeUsed > NISA_LIFETIME || n.growthLifetime > NISA_GROWTH_LIFETIME_CAP,
       hasRestorationPending: n.soldThisYearAtCost > 0,
-      staleAnchorYear: now.valid && n.anchorYear > 0 && n.anchorYear < now.year,
+      staleAnchorYear: n.source !== "history" && now.valid && n.anchorYear > 0 && n.anchorYear < now.year,
       monthsLeft: monthsLeft,
       monthlyToFillTsumitate: monthsLeft > 0 ? Math.ceil(annualTsumitateRemaining / monthsLeft) : 0,
       monthlyToFillGrowth: monthsLeft > 0 ? Math.ceil(annualGrowthRemaining / monthsLeft) : 0,
