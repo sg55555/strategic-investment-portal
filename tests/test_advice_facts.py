@@ -907,7 +907,11 @@ def test_coarsen_asset_classes_case_j_zero_nonaligned_values():
 def test_coarsen_nisa_buckets_pct():
     st = advice._migrate({"nisa":{"anchorYear":2026,"tsumitateThisYear":600000}})
     f = advice.mode_a_facts(st, False, 1784073600000)
+    # pre-coarsen: 600000/3600000*100 = 16.67 → _r()で17（25刻み非整列）
+    assert f["nisa"]["annualTotalUsedPct"] == 17
     c = advice.coarsen_facts(f)
+    # post-coarsen: _bucket25(17) == 25 に変化 → walk が実際に効いたことを証明
+    assert c["nisa"]["annualTotalUsedPct"] == 25
     assert c["nisa"]["annualTsumitateUsedPct"] in (0,25,50,75,100)
     assert "raw" not in c
 
