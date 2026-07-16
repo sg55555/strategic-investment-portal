@@ -210,6 +210,11 @@ const PROD_TOP_KEYS = new Set([
   "roadmap", "phase", "coreProgressPct", "coreEstablished", "satelliteUnlocked", "coreTargetSource",
   "etaToCoreBucket",
   "assetClasses", "riskAssetPct", "classes", "key", "targetPct", "currentPct", "driftPct", // Task5 B#2
+  "nisa", "annualTsumitateUsedPct", "annualGrowthUsedPct", "annualTotalUsedPct",
+  "lifetimeUsedPct", "growthCapUsedPct", "annualRoomRemaining", "lifetimeRoomRemaining",
+  "growthCapRoomRemaining", "overContribution", "hasRestorationPending", "staleAnchorYear",
+  "lifetimeFillEtaBucket", // B#3 NISA（source は既存キー名と衝突しないため別途: 下行）
+  "source",
 ]);
 // production facts のツリーに現れてはならない生額・PII・注入面のキー（再帰深掘りで検査）。
 const DENYLIST_KEYS = [
@@ -344,8 +349,8 @@ const CASHFLOW_FACT_KEYS = new Set([
 ]);
 const CF_RESERVES_KEYS = new Set(["active", "fundedPct", "shortfall"]);
 
-test("FACTS_SCHEMA_VERSION は 4（資産クラス比率 assetClasses 集約追加で bump）", () => {
-  assert.equal(R.FACTS_SCHEMA_VERSION, 4);
+test("FACTS_SCHEMA_VERSION は 5（NISA枠 nisa 集約追加で bump）", () => {
+  assert.equal(R.FACTS_SCHEMA_VERSION, 5);
 });
 
 test("modeAFacts(production, cashflow): facts.cashflow は allowlist のみ・生額(yen)を漏らさない", () => {
@@ -1139,9 +1144,9 @@ test("assetClassesFacts: 域外nowMs（glidePath非configured）も undefined", 
   const s = R.migrate({birthYear:1986});
   assert.equal(R.assetClassesFacts(s, 1e300), undefined);
 });
-test("modeAFacts: schemaVersion=4・未設定 birthYear で assetClasses キー不在", () => {
+test("modeAFacts: schemaVersion=5・未設定 birthYear で assetClasses キー不在", () => {
   const f = R.modeAFacts(R.migrate({birthYear:0}), {nowMs: Date.UTC(2026,6,15)});
-  assert.equal(f.schemaVersion, 4);
+  assert.equal(f.schemaVersion, 5);
   assert.equal("assetClasses" in f, false);
 });
 test("modeAFacts: birthYear設定時は production/personal 両方に assetClasses が同値で載る（age は raw 隔離不要）", () => {
@@ -1226,4 +1231,131 @@ test("facts パリティ: 巨大整数(>309桁)/Infinity の bufferMonths/satell
   assert.equal(R.migrate({ bufferMonths: Infinity }).bufferMonths, 0);
   assert.equal(R.migrate({ satelliteCapPct: Infinity }).satelliteCapPct, 0);
   assert.equal(R.migrate({ satelliteCapPct: -Infinity }).satelliteCapPct, 10); // 負 Infinity は gate `>=0` 偽 → default
+});
+
+test("normalizeNisa: 非オブジェクト入力→全0既定・source=manual", () => {
+  const z = R.normalizeNisa(null);
+  assert.deepEqual(z, { source:"manual", anchorYear:0, tsumitateThisYear:0, growthThisYear:0,
+    tsumitateLifetime:0, growthLifetime:0, soldThisYearAtCost:0 });
+  assert.deepEqual(R.normalizeNisa("x"), z);
+  assert.deepEqual(R.normalizeNisa([1,2]), z);
+});
+test("normalizeNisa: scalar-only coerce・未知キー破棄・enum・負/配列→0", () => {
+  const n = R.normalizeNisa({ source:"history", anchorYear:2026, tsumitateThisYear:"600000",
+    growthThisYear:[1], growthLifetime:-5, soldThisYearAtCost:"0x10", XXX:9 });
+  assert.equal(n.source, "history");
+  assert.equal(n.anchorYear, 2026);
+  assert.equal(n.tsumitateThisYear, 600000);   // 数値文字列OK
+  assert.equal(n.growthThisYear, 0);            // 配列→0
+  assert.equal(n.growthLifetime, 0);            // 負→0
+  assert.equal(n.soldThisYearAtCost, 0);        // hex文字列→0
+  assert.equal("XXX" in n, false);              // 未知キー破棄
+  assert.equal(R.normalizeNisa({ source:"bogus" }).source, "manual"); // enum外→manual
+  assert.equal(R.normalizeNisa({ source:"ledger" }).source, "ledger");
+});
+test("defaultState/migrate: nisa 骨格が常在（三所配線）", () => {
+  assert.deepEqual(R.defaultState().nisa, R.normalizeNisa(null));
+  assert.deepEqual(R.migrate({}).nisa, R.normalizeNisa(null));
+  assert.equal(R.migrate({ nisa:{ tsumitateThisYear:"120000", source:"ledger" } }).nisa.tsumitateThisYear, 120000);
+  assert.equal(R.migrate({ nisa:{ source:"ledger" } }).nisa.source, "ledger");
+});
+
+test("nisaNow: UTC年/月0基・[1,9999]ガード", () => {
+  const a = R.nisaNow(Date.UTC(2026,6,15)); // 7月
+  assert.deepEqual(a, { year:2026, monthIndex:6, valid:true });
+  assert.deepEqual(R.nisaNow(1e300), { year:0, monthIndex:0, valid:false }); // 域外→invalid
+});
+test("nisaDerive: 未設定は configured=false", () => {
+  const d = R.nisaDerive(R.migrate({}), Date.UTC(2026,6,15));
+  assert.equal(d.configured, false);
+});
+test("nisaDerive: 枠計算・%clamp・残・over・復活・stale・積立接続", () => {
+  const st = R.migrate({ nisa:{ anchorYear:2026, tsumitateThisYear:600000, growthThisYear:1000000,
+    tsumitateLifetime:2200000, growthLifetime:3000000, soldThisYearAtCost:800000 } });
+  const d = R.nisaDerive(st, Date.UTC(2026,6,15)); // 7月→残6ヶ月(12-6)
+  assert.equal(d.configured, true);
+  assert.equal(d.annualTsumitateUsedPct, 50);  // 60万/120万
+  assert.equal(d.annualGrowthUsedPct, 42);     // 100万/240万=41.67→42
+  assert.equal(d.lifetimeUsedPct, 29);         // 520万/1800万=28.9→29
+  assert.equal(d.growthCapUsedPct, 25);        // 300万/1200万
+  assert.equal(d.annualTsumitateRemaining, 600000);
+  assert.equal(d.lifetimeRemaining, 12800000);
+  assert.equal(d.growthCapRemaining, 9000000);
+  assert.equal(d.overContribution, false);
+  assert.equal(d.hasRestorationPending, true);
+  assert.equal(d.staleAnchorYear, false);
+  assert.equal(d.monthsLeft, 6);
+  assert.equal(d.monthlyToFillTsumitate, 100000); // 60万/6
+  assert.equal(d.restoresYear, 2027);
+});
+test("nisaDerive: over-contribution と staleAnchorYear", () => {
+  const st = R.migrate({ nisa:{ anchorYear:2025, tsumitateThisYear:1500000, growthLifetime:13000000 } });
+  const d = R.nisaDerive(st, Date.UTC(2026,0,10));
+  assert.equal(d.overContribution, true);          // つみたて>120万 & 成長生涯>1200万
+  assert.equal(d.annualTsumitateUsedPct, 100);     // clamp
+  assert.equal(d.growthCapUsedPct, 100);           // clamp
+  assert.equal(d.staleAnchorYear, true);           // 2025<2026
+});
+
+test("nisaFacts: 未設定は undefined／設定時は production キーのみ（生¥なし・[-100,150]）", () => {
+  assert.equal(R.nisaFacts(R.migrate({}), Date.UTC(2026,6,15)), undefined);
+  const st = R.migrate({ nisa:{ anchorYear:2026, tsumitateThisYear:600000, growthThisYear:1000000,
+    tsumitateLifetime:2200000, growthLifetime:3000000, soldThisYearAtCost:800000 } });
+  const f = R.nisaFacts(st, Date.UTC(2026,6,15));
+  assert.deepEqual(f, {
+    source:"manual", annualTsumitateUsedPct:50, annualGrowthUsedPct:42, annualTotalUsedPct:44,
+    lifetimeUsedPct:29, growthCapUsedPct:25, annualRoomRemaining:true, lifetimeRoomRemaining:true,
+    growthCapRoomRemaining:true, overContribution:false, hasRestorationPending:true,
+    staleAnchorYear:false, lifetimeFillEtaBucket:"none",
+  });
+  // 生¥キーが production に無い
+  assert.equal("lifetimeRemaining" in f, false);
+  assert.equal("tsumitateThisYear" in f, false);
+  // 全数値leafが整数[-100,150]
+  Object.values(f).forEach(v => { if (typeof v === "number") assert.ok(Number.isInteger(v) && v>=-100 && v<=150); });
+});
+test("nisaRaw: 未設定は undefined／設定時は生¥ブロック", () => {
+  assert.equal(R.nisaRaw(R.migrate({}), Date.UTC(2026,6,15)), undefined);
+  const st = R.migrate({ nisa:{ anchorYear:2026, tsumitateThisYear:600000, growthThisYear:1000000,
+    tsumitateLifetime:2200000, growthLifetime:3000000, soldThisYearAtCost:800000 } });
+  const rw = R.nisaRaw(st, Date.UTC(2026,6,15));
+  assert.deepEqual(rw, {
+    tsumitateThisYear:600000, growthThisYear:1000000, tsumitateLifetime:2200000, growthLifetime:3000000,
+    soldThisYearAtCost:800000, annualTsumitateRemaining:600000, annualGrowthRemaining:1400000,
+    lifetimeRemaining:12800000, growthCapRemaining:9000000, monthlyToFillTsumitate:100000, restoresYear:2027,
+  });
+});
+
+test("nisaViewModel: UI用VM（枠¥+%・fillEta・積立接続）", () => {
+  const st = R.migrate({ nisa:{ anchorYear:2026, tsumitateThisYear:600000, growthThisYear:1000000,
+    tsumitateLifetime:2200000, growthLifetime:3000000, soldThisYearAtCost:800000 } });
+  const cd = { investableSurplus: 150000 };
+  const vm = R.nisaViewModel(st, cd, Date.UTC(2026,6,15));
+  assert.equal(vm.configured, true);
+  assert.equal(vm.annual.tsumitate.cap, 1200000);
+  assert.equal(vm.annual.tsumitate.used, 600000);
+  assert.equal(vm.annual.tsumitate.remaining, 600000);
+  assert.equal(vm.annual.tsumitate.usedPct, 50);
+  // remainingPct（review Important対応・未ログイン時の「残」ラベルにusedPctを流用しない=VM由来の残り%）。
+  // 600000/1200000*100=50
+  assert.equal(vm.annual.tsumitate.remainingPct, 50);
+  // 2000000/3600000*100=55.555→56
+  assert.equal(vm.annual.total.remainingPct, 56);
+  assert.equal(vm.lifetime.used, 5200000);
+  assert.equal(vm.lifetime.tsumitatePortion, 2200000);
+  assert.equal(vm.lifetime.growthPortion, 3000000);
+  // セグメント幅%はドーナツ(lifetimeUsedPct)と同じ丸め方式で算出（review Critical対応・money.js側で再計算しない）。
+  // 2200000/18000000*100=12.222→r(12.722)=12 / 3000000/18000000*100=16.666→r(17.166)=17
+  assert.equal(vm.lifetime.tsumitatePortionPct, 12);
+  assert.equal(vm.lifetime.growthPortionPct, 17);
+  // 12800000/18000000*100=71.111→71
+  assert.equal(vm.lifetime.remainingPct, 71);
+  assert.equal(vm.growthCap.cap, 12000000);
+  // 9000000/12000000*100=75
+  assert.equal(vm.growthCap.remainingPct, 75);
+  assert.equal(vm.restoration.restoresYear, 2027);
+  assert.equal(vm.restoration.hasPending, true);
+  assert.equal(vm.monthlyPace, 150000);
+  assert.equal(vm.fillEta, "3_10y");          // 1280万/15万=85.3→ceil86ヶ月。etaBucket(86)=36<=86<120→"3_10y"
+  assert.equal(vm.monthlyToFillTsumitate, 100000);
 });

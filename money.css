@@ -5,7 +5,7 @@
    （Phase 3b 以降で color-mix へ集約）。index.html 本体の移行も段階対応。 */
 :root {
   --c-indigo: #4f46e5; --c-indigo-bright: #818cf8; --c-indigo-soft: #a5b4fc; --c-indigo-pale: #c7d2fe;
-  --c-violet: #c084fc; --c-blue: #60a5fa;
+  --c-violet: #c084fc; --c-violet-bright: #d8b4fe; --c-blue: #60a5fa;
   --c-emerald: #10b981; --c-emerald-bright: #34d399; --c-emerald-soft: #6ee7b7; --c-emerald-pale: #a7f3d0;
   --c-amber: #fbbf24; --c-amber-bright: #fcd34d; --c-amber-pale: #fde68a; --c-amber-deep: #f59e0b; --c-amber-deeper: #b45309;
   --c-cyan: #38bdf8; --c-cyan-bright: #7dd3fc; --c-cyan-pale: #bae6fd; --c-cyan-tint: #e0f2fe;
@@ -489,6 +489,68 @@
 .mcc-ac-disc { color: var(--c-text-mute); font-size: 0.6rem; line-height: 1.5; margin-top: 14px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px; }
 @media (max-width: 640px) { .mcc-ac-driftrow { grid-template-columns: 64px 1fr 60px; } }
 
+/* --- Task9 (backlog B#3): NISA枠（非課税枠）。baseline=構造/寸法+var()色のみ（neon glow/blend/screenは
+   theme D 層＝二層構成、資産クラス比率§18と同型）。mock OPTION D（nisa-layout-v2.html）を1:1移植。 --- */
+.mcc-nisa { margin-top: 14px; }
+.mcc-nisa-hud { display: flex; flex-wrap: wrap; gap: 14px 20px; padding: 10px 14px; margin: 10px 0 14px; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; background: rgba(255,255,255,0.02); }
+.mcc-nisa-hud .h { display: flex; flex-direction: column; gap: 2px; }
+.mcc-nisa-hud .k { color: var(--c-text-faint); font-size: 0.6rem; letter-spacing: 0.5px; }
+.mcc-nisa-hud .v { color: var(--c-cyan-bright); font-size: 0.92rem; font-weight: 700; }
+.mcc-nisa-hud .v.am { color: var(--c-amber-bright); }
+.mcc-nisa-hud .v.em { color: var(--c-emerald-bright); }
+.mcc-nisa-hud .v.vi { color: var(--c-violet-bright); }
+
+.mcc-nisa-card { background: rgba(15,20,34,0.55); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 14px; margin-bottom: 12px; }
+.mcc-nisa-hero { border-color: rgba(192,132,252,0.35); }
+.mcc-nisa-herorow { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+.mcc-nisa-donutwrap { position: relative; width: 150px; height: 150px; flex: 0 0 auto; margin: 0 auto; }
+.mcc-nisa-donut {
+  position: absolute; inset: 0; border-radius: 50%; transition: background 0.4s ease;
+  -webkit-mask: radial-gradient(circle closest-side at 50% 50%, transparent 0 49%, #000 51% 82%, transparent 84%);
+          mask: radial-gradient(circle closest-side at 50% 50%, transparent 0 49%, #000 51% 82%, transparent 84%);
+}
+.mcc-nisa-donut.glowlayer { pointer-events: none; }
+.mcc-nisa-donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 2px; }
+.mcc-nisa-donut-center .p { color: var(--c-violet-bright); font-size: 1.5rem; font-weight: 700; line-height: 1; }
+.mcc-nisa-donut-center .l { color: var(--c-text-dim); font-size: 0.6rem; margin-top: 2px; }
+.mcc-nisa-herobars { flex: 1 1 300px; min-width: 260px; }
+
+.mcc-nisa-qlabel { color: var(--c-text-dim); font-size: 0.7rem; letter-spacing: 0.4px; margin-bottom: 6px; display: flex; justify-content: space-between; }
+.mcc-nisa-qlabel b { color: var(--c-cyan-bright); font-weight: 700; }
+.mcc-nisa-qlabel.gl b { color: var(--c-emerald-bright); }
+.mcc-nisa-bar { height: 12px; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden; border: 1px solid rgba(255,255,255,0.06); display: flex; }
+.mcc-nisa-bar.tall { height: 18px; }
+.mcc-nisa-seg, .mcc-nisa-fill { height: 100%; }
+.mcc-nisa-seg.tsum, .mcc-nisa-fill.tsum { background: var(--c-cyan); }
+.mcc-nisa-seg.grow, .mcc-nisa-fill.grow { background: var(--c-emerald); }
+.mcc-nisa-stat { margin-top: 6px; color: var(--c-text); font-size: 0.74rem; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px; }
+.mcc-nisa-stat .rem { color: var(--c-amber-bright); }
+.mcc-nisa-legend { display: flex; gap: 14px; margin-top: 8px; color: var(--c-text-faint); font-size: 0.64rem; flex-wrap: wrap; }
+.mcc-nisa-legend i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; margin-right: 4px; vertical-align: middle; }
+.mcc-nisa-legend i.tsum { background: var(--c-cyan); }
+.mcc-nisa-legend i.grow { background: var(--c-emerald); }
+.mcc-nisa-subbar-label { color: var(--c-text-dim); font-size: 0.68rem; margin: 12px 0 6px; }
+.mcc-nisa-subbar-label span { color: var(--c-emerald-bright); }
+
+.mcc-nisa-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 600px) { .mcc-nisa-grid2 { grid-template-columns: 1fr; } }
+
+.mcc-nisa-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; margin-bottom: 12px; }
+.mcc-nisa-chip { border: 1px solid; border-radius: 4px; padding: 6px 10px; font-size: 0.7rem; letter-spacing: 0.4px; display: flex; gap: 6px; align-items: center; }
+.mcc-nisa-chip b { color: var(--c-text-bright); }
+.mcc-nisa-chip.feed { border-color: rgba(251,191,36,0.55); color: var(--c-amber-bright); background: rgba(251,191,36,0.06); }
+.mcc-nisa-chip.restore { border-color: rgba(16,185,129,0.5); color: var(--c-emerald-bright); background: rgba(16,185,129,0.05); }
+.mcc-nisa-chip.warn { border-color: rgba(255,0,61,0.5); color: var(--c-danger-soft); background: rgba(255,0,61,0.06); }
+
+.mcc-nisa-readout { color: var(--c-text-dim); font-size: 0.78rem; margin: 8px 0 12px; }
+.mcc-nisa-readout-muted { color: var(--c-text-dim); font-size: 0.78rem; }
+
+.mcc-nisa-input { margin-top: 4px; color: var(--c-text-bright); border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 10px; }
+.mcc-nisa-input summary { cursor: pointer; font-size: 0.8rem; letter-spacing: 1px; color: var(--c-text-dim); }
+.mcc-nisa-fields { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+@media (max-width: 600px) { .mcc-nisa-fields { grid-template-columns: 1fr 1fr; } }
+.mcc-nisa-gate { color: var(--c-text-faint); font-size: 0.62rem; margin-top: 8px; }
+
 
 /* ============================================================================
    ③ Phase 3b 採用 = テーマ D「ネオン・ターミナル」。<html data-theme="D"> を既定付与し
@@ -510,8 +572,8 @@
 
   /* indigo＝主役/バッファ/規律 → エレクトリック・インディゴ */
   --c-indigo: #4d5dff; --c-indigo-bright: #8aa0ff; --c-indigo-soft: #aebcff; --c-indigo-pale: #d2dbff;
-  /* violet＝強調 → ネオンマゼンタ */
-  --c-violet: #f570ff; --c-blue: #38bdf8;
+  /* violet＝強調/生涯枠ヒーロー → ネオンマゼンタ */
+  --c-violet: #f570ff; --c-violet-bright: #ff9dff; --c-blue: #38bdf8;
   /* emerald＝ポジ/コア → 蛍光グリーン(フォスファー) */
   --c-emerald: #00e676; --c-emerald-bright: #39ff8b; --c-emerald-soft: #79ffae; --c-emerald-pale: #b6ffd2;
   /* amber＝確保枠/取り置き → クラシック・アンバー端末色 */
@@ -898,3 +960,42 @@
 [data-theme="D"] #money-view .mcc-ac-card.neonb .mcc-ac-driftrow.under .dv { text-shadow: 0 0 9px var(--c-cyan-bright); }
 [data-theme="D"] #money-view .mcc-ac-card.neonb .mcc-ac-driftrow.match .dv { text-shadow: 0 0 9px var(--c-emerald-soft); }
 [data-theme="D"] #money-view .mcc-ac-card.neonb .mcc-ac-driftrow { background: rgba(0,20,32,0.28); }
+
+/* ---------- 19. NISA枠（backlog B#3, Task9）。§18(資産クラス比率)と同じ neon glow 手法（baseline+D 二層）。---------- */
+[data-theme="D"] #money-view .mcc-nisa-hud {
+  border: 1px solid rgba(0,229,255,0.18); background: rgba(0,229,255,0.03); font-family: var(--mcc-mono);
+}
+[data-theme="D"] #money-view .mcc-nisa-hud .v { text-shadow: 0 0 8px currentColor; }
+[data-theme="D"] #money-view .mcc-nisa-card {
+  border: 1px solid rgba(0,229,255,0.16); box-shadow: 0 0 22px rgba(0,229,255,0.07) inset;
+}
+[data-theme="D"] #money-view .mcc-nisa-card.neonb {
+  background:
+    linear-gradient(rgba(120,205,225,0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(120,205,225,0.05) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(8,14,24,0.86), rgba(4,8,16,0.9));
+  background-size: 26px 26px, 26px 26px, 100% 100%;
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+}
+[data-theme="D"] #money-view .mcc-nisa-hero { border-color: rgba(245,112,255,0.34); box-shadow: 0 0 26px rgba(245,112,255,0.1) inset; }
+[data-theme="D"] #money-view .mcc-nisa-donut { mix-blend-mode: screen; filter: saturate(1.5) brightness(1.4); }
+[data-theme="D"] #money-view .mcc-nisa-donut.glowlayer { filter: blur(13px) saturate(1.5) brightness(1.4); opacity: 0.5; }
+[data-theme="D"] #money-view .mcc-nisa-donut-center .p { text-shadow: 0 0 12px rgba(245,112,255,0.55); }
+[data-theme="D"] #money-view .mcc-nisa-qlabel,
+[data-theme="D"] #money-view .mcc-nisa-stat,
+[data-theme="D"] #money-view .mcc-nisa-legend,
+[data-theme="D"] #money-view .mcc-nisa-subbar-label,
+[data-theme="D"] #money-view .mcc-nisa-readout,
+[data-theme="D"] #money-view .mcc-nisa-gate,
+[data-theme="D"] #money-view .mcc-nisa-input summary { font-family: var(--mcc-mono); }
+[data-theme="D"] #money-view .mcc-nisa-input summary { color: var(--c-cyan-pale); letter-spacing: 1px; }
+[data-theme="D"] #money-view .mcc-nisa-seg.tsum, [data-theme="D"] #money-view .mcc-nisa-fill.tsum {
+  mix-blend-mode: screen; filter: saturate(1.5) brightness(1.45); box-shadow: 0 0 10px rgba(0,229,255,0.5);
+}
+[data-theme="D"] #money-view .mcc-nisa-seg.grow, [data-theme="D"] #money-view .mcc-nisa-fill.grow {
+  mix-blend-mode: screen; filter: saturate(1.5) brightness(1.45); box-shadow: 0 0 10px rgba(0,230,118,0.5);
+}
+[data-theme="D"] #money-view .mcc-nisa-chip { font-family: var(--mcc-mono); border-radius: 2px; }
+[data-theme="D"] #money-view .mcc-nisa-chip.feed { box-shadow: 0 0 8px rgba(255,179,0,0.15); }
+[data-theme="D"] #money-view .mcc-nisa-chip.restore { box-shadow: 0 0 8px rgba(0,230,118,0.18); }
+[data-theme="D"] #money-view .mcc-nisa-chip.warn { box-shadow: 0 0 8px rgba(255,23,68,0.2); }

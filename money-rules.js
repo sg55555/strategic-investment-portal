@@ -12,7 +12,14 @@
 
   // Slice3: AI規律コーチ。正準 next ターゲット（Python テンプレ map と test 網羅の単一源）。
   var NEXT_TARGETS = ["setup", "buffer", "rebalance", "core"];
-  var FACTS_SCHEMA_VERSION = 4; // v4: 資産クラス比率（backlog B #2）assetClasses 集約を facts に追加
+  var FACTS_SCHEMA_VERSION = 5; // v5: NISA枠（backlog B #3）nisa 集約を facts に追加
+  // B#3 NISA枠（非課税枠）法定枠定数（2024新NISA・facts非出力＝公開既知値。年度改定時はここを更新）。
+  var NISA_ANNUAL_TSUMITATE = 1200000;   // つみたて投資枠 年間上限
+  var NISA_ANNUAL_GROWTH = 2400000;      // 成長投資枠 年間上限
+  var NISA_ANNUAL_TOTAL = 3600000;       // 年間合計上限（= つみたて+成長）
+  var NISA_LIFETIME = 18000000;          // 生涯非課税保有限度額（簿価）
+  var NISA_GROWTH_LIFETIME_CAP = 12000000; // うち成長投資枠の生涯内数上限
+  var NISA_SOURCES = ["manual", "history", "ledger"]; // 二軸source（Stage1=manual・Stage2/3で拡張）
   // 免責（node↔browser 単一源・全描画経路で決定論と不可分に常時表示）。
   var DISCLAIMER = "本コーチが示す決定論ルールおよび AI の補足はいずれも、資産規律の維持・教育・判断支援を目的とした一般的な情報提供であり、特定の金融商品の売買や投資配分・タイミングを推奨する投資助言ではありません。当ツールは金融商品取引業者・投資助言代理業者として登録された者による助言ではなく、特定の金融商品の勧誘を目的としたものでもありません。将来の利益や成果を保証するものではありません（過去の実績は将来を示しません）。最終的な投資判断はご自身の責任で行ってください。";
   var DISCLAIMER_VERSION = "disc-v1";
@@ -28,6 +35,10 @@
     { term: "規律配分", read: "ルール順の自動振り分け", def: "バッファ→確保枠→コアの順に、決めたルールどおり自動で振り分けます。" },
     { term: "基準（アンカー）", read: "貯蓄額の起点", def: "ある月のはじめの貯蓄額。これに以降の収支を足して、今の貯蓄額を自動計算します。" },
     { term: "資産クラス", read: "お金の種類分け", def: "投資を現金・国内株・先進国株・新興国株・債券・REIT・金などの種類で分けたもの。年齢に応じた配分の「設計図」に使います。" },
+    { term: "NISA枠", read: "非課税で投資できる枠", def: "NISA口座で買うと運用益が非課税になる投資の上限枠。当年枠(つみたて120万/成長240万)と生涯枠(1800万・簿価)があります。" },
+    { term: "つみたて投資枠", read: "年120万の積立枠", def: "新NISAの積立専用枠。年間120万円まで、金融庁指定の投信を積み立てられます。" },
+    { term: "成長投資枠", read: "年240万の成長枠", def: "新NISAの成長枠。年間240万円まで、上場株やETF・投信を購入できます(生涯内数1200万まで)。" },
+    { term: "生涯投資枠", read: "生涯1800万の非課税枠", def: "NISAで非課税に保有できる生涯上限(簿価1800万円)。売却すると翌年に枠が復活します。" },
   ];
 
   // 共有 strict-decimal 文法（scalar-coerce パリティ堅牢化 2026-07-15）。ASCII クラス限定＝\d/\s 不使用
@@ -56,6 +67,19 @@
       for (var c = 0; c < ASSET_CLASSES.length; c++) out[bk][ASSET_CLASSES[c]] = num(inner[ASSET_CLASSES[c]]);
     }
     return out;
+  }
+  // B#3: NISA使用状況の固定形状を常に返す（非オブジェクト入力→全0骨格・allowlist キーのみ・scalar-only coerce・未知キー破棄）。
+  function normalizeNisa(raw) {
+    var s = (raw && typeof raw === "object" && !Array.isArray(raw)) ? raw : {};
+    return {
+      source: NISA_SOURCES.indexOf(s.source) >= 0 ? s.source : "manual",
+      anchorYear: num(s.anchorYear),
+      tsumitateThisYear: num(s.tsumitateThisYear),
+      growthThisYear: num(s.growthThisYear),
+      tsumitateLifetime: num(s.tsumitateLifetime),
+      growthLifetime: num(s.growthLifetime),
+      soldThisYearAtCost: num(s.soldThisYearAtCost),
+    };
   }
   // migrate 専用 birthYear coerce（有限・整数・1900<=n<=9999 以外は 0＝spec §2.2）。
   // spec の "1900..currentYear" のうち currentYear は migrate 時に nowMs 無しで得られないため、
@@ -239,6 +263,7 @@
       birthYear: 0, // B#2 資産クラス比率：年齢glidePath用（0=未設定）
       assetHoldings: normalizeAssetHoldings(null), // B#2: 3バケツ×7クラス完全骨格（全0）
       assetSource: "manual", // B#2 二軸: "ledger"=投資台帳ETL派生 / "manual"=直入力（既定=後方互換）
+      nisa: normalizeNisa(null), // B#3 NISA枠：非課税枠トラッキング（Stage1手入力・全0骨格）
     };
   }
 
@@ -289,6 +314,7 @@
       birthYear: normalizeBirthYear(raw.birthYear),
       assetHoldings: normalizeAssetHoldings(raw.assetHoldings),
       assetSource: raw.assetSource === "ledger" ? "ledger" : "manual",
+      nisa: normalizeNisa(raw.nisa), // B#3 NISA枠（前方互換・normalizeで固定形状）
     };
   }
 
@@ -383,6 +409,111 @@
     if (months < 36) return "1_3y";
     if (months < 120) return "3_10y";
     return "over_10y";
+  }
+
+  // B#3: nowMs から UTC 年/月(0基)を導出（glidePath と同一の [1,9999] ガードで Py datetime と対称化）。
+  function nisaNow(nowMs) {
+    var d = new Date(num(nowMs));
+    var y = d.getUTCFullYear();
+    if (!isFinite(y) || y < 1 || y > 9999) return { year: 0, monthIndex: 0, valid: false };
+    return { year: y, monthIndex: d.getUTCMonth(), valid: true };
+  }
+
+  // B#3: NISA使用状況の全導出（単一計算源＝nisaFacts/nisaRaw/nisaViewModel が参照）。
+  function nisaDerive(state, nowMs) {
+    var n = normalizeNisa(state && state.nisa);
+    var configured = n.anchorYear > 0 || n.tsumitateThisYear > 0 || n.growthThisYear > 0 ||
+      n.tsumitateLifetime > 0 || n.growthLifetime > 0 || n.soldThisYearAtCost > 0;
+    var now = nisaNow(nowMs);
+    var atUsed = n.tsumitateThisYear, agUsed = n.growthThisYear, atTotal = atUsed + agUsed;
+    var lifeUsed = n.tsumitateLifetime + n.growthLifetime;
+    var annualTsumitateRemaining = Math.max(0, NISA_ANNUAL_TSUMITATE - atUsed);
+    var annualGrowthRemaining = Math.max(0, NISA_ANNUAL_GROWTH - agUsed);
+    var annualTotalRemaining = Math.max(0, NISA_ANNUAL_TOTAL - atTotal);
+    var lifetimeRemaining = Math.max(0, NISA_LIFETIME - lifeUsed);
+    var growthCapRemaining = Math.max(0, NISA_GROWTH_LIFETIME_CAP - n.growthLifetime);
+    var monthsLeft = now.valid ? (12 - now.monthIndex) : 0;
+    return {
+      configured: configured, n: n, year: now.year, monthIndex: now.monthIndex, valid: now.valid,
+      atUsed: atUsed, agUsed: agUsed, atTotal: atTotal,
+      annualTsumitateRemaining: annualTsumitateRemaining, annualGrowthRemaining: annualGrowthRemaining,
+      annualTotalRemaining: annualTotalRemaining, lifeUsed: lifeUsed,
+      lifetimeRemaining: lifetimeRemaining, growthCapRemaining: growthCapRemaining,
+      annualTsumitateUsedPct: clamp(r(atUsed / NISA_ANNUAL_TSUMITATE * 100), 0, 100),
+      annualGrowthUsedPct: clamp(r(agUsed / NISA_ANNUAL_GROWTH * 100), 0, 100),
+      annualTotalUsedPct: clamp(r(atTotal / NISA_ANNUAL_TOTAL * 100), 0, 100),
+      lifetimeUsedPct: clamp(r(lifeUsed / NISA_LIFETIME * 100), 0, 100),
+      growthCapUsedPct: clamp(r(n.growthLifetime / NISA_GROWTH_LIFETIME_CAP * 100), 0, 100),
+      overContribution: atUsed > NISA_ANNUAL_TSUMITATE || agUsed > NISA_ANNUAL_GROWTH ||
+        atTotal > NISA_ANNUAL_TOTAL || lifeUsed > NISA_LIFETIME || n.growthLifetime > NISA_GROWTH_LIFETIME_CAP,
+      hasRestorationPending: n.soldThisYearAtCost > 0,
+      staleAnchorYear: now.valid && n.anchorYear > 0 && n.anchorYear < now.year,
+      monthsLeft: monthsLeft,
+      monthlyToFillTsumitate: monthsLeft > 0 ? Math.ceil(annualTsumitateRemaining / monthsLeft) : 0,
+      monthlyToFillGrowth: monthsLeft > 0 ? Math.ceil(annualGrowthRemaining / monthsLeft) : 0,
+      restoresYear: now.valid ? now.year + 1 : 0,
+    };
+  }
+
+  // B#3: production 集約facts（両モード同値・生¥ゼロ・全数値leaf整数[-100,150]）。未設定は undefined＝キー省略。
+  // lifetimeFillEtaBucket は cashflow ペース由来ゆえ既定'none'＝modeAFacts の cashflow ブロックが上書き（roadmap.etaToCoreBucket と同型）。
+  function nisaFacts(state, nowMs) {
+    var d = nisaDerive(state, nowMs);
+    if (!d.configured) return undefined;
+    return {
+      source: d.n.source,
+      annualTsumitateUsedPct: d.annualTsumitateUsedPct,
+      annualGrowthUsedPct: d.annualGrowthUsedPct,
+      annualTotalUsedPct: d.annualTotalUsedPct,
+      lifetimeUsedPct: d.lifetimeUsedPct,
+      growthCapUsedPct: d.growthCapUsedPct,
+      annualRoomRemaining: d.annualTotalRemaining > 0,
+      lifetimeRoomRemaining: d.lifetimeRemaining > 0,
+      growthCapRoomRemaining: d.growthCapRemaining > 0,
+      overContribution: d.overContribution,
+      hasRestorationPending: d.hasRestorationPending,
+      staleAnchorYear: d.staleAnchorYear,
+      lifetimeFillEtaBucket: "none",
+    };
+  }
+
+  // B#3: personal のみの生¥ブロック（facts.raw.nisa）。未設定は undefined＝キー省略。
+  function nisaRaw(state, nowMs) {
+    var d = nisaDerive(state, nowMs);
+    if (!d.configured) return undefined;
+    return {
+      tsumitateThisYear: d.atUsed, growthThisYear: d.agUsed,
+      tsumitateLifetime: d.n.tsumitateLifetime, growthLifetime: d.n.growthLifetime,
+      soldThisYearAtCost: d.n.soldThisYearAtCost,
+      annualTsumitateRemaining: d.annualTsumitateRemaining,
+      annualGrowthRemaining: d.annualGrowthRemaining,
+      lifetimeRemaining: d.lifetimeRemaining,
+      growthCapRemaining: d.growthCapRemaining,
+      monthlyToFillTsumitate: d.monthlyToFillTsumitate,
+      restoresYear: d.restoresYear,
+    };
+  }
+
+  // B#3: UI描画専用VM（¥+%・パリティ不要＝money.js が描く。業務mathはここに集約）。
+  function nisaViewModel(state, cd, nowMs) {
+    var d = nisaDerive(state, nowMs);
+    var pace = (cd && cd.investableSurplus > 0) ? cd.investableSurplus : 0;
+    var fillEta = etaBucket(projectMonths(d.lifetimeRemaining, pace));
+    return {
+      configured: d.configured,
+      annual: {
+        tsumitate: { cap: NISA_ANNUAL_TSUMITATE, used: d.atUsed, remaining: d.annualTsumitateRemaining, usedPct: d.annualTsumitateUsedPct, remainingPct: clamp(r(d.annualTsumitateRemaining / NISA_ANNUAL_TSUMITATE * 100), 0, 100), over: d.atUsed > NISA_ANNUAL_TSUMITATE },
+        growth: { cap: NISA_ANNUAL_GROWTH, used: d.agUsed, remaining: d.annualGrowthRemaining, usedPct: d.annualGrowthUsedPct, remainingPct: clamp(r(d.annualGrowthRemaining / NISA_ANNUAL_GROWTH * 100), 0, 100), over: d.agUsed > NISA_ANNUAL_GROWTH },
+        total: { cap: NISA_ANNUAL_TOTAL, used: d.atTotal, remaining: d.annualTotalRemaining, usedPct: d.annualTotalUsedPct, remainingPct: clamp(r(d.annualTotalRemaining / NISA_ANNUAL_TOTAL * 100), 0, 100), over: d.atTotal > NISA_ANNUAL_TOTAL },
+      },
+      lifetime: { cap: NISA_LIFETIME, used: d.lifeUsed, remaining: d.lifetimeRemaining, usedPct: d.lifetimeUsedPct, remainingPct: clamp(r(d.lifetimeRemaining / NISA_LIFETIME * 100), 0, 100), over: d.lifeUsed > NISA_LIFETIME, tsumitatePortion: d.n.tsumitateLifetime, growthPortion: d.n.growthLifetime,
+        tsumitatePortionPct: clamp(r(d.n.tsumitateLifetime / NISA_LIFETIME * 100), 0, 100), growthPortionPct: clamp(r(d.n.growthLifetime / NISA_LIFETIME * 100), 0, 100) },
+      growthCap: { cap: NISA_GROWTH_LIFETIME_CAP, used: d.n.growthLifetime, remaining: d.growthCapRemaining, usedPct: d.growthCapUsedPct, remainingPct: clamp(r(d.growthCapRemaining / NISA_GROWTH_LIFETIME_CAP * 100), 0, 100), over: d.n.growthLifetime > NISA_GROWTH_LIFETIME_CAP },
+      restoration: { sold: d.n.soldThisYearAtCost, restoresYear: d.restoresYear, hasPending: d.hasRestorationPending },
+      staleYear: d.staleAnchorYear, monthlyPace: pace, fillEta: fillEta,
+      monthlyToFillTsumitate: d.monthlyToFillTsumitate, monthlyToFillGrowth: d.monthlyToFillGrowth,
+      monthsLeft: d.monthsLeft, year: d.year,
+    };
   }
 
   // Task3: 確保枠の月次コミット合計（定常寄与＝投影のコアドラッグ）。cd.reserveAlloc(配列)や cd.toReserves(今月実配分・phase依存)は投影に使わない。
@@ -908,6 +1039,10 @@
     var acFacts = assetClassesFacts(s, nowMs);
     if (acFacts) facts.assetClasses = acFacts;
 
+    // B#3: NISA枠（backlog B #3）。未設定は nisa キー自体を省く（assetClasses と同型・両モード同値）。
+    var niFacts = nisaFacts(s, nowMs);
+    if (niFacts) facts.nisa = niFacts;
+
     if (includeRaw) {
       facts.raw = {
         monthlyExpense: num(s.monthlyExpense),
@@ -930,6 +1065,8 @@
           };
         }),
       };
+      var niRaw = nisaRaw(s, nowMs);
+      if (niRaw) facts.raw.nisa = niRaw;
     }
 
     // Slice4: cashflow（収支連携）。opts.cashflow が渡された時のみ facts.cashflow を付与。
@@ -960,6 +1097,8 @@
       var _mToCore = projectMonths(coreProgress(s).remaining, _coreContribution);
       var _cumToCore = (_mToBuffer !== null && _mToCore !== null) ? _mToBuffer + _mToCore : null;
       facts.roadmap.etaToCoreBucket = cd.available ? etaBucket(_cumToCore) : "none";
+      // B#3: 生涯枠充填 ETA も cashflow ペースで上書き（roadmap.etaToCoreBucket と同型・既定'none'を実バケツへ）。
+      if (facts.nisa) facts.nisa.lifetimeFillEtaBucket = cd.available ? etaBucket(projectMonths(nisaDerive(s, nowMs).lifetimeRemaining, cd.investableSurplus)) : "none";
       // Slice4.5: 確保枠の補足advisory（NEXT_TARGETS は4据え置き＝新カテゴリにしない）。
       // reserves 設定時のみ付与（未設定 state は既存 facts.cashflow をバイト不変に保つ＝既存パリティ維持）。
       // 集約のみ（active=件数/fundedPct=比率/shortfall=bool）＝production でも生 yen を出さない。
@@ -1067,5 +1206,12 @@
     rSigned: rSigned, bucketCurrentPct: bucketCurrentPct,
     totalTargetPct: totalTargetPct, totalCurrentPct: totalCurrentPct, assetClassDrift: assetClassDrift,
     assetClassesFacts: assetClassesFacts,
+    normalizeNisa: normalizeNisa,
+    NISA_ANNUAL_TSUMITATE: NISA_ANNUAL_TSUMITATE, NISA_ANNUAL_GROWTH: NISA_ANNUAL_GROWTH,
+    NISA_ANNUAL_TOTAL: NISA_ANNUAL_TOTAL, NISA_LIFETIME: NISA_LIFETIME,
+    NISA_GROWTH_LIFETIME_CAP: NISA_GROWTH_LIFETIME_CAP,
+    nisaNow: nisaNow, nisaDerive: nisaDerive,
+    nisaFacts: nisaFacts, nisaRaw: nisaRaw,
+    nisaViewModel: nisaViewModel,
   };
 });

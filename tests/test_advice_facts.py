@@ -39,6 +39,10 @@ ALLOW = {
     "roadmap", "phase", "coreProgressPct", "coreEstablished", "satelliteUnlocked", "coreTargetSource",
     "etaToCoreBucket",
     "assetClasses", "riskAssetPct", "classes", "key", "targetPct", "currentPct", "driftPct",  # Task5 B#2
+    "nisa", "annualTsumitateUsedPct", "annualGrowthUsedPct", "annualTotalUsedPct",
+    "lifetimeUsedPct", "growthCapUsedPct", "annualRoomRemaining", "lifetimeRoomRemaining",
+    "growthCapRoomRemaining", "overContribution", "hasRestorationPending", "staleAnchorYear",
+    "lifetimeFillEtaBucket", "source",  # B#3 NISA
 }
 DENY = {
     "raw", "monthlyExpense", "bufferAmount", "bufferTarget", "bufferRemaining", "coreAmount",
@@ -217,8 +221,8 @@ CF_ALLOW = {
 CF_RESERVES_ALLOW = {"active", "fundedPct", "shortfall"}
 
 
-def test_schema_version_4():
-    assert advice.SCHEMA_VERSION == 4
+def test_schema_version_5():
+    assert advice.SCHEMA_VERSION == 5
 
 
 def test_production_roadmap_no_raw_yen():
@@ -824,9 +828,9 @@ def test_asset_classes_facts_out_of_range_now_ms_is_none_mirror():
     assert advice._asset_classes_facts(s, 1e300) is None
 
 
-def test_mode_a_facts_schema_version_4_and_asset_classes_key_absent_when_unset():
+def test_mode_a_facts_schema_version_5_and_asset_classes_key_absent_when_unset():
     f = advice.mode_a_facts(advice._migrate({"birthYear": 0}), False, _MS_2026_UTC0715)
-    assert f["schemaVersion"] == 4
+    assert f["schemaVersion"] == 5
     assert "assetClasses" not in f
 
 
@@ -900,6 +904,18 @@ def test_coarsen_asset_classes_case_j_zero_nonaligned_values():
         assert row["driftPct"] % 25 == 0
 
 
+def test_coarsen_nisa_buckets_pct():
+    st = advice._migrate({"nisa":{"anchorYear":2026,"tsumitateThisYear":600000}})
+    f = advice.mode_a_facts(st, False, 1784073600000)
+    # pre-coarsen: 600000/3600000*100 = 16.67 → _r()で17（25刻み非整列）
+    assert f["nisa"]["annualTotalUsedPct"] == 17
+    c = advice.coarsen_facts(f)
+    # post-coarsen: _bucket25(17) == 25 に変化 → walk が実際に効いたことを証明
+    assert c["nisa"]["annualTotalUsedPct"] == 25
+    assert c["nisa"]["annualTsumitateUsedPct"] in (0,25,50,75,100)
+    assert "raw" not in c
+
+
 # ── _num/_cf_num scalar-coerce パリティ堅牢化（num-scalar-parity・spec 2026-07-15）──
 def test_coerce_num_scalar_safe():
     for v in ([5], [[5]], [[[5]]], ["5"], [" 5 "], [-5], [], [5, 6], {}, [{}], [[]], {"a": 1}, True, False, None):
@@ -964,6 +980,39 @@ def test_migrate_huge_int_gate_parity():
     assert advice._migrate({"satelliteCapPct": 10 ** 400})["satelliteCapPct"] == 0
     assert advice._migrate({"satelliteCapPct": -(10 ** 400)})["satelliteCapPct"] == 10  # 負は gate `>=0` 偽 → default
     assert advice._migrate({"bufferMonths": float("inf")})["bufferMonths"] == 0
+
+
+# --- B#3 NISA枠: Task5 Python鏡像（_normalize_nisa/_nisa_facts/_nisa_raw） ---
+
+def test_normalize_nisa_shape():
+    z = advice._normalize_nisa(None)
+    assert z == {"source":"manual","anchorYear":0,"tsumitateThisYear":0,"growthThisYear":0,
+                 "tsumitateLifetime":0,"growthLifetime":0,"soldThisYearAtCost":0}
+    n = advice._normalize_nisa({"source":"bogus","tsumitateThisYear":"600000","growthThisYear":[1],"XXX":9})
+    assert n["source"] == "manual"
+    assert n["tsumitateThisYear"] == 600000
+    assert n["growthThisYear"] == 0
+    assert "XXX" not in n
+
+
+def test_nisa_facts_mirror():
+    st = advice._migrate({"nisa":{"anchorYear":2026,"tsumitateThisYear":600000,"growthThisYear":1000000,
+        "tsumitateLifetime":2200000,"growthLifetime":3000000,"soldThisYearAtCost":800000}})
+    now = 1784073600000  # 2026-07 UTC 相当（JS Date.UTC(2026,6,15) と同月）
+    f = advice._nisa_facts(st, now)
+    assert f["annualTsumitateUsedPct"] == 50
+    assert f["lifetimeUsedPct"] == 29
+    assert f["hasRestorationPending"] is True
+    assert f["lifetimeFillEtaBucket"] == "none"
+    assert advice._nisa_facts(advice._migrate({}), now) is None  # 未設定→None
+
+
+def test_nisa_raw_mirror():
+    st = advice._migrate({"nisa":{"anchorYear":2026,"tsumitateThisYear":600000,"growthThisYear":1000000,
+        "tsumitateLifetime":2200000,"growthLifetime":3000000,"soldThisYearAtCost":800000}})
+    rw = advice._nisa_raw(st, 1784073600000)
+    assert rw["lifetimeRemaining"] == 12800000
+    assert rw["restoresYear"] == 2027
 
 
 if __name__ == "__main__":
