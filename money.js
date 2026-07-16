@@ -1053,6 +1053,141 @@ window.MCC = (function () {
     '</div>';
   }
 
+  // ---- B#3 NISA枠（backlog #3・Task9・レイアウトD）----
+  // 業務mathはここに書かない＝全数値は R.nisaViewModel(state, cd, now) 由来。ここでの計算は表示専用
+  // （幅%・conic-gradientストップ・¥⇔%切替の文言選択）のみで、新規の集計式は追加しない。
+  // 確定mock（OPTION D）: .superpowers/brainstorm/107523-1784134765/content/nisa-layout-v2.html を1:1移植。
+  // ¥は sync.loggedIn 時のみ（readout gate）・%/バー/構造/入力欄は常時。
+  var NISA_ETA_LABELS = { none: "—", lt6: "半年未満", "6_12": "半年〜1年", "1_3y": "1〜3年", "3_10y": "3〜10年", over_10y: "10年超" };
+
+  // 使用/残の1行（¥はloggedInのみ・未ログインは%）。used/cap/remaining は vm の leaf（生¥・personal）、
+  // usedPct は vm 由来の丸め済み%（表示の切替のみ・新規の業務式ではない）。
+  function _nisaStat(used, cap, remaining, usedPct) {
+    return sync.loggedIn
+      ? '<span class="yen">使用 ' + R.yen(used) + ' / ' + R.yen(cap) + '</span><span class="rem">残 ' + R.yen(remaining) + '</span>'
+      : '<span class="yen">使用 ' + usedPct + '%</span><span class="rem">残 ' + (100 - usedPct) + '%</span>';
+  }
+
+  function nisaSection(vm) {
+    if (!vm) return "";
+    var loggedIn = sync.loggedIn;
+    var n = R.normalizeNisa(state.nisa);
+    var currentYear = new Date(Date.now()).getUTCFullYear();
+
+    var bodyHtml;
+    if (!vm.configured) {
+      bodyHtml = '<div class="mcc-nisa-readout mcc-nisa-readout-muted">使用状況を入力すると、年間枠・生涯枠の消化状況が表示されます</div>';
+    } else {
+      // HUD: 年間枠残／生涯枠残／成長内数残／充填ペース／来年復活。¥項目は loggedIn のみ・未ログインは残%。
+      var hudAnnual = loggedIn ? R.yen(vm.annual.total.remaining) : (100 - vm.annual.total.usedPct) + "%";
+      var hudLifetime = loggedIn ? R.yen(vm.lifetime.remaining) : (100 - vm.lifetime.usedPct) + "%";
+      var hudGrowthCap = loggedIn ? R.yen(vm.growthCap.remaining) : (100 - vm.growthCap.usedPct) + "%";
+      var hudEta = NISA_ETA_LABELS[vm.fillEta] || "—";
+      var hudRestore = vm.restoration.hasPending ? (loggedIn ? "+" + R.yen(vm.restoration.sold) : "予定あり") : "—";
+      var hud =
+        '<div class="mcc-nisa-hud">' +
+          '<div class="h"><span class="k">年間枠 残</span><span class="v am">' + hudAnnual + '</span></div>' +
+          '<div class="h"><span class="k">生涯枠 残</span><span class="v vi">' + hudLifetime + '</span></div>' +
+          '<div class="h"><span class="k">成長内数 残</span><span class="v em">' + hudGrowthCap + '</span></div>' +
+          '<div class="h"><span class="k">充填ペース</span><span class="v">' + hudEta + '</span></div>' +
+          '<div class="h"><span class="k">来年 復活（' + vm.restoration.restoresYear + '年）</span><span class="v em">' + hudRestore + '</span></div>' +
+        '</div>';
+
+      // 生涯枠ヒーロー：ドーナツ(lifetimeUsedPct)＋生涯総枠2段バー（つみたて/成長セグメント）＋成長内数バー。
+      // セグメント幅%はポートン(vm.lifetime.*Portion)/cap の表示専用計算（丸めのみ・新規集計ではない）。
+      var lifePct = vm.lifetime.usedPct;
+      var tsumSegPct = Math.round(vm.lifetime.tsumitatePortion / vm.lifetime.cap * 100);
+      var growSegPct = Math.round(vm.lifetime.growthPortion / vm.lifetime.cap * 100);
+      var donutHtml =
+        '<div class="mcc-nisa-donutwrap">' +
+          '<div class="mcc-nisa-donut glowlayer" style="background:conic-gradient(var(--c-violet) 0 ' + lifePct + '%, rgba(255,255,255,0.05) ' + lifePct + '% 100%)"></div>' +
+          '<div class="mcc-nisa-donut" style="background:conic-gradient(var(--c-violet) 0 ' + lifePct + '%, rgba(255,255,255,0.05) ' + lifePct + '% 100%)"></div>' +
+          '<div class="mcc-nisa-donut-center"><div class="p">' + lifePct + '%</div><div class="l">生涯投資枠<br>使用</div></div>' +
+        '</div>';
+
+      var lifeBarHtml =
+        '<div class="mcc-nisa-qlabel"><span>生涯総枠（簿価' + (loggedIn ? "・上限 " + R.yen(vm.lifetime.cap) : "") + '・非課税は無期限）</span><b>' + lifePct + '%</b></div>' +
+        '<div class="mcc-nisa-bar tall">' +
+          '<div class="mcc-nisa-seg tsum" style="width:' + tsumSegPct + '%"></div>' +
+          '<div class="mcc-nisa-seg grow" style="width:' + growSegPct + '%"></div>' +
+        '</div>' +
+        '<div class="mcc-nisa-stat">' + _nisaStat(vm.lifetime.used, vm.lifetime.cap, vm.lifetime.remaining, lifePct) + '</div>' +
+        '<div class="mcc-nisa-legend">' +
+          '<span><i class="tsum"></i>つみたて分 ' + tsumSegPct + '%</span>' +
+          '<span><i class="grow"></i>成長分 ' + growSegPct + '%</span>' +
+        '</div>' +
+        '<div class="mcc-nisa-subbar-label">└ うち <span>成長投資枠</span>（内数上限' + (loggedIn ? " " + R.yen(vm.growthCap.cap) : "") + '）</div>' +
+        '<div class="mcc-nisa-qlabel gl"><span>成長内数枠</span><b>' + vm.growthCap.usedPct + '%</b></div>' +
+        '<div class="mcc-nisa-bar"><div class="mcc-nisa-fill grow" style="width:' + vm.growthCap.usedPct + '%"></div></div>' +
+        '<div class="mcc-nisa-stat">' + _nisaStat(vm.growthCap.used, vm.growthCap.cap, vm.growthCap.remaining, vm.growthCap.usedPct) + '</div>';
+
+      var heroHtml =
+        '<div class="mcc-nisa-card mcc-nisa-hero neonb">' +
+          '<div class="mcc-nisa-herorow">' + donutHtml +
+            '<div class="mcc-nisa-herobars">' + lifeBarHtml + '</div>' +
+          '</div>' +
+        '</div>';
+
+      // 当年2ゲージ（つみたて/成長）。
+      var gaugeTsum =
+        '<div class="mcc-nisa-card neonb">' +
+          '<div class="mcc-nisa-qlabel"><span>当年 つみたて投資枠</span><b>' + vm.annual.tsumitate.usedPct + '%</b></div>' +
+          '<div class="mcc-nisa-bar"><div class="mcc-nisa-fill tsum" style="width:' + vm.annual.tsumitate.usedPct + '%"></div></div>' +
+          '<div class="mcc-nisa-stat">' + _nisaStat(vm.annual.tsumitate.used, vm.annual.tsumitate.cap, vm.annual.tsumitate.remaining, vm.annual.tsumitate.usedPct) + '</div>' +
+        '</div>';
+      var gaugeGrow =
+        '<div class="mcc-nisa-card neonb">' +
+          '<div class="mcc-nisa-qlabel gl"><span>当年 成長投資枠</span><b>' + vm.annual.growth.usedPct + '%</b></div>' +
+          '<div class="mcc-nisa-bar"><div class="mcc-nisa-fill grow" style="width:' + vm.annual.growth.usedPct + '%"></div></div>' +
+          '<div class="mcc-nisa-stat">' + _nisaStat(vm.annual.growth.used, vm.annual.growth.cap, vm.annual.growth.remaining, vm.annual.growth.usedPct) + '</div>' +
+        '</div>';
+      var grid2Html = '<div class="mcc-nisa-grid2">' + gaugeTsum + gaugeGrow + '</div>';
+
+      // アクションチップ：つみたて満額まで／売却→翌年復活／暦年リセット警告／超過警告。
+      var chips = "";
+      if (vm.annual.tsumitate.remaining > 0 && vm.monthlyToFillTsumitate > 0) {
+        chips += '<span class="mcc-nisa-chip feed">つみたて満額まで <b>' +
+          (loggedIn ? "月 " + R.yen(vm.monthlyToFillTsumitate) : "ログインで金額表示") + '</b></span>';
+      }
+      if (vm.restoration.hasPending) {
+        chips += '<span class="mcc-nisa-chip restore">' +
+          (loggedIn ? "当年売却 " + R.yen(vm.restoration.sold) : "当年売却あり") +
+          ' → <b>' + vm.restoration.restoresYear + '年1/1 復活</b></span>';
+      }
+      if (vm.staleYear) {
+        chips += '<span class="mcc-nisa-chip warn">当年枠は <b>暦年でリセット</b>（' + vm.year + '年分）</span>';
+      }
+      if (vm.annual.tsumitate.over || vm.annual.growth.over || vm.annual.total.over || vm.lifetime.over || vm.growthCap.over) {
+        chips += '<span class="mcc-nisa-chip warn">⚠ 枠を超過しています</span>';
+      }
+      var chipsHtml = chips ? '<div class="mcc-nisa-chips">' + chips + '</div>' : "";
+
+      bodyHtml = hud + heroHtml + grid2Html + chipsHtml;
+    }
+
+    var fieldsHtml =
+      '<div class="mcc-nisa-fields">' +
+        moneyInput("当年つみたて拠出", "nisa.tsumitateThisYear", n.tsumitateThisYear) +
+        moneyInput("当年成長拠出", "nisa.growthThisYear", n.growthThisYear) +
+        moneyInput("当年売却(簿価)", "nisa.soldThisYearAtCost", n.soldThisYearAtCost) +
+        moneyInput("生涯つみたて簿価残", "nisa.tsumitateLifetime", n.tsumitateLifetime) +
+        moneyInput("生涯成長簿価残", "nisa.growthLifetime", n.growthLifetime) +
+        '<label class="mcc-field"><span>アンカー年</span><input type="number" min="1900" max="9999" value="' +
+          (n.anchorYear > 0 ? n.anchorYear : "") + '" placeholder="例: ' + currentYear + '" onchange="MCC.setField(\'nisa.anchorYear\', this.value)"></label>' +
+      '</div>';
+    var inputHtml =
+      '<details class="mcc-nisa-input" id="mcc-nisa-input"><summary>使用状況を入力（手入力・クラウド同期）</summary>' +
+        fieldsHtml +
+        '<div class="mcc-nisa-gate">¥はログイン時のみ表示（未ログインは%のみ）。</div>' +
+      '</details>';
+
+    return '<div class="mcc-nisa" id="mcc-sec-nisa">' +
+      '<div class="mcc-section-title mcc-section-title-gap">NISA枠（非課税枠）' + termHelp("NISA枠") + '</div>' +
+      '<div class="mcc-section-desc">課税を避けられる「枠」の消化。バケツ（いつ）・資産クラス（何を）と直交する「どの口座で持つか」の軸。</div>' +
+      bodyHtml + inputHtml +
+    '</div>';
+  }
+
   // ① 用語ヘルプ：GLOSSARY(money-rules.js 単一源)から定義を引き ? ツールチップを返す。見出し/バケツ名に添える。
   var _glossaryMap = null;
   function termHelp(term) {
@@ -1065,7 +1200,7 @@ window.MCC = (function () {
   }
 
   // ① ガイド/ステッパー内の「設定」等のセクション参照 → 該当セクションへスクロール（折りたたみは開く）。
-  var _JUMP_TARGETS = { settings: "mcc-sec-settings", buckets: "mcc-sec-buckets", sync: "mcc-sec-sync", cashflow: "mcc-sec-cashflow", goals: "mcc-sec-goals", assets: "mcc-sec-assets" };
+  var _JUMP_TARGETS = { settings: "mcc-sec-settings", buckets: "mcc-sec-buckets", sync: "mcc-sec-sync", cashflow: "mcc-sec-cashflow", goals: "mcc-sec-goals", assets: "mcc-sec-assets", nisa: "mcc-sec-nisa" };
   // 収支セクションは未ログインだと描画されない（認証データ）。連携にはログインが前提なので login 欄へフォールバック。
   var _JUMP_FALLBACK = { cashflow: "sync" };
   function jumpLink(key, label) {
@@ -1213,7 +1348,7 @@ window.MCC = (function () {
       '</div>';
 
     var saveWarn = lastSaveOk ? '' : '<div class="mcc-save-warn">⚠ 保存できませんでした（プライベートブラウズ等）。この端末に値が保存されない可能性があります。</div>';
-    root.innerHTML = syncBar() + saveWarn + guideSection() + stepperSection(ob) + gauge + banner + roadmapSection(rm, sync.loggedIn) + assetClassSection(vm) + cashflowSection(cv) + reservesSection(cv) + adviceSection(vm) + buckets + goalsSection(vm) + settings + tools;
+    root.innerHTML = syncBar() + saveWarn + guideSection() + stepperSection(ob) + gauge + banner + roadmapSection(rm, sync.loggedIn) + assetClassSection(vm) + nisaSection(R.nisaViewModel(state, cd, Date.now())) + cashflowSection(cv) + reservesSection(cv) + adviceSection(vm) + buckets + goalsSection(vm) + settings + tools;
   }
 
   function exportJSON() {
