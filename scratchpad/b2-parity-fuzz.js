@@ -181,6 +181,17 @@ function genState() {
     s.reserves = [rv];
   }
   if (maybe(0.3)) s.currency = pick(["JPY", "USD", 123, "EUR"]);
+  if (maybe(0.7)) {
+    const ni = {};
+    if (maybe(0.8)) ni.anchorYear = genScalarAdversarial();
+    if (maybe(0.85)) ni.tsumitateThisYear = genScalarAdversarial();
+    if (maybe(0.85)) ni.growthThisYear = genScalarAdversarial();
+    if (maybe(0.8)) ni.tsumitateLifetime = genScalarAdversarial();
+    if (maybe(0.8)) ni.growthLifetime = genScalarAdversarial();
+    if (maybe(0.6)) ni.soldThisYearAtCost = genScalarAdversarial();
+    if (maybe(0.4)) ni.source = pick(["manual","history","ledger","bogus",123]);
+    s.nisa = ni;
+  }
   return s;
 }
 
