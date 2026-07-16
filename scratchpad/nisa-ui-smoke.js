@@ -69,6 +69,7 @@ async function nisaSnapshot(page) {
       chipCount: el.querySelectorAll(".mcc-nisa-chip").length,
       inputFieldCount: el.querySelectorAll(".mcc-nisa-input input[type=number]").length,
       segCount: el.querySelectorAll(".mcc-nisa-seg").length,
+      legendText: (el.querySelector(".mcc-nisa-legend") || {}).textContent || "",
     };
   });
 }
@@ -162,6 +163,10 @@ async function getState(page) {
     snap = await nisaSnapshot(page);
     results.sec5_yenAppearsLoggedIn = !!snap && snap.hasYen;
     results.sec5_snapshotLoggedIn = snap;
+    // review Critical対応の確認: ログイン時、セグメント凡例(つみたて分/成長分)は¥金額で出て
+    // 独自計算の"%"テキストは出ない(¥はvm.lifetime.tsumitatePortion/growthPortion由来・money.js非計算)。
+    results.sec5_legendShowsYenNotPercent =
+      !!snap && /¥/.test(snap.legendText || "") && !/つみたて分\s*\d+%|成長分\s*\d+%/.test(snap.legendText || "");
 
     // ============ フェーズF: setField による再描画反映（ログイン中）============
     await page.evaluate(() => { MCC.setField("nisa.tsumitateThisYear", 900000); });
@@ -170,7 +175,9 @@ async function getState(page) {
     results.sec6_setFieldUpdatesStateLoggedIn =
       !!stateAfterRelogin && stateAfterRelogin.nisa.tsumitateThisYear === 900000;
     snap = await nisaSnapshot(page);
-    results.sec6_rerenderReflectsNewValue = /90万|900,000/.test(snap.text || "") || snap.hasYen;
+    // review Minor: 旧アサーションは `|| snap.hasYen` が既にログイン中で恒真（tautology）だった。
+    // 新値(¥900,000)が実際に再描画テキストに反映されているかを厳格に(AND)検証する。
+    results.sec6_rerenderReflectsNewValue = !!snap && /90万|900,000/.test(snap.text || "") && snap.hasYen;
 
     // ============ フェーズG: 統合チェック（既存セクションと共存）============
     const integ = await page.evaluate(() => {
@@ -202,7 +209,7 @@ async function getState(page) {
       results.sec4_noYenLoggedOut && results.sec4_hasPercentSign &&
       results.sec6_inputsSavedLocally &&
       results.sec7_jumpToResolves &&
-      results.sec5_yenAppearsLoggedIn &&
+      results.sec5_yenAppearsLoggedIn && results.sec5_legendShowsYenNotPercent &&
       results.sec6_setFieldUpdatesStateLoggedIn && results.sec6_rerenderReflectsNewValue &&
       results.sec8_allSectionsCoexist &&
       errors.length === 0;

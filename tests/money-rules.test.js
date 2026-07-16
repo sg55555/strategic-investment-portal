@@ -1339,6 +1339,10 @@ test("nisaViewModel: UI用VM（枠¥+%・fillEta・積立接続）", () => {
   assert.equal(vm.lifetime.used, 5200000);
   assert.equal(vm.lifetime.tsumitatePortion, 2200000);
   assert.equal(vm.lifetime.growthPortion, 3000000);
+  // セグメント幅%はドーナツ(lifetimeUsedPct)と同じ丸め方式で算出（review Critical対応・money.js側で再計算しない）。
+  // 2200000/18000000*100=12.222→r(12.722)=12 / 3000000/18000000*100=16.666→r(17.166)=17
+  assert.equal(vm.lifetime.tsumitatePortionPct, 12);
+  assert.equal(vm.lifetime.growthPortionPct, 17);
   assert.equal(vm.growthCap.cap, 12000000);
   assert.equal(vm.restoration.restoresYear, 2027);
   assert.equal(vm.restoration.hasPending, true);

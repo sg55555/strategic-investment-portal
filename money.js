@@ -1060,12 +1060,13 @@ window.MCC = (function () {
   // ¥は sync.loggedIn 時のみ（readout gate）・%/バー/構造/入力欄は常時。
   var NISA_ETA_LABELS = { none: "—", lt6: "半年未満", "6_12": "半年〜1年", "1_3y": "1〜3年", "3_10y": "3〜10年", over_10y: "10年超" };
 
-  // 使用/残の1行（¥はloggedInのみ・未ログインは%）。used/cap/remaining は vm の leaf（生¥・personal）、
-  // usedPct は vm 由来の丸め済み%（表示の切替のみ・新規の業務式ではない）。
+  // 使用/残の1行（¥はloggedInのみ・未ログインは使用率%のみ）。used/cap/remaining は vm の leaf（生¥・personal）、
+  // usedPct は vm 由来の丸め済み%（表示の切替のみ・新規の業務式ではない）。未ログイン時は100-usedPctの
+  // 計算をせず、vm由来のusedPctをそのまま「使用」表示に使う（review Important対応）。
   function _nisaStat(used, cap, remaining, usedPct) {
     return sync.loggedIn
       ? '<span class="yen">使用 ' + R.yen(used) + ' / ' + R.yen(cap) + '</span><span class="rem">残 ' + R.yen(remaining) + '</span>'
-      : '<span class="yen">使用 ' + usedPct + '%</span><span class="rem">残 ' + (100 - usedPct) + '%</span>';
+      : '<span class="yen">使用 ' + usedPct + '%</span>';
   }
 
   function nisaSection(vm) {
@@ -1078,10 +1079,11 @@ window.MCC = (function () {
     if (!vm.configured) {
       bodyHtml = '<div class="mcc-nisa-readout mcc-nisa-readout-muted">使用状況を入力すると、年間枠・生涯枠の消化状況が表示されます</div>';
     } else {
-      // HUD: 年間枠残／生涯枠残／成長内数残／充填ペース／来年復活。¥項目は loggedIn のみ・未ログインは残%。
-      var hudAnnual = loggedIn ? R.yen(vm.annual.total.remaining) : (100 - vm.annual.total.usedPct) + "%";
-      var hudLifetime = loggedIn ? R.yen(vm.lifetime.remaining) : (100 - vm.lifetime.usedPct) + "%";
-      var hudGrowthCap = loggedIn ? R.yen(vm.growthCap.remaining) : (100 - vm.growthCap.usedPct) + "%";
+      // HUD: 年間枠残／生涯枠残／成長内数残／充填ペース／来年復活。¥項目は loggedIn のみ。未ログインは
+      // 100-usedPct の計算をせず、vm由来のusedPctをそのまま使用率として表示（review Important対応）。
+      var hudAnnual = loggedIn ? R.yen(vm.annual.total.remaining) : vm.annual.total.usedPct + "% 使用";
+      var hudLifetime = loggedIn ? R.yen(vm.lifetime.remaining) : vm.lifetime.usedPct + "% 使用";
+      var hudGrowthCap = loggedIn ? R.yen(vm.growthCap.remaining) : vm.growthCap.usedPct + "% 使用";
       var hudEta = NISA_ETA_LABELS[vm.fillEta] || "—";
       var hudRestore = vm.restoration.hasPending ? (loggedIn ? "+" + R.yen(vm.restoration.sold) : "予定あり") : "—";
       var hud =
@@ -1094,10 +1096,10 @@ window.MCC = (function () {
         '</div>';
 
       // 生涯枠ヒーロー：ドーナツ(lifetimeUsedPct)＋生涯総枠2段バー（つみたて/成長セグメント）＋成長内数バー。
-      // セグメント幅%はポートン(vm.lifetime.*Portion)/cap の表示専用計算（丸めのみ・新規集計ではない）。
+      // セグメント幅%はvm.lifetime.tsumitatePortionPct/growthPortionPct（money-rules.jsのnisaViewModelが
+      // donutと同じ丸め[clamp(r(x/NISA_LIFETIME*100),0,100)]で算出済）をそのまま使う。money.js側で
+      // 独自に割り算・丸めをしない＝ドーナツとセグメントの合計不一致（review Critical）を解消。
       var lifePct = vm.lifetime.usedPct;
-      var tsumSegPct = Math.round(vm.lifetime.tsumitatePortion / vm.lifetime.cap * 100);
-      var growSegPct = Math.round(vm.lifetime.growthPortion / vm.lifetime.cap * 100);
       var donutHtml =
         '<div class="mcc-nisa-donutwrap">' +
           '<div class="mcc-nisa-donut glowlayer" style="background:conic-gradient(var(--c-violet) 0 ' + lifePct + '%, rgba(255,255,255,0.05) ' + lifePct + '% 100%)"></div>' +
@@ -1108,13 +1110,13 @@ window.MCC = (function () {
       var lifeBarHtml =
         '<div class="mcc-nisa-qlabel"><span>生涯総枠（簿価' + (loggedIn ? "・上限 " + R.yen(vm.lifetime.cap) : "") + '・非課税は無期限）</span><b>' + lifePct + '%</b></div>' +
         '<div class="mcc-nisa-bar tall">' +
-          '<div class="mcc-nisa-seg tsum" style="width:' + tsumSegPct + '%"></div>' +
-          '<div class="mcc-nisa-seg grow" style="width:' + growSegPct + '%"></div>' +
+          '<div class="mcc-nisa-seg tsum" style="width:' + vm.lifetime.tsumitatePortionPct + '%"></div>' + // 表示専用: 幅はVM由来pct
+          '<div class="mcc-nisa-seg grow" style="width:' + vm.lifetime.growthPortionPct + '%"></div>' + // 表示専用: 幅はVM由来pct
         '</div>' +
         '<div class="mcc-nisa-stat">' + _nisaStat(vm.lifetime.used, vm.lifetime.cap, vm.lifetime.remaining, lifePct) + '</div>' +
         '<div class="mcc-nisa-legend">' +
-          '<span><i class="tsum"></i>つみたて分 ' + tsumSegPct + '%</span>' +
-          '<span><i class="grow"></i>成長分 ' + growSegPct + '%</span>' +
+          '<span><i class="tsum"></i>つみたて分' + (loggedIn ? " " + R.yen(vm.lifetime.tsumitatePortion) : "") + '</span>' +
+          '<span><i class="grow"></i>成長分' + (loggedIn ? " " + R.yen(vm.lifetime.growthPortion) : "") + '</span>' +
         '</div>' +
         '<div class="mcc-nisa-subbar-label">└ うち <span>成長投資枠</span>（内数上限' + (loggedIn ? " " + R.yen(vm.growthCap.cap) : "") + '）</div>' +
         '<div class="mcc-nisa-qlabel gl"><span>成長内数枠</span><b>' + vm.growthCap.usedPct + '%</b></div>' +
