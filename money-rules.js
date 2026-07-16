@@ -20,6 +20,8 @@
   var NISA_LIFETIME = 18000000;          // 生涯非課税保有限度額（簿価）
   var NISA_GROWTH_LIFETIME_CAP = 12000000; // うち成長投資枠の生涯内数上限
   var NISA_SOURCES = ["manual", "history", "ledger"]; // 二軸source（Stage1=manual・Stage2/3で拡張）
+  var NISA_MIN_YEAR = 2024;      // Stage2: 新NISA開始年＝履歴年の下限（facts非出力・年度改定時はここ）
+  var NISA_HISTORY_MAX = 50;     // Stage2: 履歴件数上限（reserves 流儀・Python 側と同値必須）
   // 免責（node↔browser 単一源・全描画経路で決定論と不可分に常時表示）。
   var DISCLAIMER = "本コーチが示す決定論ルールおよび AI の補足はいずれも、資産規律の維持・教育・判断支援を目的とした一般的な情報提供であり、特定の金融商品の売買や投資配分・タイミングを推奨する投資助言ではありません。当ツールは金融商品取引業者・投資助言代理業者として登録された者による助言ではなく、特定の金融商品の勧誘を目的としたものでもありません。将来の利益や成果を保証するものではありません（過去の実績は将来を示しません）。最終的な投資判断はご自身の責任で行ってください。";
   var DISCLAIMER_VERSION = "disc-v1";
@@ -68,6 +70,34 @@
     }
     return out;
   }
+  // B#3 Stage2: 履歴1行の固定形状（年は normalizeBirthYear 型の範囲gate・金額は共有 num()・未知キー破棄）。
+  function normalizeNisaYear(e) {
+    var s = (e && typeof e === "object" && !Array.isArray(e)) ? e : {};
+    var y = Math.floor(num(s.year));
+    return {
+      year: (y >= NISA_MIN_YEAR && y <= 9999) ? y : 0,
+      tsumitate: num(s.tsumitate),
+      growth: num(s.growth),
+      soldTsumitate: num(s.soldTsumitate),
+      soldGrowth: num(s.soldGrowth),
+    };
+  }
+  // B#3 Stage2: 年別履歴の正規化。reserves 流儀（filter→slice→map）＋無効年除去→年で後勝ち畳み→年昇順。
+  // 順序は Python _normalize_nisa_history と厳密一致させること（畳む前にソートすると後勝ちの意味が変わる）。
+  function normalizeNisaHistory(raw) {
+    var arr = Array.isArray(raw) ? raw : [];
+    var rows = [], i;
+    var kept = arr.filter(function (e) { return e && typeof e === "object" && !Array.isArray(e); })
+      .slice(0, NISA_HISTORY_MAX);
+    for (i = 0; i < kept.length; i++) {
+      var row = normalizeNisaYear(kept[i]);
+      if (row.year > 0) rows.push(row);
+    }
+    var byYear = {};
+    for (i = 0; i < rows.length; i++) byYear[rows[i].year] = rows[i];   // 後勝ち（合算しない）
+    var years = Object.keys(byYear).map(Number).sort(function (a, b) { return a - b; });
+    return years.map(function (y) { return byYear[y]; });
+  }
   // B#3: NISA使用状況の固定形状を常に返す（非オブジェクト入力→全0骨格・allowlist キーのみ・scalar-only coerce・未知キー破棄）。
   function normalizeNisa(raw) {
     var s = (raw && typeof raw === "object" && !Array.isArray(raw)) ? raw : {};
@@ -79,6 +109,7 @@
       tsumitateLifetime: num(s.tsumitateLifetime),
       growthLifetime: num(s.growthLifetime),
       soldThisYearAtCost: num(s.soldThisYearAtCost),
+      history: normalizeNisaHistory(s.history),
     };
   }
   // migrate 専用 birthYear coerce（有限・整数・1900<=n<=9999 以外は 0＝spec §2.2）。

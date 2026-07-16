@@ -1236,7 +1236,7 @@ test("facts パリティ: 巨大整数(>309桁)/Infinity の bufferMonths/satell
 test("normalizeNisa: 非オブジェクト入力→全0既定・source=manual", () => {
   const z = R.normalizeNisa(null);
   assert.deepEqual(z, { source:"manual", anchorYear:0, tsumitateThisYear:0, growthThisYear:0,
-    tsumitateLifetime:0, growthLifetime:0, soldThisYearAtCost:0 });
+    tsumitateLifetime:0, growthLifetime:0, soldThisYearAtCost:0, history:[] });
   assert.deepEqual(R.normalizeNisa("x"), z);
   assert.deepEqual(R.normalizeNisa([1,2]), z);
 });
@@ -1358,4 +1358,45 @@ test("nisaViewModel: UI用VM（枠¥+%・fillEta・積立接続）", () => {
   assert.equal(vm.monthlyPace, 150000);
   assert.equal(vm.fillEta, "3_10y");          // 1280万/15万=85.3→ceil86ヶ月。etaBucket(86)=36<=86<120→"3_10y"
   assert.equal(vm.monthlyToFillTsumitate, 100000);
+});
+
+test("normalizeNisaHistory: 非配列→[] / 要素filter / slice(50) / 無効年除去 / 後勝ち畳み / 年昇順", () => {
+  // 非配列入力
+  assert.deepEqual(R.normalizeNisa({ history: "x" }).history, []);
+  assert.deepEqual(R.normalizeNisa({ history: null }).history, []);
+  assert.deepEqual(R.normalizeNisa(null).history, []);
+
+  // 要素 filter（null/配列/プリミティブは落ちる）＋無効年除去
+  assert.deepEqual(
+    R.normalizeNisa({ history: [null, [1], 5, { year: 2024, tsumitate: 100 }] }).history,
+    [{ year: 2024, tsumitate: 100, growth: 0, soldTsumitate: 0, soldGrowth: 0 }]
+  );
+
+  // 無効年（0/2023/10000/全角）は行ごと落ちる。ASCII decimal 文字列 "2024" は num() が通す＝残る
+  const invalid = R.normalizeNisa({
+    history: [{ year: 0 }, { year: 2023 }, { year: 10000 }, { year: "２０２４" }, { year: "2024" }],
+  }).history;
+  assert.deepEqual(invalid, [{ year: 2024, tsumitate: 0, growth: 0, soldTsumitate: 0, soldGrowth: 0 }]);
+
+  // 後勝ち畳み（合算しない）＋年昇順
+  const dup = R.normalizeNisa({
+    history: [{ year: 2025, tsumitate: 1 }, { year: 2024, tsumitate: 2 }, { year: 2025, tsumitate: 3 }],
+  }).history;
+  assert.deepEqual(dup.map((e) => [e.year, e.tsumitate]), [[2024, 2], [2025, 3]]);
+
+  // slice(0,50) は filter の後・map の前（51件目以降は捨てられる）
+  const many = [];
+  for (let i = 0; i < 60; i++) many.push({ year: 2024, tsumitate: i });
+  assert.equal(R.normalizeNisa({ history: many }).history.length, 1);      // 全て同年→畳んで1件
+  assert.equal(R.normalizeNisa({ history: many }).history[0].tsumitate, 49); // 50件目(index49)が後勝ち
+
+  // 金額は共有 num()（単一要素配列/NaN/hex/全角→0）
+  const coerced = R.normalizeNisa({
+    history: [{ year: 2024, tsumitate: [5], growth: NaN, soldTsumitate: "0x10", soldGrowth: "１" }],
+  }).history[0];
+  assert.deepEqual(coerced, { year: 2024, tsumitate: 0, growth: 0, soldTsumitate: 0, soldGrowth: 0 });
+
+  // 未知キー破棄・固定5キー骨格
+  assert.deepEqual(Object.keys(R.normalizeNisa({ history: [{ year: 2024, bogus: 1 }] }).history[0]),
+    ["year", "tsumitate", "growth", "soldTsumitate", "soldGrowth"]);
 });
