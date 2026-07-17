@@ -52,7 +52,9 @@ KIND_DIV = "配当"
 KIND_SELL = "売却"
 KIND_ORDER = {KIND_SEED: 0, KIND_BUY: 1, KIND_DIV: 2, KIND_SELL: 3}
 
-STRATEGY_CORE = "コア"  # これ以外（サテライト）は principal_sat_delta へ
+STRATEGY_CORE = "コア"
+STRATEGY_SAT = "サテライト"
+STRATEGIES = (STRATEGY_CORE, STRATEGY_SAT)  # 空/未知値は loud-fail（口座区分と対称）
 
 REQUIRED_INVESTMENT_PROPS = ("日付", "種別", "戦略区分", "ティッカー", "数量", "約定金額", "口座区分")
 SELECT_INVESTMENT_PROPS = ("種別", "戦略区分", "ティッカー", "口座区分")
@@ -146,20 +148,38 @@ def _parse_tx(page: dict) -> dict | None:
             f"ETL ABORT: 口座区分が空/未知値 date={iso} 種別='{kind}' 値='{account}'. "
             f"期待={list(ACCOUNTS)}. silent に課税扱いすると NISA 枠が静かに過少計上されるため中止。"
         )
+    strategy = _select(p.get("戦略区分", {}))
+    # 戦略区分の空/未知値は loud-fail（口座区分と対称・silent に「サテライト」へ落とさない）。
+    # 売却は holdings 保有側の strategy を使うため行の値は検証しない（購入/期初保有時に検証済み）。
+    if kind in (KIND_BUY, KIND_SEED) and strategy not in STRATEGIES:
+        raise SystemExit(
+            f"ETL ABORT: 戦略区分が空/未知値 date={iso} 種別='{kind}' 値='{strategy}'. "
+            f"期待={list(STRATEGIES)}. silent にサテライト扱いすると元本の分類が歪むため中止。"
+        )
     qty = p.get("数量", {}).get("number")
     if kind == KIND_SELL and (qty is None or qty <= 0):
         raise SystemExit(
             f"ETL ABORT: 売却行に数量が無い date={iso} ticker='{_select(p.get('ティッカー', {}))}'. "
             f"簿価按分（avg_cost × 数量）ができないため中止。"
         )
+    amount = float(p.get("約定金額", {}).get("number") or 0)
+    fee = float(p.get("手数料", {}).get("number") or 0)
+    qty_f = float(qty or 0)
+    # 負値は num() が静かに 0 へ潰し NISA 生涯枠を水増しする（口座区分の loud-fail と同じ害の裏返し）。
+    if amount < 0 or fee < 0 or qty_f < 0:
+        raise SystemExit(
+            f"ETL ABORT: 負の値 date={iso} 種別='{kind}' 約定金額={amount} 手数料={fee} 数量={qty_f}. "
+            f"下流が負値を静かに 0 へ丸め枠が水増しされるため中止。"
+        )
     return {
         "date": d,
         "kind": kind,
         "account": account,
         "ticker": _select(p.get("ティッカー", {})) or "UNKNOWN",
-        "strategy": _select(p.get("戦略区分", {})),
-        "qty": float(qty or 0),
-        "amount": float(p.get("約定金額", {}).get("number") or 0),
+        "strategy": strategy,
+        "qty": qty_f,
+        "amount": amount,
+        "fee": fee,
     }
 
 
@@ -189,40 +209,43 @@ def build_investment(pages: list[dict], cur_ym: tuple[int, int]) -> dict[str, di
             key = f'{t["ticker"]}|{t["account"]}'
             h = holdings.setdefault(key, {"ticker": t["ticker"], "account": t["account"],
                                           "qty": 0.0, "avg_cost": 0.0, "strategy": t["strategy"]})
-            core = t["strategy"] == STRATEGY_CORE
+            amount, fee = t["amount"], t["fee"]  # 約定金額(取得対価)と手数料は別建て（M-5）
             if t["kind"] in (KIND_BUY, KIND_SEED):
-                # 元本（戦略区分軸）
-                d["principal_core_delta" if core else "principal_sat_delta"] += t["amount"]
+                core = t["strategy"] == STRATEGY_CORE  # 空/未知値は _parse_tx で loud-fail 済み
+                # 元本（戦略区分軸）＝約定金額のみ（手数料は簿価に含めない）
+                d["principal_core_delta" if core else "principal_sat_delta"] += amount
                 if t["kind"] == KIND_BUY:
-                    d["invest_cash_flow"] -= t["amount"]  # 期初保有は現金を動かさない（schema: 期初保有=0）
-                # 移動平均（口座別に独立）
+                    d["invest_cash_flow"] -= amount + fee  # 現金流出は手数料込み（期初保有は現金を動かさない）
+                # 移動平均（口座別に独立）＝約定金額ベース（手数料を含めない＝元本/枠と一貫）
                 new_qty = h["qty"] + t["qty"]
                 if new_qty > 0:
-                    h["avg_cost"] = (h["qty"] * h["avg_cost"] + t["amount"]) / new_qty
+                    h["avg_cost"] = (h["qty"] * h["avg_cost"] + amount) / new_qty
                 h["qty"] = new_qty
                 h["strategy"] = t["strategy"]
                 # NISA 枠（口座区分軸・直交）。枠消費は約定金額のみ＝手数料は含めない。
                 if t["account"] == NISA_TSUMITATE:
-                    d["nisa_tsumitate_delta"] += t["amount"]
+                    d["nisa_tsumitate_delta"] += amount
                 elif t["account"] == NISA_GROWTH:
-                    d["nisa_growth_delta"] += t["amount"]
+                    d["nisa_growth_delta"] += amount
             elif t["kind"] == KIND_SELL:
                 cost = h["avg_cost"] * t["qty"]  # 簿価按分
                 if t["qty"] > h["qty"] + 1e-9:
                     print(f"[etl_investment] ⚠ 売却数量が保有を超過 {key} date={t['date']} "
                           f"qty={t['qty']} held={h['qty']}（記帳漏れの可能性・reconcile で差が出ます）")
-                d["principal_core_delta" if core else "principal_sat_delta"] -= cost
-                d["invest_cash_flow"] += t["amount"]
-                d["realized_gain"] += t["amount"] - cost
+                # 元本は holdings 保有側の strategy で戻す（行の値でなく＝記帳ミスで principal が負化しない・M-1）
+                sell_core = h["strategy"] == STRATEGY_CORE
+                d["principal_core_delta" if sell_core else "principal_sat_delta"] -= cost
+                d["invest_cash_flow"] += amount - fee     # 手取り＝約定金額−手数料
+                d["realized_gain"] += (amount - fee) - cost  # 実現益は手数料を差し引く
                 h["qty"] -= t["qty"]
                 if t["account"] == NISA_TSUMITATE:
                     d["nisa_tsumitate_sold_at_cost"] += cost
                 elif t["account"] == NISA_GROWTH:
                     d["nisa_growth_sold_at_cost"] += cost
             elif t["kind"] == KIND_DIV:
-                # 配当＝現金+/実現益+/元本不変/NISA 枠不消費。
-                d["invest_cash_flow"] += t["amount"]
-                d["realized_gain"] += t["amount"]
+                # 配当＝現金+/実現益+/元本不変/NISA 枠不消費。手数料があれば差し引く。
+                d["invest_cash_flow"] += amount - fee
+                d["realized_gain"] += amount - fee
         pd = date.fromisoformat(period)
         out[period] = {
             "period": pd,

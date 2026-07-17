@@ -150,11 +150,80 @@ def test_seed_holding_counts_in_its_date_year_and_moves_no_cash():
     assert r["invest_cash_flow"] == 0
 
 
-def test_fee_does_not_consume_quota():
-    """枠消費は約定金額のみ（手数料は含めない）。"""
+def test_fee_is_separate_from_amount():
+    """約定金額 A・手数料 F は別建て：枠消費/元本は A のみ・現金流出は A+F（購入）。"""
     r = etl.build_investment(
         [_page("2026-05-10", etl.KIND_BUY, "NISA成長", qty=10, amount=1000000, fee=5000)], CUR_YM)["2026-05-01"]
-    assert r["nisa_growth_delta"] == 1000000
+    assert r["nisa_growth_delta"] == 1000000       # 枠は約定金額のみ（手数料を食わない）
+    assert r["principal_core_delta"] == 1000000    # 元本も約定金額のみ
+    assert r["invest_cash_flow"] == -1005000       # 現金流出は手数料込み
+
+
+def test_sell_fee_reduces_proceeds_and_gain():
+    """売却の手取り＝A−F、実現益＝(A−F)−簿価。"""
+    pages = [_page("2026-05-10", etl.KIND_BUY, "NISA成長", qty=10, amount=1000000),
+             _page("2026-06-10", etl.KIND_SELL, "NISA成長", qty=6, amount=700000, fee=3000)]
+    r = etl.build_investment(pages, CUR_YM)["2026-06-01"]
+    assert r["invest_cash_flow"] == 697000
+    assert r["realized_gain"] == 700000 - 3000 - 600000   # 97000
+    assert r["nisa_growth_sold_at_cost"] == 600000        # 簿価は手数料を含めない
+
+
+def test_dividend_fee_reduces_cash_and_gain():
+    pages = [_page("2026-05-10", etl.KIND_BUY, "NISA成長", qty=10, amount=1000000),
+             _page("2026-06-10", etl.KIND_DIV, "NISA成長", qty=0, amount=30000, fee=500)]
+    r = etl.build_investment(pages, CUR_YM)["2026-06-01"]
+    assert r["invest_cash_flow"] == 29500
+    assert r["realized_gain"] == 29500
+    assert r["nisa_growth_delta"] == 0
+
+
+# ── loud-fail 追加（負値・戦略区分）──
+def test_negative_amount_aborts():
+    """負の約定金額は num() が静かに 0 へ潰し NISA 枠を水増しするため中止。"""
+    assert _expect_systemexit(
+        lambda: etl.build_investment([_page("2026-05-10", etl.KIND_BUY, "NISA成長", amount=-1000000)], CUR_YM))
+
+
+def test_negative_fee_aborts():
+    assert _expect_systemexit(
+        lambda: etl.build_investment([_page("2026-05-10", etl.KIND_BUY, "NISA成長", fee=-100)], CUR_YM))
+
+
+def test_negative_qty_aborts():
+    assert _expect_systemexit(
+        lambda: etl.build_investment([_page("2026-05-10", etl.KIND_BUY, "NISA成長", qty=-5)], CUR_YM))
+
+
+def test_empty_strategy_aborts():
+    """戦略区分の空＝silent にサテライト扱いせず中止（口座区分と対称）。"""
+    page = _page("2026-05-10", etl.KIND_BUY, "NISA成長")
+    page["properties"]["戦略区分"]["select"] = None
+    assert _expect_systemexit(lambda: etl.build_investment([page], CUR_YM))
+
+
+def test_unknown_strategy_aborts():
+    assert _expect_systemexit(
+        lambda: etl.build_investment([_page("2026-05-10", etl.KIND_BUY, "NISA成長", strategy="foo")], CUR_YM))
+
+
+def test_sell_uses_holding_strategy_not_row():
+    """売却の元本は holdings 保有側の strategy で戻す＝買=コア/売=サテライトの記帳ミスで負化しない（M-1）。"""
+    pages = [_page("2026-05-10", etl.KIND_BUY, "NISA成長", qty=10, amount=1000000, strategy="コア"),
+             _page("2026-06-10", etl.KIND_SELL, "NISA成長", qty=5, amount=600000, strategy="サテライト")]
+    r = etl.build_investment(pages, CUR_YM)["2026-06-01"]
+    assert r["principal_core_delta"] == -500000   # コア（保有側）から減る
+    assert r["principal_sat_delta"] == 0          # サテライト（行の誤値）は動かない
+
+
+def test_source_hash_same_day_buy_sell_order_independent():
+    """同日の購入+売却をページ逆順で与えても hash 一致（sort が load-bearing なことの検証）。"""
+    buy = _page("2026-05-10", etl.KIND_BUY, "NISA成長", ticker="VOO", qty=10, amount=1000000)
+    sell = _page("2026-05-10", etl.KIND_SELL, "NISA成長", ticker="VOO", qty=4, amount=500000)
+    r1 = etl.build_investment([buy, sell], CUR_YM)["2026-05-01"]
+    r2 = etl.build_investment([sell, buy], CUR_YM)["2026-05-01"]
+    assert etl._source_hash(r1) == etl._source_hash(r2)
+    assert r1["nisa_growth_sold_at_cost"] == 400000   # 買→売 の順で処理＝簿価 @10万 × 4
 
 
 def test_current_month_is_incomplete():
