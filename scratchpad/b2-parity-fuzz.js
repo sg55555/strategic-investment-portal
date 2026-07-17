@@ -190,6 +190,26 @@ function genState() {
     if (maybe(0.8)) ni.growthLifetime = genScalarAdversarial();
     if (maybe(0.6)) ni.soldThisYearAtCost = genScalarAdversarial();
     if (maybe(0.4)) ni.source = pick(["manual","history","ledger","bogus",123]);
+    // Stage2: 年別履歴(非配列/要素異常/重複年/域外年/順序シャッフル/件数境界50を踏む)
+    if (maybe(0.6)) {
+      if (maybe(0.15)) {
+        ni.history = pick(["nope", 123, null, {}]);          // 非配列 → []
+      } else {
+        const rows = [];
+        const nRows = Math.floor(rng() * 55);                 // 0〜54(slice(0,50) 境界を跨ぐ)
+        for (let k = 0; k < nRows; k++) {
+          const row = {};
+          if (maybe(0.9)) row.year = pick([2024, 2025, 2026, 2027, 2023, 0, 10000, "2024", "２０２４", [2024]]);
+          if (maybe(0.9)) row.tsumitate = genScalarAdversarial();
+          if (maybe(0.9)) row.growth = genScalarAdversarial();
+          if (maybe(0.7)) row.soldTsumitate = genScalarAdversarial();
+          if (maybe(0.7)) row.soldGrowth = genScalarAdversarial();
+          if (maybe(0.1)) row.bogus = "x";                    // 未知キー破棄
+          rows.push(maybe(0.08) ? pick([null, [1], 5, "x"]) : row);   // 要素 filter
+        }
+        ni.history = rows;                                    // 年の重複と順序ずれは pick の性質上まとめて発生
+      }
+    }
     s.nisa = ni;
   }
   return s;
