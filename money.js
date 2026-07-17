@@ -1317,9 +1317,12 @@ window.MCC = (function () {
     // 外側 render() の innerHTML 代入の最中に内側 render() が再入していた。
     // 「render() が走った＝画面は最新になった＝もう dirty ではない」が本来の不変条件のため、ここで
     // 呼び出し元を問わず必ず false に落とす（renderRestoring 内の reset は冗長だが実害なく残す）。
-    _renderDirty = false;
+    // ただしリセットは root 取得の**後**に置く（レビュー指摘 Important・実測 CONFIRMED）。冒頭に置くと
+    // root 不在の早期 return で「dirty は false なのに描画されていない」＝画面が古いまま取り残される
+    // 穴ができる（この位置なら root チェックと innerHTML 代入の間に DOM 変更が無いため再入防止は温存）。
     var root = document.getElementById("mcc-root");
     if (!root) return;
+    _renderDirty = false;
     var vm = R.viewModel(state);
     var cv = R.cashflowViewModel(_cashflowRows, state, Date.now());
     var ob = R.onboardingSteps(state, sync.loggedIn, cv.hasData);
