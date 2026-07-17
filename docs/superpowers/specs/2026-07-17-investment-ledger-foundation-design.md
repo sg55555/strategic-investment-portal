@@ -115,21 +115,29 @@ ALTER TABLE me.investment_snapshots
 ```
 値にも `ticker`/`account` を冗長に持つ（将来 Slice5 の時価 join を楽にする）。**読み手はまだ存在しない**（`investmentDerived` は holdings を読まない・`api/me/investment.py` は素通し）ため破壊リスクは無い。`source_hash` の安定性のため**キーの厳密全順序ソート**必須（`etl_cashflow.py` の `cat_list` と同じ教訓）。
 
-**種別ごとの会計**
+**手数料の扱い（`約定金額 A`・`手数料 F` は Notion の別列）**＝**約定金額は手数料を含まない純粋な取得対価**（2026-07-18 ユーザー確定・M-5）。3つの量で使い分ける：
+- **枠消費・元本・移動平均の簿価**＝`A` のみ（手数料は枠を食わない・簿価に含めない）。元本と NISA 枠を一貫して `A` ベースにする。
+- **現金流出（購入）**＝`−(A + F)`（手数料は現金を余分に減らす）。
+- **現金流入（売却）**＝`+(A − F)`、**実現益（売却）**＝`(A − F) − 簿価`（手数料は手取りと実現益を減らす）。
+- 期初保有は現金影響ゼロ（手数料も無視）。
 
-| 種別 | principal_*_delta | nisa_*_delta | nisa_*_sold_at_cost | holdings |
-|---|---|---|---|---|
-| 購入 | +約定金額（戦略区分で振分） | +約定金額（口座区分が NISA* の時） | — | qty+・avg_cost 更新 |
-| 売却 | −（簿価按分） | — | +（`avg_cost × 数量`・口座区分が NISA* の時） | qty− |
-| 配当 | 0（元本不変） | **0（枠を消費しない）** | — | 不変 |
-| 期初保有 | +取得原価 | +取得原価（口座区分が NISA* の時・**「日付」の年に計上**） | — | seed |
+**種別ごとの会計**（`strat`＝戦略区分、`cost`＝`avg_cost × 数量`）
 
-課税口座の行は `nisa_*` が全て0（`principal_*_delta` には計上される）。
+| 種別 | invest_cash_flow | principal_*_delta | nisa_*_delta | nisa_*_sold_at_cost | realized_gain | holdings |
+|---|---|---|---|---|---|---|
+| 購入 | `−(A+F)` | `+A`（strat で振分） | `+A`（NISA*） | — | — | qty+・avg_cost 更新（A ベース） |
+| 売却 | `+(A−F)` | `−cost`（**holdings 保有側の strat**・M-1） | — | `+cost`（NISA*） | `+(A−F)−cost` | qty− |
+| 配当 | `+(A−F)` | 0（元本不変） | **0（枠不消費）** | — | `+(A−F)` | 不変 |
+| 期初保有 | 0（現金不動） | `+A`（strat で振分） | `+A`（NISA*・**「日付」の年に計上**） | — | — | seed（A ベース） |
+
+課税口座の行は `nisa_*` が全て0（`principal_*_delta` には計上される）。**売却の戦略区分は行の値でなく holdings の保有側**を使う（買=コア/売=サテライトの記帳ミスで principal が負化するのを防ぐ・M-1）。
 
 **loud-fail（`SystemExit("ETL ABORT: …")`）**
 - `REQUIRED_INVESTMENT_PROPS` に `口座区分` を含め、欠落/rename を `pages[0]` 代表検査で中止
 - `口座区分` が空／既知3値以外 → 中止（**silent に「課税」扱いしない**）
-- 売却行の `数量` 欠落 → 中止（既存 plan の要求）
+- **`戦略区分` が空／`コア`・`サテライト` 以外**（購入・期初保有）→ 中止（**silent に「サテライト」扱いしない**＝口座区分と対称・I-3）
+- **`約定金額`／`手数料`／`数量` が負** → 中止（**負値は `num()` が静かに0へ潰し NISA 生涯枠を水増しする**・I-2）
+- 売却行の `数量` 欠落／`≤0` → 中止（簿価按分ができない）
 - Notion 取得失敗 → 中止（部分データで Neon を汚さない）
 - `NOTION_TOKEN` / `DATABASE_URL` 未設定 → 中止
 - `diagnose()` を main 冒頭で呼ぶ（`/users/me` → `/v1/search` で共有漏れを `⚠` 表示・秘密は出さない）
