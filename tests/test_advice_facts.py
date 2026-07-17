@@ -81,9 +81,9 @@ def _walk(node, keys, nums):
 def test_parity_js_python():
     for c in CASES:
         cf = c.get("cashflow")  # None=Slice3 経路（cashflow なし）/ 配列=Slice4 ケース
-        prod = advice.mode_a_facts(c["state"], False, _case_now(c), cf)
+        prod = advice.mode_a_facts(c["state"], False, _case_now(c), cf, c.get("investment"))
         assert _norm(prod) == _norm(c["production"]), "production mismatch: " + c["name"]
-        pers = advice.mode_a_facts(c["state"], True, _case_now(c), cf)
+        pers = advice.mode_a_facts(c["state"], True, _case_now(c), cf, c.get("investment"))
         assert _norm(pers) == _norm(c["personal"]), "personal mismatch: " + c["name"]
 
 

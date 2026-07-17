@@ -1016,9 +1016,9 @@ def _nisa_derive(state, now_ms, ledger_rows=None):
     }
 
 
-def _nisa_facts(state, now_ms):
+def _nisa_facts(state, now_ms, ledger_rows=None):
     """money-rules.js nisaFacts の鏡像（production 集約・未設定は None）。"""
-    d = _nisa_derive(state, now_ms)
+    d = _nisa_derive(state, now_ms, ledger_rows)
     if not d["configured"]:
         return None
     return {
@@ -1038,9 +1038,9 @@ def _nisa_facts(state, now_ms):
     }
 
 
-def _nisa_raw(state, now_ms):
+def _nisa_raw(state, now_ms, ledger_rows=None):
     """money-rules.js nisaRaw の鏡像（personal 生¥・未設定は None）。"""
-    d = _nisa_derive(state, now_ms)
+    d = _nisa_derive(state, now_ms, ledger_rows)
     if not d["configured"]:
         return None
     return {
@@ -1070,9 +1070,10 @@ def _asset_classes_facts(state, now_ms):
     return {"riskAssetPct": gp["R"], "classes": classes}
 
 
-def mode_a_facts(raw_state, include_raw, now_ms, cashflow=None):
+def mode_a_facts(raw_state, include_raw, now_ms, cashflow=None, investment=None):
     """生 state → Mode A 集約ファクト（純粋）。include_raw=True（personal）でのみ raw に生額/ラベルを同梱。
     必ず _migrate で全フィールドを coerce してから allowlist キーのみで dict を構築する。"""
+    inv_rows = investment if isinstance(investment, list) else []
     s = _migrate(raw_state)
     cur = "USD" if s["currency"] == "USD" else "JPY"
     total = _total_assets(s)
@@ -1125,7 +1126,7 @@ def mode_a_facts(raw_state, include_raw, now_ms, cashflow=None):
         facts["assetClasses"] = ac
 
     # B#3: NISA枠（backlog B #3）。未設定は nisa キー自体を省く（両モード同値・money-rules.js の鏡像）。
-    ni = _nisa_facts(s, now_ms)
+    ni = _nisa_facts(s, now_ms, inv_rows)
     if ni is not None:
         facts["nisa"] = ni
 
@@ -1158,7 +1159,7 @@ def mode_a_facts(raw_state, include_raw, now_ms, cashflow=None):
                 for i, g in enumerate(goals_arr)
             ],
         }
-        ni_raw = _nisa_raw(s, now_ms)
+        ni_raw = _nisa_raw(s, now_ms, inv_rows)
         if ni_raw is not None:
             facts["raw"]["nisa"] = ni_raw
 
@@ -1196,7 +1197,7 @@ def mode_a_facts(raw_state, include_raw, now_ms, cashflow=None):
         # B#3: 生涯枠充填 ETA を cashflow ペースで上書き（roadmap と同型・既定'none'を実バケツへ・money-rules.js の鏡像）。
         if "nisa" in facts:
             facts["nisa"]["lifetimeFillEtaBucket"] = (
-                _eta_bucket(_project_months(_nisa_derive(s, now_ms)["lifetimeRemaining"], cd["investableSurplus"]))
+                _eta_bucket(_project_months(_nisa_derive(s, now_ms, inv_rows)["lifetimeRemaining"], cd["investableSurplus"]))
                 if cd["available"] else "none"
             )
         # Slice4.5: 確保枠の補足advisory（集約のみ・NEXT_TARGETS は4据え置き）。設定時のみ付与＝既存パリティ不変。
@@ -1454,7 +1455,25 @@ class handler(BaseHTTPRequestHandler):
                 except Exception:
                     cf_rows = None
 
-                facts = mode_a_facts(raw_state, include_raw, now_ms, cf_rows)
+                # B#3 Stage3: 投資台帳を server-side で読む（ledger モードの NISA 枠導出の入力）。
+                # 生額は LLM へ渡さず Mode A 集約のみ。テーブル未適用/読取失敗は inv_rows=None で degrade
+                # （autocommit ゆえ後続クエリは無傷・投資読取失敗が助言全体を落とさない）。
+                inv_rows = None
+                try:
+                    cur.execute(
+                        "SELECT period, nisa_tsumitate_delta, nisa_growth_delta, "
+                        "nisa_tsumitate_sold_at_cost, nisa_growth_sold_at_cost "
+                        "FROM me.investment_snapshots ORDER BY period DESC LIMIT 120"  # 直近10年
+                    )
+                    inv_rows = [{
+                        "period": rec[0].isoformat() if hasattr(rec[0], "isoformat") else rec[0],
+                        "nisa_tsumitate_delta": rec[1], "nisa_growth_delta": rec[2],
+                        "nisa_tsumitate_sold_at_cost": rec[3], "nisa_growth_sold_at_cost": rec[4],
+                    } for rec in cur.fetchall()]
+                except Exception:
+                    inv_rows = None
+
+                facts = mode_a_facts(raw_state, include_raw, now_ms, cf_rows, inv_rows)
                 next_target = facts["nextTarget"]
                 deterministic = deterministic_for(next_target)
                 # facts_hash は coarsen 後（粗バケツ・raw 除去）から計算＝personal の生額指紋をログに残さない（coerce-4b）。

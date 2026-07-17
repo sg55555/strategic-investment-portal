@@ -573,8 +573,8 @@
 
   // B#3: production 集約facts（両モード同値・生¥ゼロ・全数値leaf整数[-100,150]）。未設定は undefined＝キー省略。
   // lifetimeFillEtaBucket は cashflow ペース由来ゆえ既定'none'＝modeAFacts の cashflow ブロックが上書き（roadmap.etaToCoreBucket と同型）。
-  function nisaFacts(state, nowMs) {
-    var d = nisaDerive(state, nowMs);
+  function nisaFacts(state, nowMs, ledgerRows) {
+    var d = nisaDerive(state, nowMs, ledgerRows);
     if (!d.configured) return undefined;
     return {
       source: d.n.source,
@@ -594,8 +594,8 @@
   }
 
   // B#3: personal のみの生¥ブロック（facts.raw.nisa）。未設定は undefined＝キー省略。
-  function nisaRaw(state, nowMs) {
-    var d = nisaDerive(state, nowMs);
+  function nisaRaw(state, nowMs, ledgerRows) {
+    var d = nisaDerive(state, nowMs, ledgerRows);
     if (!d.configured) return undefined;
     return {
       tsumitateThisYear: d.atUsed, growthThisYear: d.agUsed,
@@ -1121,6 +1121,8 @@
     // 渡して内部で _num() する。num/_num は冪等かつ同一 contract ゆえ両経路とも同値（bool nowMs も両側 0・hex/underscore 文字列も両側 0）。
     // （2026-07-15 パリティ堅牢化で numScalar を num へ集約＝旧「generic num/_num の bool/hex 潜在発散点」を根絶）。
     var nowMs = num(opts.nowMs);
+    // B#3 Stage3: 投資台帳の月次行（state の外＝API 由来）。cashflow と同型で opts から受ける。
+    var investmentRows = Array.isArray(opts.investmentRows) ? opts.investmentRows : [];
     var s = migrate(rawState);
     var cur = s.currency === "USD" ? "USD" : "JPY"; // 自由文字列 currency を閉集合へ
     var total = totalAssets(s);
@@ -1176,7 +1178,7 @@
     if (acFacts) facts.assetClasses = acFacts;
 
     // B#3: NISA枠（backlog B #3）。未設定は nisa キー自体を省く（assetClasses と同型・両モード同値）。
-    var niFacts = nisaFacts(s, nowMs);
+    var niFacts = nisaFacts(s, nowMs, investmentRows);
     if (niFacts) facts.nisa = niFacts;
 
     if (includeRaw) {
@@ -1201,7 +1203,7 @@
           };
         }),
       };
-      var niRaw = nisaRaw(s, nowMs);
+      var niRaw = nisaRaw(s, nowMs, investmentRows);
       if (niRaw) facts.raw.nisa = niRaw;
     }
 
@@ -1234,7 +1236,7 @@
       var _cumToCore = (_mToBuffer !== null && _mToCore !== null) ? _mToBuffer + _mToCore : null;
       facts.roadmap.etaToCoreBucket = cd.available ? etaBucket(_cumToCore) : "none";
       // B#3: 生涯枠充填 ETA も cashflow ペースで上書き（roadmap.etaToCoreBucket と同型・既定'none'を実バケツへ）。
-      if (facts.nisa) facts.nisa.lifetimeFillEtaBucket = cd.available ? etaBucket(projectMonths(nisaDerive(s, nowMs).lifetimeRemaining, cd.investableSurplus)) : "none";
+      if (facts.nisa) facts.nisa.lifetimeFillEtaBucket = cd.available ? etaBucket(projectMonths(nisaDerive(s, nowMs, investmentRows).lifetimeRemaining, cd.investableSurplus)) : "none";
       // Slice4.5: 確保枠の補足advisory（NEXT_TARGETS は4据え置き＝新カテゴリにしない）。
       // reserves 設定時のみ付与（未設定 state は既存 facts.cashflow をバイト不変に保つ＝既存パリティ維持）。
       // 集約のみ（active=件数/fundedPct=比率/shortfall=bool）＝production でも生 yen を出さない。

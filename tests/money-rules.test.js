@@ -225,9 +225,9 @@ const DENYLIST_KEYS = [
 
 test("modeAFacts: 全フィクスチャで production/personal が期待値と一致（JS↔Python 単一源）", () => {
   CASES.forEach((c) => {
-    const prod = R.modeAFacts(c.state, { nowMs: caseNow(c), cashflow: c.cashflow });
+    const prod = R.modeAFacts(c.state, { nowMs: caseNow(c), cashflow: c.cashflow, investmentRows: c.investment || [] });
     assert.deepEqual(prod, c.production, "production mismatch: " + c.name);
-    const pers = R.modeAFacts(c.state, { includeRawAmounts: true, nowMs: caseNow(c), cashflow: c.cashflow });
+    const pers = R.modeAFacts(c.state, { includeRawAmounts: true, nowMs: caseNow(c), cashflow: c.cashflow, investmentRows: c.investment || [] });
     assert.deepEqual(pers, c.personal, "personal mismatch: " + c.name);
   });
 });
