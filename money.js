@@ -7,6 +7,12 @@ window.MCC = (function () {
   var state = null;
   var lastSaveOk = true;
 
+  // Task8 修正（focusout ベース・spec §8.2）：setField 等が render 予約だけ立て、実際の再描画は
+  // root の focusout（Tab/クリック時の移動先確定後）に委ねる。Enter 確定（focusout が来ない）は
+  // setField 側が即 renderRestoring するフォールバック。render() 呼び出しのたびに必ず null へ戻す。
+  var _renderDirty = false;
+  var _pendingFocusKey = null;
+
   // クラウド同期の状態（自動同期＝ログインしたら以降の save が cloud にも飛ぶ）。
   var sync = { loggedIn: false, busy: false, lastSyncOk: true, lastError: "" };
   var _sessionChecked = false;
@@ -389,6 +395,10 @@ window.MCC = (function () {
   }
 
   // path 例: "monthlyExpense" / "buckets.buffer.amount"
+  // Task8 修正（spec §8.2）：ここでは無条件に render() しない。値の確定と保存だけ行い、
+  // 実際の再描画は「Enter 確定＝activeElement がまだ同じ入力欄」のときだけ即時 renderRestoring、
+  // それ以外（Tab/クリック＝activeElement は既に BODY）は root の focusout に委ねる
+  // （実測：change の時点では移動先が分からない＝spec §8.1）。
   function setField(path, value) {
     if (!state) load();
     var parts = path.split(".");
@@ -396,6 +406,17 @@ window.MCC = (function () {
     for (var i = 0; i < parts.length - 1; i++) obj = obj[parts[i]];
     obj[parts[parts.length - 1]] = Number(value) >= 0 ? Number(value) : 0;
     save();
+    _renderDirty = true;
+    var active = document.activeElement;
+    var key = (active && active.getAttribute) ? active.getAttribute("data-mcc-focus") : null;
+    if (key) renderRestoring(key);
+  }
+
+  // render 予約を消費して再描画（focusout ベースの復元・spec §8.2）。
+  // key は復元対象の data-mcc-focus 値（無ければ null=フォーカス復元なしで再描画のみ）。
+  function renderRestoring(key) {
+    _renderDirty = false;
+    _pendingFocusKey = key;
     render();
   }
 
@@ -1352,15 +1373,11 @@ window.MCC = (function () {
 
     var saveWarn = lastSaveOk ? '' : '<div class="mcc-save-warn">⚠ 保存できませんでした（プライベートブラウズ等）。この端末に値が保存されない可能性があります。</div>';
 
-    // 全再描画方式は維持しつつ、確定(onchange)のたびにアコーディオンが閉じ・フォーカスが飛ぶのを防ぐ
-    // （id 付き <details> と data-mcc-focus 要素のみが対象＝id 無し details の既存挙動は変えない）。
+    // 全再描画方式は維持しつつ、確定(onchange)のたびにアコーディオンが閉じるのを防ぐ
+    // （id 付き <details> のみが対象＝id 無し details の既存挙動は変えない）。
     var openIds = [];
     var dets = root.querySelectorAll("details[id]");
     for (var di = 0; di < dets.length; di++) if (dets[di].open) openIds.push(dets[di].id);
-    var active = document.activeElement;
-    var focusKey = (active && active.getAttribute) ? active.getAttribute("data-mcc-focus") : null;
-    var selStart = (focusKey && typeof active.selectionStart === "number") ? active.selectionStart : null;
-    var selEnd = (focusKey && typeof active.selectionEnd === "number") ? active.selectionEnd : null;
 
     root.innerHTML = syncBar() + saveWarn + guideSection() + stepperSection(ob) + gauge + banner + roadmapSection(rm, sync.loggedIn) + assetClassSection(vm) + nisaSection(R.nisaViewModel(state, cd, Date.now())) + cashflowSection(cv) + reservesSection(cv) + adviceSection(vm) + buckets + goalsSection(vm) + settings + tools;
 
@@ -1368,15 +1385,14 @@ window.MCC = (function () {
       var d = document.getElementById(openIds[oi]);
       if (d) d.open = true;
     }
-    if (focusKey) {
-      var next = root.querySelector('[data-mcc-focus="' + focusKey.replace(/"/g, '\\"') + '"]');
-      if (next) {
-        next.focus();
-        if (selStart !== null && typeof next.setSelectionRange === "function") {
-          try { next.setSelectionRange(selStart, selEnd); } catch (e) { /* number input は選択範囲非対応 */ }
-        }
-      }
+    // focusout ベースのフォーカス復元（spec §8.2）：setField（Enter確定）／root の focusout（Tab・クリック確定）
+    // が render 直前に _pendingFocusKey をセットする。他の呼び出し元（addGoal/removeReserve 等）は
+    // 常に null のままゆえフォーカス復元は起きない＝既存挙動のまま。呼び出し元を問わず必ず null に戻す。
+    if (_pendingFocusKey) {
+      var next = root.querySelector('[data-mcc-focus="' + CSS.escape(_pendingFocusKey) + '"]');
+      if (next) next.focus();
     }
+    _pendingFocusKey = null;
   }
 
   function exportJSON() {
@@ -1406,10 +1422,23 @@ window.MCC = (function () {
     catch (e) { /* 失敗時は baseline のまま */ }
   }
 
+  // Task8 修正（spec §8.2）：Tab/クリックでの離脱は change の時点では移動先が分からない
+  // （activeElement は既に BODY・relatedTarget も無い＝spec §8.1）ため、focusout の relatedTarget で
+  // 移動先を判定してから render する。root 自体は render() で差し替わらない（root.innerHTML のみ差し替え）
+  // ため、init で1回だけ登録すればよい。
+  function _onRootFocusOut(e) {
+    if (!_renderDirty) return;
+    var rt = e.relatedTarget;
+    var key = (rt && rt.getAttribute) ? rt.getAttribute("data-mcc-focus") : null;
+    renderRestoring(key);
+  }
+
   function init() {
     if (!R) return;
     applyTheme();
     load();
+    var root = document.getElementById("mcc-root");
+    if (root) root.addEventListener("focusout", _onRootFocusOut);
     render();  // localStorage で即描画（セッション確認は司令室を開いた初回に遅延）
   }
 
