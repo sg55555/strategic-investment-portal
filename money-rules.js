@@ -569,6 +569,15 @@
     };
   }
 
+  // B#3 Stage2: 追加できる年（NISA_MIN_YEAR〜当年のうち履歴に無い年・昇順）。UI の year select 用＝
+  // 「既存年は選べない」で重複行を作らせない（純関数側の後勝ち畳みと二重防衛）。UI専用ゆえ Py 鏡像不要。
+  function nisaAvailableYears(history, currentYear) {
+    var used = {}, out = [], i, y;
+    for (i = 0; i < history.length; i++) used[history[i].year] = true;
+    for (y = NISA_MIN_YEAR; y <= currentYear; y++) if (!used[y]) out.push(y);
+    return out;
+  }
+
   // B#3: UI描画専用VM（¥+%・パリティ不要＝money.js が描く。業務mathはここに集約）。
   function nisaViewModel(state, cd, nowMs) {
     var d = nisaDerive(state, nowMs);
@@ -588,6 +597,17 @@
       staleYear: d.staleAnchorYear, monthlyPace: pace, fillEta: fillEta,
       monthlyToFillTsumitate: d.monthlyToFillTsumitate, monthlyToFillGrowth: d.monthlyToFillGrowth,
       monthsLeft: d.monthsLeft, year: d.year,
+      source: d.n.source, history: d.n.history,
+      availableYears: nisaAvailableYears(d.n.history, d.year),
+      // Stage2 リコンサイル：手入力の生涯簿価残（参照値・stored）と履歴からの導出（lifeUsed）の突き合わせ。
+      // 「数字が落ちた」を「埋めるべき残り」に変える＝手入力が一度も無ければ available:false（差を語らない）。
+      reconcile: {
+        available: d.n.source === "history" && (d.stored.tsumitateLifetime + d.stored.growthLifetime) > 0,
+        manualLifetime: d.stored.tsumitateLifetime + d.stored.growthLifetime,
+        derivedLifetime: d.lifeUsed,
+        diff: (d.stored.tsumitateLifetime + d.stored.growthLifetime) - d.lifeUsed,
+        matched: (d.stored.tsumitateLifetime + d.stored.growthLifetime) - d.lifeUsed === 0,
+      },
     };
   }
 
@@ -1292,5 +1312,6 @@
     nisaNow: nisaNow, nisaDerive: nisaDerive,
     nisaFacts: nisaFacts, nisaRaw: nisaRaw,
     nisaViewModel: nisaViewModel,
+    nisaAvailableYears: nisaAvailableYears,
   };
 });

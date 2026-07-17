@@ -1425,6 +1425,43 @@ test("nisaViewModel: UI用VM（枠¥+%・fillEta・積立接続）", () => {
   assert.equal(vm.monthlyToFillTsumitate, 100000);
 });
 
+test("nisaViewModel: reconcile（手入力の生涯簿価残 vs 履歴からの導出）", () => {
+  const base = { source: "history", tsumitateLifetime: 3000000, growthLifetime: 2000000 };
+  // 履歴が未完成＝手入力5,000,000 に対し導出1,000,000 → diff 4,000,000
+  const st = { nisa: Object.assign({}, base, { history: [{ year: 2024, tsumitate: 1000000 }] }) };
+  const vm = R.nisaViewModel(st, null, Date.UTC(2026, 5, 10));
+  assert.equal(vm.reconcile.available, true);
+  assert.equal(vm.reconcile.manualLifetime, 5000000);
+  assert.equal(vm.reconcile.derivedLifetime, 1000000);
+  assert.equal(vm.reconcile.diff, 4000000);
+  assert.equal(vm.reconcile.matched, false);
+
+  // 一致すると matched
+  const st2 = { nisa: Object.assign({}, base, { history: [{ year: 2024, tsumitate: 3000000, growth: 2000000 }] }) };
+  const vm2 = R.nisaViewModel(st2, null, Date.UTC(2026, 5, 10));
+  assert.equal(vm2.reconcile.diff, 0);
+  assert.equal(vm2.reconcile.matched, true);
+
+  // manual モードでは available:false（参照値の突き合わせは history モードの話）
+  const st3 = { nisa: { source: "manual", tsumitateLifetime: 3000000 } };
+  assert.equal(R.nisaViewModel(st3, null, Date.UTC(2026, 5, 10)).reconcile.available, false);
+
+  // 手入力の生涯簿価残が一度も入っていなければ参照値なし＝available:false
+  const st4 = { nisa: { source: "history", history: [{ year: 2024, tsumitate: 1 }] } };
+  assert.equal(R.nisaViewModel(st4, null, Date.UTC(2026, 5, 10)).reconcile.available, false);
+});
+
+test("nisaViewModel: availableYears は NISA_MIN_YEAR〜当年から既存行の年を除いた昇順", () => {
+  const st = { nisa: { source: "history", history: [{ year: 2025, tsumitate: 1 }] } };
+  const vm = R.nisaViewModel(st, null, Date.UTC(2026, 5, 10));
+  assert.deepEqual(vm.availableYears, [2024, 2026]);
+  assert.equal(vm.source, "history");
+  assert.equal(vm.history.length, 1);
+
+  // 無効時刻（year=0）→ 追加できる年は無い
+  assert.deepEqual(R.nisaViewModel(st, null, 8.64e15 * 2).availableYears, []);
+});
+
 test("normalizeNisaHistory: 非配列→[] / 要素filter / slice(50) / 無効年除去 / 後勝ち畳み / 年昇順", () => {
   // 非配列入力
   assert.deepEqual(R.normalizeNisa({ history: "x" }).history, []);
