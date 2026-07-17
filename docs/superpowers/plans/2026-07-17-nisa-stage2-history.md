@@ -996,6 +996,8 @@ git commit -m "test(nisa): Stage2 パリティ fuzz に history 生成器（0 mi
 
 **なぜ必要か**：入力は `onchange`（確定時）で `MCC.setField` → `render()` が `root.innerHTML` を丸ごと差し替える（money.js:1354, 392-400）。`<details>` に open 保持機構が無い（:1182/:957/:1339）ため、**1項目確定するたびにアコーディオンが閉じフォーカスが飛ぶ**。N年×5項目のテーブルでは実用不能。
 
+> **⚠️ 2026-07-17 更新（実測により設計変更）**：当初案「`render()` 内で `document.activeElement` を読んで復元」は **Tab 動線では機能しない**ことが実機で判明した。`change` は `focusout` より先に発火し、その時点で `activeElement` は既に `BODY`・`relatedTarget` も無いため、移動先が分からない。正しい設計は **spec §8.1/§8.2**（focusout ベース＋Enter フォールバック）を参照すること。以下の Step 2 のコードは**この更新前のもの**で、Step 2 の focus 復元部分は spec §8.2 に置き換わる（`<details>` の open 復元と `moneyInput` の `data-mcc-focus` 付与＝Step 1 は有効のまま）。
+
 - [ ] **Step 1: `moneyInput` に同定用の属性を足す**
 
 `money.js:385-389` を置換：
@@ -1196,13 +1198,20 @@ git commit -m "fix(money): render で open な details とフォーカスを復�
     for (var ai = 0; ai < vm.availableYears.length; ai++) {
       addYearOpts += '<option value="' + vm.availableYears[ai] + '">' + vm.availableYears[ai] + '年</option>';
     }
+    // 文言は spec §6 どおり**3分岐**（接頭辞ごと分ける）。「履歴が未完成：」を共通接頭辞にすると
+    // diff<0 で「履歴が未完成：…（履歴が手入力を上回っています）」という自己矛盾になり、
+    // かつ「過去年を埋めろ」と逆方向に誘導する（2026-07-17 review Important・初稿の誤り）。
     var reconcileHtml = "";
     if (vm.reconcile.available) {
-      reconcileHtml = vm.reconcile.matched
-        ? '<div class="mcc-nisa-recon ok">手入力の生涯簿価残と履歴が一致しています</div>'
-        : '<div class="mcc-nisa-recon warn">履歴が未完成：差 ' +
-            (loggedIn ? R.yen(Math.abs(vm.reconcile.diff)) : "（ログインで金額表示）") +
-            (vm.reconcile.diff > 0 ? '（過去年を埋めると 0 になります）' : '（履歴が手入力を上回っています）') + '</div>';
+      var reconAmount = loggedIn ? R.yen(Math.abs(vm.reconcile.diff)) : "（ログインで金額表示）";
+      if (vm.reconcile.matched) {
+        reconcileHtml = '<div class="mcc-nisa-recon ok">手入力の生涯簿価残と履歴が一致しています</div>';
+      } else if (vm.reconcile.diff > 0) {
+        reconcileHtml = '<div class="mcc-nisa-recon warn">履歴が未完成：差 ' + reconAmount +
+          '（過去年を埋めると 0 になります）</div>';
+      } else {
+        reconcileHtml = '<div class="mcc-nisa-recon warn">履歴が手入力を上回っています：差 ' + reconAmount + '</div>';
+      }
     }
     var historyHtml =
       '<div class="mcc-nisa-history">' +
@@ -1242,36 +1251,44 @@ git commit -m "fix(money): render で open な details とフォーカスを復�
 
 `money.css` の baseline 層（構造/寸法＋`var()` 色のみ）に追加：
 
+**⚠️ トークンは実在するものだけを使うこと**（2026-07-17 に controller が実測して確定）。money.css に実在するのは
+`--c-text-dim` / `--c-text-faint` / `--c-text-bright` / `--c-violet` / `--c-violet-bright` / `--c-emerald` / `--c-emerald-bright` / `--c-amber` / `--c-amber-bright` / `--mcc-mono` 等。
+**`--rim-cyan-*` / `--border` / `--text-primary` / `--text-secondary` は存在しない**（初稿はこれらを参照していた＝無効な var() で無言に色が落ちる）。**新トークンを増やさないこと**。
+
+baseline 層（構造/寸法＋実在 `var()` 色のみ）：
+
 ```css
-.mcc-nisa-srctoggle { display: flex; gap: 8px; margin-bottom: 10px; }
-.mcc-nisa-srcbtn { flex: 0 0 auto; padding: 6px 14px; border: 1px solid var(--rim-cyan-1, rgba(120,220,255,0.35));
-  background: transparent; color: var(--text-secondary); border-radius: 6px; cursor: pointer; font-size: 12px; }
-.mcc-nisa-srcbtn.on { color: var(--text-primary); border-color: var(--c-violet); }
-.mcc-nisa-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.mcc-nisa-srctoggle { display: flex; gap: 8px; margin-top: 10px; }
+.mcc-nisa-srcbtn { flex: 0 0 auto; padding: 6px 14px; border: 1px solid rgba(129,140,248,0.3);
+  background: rgba(0,0,0,0.3); color: var(--c-text-dim); border-radius: 6px; cursor: pointer; font-size: 0.72rem; }
+.mcc-nisa-srcbtn.on { color: var(--c-text-bright); border-color: var(--c-violet); }
+.mcc-nisa-table { width: 100%; border-collapse: collapse; font-size: 0.72rem; margin-top: 10px; }
 .mcc-nisa-table th, .mcc-nisa-table td { padding: 4px 6px; text-align: right; }
-.mcc-nisa-table thead th { color: var(--text-secondary); font-weight: normal; font-size: 11px; }
-.mcc-nisa-table tbody th { text-align: left; color: var(--text-primary); }
-.mcc-nisa-table input { width: 100%; min-width: 72px; }
+.mcc-nisa-table thead th { color: var(--c-text-dim); font-weight: normal; font-size: 0.66rem; }
+.mcc-nisa-table tbody th { text-align: left; color: var(--c-text-bright); }
+.mcc-nisa-table input { width: 100%; min-width: 72px; background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(129,140,248,0.3); color: #fff; border-radius: 6px; padding: 5px 7px; font-size: 0.8rem; }
 .mcc-nisa-addrow { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
-.mcc-nisa-addrow.muted { color: var(--text-secondary); font-size: 11px; }
-.mcc-nisa-recon { margin-top: 10px; font-size: 12px; }
+.mcc-nisa-addrow.muted { color: var(--c-text-faint); font-size: 0.66rem; }
+.mcc-nisa-rowdel { background: none; border: none; color: var(--c-text-faint); cursor: pointer; font-size: 0.66rem; }
+.mcc-nisa-recon { margin-top: 10px; font-size: 0.72rem; }
 @media (max-width: 600px) {
   .mcc-nisa-table, .mcc-nisa-table tbody, .mcc-nisa-table tr, .mcc-nisa-table td, .mcc-nisa-table th { display: block; }
   .mcc-nisa-table thead { display: none; }
-  .mcc-nisa-table tr { border: 1px solid var(--border); border-radius: 8px; padding: 8px; margin-bottom: 8px; }
-  .mcc-nisa-table td::before { content: attr(data-label); float: left; color: var(--text-secondary); font-size: 11px; }
+  .mcc-nisa-table tr { border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 8px; margin-bottom: 8px; }
+  .mcc-nisa-table td::before { content: attr(data-label); float: left; color: var(--c-text-dim); font-size: 0.66rem; }
 }
 ```
 
-`[data-theme="D"] #money-view` 配下（money.css:965-1001 の隣）に glow/縁のみ追加：
+`[data-theme="D"] #money-view` 配下（money.css の theme D ブロック）に glow/縁のみ追加：
 
 ```css
 [data-theme="D"] #money-view .mcc-nisa-srcbtn.on { box-shadow: 0 0 10px -2px var(--c-violet); }
-[data-theme="D"] #money-view .mcc-nisa-recon.warn { color: var(--c-amber, #fbbf24); }
-[data-theme="D"] #money-view .mcc-nisa-recon.ok { color: var(--c-emerald, #10b981); }
+[data-theme="D"] #money-view .mcc-nisa-recon.warn { color: var(--c-amber-bright); }
+[data-theme="D"] #money-view .mcc-nisa-recon.ok { color: var(--c-emerald-bright); }
 ```
 
-**注**：`--rim-cyan-1` / `--c-violet` / `--c-amber` / `--c-emerald` は実在を `grep -n "\-\-c-violet\|--rim-cyan" money.css` で確認し、無ければ既存 NISA セクションが使っているトークンに合わせること（**新トークンを増やさない**）。モバイルの `data-label` を使うなら `_nisaCell` の `<td>` に `data-label="つみたて拠出"` 等を付ける。
+**注**：モバイルの `data-label` を使うため、`_nisaCell` の `<td>` に `data-label="つみたて拠出"` 等の列名を付けること（付けないと狭幅カード化で何の数字か分からなくなる）。
 
 - [ ] **Step 5: 手動確認 → Commit**
 

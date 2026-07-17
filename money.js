@@ -1331,13 +1331,20 @@ window.MCC = (function () {
     for (var ai = 0; ai < vm.availableYears.length; ai++) {
       addYearOpts += '<option value="' + vm.availableYears[ai] + '">' + vm.availableYears[ai] + '年</option>';
     }
+    // リコンサイルの文言は spec §6 どおり3分岐（接頭辞ごと分ける）。diff<0 で「履歴が未完成」を出すと
+    // 「未完成だから過去年を埋めろ」と読め、実際は履歴が手入力を上回っている＝乖離を広げる方向に誘導する
+    // 自己矛盾になる（review Important）。金額は¥ゲート内のみ・符号は文言で表し絶対値を出す。
     var reconcileHtml = "";
     if (vm.reconcile.available) {
-      reconcileHtml = vm.reconcile.matched
-        ? '<div class="mcc-nisa-recon ok">手入力の生涯簿価残と履歴が一致しています</div>'
-        : '<div class="mcc-nisa-recon warn">履歴が未完成：差 ' +
-            (loggedIn ? R.yen(Math.abs(vm.reconcile.diff)) : "（ログインで金額表示）") +
-            (vm.reconcile.diff > 0 ? '（過去年を埋めると 0 になります）' : '（履歴が手入力を上回っています）') + '</div>';
+      var reconAmount = loggedIn ? R.yen(Math.abs(vm.reconcile.diff)) : "（ログインで金額表示）";
+      if (vm.reconcile.matched) {
+        reconcileHtml = '<div class="mcc-nisa-recon ok">手入力の生涯簿価残と履歴が一致しています</div>';
+      } else if (vm.reconcile.diff > 0) {
+        reconcileHtml = '<div class="mcc-nisa-recon warn">履歴が未完成：差 ' + reconAmount +
+          '（過去年を埋めると 0 になります）</div>';
+      } else {
+        reconcileHtml = '<div class="mcc-nisa-recon warn">履歴が手入力を上回っています：差 ' + reconAmount + '</div>';
+      }
     }
     var historyHtml =
       '<div class="mcc-nisa-history">' +
