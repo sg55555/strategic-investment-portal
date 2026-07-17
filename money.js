@@ -399,6 +399,14 @@ window.MCC = (function () {
   // 実際の再描画は「Enter 確定＝activeElement がまだ同じ入力欄」のときだけ即時 renderRestoring、
   // それ以外（Tab/クリック＝activeElement は既に BODY）は root の focusout に委ねる
   // （実測：change の時点では移動先が分からない＝spec §8.1）。
+  // Task8 回帰修正：setField は入力欄の onchange 以外（acFillCashOnly/adoptAvgExpense 等、ボタンの
+  // onclick から直接呼ばれる経路）からも呼ばれる。その経路では activeElement はボタン自身
+  // （data-mcc-focus を持たない）で、かつ focusout は setField 呼び出し前に発火済み（この時点では
+  // _renderDirty がまだ false で no-op）ゆえ、上の2経路のどちらにも乗らず画面が更新されないまま残る
+  // （state は正しいのに DOM だけ古い＝実測 CONFIRMED）。そこで次tickに必ず描画するフォールバックを
+  // 張る：change→blur→focusout は同一タスク内で同期的に発火し setTimeout(0) はそのタスク完了後に
+  // 走るため、Tab/クリック動線では focusout が先に走って _renderDirty を false に落とし
+  // フォールバックは no-op になる（二重描画にならない）。focusout が来ない経路でだけ効く。
   function setField(path, value) {
     if (!state) load();
     var parts = path.split(".");
@@ -406,10 +414,15 @@ window.MCC = (function () {
     for (var i = 0; i < parts.length - 1; i++) obj = obj[parts[i]];
     obj[parts[parts.length - 1]] = Number(value) >= 0 ? Number(value) : 0;
     save();
+    var ae = document.activeElement;
+    var key = (ae && ae.getAttribute) ? ae.getAttribute("data-mcc-focus") : null;
+    if (key) { renderRestoring(key); return; }   // Enter 確定＝フォーカスが動いていない（focusout が来ない）
+    // Tab/クリックでの確定は blur 進行中で activeElement が BODY。移動先は focusout の relatedTarget
+    // でしか分からないのでそちらに委ねる（spec §8.1 の実測）。ただし focusout が来ない呼び出し元
+    // （ボタンの onclick から直接呼ぶ acFillCashOnly / adoptAvgExpense 等）でも画面が古いまま残らないよう、
+    // 次tickで必ず描画するフォールバックを張る（focusout が先に走れば _renderDirty=false で no-op）。
     _renderDirty = true;
-    var active = document.activeElement;
-    var key = (active && active.getAttribute) ? active.getAttribute("data-mcc-focus") : null;
-    if (key) renderRestoring(key);
+    setTimeout(function () { if (_renderDirty) renderRestoring(null); }, 0);
   }
 
   // render 予約を消費して再描画（focusout ベースの復元・spec §8.2）。
@@ -425,7 +438,7 @@ window.MCC = (function () {
     if (!sync.loggedIn) return;
     var cv = R.cashflowViewModel(_cashflowRows, state, Date.now());
     if (!cv.hasData || !(cv.avgExpense > 0)) return;
-    setField("monthlyExpense", cv.avgExpense); // save()+render() 込み・バッファ目標も即再計算
+    setField("monthlyExpense", cv.avgExpense); // save() 込み・描画は focusout 経路が無いため setField 内の次tickフォールバックで確実に反映（バッファ目標も即再計算）
   }
 
   // ---- 描画 ----
@@ -844,7 +857,7 @@ window.MCC = (function () {
   // （現金のみ・投資未開始でも盤面が空にならない・spec §3.4）。
   function acFillCashOnly() {
     if (!state) load();
-    setField("assetHoldings.buffer.cash", R.totalAssets(state)); // save()+render() 込み
+    setField("assetHoldings.buffer.cash", R.totalAssets(state)); // save() 込み・描画は focusout 経路が無いため setField 内の次tickフォールバックで確実に反映
   }
 
   // spec §6.1: 7hue色相環＋未分類の単一トークン（太田さん実機確認済 2026-07-14＝alpha0.4/glow100%で確定・実装値ロック）。
@@ -1387,12 +1400,18 @@ window.MCC = (function () {
     }
     // focusout ベースのフォーカス復元（spec §8.2）：setField（Enter確定）／root の focusout（Tab・クリック確定）
     // が render 直前に _pendingFocusKey をセットする。他の呼び出し元（addGoal/removeReserve 等）は
-    // 常に null のままゆえフォーカス復元は起きない＝既存挙動のまま。呼び出し元を問わず必ず null に戻す。
-    if (_pendingFocusKey) {
-      var next = root.querySelector('[data-mcc-focus="' + CSS.escape(_pendingFocusKey) + '"]');
-      if (next) next.focus();
-    }
+    // 常に null のままゆえフォーカス復元は起きない＝既存挙動のまま。呼び出し元を問わず必ず null に戻す
+    // （レビュー指摘 Minor：CSS.escape 未対応環境だと TypeError でリセットに到達しないまま render() を
+    // 抜けてしまう。render() は司令室の全描画経路のため例外を漏らせない＝reset を先に済ませ、
+    // querySelector/focus は try/catch で保護する）。
+    var focusKeyToRestore = _pendingFocusKey;
     _pendingFocusKey = null;
+    if (focusKeyToRestore) {
+      try {
+        var next = root.querySelector('[data-mcc-focus="' + CSS.escape(focusKeyToRestore) + '"]');
+        if (next) next.focus();
+      } catch (e) { /* フォーカス復元の失敗は非致命（render 自体は完了させる） */ }
+    }
   }
 
   function exportJSON() {
