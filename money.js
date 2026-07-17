@@ -384,7 +384,7 @@ window.MCC = (function () {
 
   function moneyInput(label, path, value) {
     return '<label class="mcc-field"><span>' + label + '</span>' +
-      '<input type="number" min="0" step="1000" value="' + value + '" ' +
+      '<input type="number" min="0" step="1000" value="' + value + '" data-mcc-focus="' + esc(path) + '" ' +
       'onchange="MCC.setField(\'' + path + '\', this.value)"></label>';
   }
 
@@ -1351,7 +1351,32 @@ window.MCC = (function () {
       '</div>';
 
     var saveWarn = lastSaveOk ? '' : '<div class="mcc-save-warn">⚠ 保存できませんでした（プライベートブラウズ等）。この端末に値が保存されない可能性があります。</div>';
+
+    // 全再描画方式は維持しつつ、確定(onchange)のたびにアコーディオンが閉じ・フォーカスが飛ぶのを防ぐ
+    // （id 付き <details> と data-mcc-focus 要素のみが対象＝id 無し details の既存挙動は変えない）。
+    var openIds = [];
+    var dets = root.querySelectorAll("details[id]");
+    for (var di = 0; di < dets.length; di++) if (dets[di].open) openIds.push(dets[di].id);
+    var active = document.activeElement;
+    var focusKey = (active && active.getAttribute) ? active.getAttribute("data-mcc-focus") : null;
+    var selStart = (focusKey && typeof active.selectionStart === "number") ? active.selectionStart : null;
+    var selEnd = (focusKey && typeof active.selectionEnd === "number") ? active.selectionEnd : null;
+
     root.innerHTML = syncBar() + saveWarn + guideSection() + stepperSection(ob) + gauge + banner + roadmapSection(rm, sync.loggedIn) + assetClassSection(vm) + nisaSection(R.nisaViewModel(state, cd, Date.now())) + cashflowSection(cv) + reservesSection(cv) + adviceSection(vm) + buckets + goalsSection(vm) + settings + tools;
+
+    for (var oi = 0; oi < openIds.length; oi++) {
+      var d = document.getElementById(openIds[oi]);
+      if (d) d.open = true;
+    }
+    if (focusKey) {
+      var next = root.querySelector('[data-mcc-focus="' + focusKey.replace(/"/g, '\\"') + '"]');
+      if (next) {
+        next.focus();
+        if (selStart !== null && typeof next.setSelectionRange === "function") {
+          try { next.setSelectionRange(selStart, selEnd); } catch (e) { /* number input は選択範囲非対応 */ }
+        }
+      }
+    }
   }
 
   function exportJSON() {
