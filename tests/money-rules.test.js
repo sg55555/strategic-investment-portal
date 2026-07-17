@@ -1692,3 +1692,41 @@ test("nisaDerive: 第3引数の省略は manual/history の既存挙動を変え
   const s = { nisa: { source: "history", history: [{ year: 2026, tsumitate: 500000, growth: 0, soldTsumitate: 0, soldGrowth: 0 }] } };
   assert.deepEqual(R.nisaDerive(s, _MS_2026), R.nisaDerive(s, _MS_2026, []));
 });
+
+// --- B#3 Stage3: nisaViewModel の reconcile を ledger に拡張（記帳漏れ検出） ---
+test("nisaViewModel: reconcile は ledger でも available（記帳漏れ検出）", () => {
+  const vm = R.nisaViewModel(
+    { nisa: { source: "ledger", tsumitateLifetime: 8000000 } },
+    { available: false }, _MS_2026,
+    [_lrow("2026-02-01", 7500000, 0, 0, 0)]
+  );
+  assert.equal(vm.reconcile.available, true);
+  assert.equal(vm.reconcile.sourceLabel, "ledger");
+  assert.equal(vm.reconcile.manualLifetime, 8000000);
+  assert.equal(vm.reconcile.derivedLifetime, 7500000);
+  assert.equal(vm.reconcile.diff, 500000);   // 50万分の取引が台帳に未記録
+  assert.equal(vm.reconcile.matched, false);
+});
+
+test("nisaViewModel: reconcile は手入力が一度も無ければ ledger でも available:false", () => {
+  const vm = R.nisaViewModel({ nisa: { source: "ledger" } }, { available: false }, _MS_2026,
+                             [_lrow("2026-02-01", 7500000, 0, 0, 0)]);
+  assert.equal(vm.reconcile.available, false);
+});
+
+test("nisaViewModel: reconcile は history で従来どおり（sourceLabel=history）", () => {
+  const vm = R.nisaViewModel(
+    { nisa: { source: "history", tsumitateLifetime: 1000000,
+              history: [{ year: 2026, tsumitate: 900000, growth: 0, soldTsumitate: 0, soldGrowth: 0 }] } },
+    { available: false }, _MS_2026);
+  assert.equal(vm.reconcile.available, true);
+  assert.equal(vm.reconcile.sourceLabel, "history");
+  assert.equal(vm.reconcile.diff, 100000);
+});
+
+test("nisaViewModel: reconcile は manual では available:false（差を語らない）", () => {
+  const vm = R.nisaViewModel({ nisa: { source: "manual", tsumitateLifetime: 1000000 } },
+                             { available: false }, _MS_2026);
+  assert.equal(vm.reconcile.available, false);
+  assert.equal(vm.reconcile.sourceLabel, "");
+});

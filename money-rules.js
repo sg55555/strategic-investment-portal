@@ -620,8 +620,8 @@
   }
 
   // B#3: UI描画専用VM（¥+%・パリティ不要＝money.js が描く。業務mathはここに集約）。
-  function nisaViewModel(state, cd, nowMs) {
-    var d = nisaDerive(state, nowMs);
+  function nisaViewModel(state, cd, nowMs, ledgerRows) {
+    var d = nisaDerive(state, nowMs, ledgerRows);
     var pace = (cd && cd.investableSurplus > 0) ? cd.investableSurplus : 0;
     var fillEta = etaBucket(projectMonths(d.lifetimeRemaining, pace));
     return {
@@ -640,10 +640,13 @@
       monthsLeft: d.monthsLeft, year: d.year,
       source: d.n.source, history: d.n.history,
       availableYears: nisaAvailableYears(d.n.history, d.year),
-      // Stage2 リコンサイル：手入力の生涯簿価残（参照値・stored）と履歴からの導出（lifeUsed）の突き合わせ。
+      // Stage2/3 リコンサイル：手入力の生涯簿価残（参照値・stored）と導出値（lifeUsed）の突き合わせ。
       // 「数字が落ちた」を「埋めるべき残り」に変える＝手入力が一度も無ければ available:false（差を語らない）。
+      // ledger では意味が変わる＝差は「台帳への記帳漏れ」を指す（データ完全性チェック）。UI が文言を出し分ける。
       reconcile: {
-        available: d.n.source === "history" && (d.stored.tsumitateLifetime + d.stored.growthLifetime) > 0,
+        available: (d.n.source === "history" || d.n.source === "ledger") &&
+          (d.stored.tsumitateLifetime + d.stored.growthLifetime) > 0,
+        sourceLabel: (d.n.source === "history" || d.n.source === "ledger") ? d.n.source : "",
         manualLifetime: d.stored.tsumitateLifetime + d.stored.growthLifetime,
         derivedLifetime: d.lifeUsed,
         diff: (d.stored.tsumitateLifetime + d.stored.growthLifetime) - d.lifeUsed,
