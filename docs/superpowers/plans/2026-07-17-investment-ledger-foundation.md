@@ -23,7 +23,7 @@
 - **軸の直交**：戦略区分（コア/サテライト）と口座区分は直交＝1購入が `principal_core_delta` と `nisa_growth_delta` の**両方**に載る。
 - **Anthropic 課金ゼロ**（純 ETL・Claude API を叩かない）／**Vercel 関数を増やさない**。
 - **node テストの罠**：`node --test tests/`（末尾スラッシュ）はこの環境で `Cannot find module tests`。必ず `node --test 'tests/*.test.js'`。
-- **新規 UI に inline onclick を増やさない**（`detail.js:47/81` の既存 XSS と同じ轍を踏まない）。委譲か `textContent`。
+- **ユーザーデータを補間する inline onclick を新規に作らない**（`detail.js:47/81` の既存 XSS は検索結果を onclick 文字列に補間しているのが原因）。**リテラル引数のみの inline onclick は注入面ゼロゆえ該当しない**＝NISA トグルは既存2ボタンと同じイディオムで足す（Task 9・2026-07-17 ユーザー確定）。
 
 **検証3点セット（各タスクの締め）**
 ```bash

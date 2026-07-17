@@ -370,7 +370,7 @@ me.investment_snapshots
 - **holdings 形状変更の破壊** → 読み手ゼロ（`investmentDerived` は holdings を読まない・api は素通し）＝リスクほぼ無し。ただし将来 Slice5 が前提にするため spec に形を固定。
 - **root `requirements.txt` 汚染** → ETL は `urllib` のみで書く。追加依存が要るなら `scripts/requirements.txt` と GHA の `pip install` 行だけ。
 - **ETL 失敗ドメインの混線** → 別ファイル・別 concurrency group。
-- **既存 compare-search inline onclick XSS**（detail.js:47/81・未修正）→ 新規 UI は委譲/textContent で書き同じ轍を踏まない。
+- **既存 compare-search inline onclick XSS**（detail.js:47/81・未修正）→ **ユーザーデータを補間する** inline onclick を新規に作らない（委譲/textContent で書く）。detail.js の危険は検索結果を onclick 文字列に補間している点であり、**リテラル引数のみの inline onclick（例 `MCC.setNisaSource('ledger')`）は注入面がゼロ**ゆえ該当しない＝NISA セクションの既存2ボタン（Stage1/2・本番LIVE）と同じイディオムで3つ目を足してよい（2026-07-17 ユーザー確定・pre-flight で文言と目的のずれを是正）。
 - **台帳0件ゆえ e2e 未検証** → §9-2 の Notion dry-run で「実プロパティ名の rename/共有漏れ」だけは初購入前に潰す。残余リスク（Neon 書込・UI 描画）は初購入時の手動サニティに送る（spec に明記）。
 
 ## §11 Non-goals（本spec）
