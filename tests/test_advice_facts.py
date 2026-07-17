@@ -1197,28 +1197,28 @@ def test_nisa_ledger_fold_equals_history_fold():
     assert advice._nisa_ledger_fold(rows, 2026) == advice._nisa_history_fold(hist, 2026)
 
 
-_MS_2026 = 1781568000000  # 2026-06-15T00:00:00Z
+_MS_2026_0615 = 1781568000000  # Date.UTC(2026,5,15) と同値・2026-06-15 UTC・JS money-rules.test.js の _MS_2026 と対
 
 
 def test_nisa_derive_ledger_source_derives_from_rows():
-    d = advice._nisa_derive({"nisa": {"source": "ledger"}}, _MS_2026,
+    d = advice._nisa_derive({"nisa": {"source": "ledger"}}, _MS_2026_0615,
                             [_lrow("2026-02-01", 1200000, 0, 0, 0)])
     assert d["configured"] is True
     assert d["annualTsumitateUsedPct"] == 100
 
 
 def test_nisa_derive_ledger_empty_rows_not_configured():
-    assert advice._nisa_derive({"nisa": {"source": "ledger"}}, _MS_2026, [])["configured"] is False
+    assert advice._nisa_derive({"nisa": {"source": "ledger"}}, _MS_2026_0615, [])["configured"] is False
 
 
 def test_nisa_derive_ledger_stale_anchor_always_false():
-    d = advice._nisa_derive({"nisa": {"source": "ledger", "anchorYear": 2024}}, _MS_2026,
+    d = advice._nisa_derive({"nisa": {"source": "ledger", "anchorYear": 2024}}, _MS_2026_0615,
                             [_lrow("2026-02-01", 1, 0, 0, 0)])
     assert d["staleAnchorYear"] is False
 
 
 def test_nisa_derive_manual_stale_anchor_still_true():
-    d = advice._nisa_derive({"nisa": {"source": "manual", "anchorYear": 2024, "tsumitateThisYear": 1}}, _MS_2026)
+    d = advice._nisa_derive({"nisa": {"source": "manual", "anchorYear": 2024, "tsumitateThisYear": 1}}, _MS_2026_0615)
     assert d["staleAnchorYear"] is True
 
 
