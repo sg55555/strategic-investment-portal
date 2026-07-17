@@ -359,6 +359,72 @@ window.MCC = (function () {
     save(); render();
   }
 
+  // ---- B#3 Stage2 NISA 年別履歴 ----
+  // enum セッター（acSetScope:817 の形＋state 保存）。history へ初回切替時のみ当年3値を当年行へ1回転記する
+  // （生涯簿価残は「残高」であって当年拠出ではないので転記しない＝当年枠 over の誤発火を避ける。
+  //  手入力スカラーは消さない＝manual に戻せば元通り・リコンサイルの参照値になる）。
+  function setNisaSource(src) {
+    if (!state) load();
+    if (R.NISA_SOURCES.indexOf(src) < 0) return;               // fail-closed
+    var n = R.normalizeNisa(state.nisa);
+    if (src === "history" && n.history.length === 0) {
+      var now = R.nisaNow(Date.now());
+      if (now.valid) {
+        state.nisa.history = [R.normalizeNisaYear({
+          year: now.year,
+          tsumitate: n.tsumitateThisYear,
+          growth: n.growthThisYear,
+          soldTsumitate: n.soldThisYearAtCost,                 // 枠別内訳が不明ゆえ保守的につみたて側へ
+          soldGrowth: 0,
+        })];
+      }
+    }
+    state.nisa.source = src;
+    save(); render();
+  }
+
+  function addNisaYear() {
+    if (!state) load();
+    var sel = document.getElementById("mcc-nisa-addyear");
+    var year = sel ? Number(sel.value) : 0;
+    if (!(year > 0)) return;
+    var rows = R.normalizeNisa(state.nisa).history.slice();
+    rows.push(R.normalizeNisaYear({ year: year }));            // 生の値を state に入れない
+    state.nisa.history = rows;
+    save(); render();
+  }
+
+  function removeNisaYear(year) {
+    if (!state) load();
+    state.nisa.history = R.normalizeNisa(state.nisa).history.filter(function (e) { return e.year !== Number(year); });
+    save(); render();
+  }
+
+  // setField（:412）と同じ「フォーカスを保ったまま再描画する」経路（_renderAfterEdit）に載せる。
+  // brief 原案は save();render(); の直呼びだったが、それだと Tab で次セルへ移る際に root.innerHTML
+  // 代入でフォーカス中要素が切断され、復元先(_pendingFocusKey)が無いままフォーカスが <body> に落ちる
+  // （Stage2 の主要動線＝年別テーブルの連続入力が壊れる・実測 CONFIRMED）。
+  function setNisaYearField(year, field, value) {
+    if (!state) load();
+    var rows = R.normalizeNisa(state.nisa).history;
+    var y = Number(year);
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i].year === y) {
+        rows[i] = R.normalizeNisaYear({
+          year: y,
+          tsumitate: field === "tsumitate" ? value : rows[i].tsumitate,
+          growth: field === "growth" ? value : rows[i].growth,
+          soldTsumitate: field === "soldTsumitate" ? value : rows[i].soldTsumitate,
+          soldGrowth: field === "soldGrowth" ? value : rows[i].soldGrowth,
+        });
+        break;
+      }
+    }
+    state.nisa.history = rows;
+    save();
+    _renderAfterEdit();
+  }
+
   // ---- 画面遷移 ----
   function show() {
     // F3: 中央ルーター経由でビュー切替（hash 同期・戻るボタン対応）。index.html の window.showView。
@@ -416,6 +482,13 @@ window.MCC = (function () {
     for (var i = 0; i < parts.length - 1; i++) obj = obj[parts[i]];
     obj[parts[parts.length - 1]] = Number(value) >= 0 ? Number(value) : 0;
     save();
+    _renderAfterEdit();
+  }
+
+  // Task8 の focusout ベース復元（spec §8.2）を setField 以外の入力欄セッターとも共有する
+  // （Task9 追加：setNisaYearField・年別テーブルのセル編集）。呼び元は state 更新＋save() を済ませてから
+  // これを呼ぶだけでよい＝分岐を複製すると経路が divergent になり得るため単一源に集約する。
+  function _renderAfterEdit() {
     var ae = document.activeElement;
     var key = (ae && ae.getAttribute) ? ae.getAttribute("data-mcc-focus") : null;
     if (key) { renderRestoring(key); return; }   // Enter 確定＝フォーカスが動いていない（focusout が来ない）
@@ -1106,6 +1179,20 @@ window.MCC = (function () {
       : '<span class="yen">使用 ' + usedPct + '%</span>';
   }
 
+  // 年別テーブルの列名（モバイルの data-label 用・表ヘッダと同じ文言を単一源で共有）。
+  var _NISA_CELL_LABELS = {
+    tsumitate: "つみたて拠出", growth: "成長拠出",
+    soldTsumitate: "売却(つみたて)", soldGrowth: "売却(成長)",
+  };
+  // 年別テーブルの1セル。input の value は readout ではない＝未ログインでもゲートしない（Stage1 と同じ
+  // 「readout gate であって input gate ではない」規律）。business math は書かない＝値は VM 由来をそのまま。
+  // data-label はモバイル(600px以下)のカード化で列名を表示するため（付けないと何の数字か分からなくなる）。
+  function _nisaCell(yearEsc, field, value) {
+    return '<td data-label="' + (_NISA_CELL_LABELS[field] || "") + '"><input type="number" min="0" step="1000" value="' + value + '" ' +
+      'data-mcc-focus="nisa.history.' + yearEsc + '.' + field + '" ' +
+      'onchange="MCC.setNisaYearField(\'' + yearEsc + '\', \'' + field + '\', this.value)"></td>';
+  }
+
   function nisaSection(vm) {
     if (!vm) return "";
     var loggedIn = sync.loggedIn;
@@ -1205,7 +1292,16 @@ window.MCC = (function () {
       bodyHtml = hud + heroHtml + grid2Html + chipsHtml;
     }
 
-    var fieldsHtml =
+    // 入力源トグル（手入力/年別履歴）＝本PJ初の入力源切替UI。以降（Stage3 ledger・B#2/B#4）の先例になる。
+    var srcToggle =
+      '<div class="mcc-nisa-srctoggle">' +
+        '<button class="mcc-nisa-srcbtn' + (vm.source === "manual" ? " on" : "") + '" ' +
+          'onclick="MCC.setNisaSource(\'manual\')">手入力</button>' +
+        '<button class="mcc-nisa-srcbtn' + (vm.source === "history" ? " on" : "") + '" ' +
+          'onclick="MCC.setNisaSource(\'history\')">年別履歴</button>' +
+      '</div>';
+
+    var manualFieldsHtml =
       '<div class="mcc-nisa-fields">' +
         moneyInput("当年つみたて拠出", "nisa.tsumitateThisYear", n.tsumitateThisYear) +
         moneyInput("当年成長拠出", "nisa.growthThisYear", n.growthThisYear) +
@@ -1213,12 +1309,55 @@ window.MCC = (function () {
         moneyInput("生涯つみたて簿価残", "nisa.tsumitateLifetime", n.tsumitateLifetime) +
         moneyInput("生涯成長簿価残", "nisa.growthLifetime", n.growthLifetime) +
         '<label class="mcc-field"><span>アンカー年</span><input type="number" min="1900" max="9999" value="' +
-          (n.anchorYear > 0 ? n.anchorYear : "") + '" placeholder="例: ' + currentYear + '" onchange="MCC.setField(\'nisa.anchorYear\', this.value)"></label>' +
+          (n.anchorYear > 0 ? n.anchorYear : "") + '" placeholder="例: ' + currentYear +
+          '" data-mcc-focus="nisa.anchorYear" onchange="MCC.setField(\'nisa.anchorYear\', this.value)"></label>' +
       '</div>';
+
+    // 年別テーブル：1行＝年/つみたて/成長/売却(つ)/売却(成)。年は select で既存年を出さない＝重複を作らせない。
+    var historyRows = "";
+    for (var hi = 0; hi < vm.history.length; hi++) {
+      var row = vm.history[hi];
+      var yEsc = esc(String(row.year));
+      historyRows +=
+        '<tr><th>' + row.year + '</th>' +
+          _nisaCell(yEsc, "tsumitate", row.tsumitate) +
+          _nisaCell(yEsc, "growth", row.growth) +
+          _nisaCell(yEsc, "soldTsumitate", row.soldTsumitate) +
+          _nisaCell(yEsc, "soldGrowth", row.soldGrowth) +
+          '<td><button class="mcc-nisa-rowdel" onclick="MCC.removeNisaYear(\'' + yEsc + '\')">削除</button></td>' +
+        '</tr>';
+    }
+    var addYearOpts = "";
+    for (var ai = 0; ai < vm.availableYears.length; ai++) {
+      addYearOpts += '<option value="' + vm.availableYears[ai] + '">' + vm.availableYears[ai] + '年</option>';
+    }
+    var reconcileHtml = "";
+    if (vm.reconcile.available) {
+      reconcileHtml = vm.reconcile.matched
+        ? '<div class="mcc-nisa-recon ok">手入力の生涯簿価残と履歴が一致しています</div>'
+        : '<div class="mcc-nisa-recon warn">履歴が未完成：差 ' +
+            (loggedIn ? R.yen(Math.abs(vm.reconcile.diff)) : "（ログインで金額表示）") +
+            (vm.reconcile.diff > 0 ? '（過去年を埋めると 0 になります）' : '（履歴が手入力を上回っています）') + '</div>';
+    }
+    var historyHtml =
+      '<div class="mcc-nisa-history">' +
+        '<table class="mcc-nisa-table"><thead><tr>' +
+          '<th>年</th><th>つみたて拠出</th><th>成長拠出</th><th>売却(つみたて)</th><th>売却(成長)</th><th></th>' +
+        '</tr></thead><tbody>' + historyRows + '</tbody></table>' +
+        (vm.availableYears.length
+          ? '<div class="mcc-nisa-addrow">' +
+              '<select id="mcc-nisa-addyear">' + addYearOpts + '</select>' +
+              '<button class="mcc-nisa-addbtn" onclick="MCC.addNisaYear()">＋ 年を追加</button>' +
+            '</div>'
+          : '<div class="mcc-nisa-addrow muted">追加できる年はありません</div>') +
+        reconcileHtml +
+      '</div>';
+
     var inputHtml =
-      '<details class="mcc-nisa-input" id="mcc-nisa-input"><summary>使用状況を入力（手入力・クラウド同期）</summary>' +
-        fieldsHtml +
-        '<div class="mcc-nisa-gate">¥はログイン時のみ表示（未ログインは%のみ）。</div>' +
+      '<details class="mcc-nisa-input" id="mcc-nisa-input"><summary>使用状況を入力（クラウド同期）</summary>' +
+        srcToggle +
+        (vm.source === "history" ? historyHtml : manualFieldsHtml) +
+        '<div class="mcc-nisa-gate">¥はログイン時のみ表示（未ログインは%のみ）。入力は未ログインでも可能です。</div>' +
       '</details>';
 
     return '<div class="mcc-nisa" id="mcc-sec-nisa">' +
@@ -1491,5 +1630,7 @@ window.MCC = (function () {
     saveAnchor: saveAnchor, editAnchor: editAnchor, refreshData: refreshData, jumpTo: jumpTo, adoptAvgExpense: adoptAvgExpense,
     addReserve: addReserve, removeReserve: removeReserve, fundReserve: fundReserve, setReserveField: setReserveField,
     acSetScope: acSetScope, acFillCashOnly: acFillCashOnly,
+    setNisaSource: setNisaSource, addNisaYear: addNisaYear,
+    removeNisaYear: removeNisaYear, setNisaYearField: setNisaYearField,
   };
 })();
