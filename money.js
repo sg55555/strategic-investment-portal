@@ -366,6 +366,8 @@ window.MCC = (function () {
   function setNisaSource(src) {
     if (!state) load();
     if (R.NISA_SOURCES.indexOf(src) < 0) return;               // fail-closed
+    // 台帳は認証の向こう側にある＝未ログインでは行が 0 → configured:false になるので選択させない（fail-closed）。
+    if (src === "ledger" && !sync.loggedIn) return;
     var n = R.normalizeNisa(state.nisa);
     if (src === "history" && n.history.length === 0) {
       var now = R.nisaNow(Date.now());
@@ -1292,13 +1294,19 @@ window.MCC = (function () {
       bodyHtml = hud + heroHtml + grid2Html + chipsHtml;
     }
 
-    // 入力源トグル（手入力/年別履歴）＝本PJ初の入力源切替UI。以降（Stage3 ledger・B#2/B#4）の先例になる。
+    // 入力源トグル（手入力/年別履歴/投資台帳）＝本PJ初の入力源切替UI。以降（B#2/B#4）の先例になる。
+    // ledger は台帳が認証の向こう側にあるため未ログインでは選べない（setNisaSource 側と二重防衛）。
+    var canLedger = sync.loggedIn;
     var srcToggle =
       '<div class="mcc-nisa-srctoggle">' +
         '<button class="mcc-nisa-srcbtn' + (vm.source === "manual" ? " on" : "") + '" ' +
           'onclick="MCC.setNisaSource(\'manual\')">手入力</button>' +
         '<button class="mcc-nisa-srcbtn' + (vm.source === "history" ? " on" : "") + '" ' +
           'onclick="MCC.setNisaSource(\'history\')">年別履歴</button>' +
+        '<button class="mcc-nisa-srcbtn' + (vm.source === "ledger" ? " on" : "") + '"' +
+          (canLedger ? "" : " disabled") + ' ' +
+          'onclick="MCC.setNisaSource(\'ledger\')">投資台帳</button>' +
+        (canLedger ? "" : '<span class="mcc-nisa-srcnote">投資台帳から自動導出するにはログインしてください</span>') +
       '</div>';
 
     var manualFieldsHtml =
@@ -1331,13 +1339,25 @@ window.MCC = (function () {
     for (var ai = 0; ai < vm.availableYears.length; ai++) {
       addYearOpts += '<option value="' + vm.availableYears[ai] + '">' + vm.availableYears[ai] + '年</option>';
     }
-    // リコンサイルの文言は spec §6 どおり3分岐（接頭辞ごと分ける）。diff<0 で「履歴が未完成」を出すと
-    // 「未完成だから過去年を埋めろ」と読め、実際は履歴が手入力を上回っている＝乖離を広げる方向に誘導する
-    // 自己矛盾になる（review Important）。金額は¥ゲート内のみ・符号は文言で表し絶対値を出す。
+    // リコンサイルの文言は vm.reconcile.sourceLabel で出し分ける（history/ledger で意味が違う＝spec §6）。
+    // history：diff<0 で「履歴が未完成」を出すと「未完成だから過去年を埋めろ」と読め、実際は履歴が
+    // 手入力を上回っている＝乖離を広げる方向に誘導する自己矛盾になる（review Important）。
+    // ledger：差は「台帳への記帳漏れ」を指すデータ完全性チェック（手入力を消さない＝参照値として残す）。
+    // 金額は¥ゲート内のみ・符号は文言で表し絶対値を出す。
     var reconcileHtml = "";
     if (vm.reconcile.available) {
       var reconAmount = loggedIn ? R.yen(Math.abs(vm.reconcile.diff)) : "（ログインで金額表示）";
-      if (vm.reconcile.matched) {
+      if (vm.reconcile.sourceLabel === "ledger") {
+        if (vm.reconcile.matched) {
+          reconcileHtml = '<div class="mcc-nisa-recon ok">手入力と台帳が一致しています</div>';
+        } else if (vm.reconcile.diff > 0) {
+          reconcileHtml = '<div class="mcc-nisa-recon warn">手入力より台帳が ' + reconAmount +
+            ' 少ない：台帳への記帳漏れの可能性があります</div>';
+        } else {
+          reconcileHtml = '<div class="mcc-nisa-recon warn">台帳が手入力より ' + reconAmount +
+            ' 多い：手入力の生涯簿価残が古い可能性があります</div>';
+        }
+      } else if (vm.reconcile.matched) {
         reconcileHtml = '<div class="mcc-nisa-recon ok">手入力の生涯簿価残と履歴が一致しています</div>';
       } else if (vm.reconcile.diff > 0) {
         reconcileHtml = '<div class="mcc-nisa-recon warn">履歴が未完成：差 ' + reconAmount +
@@ -1346,6 +1366,8 @@ window.MCC = (function () {
         reconcileHtml = '<div class="mcc-nisa-recon warn">履歴が手入力を上回っています：差 ' + reconAmount + '</div>';
       }
     }
+    // 年別テーブル／年 select は vm.source === "history" の時だけ描画する（ledger は台帳が源で年別の
+    // 手入力欄自体が無意味）。ledger では reconcile のみ表示＝台帳との突き合わせ結果を出す。
     var historyHtml =
       '<div class="mcc-nisa-history">' +
         '<table class="mcc-nisa-table"><thead><tr>' +
@@ -1359,11 +1381,16 @@ window.MCC = (function () {
           : '<div class="mcc-nisa-addrow muted">追加できる年はありません</div>') +
         reconcileHtml +
       '</div>';
+    var ledgerHtml =
+      '<div class="mcc-nisa-history">' +
+        '<div class="mcc-nisa-readout mcc-nisa-readout-muted">投資台帳の取引から自動算出しています（この画面での入力はありません）</div>' +
+        reconcileHtml +
+      '</div>';
 
     var inputHtml =
       '<details class="mcc-nisa-input" id="mcc-nisa-input"><summary>使用状況を入力（クラウド同期）</summary>' +
         srcToggle +
-        (vm.source === "history" ? historyHtml : manualFieldsHtml) +
+        (vm.source === "history" ? historyHtml : (vm.source === "ledger" ? ledgerHtml : manualFieldsHtml)) +
         '<div class="mcc-nisa-gate">¥はログイン時のみ表示（未ログインは%のみ）。入力は未ログインでも可能です。</div>' +
       '</details>';
 
@@ -1553,7 +1580,7 @@ window.MCC = (function () {
     var dets = root.querySelectorAll("details[id]");
     for (var di = 0; di < dets.length; di++) if (dets[di].open) openIds.push(dets[di].id);
 
-    root.innerHTML = syncBar() + saveWarn + guideSection() + stepperSection(ob) + gauge + banner + roadmapSection(rm, sync.loggedIn) + assetClassSection(vm) + nisaSection(R.nisaViewModel(state, cd, Date.now())) + cashflowSection(cv) + reservesSection(cv) + adviceSection(vm) + buckets + goalsSection(vm) + settings + tools;
+    root.innerHTML = syncBar() + saveWarn + guideSection() + stepperSection(ob) + gauge + banner + roadmapSection(rm, sync.loggedIn) + assetClassSection(vm) + nisaSection(R.nisaViewModel(state, cd, Date.now(), _investmentRows)) + cashflowSection(cv) + reservesSection(cv) + adviceSection(vm) + buckets + goalsSection(vm) + settings + tools;
 
     for (var oi = 0; oi < openIds.length; oi++) {
       var d = document.getElementById(openIds[oi]);

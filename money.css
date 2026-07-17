@@ -556,6 +556,8 @@
 .mcc-nisa-srcbtn { flex: 0 0 auto; padding: 6px 14px; border: 1px solid rgba(129,140,248,0.3);
   background: rgba(0,0,0,0.3); color: var(--c-text-dim); border-radius: 6px; cursor: pointer; font-size: 0.72rem; }
 .mcc-nisa-srcbtn.on { color: var(--c-text-bright); border-color: var(--c-violet); }
+.mcc-nisa-srcbtn[disabled] { opacity: .45; cursor: not-allowed; }
+.mcc-nisa-srcnote { font-size: .72rem; opacity: .7; align-self: center; margin-left: .5rem; }
 .mcc-nisa-table { width: 100%; border-collapse: collapse; font-size: 0.72rem; margin-top: 10px; }
 .mcc-nisa-table th, .mcc-nisa-table td { padding: 4px 6px; text-align: right; }
 .mcc-nisa-table thead th { color: var(--c-text-dim); font-weight: normal; font-size: 0.66rem; }
