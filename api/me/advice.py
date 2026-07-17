@@ -39,6 +39,8 @@ NISA_ANNUAL_TOTAL = 3600000
 NISA_LIFETIME = 18000000
 NISA_GROWTH_LIFETIME_CAP = 12000000
 NISA_SOURCES = ("manual", "history", "ledger")
+NISA_MIN_YEAR = 2024  # Stage2: 新NISA開始年＝履歴年の下限（facts非出力・money-rules.js と同値必須）
+NISA_HISTORY_MAX = 50  # Stage2: 履歴件数上限（money-rules.js NISA_HISTORY_MAX と同値必須）
 # 終端は \Z（$ ではない）。Python の $ は『末尾の直前の改行』にもマッチし JS `.test` の $ と不一致になるため、
 # "YYYY-MM-DD\n" 等の末尾改行を両言語で同様に弾く（deadline/period/id のパリティ）。
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}\Z")
@@ -836,6 +838,31 @@ def _cashflow_derived(rows, s, now_ms):
     }
 
 
+def _normalize_nisa_year(e):
+    """money-rules.js normalizeNisaYear の鏡像（年は範囲gate・金額は共有 _num・未知キー破棄）。"""
+    s = e if isinstance(e, dict) else {}
+    y = math.floor(_num(s.get("year")))
+    return {
+        "year": y if NISA_MIN_YEAR <= y <= 9999 else 0,
+        "tsumitate": _num(s.get("tsumitate")),
+        "growth": _num(s.get("growth")),
+        "soldTsumitate": _num(s.get("soldTsumitate")),
+        "soldGrowth": _num(s.get("soldGrowth")),
+    }
+
+
+def _normalize_nisa_history(raw):
+    """money-rules.js normalizeNisaHistory の鏡像。順序を厳密に一致させること＝
+    filter → slice(0,NISA_HISTORY_MAX) → map → 無効年除去 → 年で後勝ち畳み → 年昇順。"""
+    arr = raw if isinstance(raw, list) else []
+    kept = [e for e in arr if isinstance(e, dict)][:NISA_HISTORY_MAX]
+    rows = [row for row in (_normalize_nisa_year(e) for e in kept) if row["year"] > 0]
+    by_year = {}
+    for row in rows:
+        by_year[row["year"]] = row  # 後勝ち（合算しない）
+    return [by_year[y] for y in sorted(by_year.keys())]
+
+
 def _normalize_nisa(raw):
     """money-rules.js normalizeNisa の鏡像（固定形状・非オブジェクト→全0骨格・scalar-only coerce・未知キー破棄）。"""
     s = raw if isinstance(raw, dict) else {}
@@ -847,6 +874,7 @@ def _normalize_nisa(raw):
         "tsumitateLifetime": _num(s.get("tsumitateLifetime")),
         "growthLifetime": _num(s.get("growthLifetime")),
         "soldThisYearAtCost": _num(s.get("soldThisYearAtCost")),
+        "history": _normalize_nisa_history(s.get("history")),
     }
 
 
@@ -865,12 +893,56 @@ def _nisa_now(now_ms):
     return {"year": y, "monthIndex": d.month - 1, "valid": True}
 
 
+def _nisa_history_fold(history, current_year):
+    """money-rules.js nisaHistoryFold の鏡像。売却簿価は翌年1/1に復活＝当年の売却は生涯枠から控除しない。
+    未来年は無視（current_year=0＝無効時刻なら全0へ degrade）。"""
+    h = history if isinstance(history, list) else []
+    t_this = g_this = sold_this = 0.0
+    t_life = g_life = 0.0
+    for row in h:
+        y = row["year"]
+        if not (y > 0) or y > current_year:
+            continue
+        t_life += row["tsumitate"]
+        g_life += row["growth"]
+        if y == current_year:
+            t_this = row["tsumitate"]
+            g_this = row["growth"]
+            sold_this = row["soldTsumitate"] + row["soldGrowth"]
+        else:
+            t_life -= row["soldTsumitate"]  # 過去年の売却＝翌年1/1に復活済み
+            g_life -= row["soldGrowth"]
+    return {
+        "tsumitateThisYear": t_this, "growthThisYear": g_this, "soldThisYearAtCost": sold_this,
+        "tsumitateLifetime": max(0.0, t_life), "growthLifetime": max(0.0, g_life),
+    }
+
+
+def _nisa_effective(n, current_year):
+    """money-rules.js nisaEffective の鏡像（history なら5スカラーを畳み込みで差替・下流は無改修）。"""
+    if n["source"] != "history":
+        return n
+    f = _nisa_history_fold(n["history"], current_year)
+    return {
+        "source": n["source"], "anchorYear": n["anchorYear"], "history": n["history"],
+        "tsumitateThisYear": f["tsumitateThisYear"], "growthThisYear": f["growthThisYear"],
+        "tsumitateLifetime": f["tsumitateLifetime"], "growthLifetime": f["growthLifetime"],
+        "soldThisYearAtCost": f["soldThisYearAtCost"],
+    }
+
+
 def _nisa_derive(state, now_ms):
     """money-rules.js nisaDerive の鏡像（単一計算源）。"""
-    n = _normalize_nisa(state.get("nisa") if isinstance(state, dict) else None)
-    configured = (n["anchorYear"] > 0 or n["tsumitateThisYear"] > 0 or n["growthThisYear"] > 0
-                  or n["tsumitateLifetime"] > 0 or n["growthLifetime"] > 0 or n["soldThisYearAtCost"] > 0)
+    stored = _normalize_nisa(state.get("nisa") if isinstance(state, dict) else None)
     now = _nisa_now(now_ms)
+    n = _nisa_effective(stored, now["year"])  # Stage2: history なら履歴の畳み込みに差替（下流は無改修）
+    # configured は「今有効な入力源にデータがあるか」＝source 別（spec §4・JS nisaDerive と同一分岐）。
+    if stored["source"] == "history":
+        configured = len(stored["history"]) > 0
+    else:
+        configured = (stored["anchorYear"] > 0 or stored["tsumitateThisYear"] > 0 or stored["growthThisYear"] > 0
+                      or stored["tsumitateLifetime"] > 0 or stored["growthLifetime"] > 0
+                      or stored["soldThisYearAtCost"] > 0)
     at, ag = n["tsumitateThisYear"], n["growthThisYear"]
     at_total = at + ag
     life_used = n["tsumitateLifetime"] + n["growthLifetime"]
@@ -881,7 +953,8 @@ def _nisa_derive(state, now_ms):
     gcap_rem = max(0.0, NISA_GROWTH_LIFETIME_CAP - n["growthLifetime"])
     months_left = (12 - now["monthIndex"]) if now["valid"] else 0
     return {
-        "configured": configured, "n": n, "year": now["year"], "monthIndex": now["monthIndex"], "valid": now["valid"],
+        "configured": configured, "n": n, "stored": stored, "year": now["year"],
+        "monthIndex": now["monthIndex"], "valid": now["valid"],
         "atUsed": at, "agUsed": ag, "atTotal": at_total,
         "annualTsumitateRemaining": at_rem, "annualGrowthRemaining": ag_rem, "annualTotalRemaining": at_total_rem,
         "lifeUsed": life_used, "lifetimeRemaining": life_rem, "growthCapRemaining": gcap_rem,
@@ -893,7 +966,7 @@ def _nisa_derive(state, now_ms):
         "overContribution": (at > NISA_ANNUAL_TSUMITATE or ag > NISA_ANNUAL_GROWTH or at_total > NISA_ANNUAL_TOTAL
                              or life_used > NISA_LIFETIME or n["growthLifetime"] > NISA_GROWTH_LIFETIME_CAP),
         "hasRestorationPending": n["soldThisYearAtCost"] > 0,
-        "staleAnchorYear": now["valid"] and n["anchorYear"] > 0 and n["anchorYear"] < now["year"],
+        "staleAnchorYear": n["source"] != "history" and now["valid"] and n["anchorYear"] > 0 and n["anchorYear"] < now["year"],
         "monthsLeft": months_left,
         "monthlyToFillTsumitate": math.ceil(at_rem / months_left) if months_left > 0 else 0,
         "monthlyToFillGrowth": math.ceil(ag_rem / months_left) if months_left > 0 else 0,

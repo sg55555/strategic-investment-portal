@@ -987,7 +987,7 @@ def test_migrate_huge_int_gate_parity():
 def test_normalize_nisa_shape():
     z = advice._normalize_nisa(None)
     assert z == {"source":"manual","anchorYear":0,"tsumitateThisYear":0,"growthThisYear":0,
-                 "tsumitateLifetime":0,"growthLifetime":0,"soldThisYearAtCost":0}
+                 "tsumitateLifetime":0,"growthLifetime":0,"soldThisYearAtCost":0,"history":[]}
     n = advice._normalize_nisa({"source":"bogus","tsumitateThisYear":"600000","growthThisYear":[1],"XXX":9})
     assert n["source"] == "manual"
     assert n["tsumitateThisYear"] == 600000
@@ -1013,6 +1013,94 @@ def test_nisa_raw_mirror():
     rw = advice._nisa_raw(st, 1784073600000)
     assert rw["lifetimeRemaining"] == 12800000
     assert rw["restoresYear"] == 2027
+
+
+def test_nisa_history_normalize_mirrors_js():
+    """_normalize_nisa_history：非list→[] / 要素filter / slice(50) / 無効年除去 / 後勝ち / 年昇順。"""
+    assert advice._normalize_nisa({"history": "x"})["history"] == []
+    assert advice._normalize_nisa(None)["history"] == []
+
+    got = advice._normalize_nisa({"history": [None, [1], 5, {"year": 2024, "tsumitate": 100}]})["history"]
+    assert got == [{"year": 2024, "tsumitate": 100.0, "growth": 0.0, "soldTsumitate": 0.0, "soldGrowth": 0.0}]
+
+    # 無効年は行ごと落ちる。ASCII decimal 文字列 "2024" は _num が通す＝残る
+    got = advice._normalize_nisa({"history": [
+        {"year": 0}, {"year": 2023}, {"year": 10000}, {"year": "２０２４"}, {"year": "2024"}]})["history"]
+    assert [e["year"] for e in got] == [2024]
+
+    # 後勝ち（合算しない）＋年昇順
+    got = advice._normalize_nisa({"history": [
+        {"year": 2025, "tsumitate": 1}, {"year": 2024, "tsumitate": 2}, {"year": 2025, "tsumitate": 3}]})["history"]
+    assert [(e["year"], e["tsumitate"]) for e in got] == [(2024, 2.0), (2025, 3.0)]
+
+    # slice(0,50) は filter の後（51件目以降は捨てる）
+    many = [{"year": 2024, "tsumitate": i} for i in range(60)]
+    got = advice._normalize_nisa({"history": many})["history"]
+    assert len(got) == 1 and got[0]["tsumitate"] == 49.0
+
+    # 金額は共有 _num（list/NaN/hex/全角→0）
+    got = advice._normalize_nisa({"history": [
+        {"year": 2024, "tsumitate": [5], "growth": float("nan"), "soldTsumitate": "0x10", "soldGrowth": "１"}]})["history"]
+    assert got[0] == {"year": 2024, "tsumitate": 0.0, "growth": 0.0, "soldTsumitate": 0.0, "soldGrowth": 0.0}
+
+
+def test_nisa_history_fold_mirrors_js():
+    """_nisa_history_fold：当年売却は非控除／過去年売却は復活済み／枠別／未来年無視／0クランプ。"""
+    h = advice._normalize_nisa({"history": [
+        {"year": 2024, "tsumitate": 1200000, "growth": 2400000},
+        {"year": 2025, "tsumitate": 1000000, "growth": 1000000, "soldTsumitate": 200000, "soldGrowth": 500000},
+        {"year": 2026, "tsumitate": 600000, "growth": 300000, "soldTsumitate": 100000, "soldGrowth": 400000},
+    ]})["history"]
+
+    f = advice._nisa_history_fold(h, 2026)
+    assert f["tsumitateThisYear"] == 600000
+    assert f["soldThisYearAtCost"] == 500000
+    assert f["tsumitateLifetime"] == 1200000 + 1000000 + 600000 - 200000
+    assert f["growthLifetime"] == 2400000 + 1000000 + 300000 - 500000
+
+    g = advice._nisa_history_fold(h, 2027)
+    assert g["tsumitateLifetime"] == 1200000 + 1000000 + 600000 - 200000 - 100000
+    assert g["tsumitateThisYear"] == 0
+
+    future = advice._normalize_nisa({"history": [{"year": 2024, "tsumitate": 100}, {"year": 2030, "tsumitate": 999999}]})["history"]
+    assert advice._nisa_history_fold(future, 2026)["tsumitateLifetime"] == 100
+    assert advice._nisa_history_fold(future, 0)["tsumitateLifetime"] == 0
+
+    over = advice._normalize_nisa({"history": [{"year": 2024, "tsumitate": 100, "soldTsumitate": 500}]})["history"]
+    assert advice._nisa_history_fold(over, 2026)["tsumitateLifetime"] == 0
+
+
+def test_nisa_derive_history_mode_mirrors_js():
+    """_nisa_derive：history 実効値／configured 拡張／stale 縮退／stored 保持。"""
+    now = 1780963200000  # 2026-06-10T00:00:00Z
+    st = {"nisa": {"source": "history", "history": [
+        {"year": 2024, "tsumitate": 1200000, "growth": 2400000},
+        {"year": 2025, "tsumitate": 0, "growth": 0, "soldTsumitate": 1200000, "soldGrowth": 0},
+        {"year": 2026, "tsumitate": 600000, "growth": 0, "soldTsumitate": 0, "soldGrowth": 300000},
+    ]}}
+    d = advice._nisa_derive(st, now)
+    assert d["configured"] is True
+    assert d["atUsed"] == 600000
+    assert d["n"]["tsumitateLifetime"] == 600000
+    assert d["n"]["growthLifetime"] == 2400000     # 当年の成長売却は控除しない
+    assert d["hasRestorationPending"] is True
+    assert d["restoresYear"] == 2027
+
+    # configured は history のみでも True／空なら False
+    assert advice._nisa_derive({"nisa": {"source": "history", "history": [{"year": 2024, "tsumitate": 1}]}}, now)["configured"] is True
+    assert advice._nisa_derive({"nisa": {"source": "history", "history": []}}, now)["configured"] is False
+
+    # staleAnchorYear は history で False / manual で True
+    assert advice._nisa_derive({"nisa": {"source": "history", "anchorYear": 2024,
+                                         "history": [{"year": 2024, "tsumitate": 1}]}}, now)["staleAnchorYear"] is False
+    assert advice._nisa_derive({"nisa": {"source": "manual", "anchorYear": 2024,
+                                         "tsumitateThisYear": 1}}, now)["staleAnchorYear"] is True
+
+    # stored は未畳み（VM 参照用）
+    d2 = advice._nisa_derive({"nisa": {"source": "history", "tsumitateLifetime": 5000000,
+                                       "history": [{"year": 2024, "tsumitate": 1000000}]}}, now)
+    assert d2["stored"]["tsumitateLifetime"] == 5000000
+    assert d2["n"]["tsumitateLifetime"] == 1000000
 
 
 if __name__ == "__main__":
