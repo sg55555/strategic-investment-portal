@@ -83,7 +83,9 @@
     };
   }
   // B#3 Stage2: 年別履歴の正規化。reserves 流儀（filter→slice→map）＋無効年除去→年で後勝ち畳み→年昇順。
-  // 順序は Python _normalize_nisa_history と厳密一致させること（畳む前にソートすると後勝ちの意味が変わる）。
+  // 順序は Python _normalize_nisa_history と厳密一致させること。危険なのは**順序を破壊するソート**の混入で、
+  // 年キーの安定ソートを畳み込み前に前置しても挙動は変わらない（JS Array.sort も Py sorted も stable＝
+  // 2026-07-17 の最終レビューが実際に変異注入して equivalent mutant であることを実証済み）。
   function normalizeNisaHistory(raw) {
     var arr = Array.isArray(raw) ? raw : [];
     var rows = [], i;

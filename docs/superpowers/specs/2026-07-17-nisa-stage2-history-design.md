@@ -200,14 +200,57 @@ reconcile: {
 
 **方針**：全再描画方式は維持（as-you-type ではなく onchange＝確定時のみゆえ、mistakes.md「as-you-type は入力要素を作り直さない」には抵触しない）。`render()` に汎用の状態復元を足す。
 
+### 8.1 ブラウザ挙動の実測（2026-07-17・Chromium/Playwright・推測ではない）
+
+当初案は「`render()` の中で `document.activeElement` を読んで復元」だったが、**実測でこれは Tab 動線では機能しないことが判明**した（Task8 レビューが実機で発見 → controller が最小再現で確定）。
+
+`<input>` を編集して **Tab** で抜けたときの発火順と状態：
+
+| # | イベント | `document.activeElement` | `relatedTarget` |
+|---|---|---|---|
+| 1 | `change` | **BODY** | **なし**（change は relatedTarget を持たない） |
+| 2 | `blur` | BODY | 次の要素 |
+| 3 | `focusout` | BODY | 次の要素 |
+
+→ **`change` の時点では移動先が一切分からない**（activeElement は BODY、relatedTarget も無い）。当初案の「activeElement を読む」は常に BODY を読むため復元が不発になり、さらに次の Tab でページ先頭（ログイン欄）へ飛ぶ。
+
+**Enter** で確定したとき（フォーカスが動かない）：
+
+| # | イベント | `document.activeElement` |
+|---|---|---|
+| 1 | `change` | **その入力欄のまま** |
+| — | `focusout` | **発火しない** |
+
+→ Enter 経路には focusout が来ないので、**フォールバックが必須**。
+
+`focusout` の中で**同期的に** innerHTML を差し替えて新ノードへ `focus()` しても、ブラウザはフォーカスを奪い返さない（実測：最終 activeElement は新しい次セル）。遅延させても同結果ゆえ、**同期でよい**。
+
+### 8.2 採用する設計（focusout ベース・ユーザー確定 2026-07-17）
+
+**描画の起点を `change` から `focusout` へ移す**（`change` は値の確定と保存だけを行う）。
+
 ```
+setField / setNisaYearField 等（onchange から呼ばれる）:
+    値を代入 → save() → _renderDirty = true
+    if (activeElement が data-mcc-focus を持つ)   // ＝Enter 確定（focusout が来ない）
+        renderRestoring(その data-mcc-focus)
+    // それ以外（Tab/クリック＝activeElement は BODY）は描画せず focusout に委ねる
+
+root の focusout（init で1回だけ登録・render で root 自体は差し替わらない）:
+    if (!_renderDirty) return
+    renderRestoring(e.relatedTarget の data-mcc-focus ?? null)
+
+renderRestoring(key): _renderDirty = false; _pendingFocusKey = key; render()
+
 render():
   before: open な <details id> の id 集合を記録
-          document.activeElement の識別子（data-mcc-focus）と selection を記録
   innerHTML 差替
   after:  記録した id の <details> を open に戻す
-          data-mcc-focus 一致要素へ focus + caret 復元
+          _pendingFocusKey があれば一致要素へ focus + caret 復元 → null に戻す
 ```
+
+- `render()` の**他の呼び出し元**（`addGoal`/`removeReserve` 等）は `_pendingFocusKey` が null なのでフォーカス復元は起きない＝既存挙動のまま。
+- **既知の限界（新規の回帰ではない）**：「セルを編集してから確定せずにボタンを直接クリック」した場合、blur 系の途中で DOM が差し替わるためクリックが不発になり得る。これは `change` 同期描画だった**現行 Stage1 でも同じ**で、本パッチは timing を変えないため回帰ではない（Task10 smoke で確認する）。
 
 - 対象は id を持つ `<details>`（`#mcc-nisa-input` / `#mcc-ac-input` / `#mcc-sec-settings`）。id の無い `<details>`（reserves 編集 :639・ガイド :1231）は現状維持＝**回帰を増やさない**。
   - **既知の限界（意図的）**：reserves の編集ボックス（:639）は id が無いため `setReserveField` 後に閉じる挙動が残る。これは Stage2 のスコープ外＝同じ症状だが別機能の回帰リスクを取らない。id を与えれば同じパッチで治るので、将来の単独課題として残す。
@@ -279,12 +322,19 @@ render():
 ## §11 リスク
 
 - **configured 拡張の波及**（§4）＝両モードの fixture が全件動く可能性。→ 既存 fixture は history 無し＝判定不変を**最初に**確認する（RED-first の前に既存グリーンを取る）。
-- **後勝ち/ソートの両言語不一致**＝JS の `sort` と Py の `sorted` は畳み後に年が一意なら全順序ゆえ一致するが、**畳む前にソートすると後勝ちの意味が変わる**。→ パイプライン順序（§3.2 の 1〜7）を両言語で厳守・fuzz で重複年＋シャッフルを踏む。
+- **後勝ち/ソートの両言語不一致**＝JS の `sort` と Py の `sorted` は畳み後に年が一意なら全順序ゆえ一致する。危険なのは**順序を破壊するソート**の混入であって、年キーの**安定**ソートを畳み込み前に前置しても挙動は変わらない（JS `Array.sort` も Py `sorted` も stable＝2026-07-17 の最終レビューが変異注入で equivalent mutant であることを実証。当初この節は「畳む前にソートすると後勝ちの意味が変わる」と書いていたが**事実として誤り**だった）。→ パイプライン順序（§3.2 の 1〜7）を両言語で厳守・fuzz で重複年＋シャッフルを踏む。
 - **`slice(0,50)` の位置**＝filter の後・map の前（reserves 流儀）。位置がずれると両言語で残る行が変わる。→ fuzz で 51件超を踏む。
 - **移行の非可逆化**＝手入力スカラーを消すと manual に戻せない。→ 消さない（§5）。
 - **render パッチの副作用**＝id 無し `<details>` や jumpTo の挙動変化。→ 対象を id 持ちに限定・jumpTo は open を強制する方向のみゆえ非競合・smoke で固定。
 - **年 select の option 生成が業務mathに見える**＝「既存年を除く」は VM 側（`nisaViewModel.availableYears`）で出す。money.js に絞り込みロジックを書かない。
 - **既存 compare-search inline onclick XSS**（detail.js:47/81・未修正）→ NISA テーブルは `esc()` を通し同じ轍を踏まない。
+
+## §11.1 マージ後の follow-up（2026-07-17 最終レビューで発見・非ブロッカー）
+
+いずれも**現行コードは正しく**、実害は非到達または検証網の穴に留まる。次に NISA を触るときにまとめて是正する。
+
+- **(F-1) `nisaHistoryFold` の出力が非有限になり得る**（`money-rules.js` / `_nisa_history_fold`）：fold は**和**なので `Math.max(0, tLife)` が `Infinity` を通す。Stage1 の raw leaf は全て単一 `num()` 出力＝常に有限で、**これは Stage2 が新設した唯一の非有限面**。production facts は `r()` が非有限を 0 に潰すので無傷（クラッシュ・漏洩なし）だが、`facts.raw.nisa`（personal）に `Infinity` が入ると `json.dumps` が RFC 非準拠 JSON を吐き LLM prompt に載る。到達には 1e308 円級の入力が要り現実には非到達＝Minor。ただし 2026-07-15/16 に確立した「非有限は両言語対称に degrade」規律の**唯一の例外**なので、fold 出力に有限 gate を入れるのが筋。
+- **(F-2) 年 gate の floor 意味論が検証網の穴**：`math.floor` → `round` へ変異させると **pytest も branch fuzz（14 seed × 800＝11,200ケース）も検出 0**。原因は fuzz の年生成器（`scratchpad/b2-parity-fuzz.js`）が固定リストで**小数年を1つも含まない**こと。**現行コードは正しい**が、将来の退行を捕まえられない。年生成器に小数年（と bool）を足す。
 
 ## §12 Non-goals（Stage2）
 
