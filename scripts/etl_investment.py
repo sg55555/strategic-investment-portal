@@ -261,3 +261,175 @@ def _source_hash(row: dict) -> str:
     payload = {k: (v.isoformat() if isinstance(v, date) else v)
                for k, v in row.items() if k != "source_hash"}
     return hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
+
+
+# ── Notion 取得（etl_cashflow.py と同型・追加依存ゼロ）──
+def _query(database_id: str, body_extra: dict, cursor: str | None) -> dict:
+    url = f"https://api.notion.com/v1/databases/{database_id}/query"
+    headers = {
+        "Authorization": f"Bearer {NOTION_TOKEN}",
+        "Notion-Version": NOTION_VERSION,
+        "Content-Type": "application/json",
+    }
+    body: dict = {"page_size": 100, **body_extra}
+    if cursor:
+        body["start_cursor"] = cursor
+    req = urllib.request.Request(url, data=json.dumps(body).encode(), headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return json.loads(resp.read())
+    except urllib.error.HTTPError as e:  # Notion のエラー本文（共有漏れ等の具体的メッセージ）を surface
+        detail = ""
+        try:
+            detail = e.read().decode("utf-8", "replace")[:300]
+        except Exception:  # noqa: BLE001
+            pass
+        raise RuntimeError(f"Notion {e.code} db={database_id[:8]}… {detail}") from None
+
+
+def _api(url: str, body: dict | None = None):
+    headers = {"Authorization": f"Bearer {NOTION_TOKEN}", "Notion-Version": NOTION_VERSION}
+    data = None
+    if body is not None:
+        headers["Content-Type"] = "application/json"
+        data = json.dumps(body).encode()
+    req = urllib.request.Request(url, data=data, headers=headers)
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        return json.loads(resp.read())
+
+
+def diagnose() -> None:
+    """トークン妥当性と integration がアクセス可能な database を表示（共有漏れ切り分け・秘密は出さない）。"""
+    try:
+        me = _api("https://api.notion.com/v1/users/me")
+        print(f"[diag] token OK: bot='{me.get('name')}' type={me.get('type')}")
+    except Exception as e:  # noqa: BLE001
+        print(f"[diag] /users/me 失敗: {e!r}（NOTION_TOKEN 無効の可能性）")
+        return
+    try:
+        res = _api("https://api.notion.com/v1/search",
+                   {"filter": {"property": "object", "value": "database"}, "page_size": 50})
+        dbs = res.get("results", [])
+        target = INVESTMENT_DB_ID.replace("-", "")
+        seen = set()
+        print(f"[diag] このintegrationがアクセス可能な database 数={len(dbs)}:")
+        for d in dbs:
+            did = (d.get("id") or "").replace("-", "")
+            seen.add(did)
+            title = "".join(t.get("plain_text", "") for t in (d.get("title") or []))
+            mark = "  <== TARGET" if did == target else ""
+            print(f"  - {did[:8]}… '{title}'{mark}")
+        if target not in seen:
+            print(f"[diag] ⚠ 未共有のターゲットDB（このintegrationに未接続）: {target[:8]}…")
+        else:
+            print("[diag] ターゲット投資取引DBはアクセス可能。")
+    except Exception as e:  # noqa: BLE001
+        print(f"[diag] /search 失敗: {e!r}")
+
+
+def _all_pages(database_id: str, body_extra: dict | None = None) -> list[dict]:
+    pages: list[dict] = []
+    cursor = None
+    while True:
+        data = _query(database_id, body_extra or {}, cursor)
+        pages.extend(data.get("results", []))
+        if not data.get("has_more"):
+            break
+        cursor = data.get("next_cursor")
+    return pages
+
+
+# ── upsert ──
+UPSERT_SQL = """
+INSERT INTO me.investment_snapshots
+  (period, invest_cash_flow, principal_core_delta, principal_sat_delta, realized_gain,
+   is_complete, holdings, nisa_tsumitate_delta, nisa_growth_delta,
+   nisa_tsumitate_sold_at_cost, nisa_growth_sold_at_cost, source, source_hash, pulled_at)
+VALUES
+  (%(period)s, %(invest_cash_flow)s, %(principal_core_delta)s, %(principal_sat_delta)s,
+   %(realized_gain)s, %(is_complete)s, %(holdings)s, %(nisa_tsumitate_delta)s,
+   %(nisa_growth_delta)s, %(nisa_tsumitate_sold_at_cost)s, %(nisa_growth_sold_at_cost)s,
+   'investment-notion', %(source_hash)s, now())
+ON CONFLICT (period) DO UPDATE SET
+  invest_cash_flow = EXCLUDED.invest_cash_flow,
+  principal_core_delta = EXCLUDED.principal_core_delta,
+  principal_sat_delta = EXCLUDED.principal_sat_delta,
+  realized_gain = EXCLUDED.realized_gain,
+  is_complete = EXCLUDED.is_complete,
+  holdings = EXCLUDED.holdings,
+  nisa_tsumitate_delta = EXCLUDED.nisa_tsumitate_delta,
+  nisa_growth_delta = EXCLUDED.nisa_growth_delta,
+  nisa_tsumitate_sold_at_cost = EXCLUDED.nisa_tsumitate_sold_at_cost,
+  nisa_growth_sold_at_cost = EXCLUDED.nisa_growth_sold_at_cost,
+  source_hash = EXCLUDED.source_hash, pulled_at = now();
+"""
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--months", type=int, default=0, help="直近Nヶ月のみ upsert（0=全期間）")
+    ap.add_argument("--dry-run", action="store_true", help="Neon に書かず件数だけ表示")
+    args = ap.parse_args()
+
+    if not NOTION_TOKEN:
+        raise SystemExit("ETL ABORT: NOTION_TOKEN 未設定")
+    db_url = os.environ.get("DATABASE_URL", "")
+    if not db_url and not args.dry_run:
+        raise SystemExit("ETL ABORT: DATABASE_URL 未設定")
+
+    diagnose()  # トークン妥当性＋アクセス可能DBを先に表示（共有漏れの切り分け）
+
+    now = datetime.now(JST)
+    cur_ym = (now.year, now.month)
+
+    try:
+        pages = _all_pages(INVESTMENT_DB_ID, {"sorts": [{"property": "日付", "direction": "ascending"}]})
+    except Exception as e:  # noqa: BLE001
+        # 取得失敗なら中止（部分データで Neon を汚染しない）。cashflow ETL とは別失敗ドメイン。
+        raise SystemExit(f"ETL ABORT: Notion 取得失敗 {e!r}") from None
+
+    validate_investment(pages)  # loud-fail
+
+    built = build_investment(pages, cur_ym)
+
+    periods = sorted(built.keys())
+    if args.months and args.months > 0:
+        periods = periods[-args.months:]
+
+    rows = []
+    for period in periods:
+        r = dict(built[period])
+        r["holdings"] = Json(r["holdings"])
+        r["source_hash"] = _source_hash(built[period])
+        rows.append(r)
+
+    print(f"[etl_investment] 月数={len(rows)} (全{len(built)}・window={args.months or 'all'}) "
+          f"取引数={len(pages)} now(JST)={now:%Y-%m} dry_run={args.dry_run}")
+
+    if args.dry_run:
+        for period in periods[-3:]:
+            r = built[period]
+            print(f"  {r['period']} cash={r['invest_cash_flow']} core={r['principal_core_delta']} "
+                  f"sat={r['principal_sat_delta']} gain={r['realized_gain']} "
+                  f"nisa_t={r['nisa_tsumitate_delta']} nisa_g={r['nisa_growth_delta']} "
+                  f"sold_t={r['nisa_tsumitate_sold_at_cost']} sold_g={r['nisa_growth_sold_at_cost']} "
+                  f"complete={r['is_complete']} holdings={len(r['holdings'])} "
+                  f"hash={_source_hash(r)[:8]}")
+        return 0
+
+    written = skipped = 0
+    with psycopg.connect(db_url, autocommit=True) as conn, conn.cursor() as curs:
+        curs.execute("SELECT period, source_hash FROM me.investment_snapshots")
+        existing = {p.isoformat(): h for p, h in curs.fetchall()}
+        for r in rows:
+            if existing.get(r["period"].isoformat()) == r["source_hash"]:
+                skipped += 1
+                continue
+            curs.execute(UPSERT_SQL, r)
+            written += 1
+    print(f"[etl_investment] upsert={written} skip(unchanged)={skipped}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
