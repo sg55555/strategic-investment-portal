@@ -105,6 +105,10 @@ CREATE TABLE IF NOT EXISTS me.investment_snapshots (
   realized_gain        NUMERIC(16,0) NOT NULL DEFAULT 0, -- 実現益(売却益+配当)・windfall（負=損失あり）
   is_complete          BOOLEAN NOT NULL DEFAULT true,    -- 当月(部分月)は false で確定累積/TTMから除外（元本累積は全期間）
   holdings             JSONB,                            -- 期末の移動平均状態 {ticker:{qty,avg_cost,strategy}}（Slice5 時価join用・任意）
+  nisa_tsumitate_delta NUMERIC(16,0) NOT NULL DEFAULT 0, -- B#3 Stage3: 当期のつみたて投資枠 拠出(簿価・非負)
+  nisa_growth_delta    NUMERIC(16,0) NOT NULL DEFAULT 0, -- B#3 Stage3: 当期の成長投資枠 拠出(簿価・非負)
+  nisa_tsumitate_sold_at_cost NUMERIC(16,0) NOT NULL DEFAULT 0, -- B#3 Stage3: 当期のつみたて枠 売却の簿価(非負)
+  nisa_growth_sold_at_cost    NUMERIC(16,0) NOT NULL DEFAULT 0, -- B#3 Stage3: 当期の成長枠 売却の簿価(非負)
   source               TEXT NOT NULL DEFAULT 'investment-notion',
   source_hash          TEXT,                             -- sha256(正規化済元行)=無変化skip/改ざん検知
   pulled_at            TIMESTAMPTZ NOT NULL DEFAULT now()-- 鮮度（UIバッジ/Mode A staleDays算出元）

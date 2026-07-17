@@ -20,7 +20,10 @@ COOKIE = "wc_session"
 MAX_MONTHS = 120  # 直近10年分（月次・元本累積は全期間だが payload を抑制）
 
 COLUMNS = ("period", "invest_cash_flow", "principal_core_delta", "principal_sat_delta",
-           "realized_gain", "is_complete", "holdings", "pulled_at")
+           "realized_gain", "is_complete", "holdings", "pulled_at",
+           # B#3 Stage3: NISA 枠別 per-period delta（nisaLedgerFold の入力・業務 math はここに持たない）。
+           "nisa_tsumitate_delta", "nisa_growth_delta",
+           "nisa_tsumitate_sold_at_cost", "nisa_growth_sold_at_cost")
 
 
 def _conn():
@@ -56,17 +59,14 @@ def _num(v):
 
 
 def _row_to_dict(rec):
-    period, pulled = rec[0], rec[7]
-    return {
-        "period": period.isoformat() if hasattr(period, "isoformat") else period,
-        "invest_cash_flow": _num(rec[1]),
-        "principal_core_delta": _num(rec[2]),
-        "principal_sat_delta": _num(rec[3]),
-        "realized_gain": _num(rec[4]),
-        "is_complete": rec[5],
-        "holdings": rec[6],
-        "pulled_at": pulled.isoformat() if hasattr(pulled, "isoformat") else pulled,
-    }
+    """COLUMNS 順の tuple → dict。period/pulled_at は isoformat、Decimal は int/float へ。"""
+    out = {}
+    for name, val in zip(COLUMNS, rec):
+        if name in ("period", "pulled_at"):
+            out[name] = val.isoformat() if hasattr(val, "isoformat") else val
+        else:
+            out[name] = _num(val)
+    return out
 
 
 class handler(BaseHTTPRequestHandler):
