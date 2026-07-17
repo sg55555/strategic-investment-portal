@@ -1648,3 +1648,47 @@ test("nisaLedgerFold は nisaHistoryFold と同値（委譲の証明）", () => 
   ];
   assert.deepEqual(R.nisaLedgerFold(rows, 2026), R.nisaHistoryFold(hist, 2026));
 });
+
+// --- B#3 Stage3: ledger 枝と破れ穴の修正 ---
+const _ledgerState = (extra) => ({ nisa: Object.assign({ source: "ledger" }, extra || {}) });
+const _MS_2026 = Date.UTC(2026, 5, 15);  // 2026-06-15
+
+test("nisaDerive: source=ledger は台帳行から5スカラーを導出する", () => {
+  const d = R.nisaDerive(_ledgerState(), _MS_2026, [_lrow("2026-02-01", 1200000, 0, 0, 0)]);
+  assert.equal(d.atUsed, 1200000);
+  assert.equal(d.annualTsumitateUsedPct, 100);
+  assert.equal(d.configured, true);
+});
+
+test("nisaDerive: source=ledger で行0なら configured:false（facts.nisa が省かれる）", () => {
+  assert.equal(R.nisaDerive(_ledgerState(), _MS_2026, []).configured, false);
+});
+
+test("nisaDerive: source=ledger で課税のみの行でも configured:true・枠は全0（枠が丸々空いていると正しく言う）", () => {
+  const d = R.nisaDerive(_ledgerState(), _MS_2026, [_lrow("2026-02-01", 0, 0, 0, 0)]);
+  assert.equal(d.configured, true);
+  assert.equal(d.lifetimeUsedPct, 0);
+  assert.equal(d.annualTotalUsedPct, 0);
+});
+
+test("nisaDerive: source=ledger は手入力スカラーを読まない（台帳が源）", () => {
+  const d = R.nisaDerive(_ledgerState({ tsumitateLifetime: 8000000 }), _MS_2026,
+                         [_lrow("2026-02-01", 500000, 0, 0, 0)]);
+  assert.equal(d.n.tsumitateLifetime, 500000);
+  assert.equal(d.stored.tsumitateLifetime, 8000000);  // 参照値としては保持（reconcile が使う）
+});
+
+test("nisaDerive: staleAnchorYear は ledger では常に false（自動導出＝アンカー概念が無い）", () => {
+  const d = R.nisaDerive(_ledgerState({ anchorYear: 2024 }), _MS_2026, [_lrow("2026-02-01", 1, 0, 0, 0)]);
+  assert.equal(d.staleAnchorYear, false);
+});
+
+test("nisaDerive: staleAnchorYear は manual では従来どおり true", () => {
+  const d = R.nisaDerive({ nisa: { source: "manual", anchorYear: 2024, tsumitateThisYear: 1 } }, _MS_2026);
+  assert.equal(d.staleAnchorYear, true);
+});
+
+test("nisaDerive: 第3引数の省略は manual/history の既存挙動を変えない", () => {
+  const s = { nisa: { source: "history", history: [{ year: 2026, tsumitate: 500000, growth: 0, soldTsumitate: 0, soldGrowth: 0 }] } };
+  assert.deepEqual(R.nisaDerive(s, _MS_2026), R.nisaDerive(s, _MS_2026, []));
+});

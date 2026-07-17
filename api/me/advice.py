@@ -947,8 +947,16 @@ def _nisa_ledger_fold(rows, current_year):
     return _nisa_history_fold(folded, current_year)
 
 
-def _nisa_effective(n, current_year):
-    """money-rules.js nisaEffective の鏡像（history なら5スカラーを畳み込みで差替・下流は無改修）。"""
+def _nisa_effective(n, current_year, ledger_rows=None):
+    """money-rules.js nisaEffective の鏡像（history/ledger なら5スカラーを畳み込みで差替・下流は無改修）。"""
+    if n["source"] == "ledger":
+        lf = _nisa_ledger_fold(ledger_rows if isinstance(ledger_rows, list) else [], current_year)
+        return {
+            "source": n["source"], "anchorYear": n["anchorYear"], "history": n["history"],
+            "tsumitateThisYear": lf["tsumitateThisYear"], "growthThisYear": lf["growthThisYear"],
+            "tsumitateLifetime": lf["tsumitateLifetime"], "growthLifetime": lf["growthLifetime"],
+            "soldThisYearAtCost": lf["soldThisYearAtCost"],
+        }
     if n["source"] != "history":
         return n
     f = _nisa_history_fold(n["history"], current_year)
@@ -960,14 +968,17 @@ def _nisa_effective(n, current_year):
     }
 
 
-def _nisa_derive(state, now_ms):
+def _nisa_derive(state, now_ms, ledger_rows=None):
     """money-rules.js nisaDerive の鏡像（単一計算源）。"""
     stored = _normalize_nisa(state.get("nisa") if isinstance(state, dict) else None)
+    rows = ledger_rows if isinstance(ledger_rows, list) else []
     now = _nisa_now(now_ms)
-    n = _nisa_effective(stored, now["year"])  # Stage2: history なら履歴の畳み込みに差替（下流は無改修）
+    n = _nisa_effective(stored, now["year"], rows)  # Stage2: history / Stage3: ledger なら畳み込みに差替
     # configured は「今有効な入力源にデータがあるか」＝source 別（spec §4・JS nisaDerive と同一分岐）。
     if stored["source"] == "history":
         configured = len(stored["history"]) > 0
+    elif stored["source"] == "ledger":
+        configured = len(rows) > 0
     else:
         configured = (stored["anchorYear"] > 0 or stored["tsumitateThisYear"] > 0 or stored["growthThisYear"] > 0
                       or stored["tsumitateLifetime"] > 0 or stored["growthLifetime"] > 0
@@ -995,7 +1006,9 @@ def _nisa_derive(state, now_ms):
         "overContribution": (at > NISA_ANNUAL_TSUMITATE or ag > NISA_ANNUAL_GROWTH or at_total > NISA_ANNUAL_TOTAL
                              or life_used > NISA_LIFETIME or n["growthLifetime"] > NISA_GROWTH_LIFETIME_CAP),
         "hasRestorationPending": n["soldThisYearAtCost"] > 0,
-        "staleAnchorYear": n["source"] != "history" and now["valid"] and n["anchorYear"] > 0 and n["anchorYear"] < now["year"],
+        # 古アンカー警告は manual 限定。history/ledger は年ロールオーバーが自動解決する＝誤警報にしない。
+        "staleAnchorYear": n["source"] == "manual" and now["valid"] and n["anchorYear"] > 0
+        and n["anchorYear"] < now["year"],
         "monthsLeft": months_left,
         "monthlyToFillTsumitate": math.ceil(at_rem / months_left) if months_left > 0 else 0,
         "monthlyToFillGrowth": math.ceil(ag_rem / months_left) if months_left > 0 else 0,

@@ -507,7 +507,16 @@
   }
   // B#3 Stage2: 実効値（source='history' なら履歴の畳み込みで5スカラーを差替）。
   // これにより nisaDerive 以降の下流（Pct/over/ETA/facts/raw/VM）は d.n.* を読むだけで無改修のまま精度が上がる。
-  function nisaEffective(n, currentYear) {
+  function nisaEffective(n, currentYear, ledgerRows) {
+    if (n.source === "ledger") {
+      var lf = nisaLedgerFold(ledgerRows, currentYear);
+      return {
+        source: n.source, anchorYear: n.anchorYear, history: n.history,
+        tsumitateThisYear: lf.tsumitateThisYear, growthThisYear: lf.growthThisYear,
+        tsumitateLifetime: lf.tsumitateLifetime, growthLifetime: lf.growthLifetime,
+        soldThisYearAtCost: lf.soldThisYearAtCost,
+      };
+    }
     if (n.source !== "history") return n;
     var f = nisaHistoryFold(n.history, currentYear);
     return {
@@ -519,17 +528,18 @@
   }
 
   // B#3: NISA使用状況の全導出（単一計算源＝nisaFacts/nisaRaw/nisaViewModel が参照）。
-  function nisaDerive(state, nowMs) {
+  function nisaDerive(state, nowMs, ledgerRows) {
     var stored = normalizeNisa(state && state.nisa);
+    var rows = Array.isArray(ledgerRows) ? ledgerRows : [];
     var now = nisaNow(nowMs);
-    var n = nisaEffective(stored, now.year);   // Stage2: history なら履歴の畳み込みに差替（下流は無改修）
+    var n = nisaEffective(stored, now.year, rows);   // Stage2: history / Stage3: ledger なら畳み込みに差替（下流は無改修）
     // configured は「今有効な入力源にデータがあるか」＝source 別（spec §4）。source 非依存にすると
     // 「履歴モードで記録→手入力へ戻す」状態（スカラー全0・履歴残存）で「枠を全く使っていない」と
-    // facts が嘘をつく。'ledger'（Stage3・未実装）は当面 manual と同じ枝。
-    var configured = stored.source === "history"
-      ? stored.history.length > 0
-      : (stored.anchorYear > 0 || stored.tsumitateThisYear > 0 || stored.growthThisYear > 0 ||
-         stored.tsumitateLifetime > 0 || stored.growthLifetime > 0 || stored.soldThisYearAtCost > 0);
+    // facts が嘘をつく。'ledger' は台帳行の有無で判定（manual スカラーを読まないため else 枝では永久に false）。
+    var configured = stored.source === "history" ? stored.history.length > 0
+                   : stored.source === "ledger" ? rows.length > 0
+                   : (stored.anchorYear > 0 || stored.tsumitateThisYear > 0 || stored.growthThisYear > 0 ||
+                      stored.tsumitateLifetime > 0 || stored.growthLifetime > 0 || stored.soldThisYearAtCost > 0);
     var atUsed = n.tsumitateThisYear, agUsed = n.growthThisYear, atTotal = atUsed + agUsed;
     var lifeUsed = n.tsumitateLifetime + n.growthLifetime;
     var annualTsumitateRemaining = Math.max(0, NISA_ANNUAL_TSUMITATE - atUsed);
@@ -552,7 +562,8 @@
       overContribution: atUsed > NISA_ANNUAL_TSUMITATE || agUsed > NISA_ANNUAL_GROWTH ||
         atTotal > NISA_ANNUAL_TOTAL || lifeUsed > NISA_LIFETIME || n.growthLifetime > NISA_GROWTH_LIFETIME_CAP,
       hasRestorationPending: n.soldThisYearAtCost > 0,
-      staleAnchorYear: n.source !== "history" && now.valid && n.anchorYear > 0 && n.anchorYear < now.year,
+      // 古アンカー警告は manual 限定。history/ledger は年ロールオーバーが自動解決する＝誤警報にしない。
+      staleAnchorYear: n.source === "manual" && now.valid && n.anchorYear > 0 && n.anchorYear < now.year,
       monthsLeft: monthsLeft,
       monthlyToFillTsumitate: monthsLeft > 0 ? Math.ceil(annualTsumitateRemaining / monthsLeft) : 0,
       monthlyToFillGrowth: monthsLeft > 0 ? Math.ceil(annualGrowthRemaining / monthsLeft) : 0,
