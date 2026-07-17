@@ -1103,6 +1103,47 @@ def test_nisa_derive_history_mode_mirrors_js():
     assert d2["n"]["tsumitateLifetime"] == 1000000
 
 
+# Task6: Stage2 の中心的主張（facts 形状不変）の機械的証明。
+def test_stage2_facts_shape_unchanged():
+    """Stage2: SCHEMA_VERSION 5 据置・manual と history でキー集合同一・history 非出力。"""
+    assert advice.SCHEMA_VERSION == 5
+
+    # 署名は mode_a_facts(raw_state, include_raw, now_ms, cashflow=None)（api/me/advice.py:1031）
+    now = 1780963200000  # 2026-06-10T00:00:00Z
+    manual = advice.mode_a_facts({"nisa": {"source": "manual", "tsumitateThisYear": 600000}}, False, now)
+    hist = advice.mode_a_facts({"nisa": {"source": "history", "history": [{"year": 2026, "tsumitate": 600000}]}},
+                               False, now)
+    assert sorted(manual["nisa"].keys()) == sorted(hist["nisa"].keys())
+
+    manual_p = advice.mode_a_facts({"nisa": {"source": "manual", "tsumitateThisYear": 600000}}, True, now)
+    hist_p = advice.mode_a_facts({"nisa": {"source": "history", "history": [{"year": 2026, "tsumitate": 600000}]}},
+                                  True, now)
+    assert sorted(manual_p["raw"]["nisa"].keys()) == sorted(hist_p["raw"]["nisa"].keys())
+
+    seen = []
+
+    def walk(o):
+        if isinstance(o, dict):
+            for k, v in o.items():
+                seen.append(k)
+                walk(v)
+        elif isinstance(o, list):
+            for v in o:
+                walk(v)
+
+    walk(hist)
+    assert "history" not in seen
+
+
+def test_stage2_coarsen_unchanged_for_history():
+    """coarsen_facts は無改修で history 由来の facts も粗化する（生解像度の *UsedPct を残さない）。"""
+    now = 1780963200000
+    facts = advice.mode_a_facts({"nisa": {"source": "history", "history": [
+        {"year": 2024, "tsumitate": 1234567}]}}, False, now)
+    coarse = advice.coarsen_facts(facts)
+    assert coarse["nisa"]["lifetimeUsedPct"] % 25 == 0
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0

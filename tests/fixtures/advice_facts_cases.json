@@ -8305,6 +8305,1104 @@
           "currencyMismatch": false
         }
       }
+    },
+    {
+      "name": "nisa-j-history-only",
+      "state": {
+        "nisa": {
+          "source": "history",
+          "history": [
+            {
+              "year": 2024,
+              "tsumitate": 1200000,
+              "growth": 2400000
+            }
+          ]
+        }
+      },
+      "nowIso": "2026-06-10T00:00:00Z",
+      "production": {
+        "mode": "production",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 5,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        },
+        "nisa": {
+          "source": "history",
+          "annualTsumitateUsedPct": 0,
+          "annualGrowthUsedPct": 0,
+          "annualTotalUsedPct": 0,
+          "lifetimeUsedPct": 20,
+          "growthCapUsedPct": 20,
+          "annualRoomRemaining": true,
+          "lifetimeRoomRemaining": true,
+          "growthCapRoomRemaining": true,
+          "overContribution": false,
+          "hasRestorationPending": false,
+          "staleAnchorYear": false,
+          "lifetimeFillEtaBucket": "none"
+        }
+      },
+      "personal": {
+        "mode": "personal",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 5,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        },
+        "nisa": {
+          "source": "history",
+          "annualTsumitateUsedPct": 0,
+          "annualGrowthUsedPct": 0,
+          "annualTotalUsedPct": 0,
+          "lifetimeUsedPct": 20,
+          "growthCapUsedPct": 20,
+          "annualRoomRemaining": true,
+          "lifetimeRoomRemaining": true,
+          "growthCapRoomRemaining": true,
+          "overContribution": false,
+          "hasRestorationPending": false,
+          "staleAnchorYear": false,
+          "lifetimeFillEtaBucket": "none"
+        },
+        "raw": {
+          "monthlyExpense": 0,
+          "bufferAmount": 0,
+          "bufferTarget": 0,
+          "bufferRemaining": 0,
+          "coreAmount": 0,
+          "satelliteAmount": 0,
+          "investable": 0,
+          "satelliteCap": 0,
+          "satelliteOver": 0,
+          "totalAssets": 0,
+          "goals": [],
+          "nisa": {
+            "tsumitateThisYear": 0,
+            "growthThisYear": 0,
+            "tsumitateLifetime": 1200000,
+            "growthLifetime": 2400000,
+            "soldThisYearAtCost": 0,
+            "annualTsumitateRemaining": 1200000,
+            "annualGrowthRemaining": 2400000,
+            "lifetimeRemaining": 14400000,
+            "growthCapRemaining": 9600000,
+            "monthlyToFillTsumitate": 171429,
+            "restoresYear": 2027
+          }
+        }
+      }
+    },
+    {
+      "name": "nisa-k-current-year-sale-not-deducted",
+      "state": {
+        "nisa": {
+          "source": "history",
+          "history": [
+            {
+              "year": 2026,
+              "tsumitate": 1200000,
+              "soldTsumitate": 1200000
+            }
+          ]
+        }
+      },
+      "nowIso": "2026-06-10T00:00:00Z",
+      "production": {
+        "mode": "production",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 5,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        },
+        "nisa": {
+          "source": "history",
+          "annualTsumitateUsedPct": 100,
+          "annualGrowthUsedPct": 0,
+          "annualTotalUsedPct": 33,
+          "lifetimeUsedPct": 7,
+          "growthCapUsedPct": 0,
+          "annualRoomRemaining": true,
+          "lifetimeRoomRemaining": true,
+          "growthCapRoomRemaining": true,
+          "overContribution": false,
+          "hasRestorationPending": true,
+          "staleAnchorYear": false,
+          "lifetimeFillEtaBucket": "none"
+        }
+      },
+      "personal": {
+        "mode": "personal",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 5,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        },
+        "nisa": {
+          "source": "history",
+          "annualTsumitateUsedPct": 100,
+          "annualGrowthUsedPct": 0,
+          "annualTotalUsedPct": 33,
+          "lifetimeUsedPct": 7,
+          "growthCapUsedPct": 0,
+          "annualRoomRemaining": true,
+          "lifetimeRoomRemaining": true,
+          "growthCapRoomRemaining": true,
+          "overContribution": false,
+          "hasRestorationPending": true,
+          "staleAnchorYear": false,
+          "lifetimeFillEtaBucket": "none"
+        },
+        "raw": {
+          "monthlyExpense": 0,
+          "bufferAmount": 0,
+          "bufferTarget": 0,
+          "bufferRemaining": 0,
+          "coreAmount": 0,
+          "satelliteAmount": 0,
+          "investable": 0,
+          "satelliteCap": 0,
+          "satelliteOver": 0,
+          "totalAssets": 0,
+          "goals": [],
+          "nisa": {
+            "tsumitateThisYear": 1200000,
+            "growthThisYear": 0,
+            "tsumitateLifetime": 1200000,
+            "growthLifetime": 0,
+            "soldThisYearAtCost": 1200000,
+            "annualTsumitateRemaining": 0,
+            "annualGrowthRemaining": 2400000,
+            "lifetimeRemaining": 16800000,
+            "growthCapRemaining": 12000000,
+            "monthlyToFillTsumitate": 0,
+            "restoresYear": 2027
+          }
+        }
+      }
+    },
+    {
+      "name": "nisa-l-past-year-sale-restored",
+      "state": {
+        "nisa": {
+          "source": "history",
+          "history": [
+            {
+              "year": 2024,
+              "tsumitate": 1200000,
+              "growth": 2400000
+            },
+            {
+              "year": 2025,
+              "soldTsumitate": 0,
+              "soldGrowth": 2400000
+            }
+          ]
+        }
+      },
+      "nowIso": "2026-06-10T00:00:00Z",
+      "production": {
+        "mode": "production",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 5,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        },
+        "nisa": {
+          "source": "history",
+          "annualTsumitateUsedPct": 0,
+          "annualGrowthUsedPct": 0,
+          "annualTotalUsedPct": 0,
+          "lifetimeUsedPct": 7,
+          "growthCapUsedPct": 0,
+          "annualRoomRemaining": true,
+          "lifetimeRoomRemaining": true,
+          "growthCapRoomRemaining": true,
+          "overContribution": false,
+          "hasRestorationPending": false,
+          "staleAnchorYear": false,
+          "lifetimeFillEtaBucket": "none"
+        }
+      },
+      "personal": {
+        "mode": "personal",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 5,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        },
+        "nisa": {
+          "source": "history",
+          "annualTsumitateUsedPct": 0,
+          "annualGrowthUsedPct": 0,
+          "annualTotalUsedPct": 0,
+          "lifetimeUsedPct": 7,
+          "growthCapUsedPct": 0,
+          "annualRoomRemaining": true,
+          "lifetimeRoomRemaining": true,
+          "growthCapRoomRemaining": true,
+          "overContribution": false,
+          "hasRestorationPending": false,
+          "staleAnchorYear": false,
+          "lifetimeFillEtaBucket": "none"
+        },
+        "raw": {
+          "monthlyExpense": 0,
+          "bufferAmount": 0,
+          "bufferTarget": 0,
+          "bufferRemaining": 0,
+          "coreAmount": 0,
+          "satelliteAmount": 0,
+          "investable": 0,
+          "satelliteCap": 0,
+          "satelliteOver": 0,
+          "totalAssets": 0,
+          "goals": [],
+          "nisa": {
+            "tsumitateThisYear": 0,
+            "growthThisYear": 0,
+            "tsumitateLifetime": 1200000,
+            "growthLifetime": 0,
+            "soldThisYearAtCost": 0,
+            "annualTsumitateRemaining": 1200000,
+            "annualGrowthRemaining": 2400000,
+            "lifetimeRemaining": 16800000,
+            "growthCapRemaining": 12000000,
+            "monthlyToFillTsumitate": 171429,
+            "restoresYear": 2027
+          }
+        }
+      }
+    },
+    {
+      "name": "nisa-m-duplicate-year-last-wins",
+      "state": {
+        "nisa": {
+          "source": "history",
+          "history": [
+            {
+              "year": 2024,
+              "tsumitate": 1000000
+            },
+            {
+              "year": 2024,
+              "tsumitate": 3000000
+            }
+          ]
+        }
+      },
+      "nowIso": "2026-06-10T00:00:00Z",
+      "production": {
+        "mode": "production",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 5,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        },
+        "nisa": {
+          "source": "history",
+          "annualTsumitateUsedPct": 0,
+          "annualGrowthUsedPct": 0,
+          "annualTotalUsedPct": 0,
+          "lifetimeUsedPct": 17,
+          "growthCapUsedPct": 0,
+          "annualRoomRemaining": true,
+          "lifetimeRoomRemaining": true,
+          "growthCapRoomRemaining": true,
+          "overContribution": false,
+          "hasRestorationPending": false,
+          "staleAnchorYear": false,
+          "lifetimeFillEtaBucket": "none"
+        }
+      },
+      "personal": {
+        "mode": "personal",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 5,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        },
+        "nisa": {
+          "source": "history",
+          "annualTsumitateUsedPct": 0,
+          "annualGrowthUsedPct": 0,
+          "annualTotalUsedPct": 0,
+          "lifetimeUsedPct": 17,
+          "growthCapUsedPct": 0,
+          "annualRoomRemaining": true,
+          "lifetimeRoomRemaining": true,
+          "growthCapRoomRemaining": true,
+          "overContribution": false,
+          "hasRestorationPending": false,
+          "staleAnchorYear": false,
+          "lifetimeFillEtaBucket": "none"
+        },
+        "raw": {
+          "monthlyExpense": 0,
+          "bufferAmount": 0,
+          "bufferTarget": 0,
+          "bufferRemaining": 0,
+          "coreAmount": 0,
+          "satelliteAmount": 0,
+          "investable": 0,
+          "satelliteCap": 0,
+          "satelliteOver": 0,
+          "totalAssets": 0,
+          "goals": [],
+          "nisa": {
+            "tsumitateThisYear": 0,
+            "growthThisYear": 0,
+            "tsumitateLifetime": 3000000,
+            "growthLifetime": 0,
+            "soldThisYearAtCost": 0,
+            "annualTsumitateRemaining": 1200000,
+            "annualGrowthRemaining": 2400000,
+            "lifetimeRemaining": 15000000,
+            "growthCapRemaining": 12000000,
+            "monthlyToFillTsumitate": 171429,
+            "restoresYear": 2027
+          }
+        }
+      }
+    },
+    {
+      "name": "nisa-n-invalid-years-dropped",
+      "state": {
+        "nisa": {
+          "source": "history",
+          "history": [
+            {
+              "year": 0,
+              "tsumitate": 9000000000
+            },
+            {
+              "year": 2023,
+              "tsumitate": 9000000000
+            },
+            {
+              "year": 10000,
+              "tsumitate": 9000000000
+            },
+            {
+              "year": "２０２４",
+              "tsumitate": 9000000000
+            },
+            {
+              "year": "2024",
+              "tsumitate": 1800000
+            }
+          ]
+        }
+      },
+      "nowIso": "2026-06-10T00:00:00Z",
+      "production": {
+        "mode": "production",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 5,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        },
+        "nisa": {
+          "source": "history",
+          "annualTsumitateUsedPct": 0,
+          "annualGrowthUsedPct": 0,
+          "annualTotalUsedPct": 0,
+          "lifetimeUsedPct": 10,
+          "growthCapUsedPct": 0,
+          "annualRoomRemaining": true,
+          "lifetimeRoomRemaining": true,
+          "growthCapRoomRemaining": true,
+          "overContribution": false,
+          "hasRestorationPending": false,
+          "staleAnchorYear": false,
+          "lifetimeFillEtaBucket": "none"
+        }
+      },
+      "personal": {
+        "mode": "personal",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 5,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        },
+        "nisa": {
+          "source": "history",
+          "annualTsumitateUsedPct": 0,
+          "annualGrowthUsedPct": 0,
+          "annualTotalUsedPct": 0,
+          "lifetimeUsedPct": 10,
+          "growthCapUsedPct": 0,
+          "annualRoomRemaining": true,
+          "lifetimeRoomRemaining": true,
+          "growthCapRoomRemaining": true,
+          "overContribution": false,
+          "hasRestorationPending": false,
+          "staleAnchorYear": false,
+          "lifetimeFillEtaBucket": "none"
+        },
+        "raw": {
+          "monthlyExpense": 0,
+          "bufferAmount": 0,
+          "bufferTarget": 0,
+          "bufferRemaining": 0,
+          "coreAmount": 0,
+          "satelliteAmount": 0,
+          "investable": 0,
+          "satelliteCap": 0,
+          "satelliteOver": 0,
+          "totalAssets": 0,
+          "goals": [],
+          "nisa": {
+            "tsumitateThisYear": 0,
+            "growthThisYear": 0,
+            "tsumitateLifetime": 1800000,
+            "growthLifetime": 0,
+            "soldThisYearAtCost": 0,
+            "annualTsumitateRemaining": 1200000,
+            "annualGrowthRemaining": 2400000,
+            "lifetimeRemaining": 16200000,
+            "growthCapRemaining": 12000000,
+            "monthlyToFillTsumitate": 171429,
+            "restoresYear": 2027
+          }
+        }
+      }
+    },
+    {
+      "name": "nisa-o-history-stale-false",
+      "state": {
+        "nisa": {
+          "source": "history",
+          "anchorYear": 2024,
+          "history": [
+            {
+              "year": 2024,
+              "tsumitate": 1200000
+            }
+          ]
+        }
+      },
+      "nowIso": "2026-06-10T00:00:00Z",
+      "production": {
+        "mode": "production",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 5,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        },
+        "nisa": {
+          "source": "history",
+          "annualTsumitateUsedPct": 0,
+          "annualGrowthUsedPct": 0,
+          "annualTotalUsedPct": 0,
+          "lifetimeUsedPct": 7,
+          "growthCapUsedPct": 0,
+          "annualRoomRemaining": true,
+          "lifetimeRoomRemaining": true,
+          "growthCapRoomRemaining": true,
+          "overContribution": false,
+          "hasRestorationPending": false,
+          "staleAnchorYear": false,
+          "lifetimeFillEtaBucket": "none"
+        }
+      },
+      "personal": {
+        "mode": "personal",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 5,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        },
+        "nisa": {
+          "source": "history",
+          "annualTsumitateUsedPct": 0,
+          "annualGrowthUsedPct": 0,
+          "annualTotalUsedPct": 0,
+          "lifetimeUsedPct": 7,
+          "growthCapUsedPct": 0,
+          "annualRoomRemaining": true,
+          "lifetimeRoomRemaining": true,
+          "growthCapRoomRemaining": true,
+          "overContribution": false,
+          "hasRestorationPending": false,
+          "staleAnchorYear": false,
+          "lifetimeFillEtaBucket": "none"
+        },
+        "raw": {
+          "monthlyExpense": 0,
+          "bufferAmount": 0,
+          "bufferTarget": 0,
+          "bufferRemaining": 0,
+          "coreAmount": 0,
+          "satelliteAmount": 0,
+          "investable": 0,
+          "satelliteCap": 0,
+          "satelliteOver": 0,
+          "totalAssets": 0,
+          "goals": [],
+          "nisa": {
+            "tsumitateThisYear": 0,
+            "growthThisYear": 0,
+            "tsumitateLifetime": 1200000,
+            "growthLifetime": 0,
+            "soldThisYearAtCost": 0,
+            "annualTsumitateRemaining": 1200000,
+            "annualGrowthRemaining": 2400000,
+            "lifetimeRemaining": 16800000,
+            "growthCapRemaining": 12000000,
+            "monthlyToFillTsumitate": 171429,
+            "restoresYear": 2027
+          }
+        }
+      }
+    },
+    {
+      "name": "nisa-p1-history-nonarray",
+      "state": {
+        "nisa": {
+          "source": "history",
+          "history": "nope"
+        }
+      },
+      "nowIso": "2026-06-10T00:00:00Z",
+      "production": {
+        "mode": "production",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 5,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        }
+      },
+      "personal": {
+        "mode": "personal",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 5,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        },
+        "raw": {
+          "monthlyExpense": 0,
+          "bufferAmount": 0,
+          "bufferTarget": 0,
+          "bufferRemaining": 0,
+          "coreAmount": 0,
+          "satelliteAmount": 0,
+          "investable": 0,
+          "satelliteCap": 0,
+          "satelliteOver": 0,
+          "totalAssets": 0,
+          "goals": []
+        }
+      }
+    },
+    {
+      "name": "nisa-p2-history-element-adversarial",
+      "state": {
+        "nisa": {
+          "source": "history",
+          "history": [
+            null,
+            [
+              1
+            ],
+            5,
+            {
+              "year": 2024,
+              "tsumitate": [
+                5
+              ],
+              "growth": "0x10",
+              "soldTsumitate": "１",
+              "soldGrowth": {}
+            }
+          ]
+        }
+      },
+      "nowIso": "2026-06-10T00:00:00Z",
+      "production": {
+        "mode": "production",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 5,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        },
+        "nisa": {
+          "source": "history",
+          "annualTsumitateUsedPct": 0,
+          "annualGrowthUsedPct": 0,
+          "annualTotalUsedPct": 0,
+          "lifetimeUsedPct": 0,
+          "growthCapUsedPct": 0,
+          "annualRoomRemaining": true,
+          "lifetimeRoomRemaining": true,
+          "growthCapRoomRemaining": true,
+          "overContribution": false,
+          "hasRestorationPending": false,
+          "staleAnchorYear": false,
+          "lifetimeFillEtaBucket": "none"
+        }
+      },
+      "personal": {
+        "mode": "personal",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 5,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        },
+        "nisa": {
+          "source": "history",
+          "annualTsumitateUsedPct": 0,
+          "annualGrowthUsedPct": 0,
+          "annualTotalUsedPct": 0,
+          "lifetimeUsedPct": 0,
+          "growthCapUsedPct": 0,
+          "annualRoomRemaining": true,
+          "lifetimeRoomRemaining": true,
+          "growthCapRoomRemaining": true,
+          "overContribution": false,
+          "hasRestorationPending": false,
+          "staleAnchorYear": false,
+          "lifetimeFillEtaBucket": "none"
+        },
+        "raw": {
+          "monthlyExpense": 0,
+          "bufferAmount": 0,
+          "bufferTarget": 0,
+          "bufferRemaining": 0,
+          "coreAmount": 0,
+          "satelliteAmount": 0,
+          "investable": 0,
+          "satelliteCap": 0,
+          "satelliteOver": 0,
+          "totalAssets": 0,
+          "goals": [],
+          "nisa": {
+            "tsumitateThisYear": 0,
+            "growthThisYear": 0,
+            "tsumitateLifetime": 0,
+            "growthLifetime": 0,
+            "soldThisYearAtCost": 0,
+            "annualTsumitateRemaining": 1200000,
+            "annualGrowthRemaining": 2400000,
+            "lifetimeRemaining": 18000000,
+            "growthCapRemaining": 12000000,
+            "monthlyToFillTsumitate": 171429,
+            "restoresYear": 2027
+          }
+        }
+      }
+    },
+    {
+      "name": "nisa-q-history-invalid-nowms",
+      "state": {
+        "nisa": {
+          "source": "history",
+          "history": [
+            {
+              "year": 2024,
+              "tsumitate": 1200000
+            }
+          ]
+        }
+      },
+      "nowMs": 1e+300,
+      "production": {
+        "mode": "production",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 5,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        },
+        "nisa": {
+          "source": "history",
+          "annualTsumitateUsedPct": 0,
+          "annualGrowthUsedPct": 0,
+          "annualTotalUsedPct": 0,
+          "lifetimeUsedPct": 0,
+          "growthCapUsedPct": 0,
+          "annualRoomRemaining": true,
+          "lifetimeRoomRemaining": true,
+          "growthCapRoomRemaining": true,
+          "overContribution": false,
+          "hasRestorationPending": false,
+          "staleAnchorYear": false,
+          "lifetimeFillEtaBucket": "none"
+        }
+      },
+      "personal": {
+        "mode": "personal",
+        "currency": "JPY",
+        "bufferConfigured": false,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "setup",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 5,
+        "roadmap": {
+          "phase": "setup",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "setup"
+        },
+        "nisa": {
+          "source": "history",
+          "annualTsumitateUsedPct": 0,
+          "annualGrowthUsedPct": 0,
+          "annualTotalUsedPct": 0,
+          "lifetimeUsedPct": 0,
+          "growthCapUsedPct": 0,
+          "annualRoomRemaining": true,
+          "lifetimeRoomRemaining": true,
+          "growthCapRoomRemaining": true,
+          "overContribution": false,
+          "hasRestorationPending": false,
+          "staleAnchorYear": false,
+          "lifetimeFillEtaBucket": "none"
+        },
+        "raw": {
+          "monthlyExpense": 0,
+          "bufferAmount": 0,
+          "bufferTarget": 0,
+          "bufferRemaining": 0,
+          "coreAmount": 0,
+          "satelliteAmount": 0,
+          "investable": 0,
+          "satelliteCap": 0,
+          "satelliteOver": 0,
+          "totalAssets": 0,
+          "goals": [],
+          "nisa": {
+            "tsumitateThisYear": 0,
+            "growthThisYear": 0,
+            "tsumitateLifetime": 0,
+            "growthLifetime": 0,
+            "soldThisYearAtCost": 0,
+            "annualTsumitateRemaining": 1200000,
+            "annualGrowthRemaining": 2400000,
+            "lifetimeRemaining": 18000000,
+            "growthCapRemaining": 12000000,
+            "monthlyToFillTsumitate": 0,
+            "restoresYear": 0
+          }
+        }
+      }
     }
   ]
 }

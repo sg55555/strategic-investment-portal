@@ -1553,3 +1553,28 @@ test("nisaEffective: manual は素通し／history は5スカラーだけ差替�
   assert.equal(e.history.length, 1);
   assert.deepEqual(Object.keys(e).sort(), Object.keys(hist).sort());   // 形状同一
 });
+
+// Task6: Stage2 の中心的主張（facts 形状不変）の機械的証明。
+test("Stage2: facts 形状不変（schemaVersion 5 据置・manual と history でキー集合同一・history 非出力）", () => {
+  assert.equal(R.FACTS_SCHEMA_VERSION, 5);   // Stage2 は bump しない＝facts 形状不変
+
+  // 署名は modeAFacts(rawState, opts)。opts = {includeRawAmounts, nowMs, cashflow}（money-rules.js:1075 以下）
+  const now = Date.UTC(2026, 5, 10);
+  const manual = R.modeAFacts({ nisa: { source: "manual", tsumitateThisYear: 600000 } }, { nowMs: now });
+  const hist = R.modeAFacts({ nisa: { source: "history", history: [{ year: 2026, tsumitate: 600000 }] } }, { nowMs: now });
+  assert.deepEqual(Object.keys(manual.nisa).sort(), Object.keys(hist.nisa).sort());
+
+  const manualP = R.modeAFacts({ nisa: { source: "manual", tsumitateThisYear: 600000 } },
+    { includeRawAmounts: true, nowMs: now });
+  const histP = R.modeAFacts({ nisa: { source: "history", history: [{ year: 2026, tsumitate: 600000 }] } },
+    { includeRawAmounts: true, nowMs: now });
+  assert.deepEqual(Object.keys(manualP.raw.nisa).sort(), Object.keys(histP.raw.nisa).sort());
+
+  // history そのものは production facts に出さない（DENYLIST_KEYS 既収載の再確認＝深い再帰で1つも無いこと）
+  const seen = [];
+  (function walk(o) {
+    if (!o || typeof o !== "object") return;
+    Object.keys(o).forEach(function (k) { seen.push(k); walk(o[k]); });
+  })(hist);
+  assert.equal(seen.indexOf("history"), -1);
+});
