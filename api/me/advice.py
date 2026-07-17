@@ -918,6 +918,35 @@ def _nisa_history_fold(history, current_year):
     }
 
 
+def _nisa_ledger_year(period):
+    """money-rules.js nisaLedgerYear の鏡像。"YYYY-MM-01" の先頭4桁・域外/不正は 0。"""
+    if not isinstance(period, str) or len(period) < 4:
+        return 0
+    y = math.floor(_num(period[0:4]))
+    return y if NISA_MIN_YEAR <= y <= 9999 else 0
+
+
+def _nisa_ledger_fold(rows, current_year):
+    """money-rules.js nisaLedgerFold の鏡像。月次 delta を年別に畳み _nisa_history_fold へ委譲。
+    制度モデルは _nisa_history_fold が単一源＝ledger と history でドリフトしない。"""
+    arr = rows if isinstance(rows, list) else []
+    by_year = {}
+    for row in arr:
+        if not isinstance(row, dict):
+            continue
+        y = _nisa_ledger_year(row.get("period"))
+        if y == 0:
+            continue
+        acc = by_year.setdefault(y, {"year": y, "tsumitate": 0.0, "growth": 0.0,
+                                     "soldTsumitate": 0.0, "soldGrowth": 0.0})
+        acc["tsumitate"] += _num(row.get("nisa_tsumitate_delta"))
+        acc["growth"] += _num(row.get("nisa_growth_delta"))
+        acc["soldTsumitate"] += _num(row.get("nisa_tsumitate_sold_at_cost"))
+        acc["soldGrowth"] += _num(row.get("nisa_growth_sold_at_cost"))
+    folded = [by_year[y] for y in sorted(by_year.keys())][:NISA_HISTORY_MAX]
+    return _nisa_history_fold(folded, current_year)
+
+
 def _nisa_effective(n, current_year):
     """money-rules.js nisaEffective の鏡像（history なら5スカラーを畳み込みで差替・下流は無改修）。"""
     if n["source"] != "history":

@@ -477,6 +477,34 @@
       tsumitateLifetime: Math.max(0, tLife), growthLifetime: Math.max(0, gLife),
     };
   }
+  // B#3 Stage3: 投資台帳の period("YYYY-MM-01") → 年。NISA_MIN_YEAR 未満/9999超/不正は 0（＝捨てる）。
+  // 基底 coerce は num()（scalar-safe＝配列/bool/hex 文字列も 0）。normalizeNisaYear と同じ Math.floor 規律。
+  function nisaLedgerYear(period) {
+    if (typeof period !== "string" || period.length < 4) return 0;
+    var y = Math.floor(num(period.slice(0, 4)));
+    return (y >= NISA_MIN_YEAR && y <= 9999) ? y : 0;
+  }
+  // B#3 Stage3: 投資台帳（月次 per-period delta）→ 年別行 → nisaHistoryFold へ委譲。
+  // 制度モデル（当年売却は生涯枠から非控除／過去年は控除／枠別に持つ＝成長内数cap）を**再実装しない**。
+  // 単一源は nisaHistoryFold＝ledger と history の制度ロジックが構造的にドリフトしない。
+  function nisaLedgerFold(rows, currentYear) {
+    var arr = Array.isArray(rows) ? rows : [];
+    var byYear = {}, i;
+    for (i = 0; i < arr.length; i++) {
+      var row = arr[i];
+      if (!row || typeof row !== "object" || Array.isArray(row)) continue;
+      var y = nisaLedgerYear(row.period);
+      if (y === 0) continue;
+      if (!byYear[y]) byYear[y] = { year: y, tsumitate: 0, growth: 0, soldTsumitate: 0, soldGrowth: 0 };
+      byYear[y].tsumitate += num(row.nisa_tsumitate_delta);
+      byYear[y].growth += num(row.nisa_growth_delta);
+      byYear[y].soldTsumitate += num(row.nisa_tsumitate_sold_at_cost);
+      byYear[y].soldGrowth += num(row.nisa_growth_sold_at_cost);
+    }
+    var years = Object.keys(byYear).map(Number).sort(function (a, b) { return a - b; });
+    var folded = years.slice(0, NISA_HISTORY_MAX).map(function (y) { return byYear[y]; });
+    return nisaHistoryFold(folded, currentYear);
+  }
   // B#3 Stage2: 実効値（source='history' なら履歴の畳み込みで5スカラーを差替）。
   // これにより nisaDerive 以降の下流（Pct/over/ETA/facts/raw/VM）は d.n.* を読むだけで無改修のまま精度が上がる。
   function nisaEffective(n, currentYear) {
@@ -1306,6 +1334,7 @@
     normalizeNisa: normalizeNisa,
     normalizeNisaYear: normalizeNisaYear, normalizeNisaHistory: normalizeNisaHistory,
     nisaHistoryFold: nisaHistoryFold, nisaEffective: nisaEffective,
+    nisaLedgerFold: nisaLedgerFold, nisaLedgerYear: nisaLedgerYear,
     NISA_MIN_YEAR: NISA_MIN_YEAR, NISA_HISTORY_MAX: NISA_HISTORY_MAX,
     NISA_SOURCES: NISA_SOURCES,   // Stage1 では未export＝Task9 の setNisaSource が R.NISA_SOURCES を使うため追加
     NISA_ANNUAL_TSUMITATE: NISA_ANNUAL_TSUMITATE, NISA_ANNUAL_GROWTH: NISA_ANNUAL_GROWTH,

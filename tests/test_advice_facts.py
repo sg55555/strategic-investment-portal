@@ -1144,6 +1144,59 @@ def test_stage2_coarsen_unchanged_for_history():
     assert coarse["nisa"]["lifetimeUsedPct"] % 25 == 0
 
 
+def _lrow(period, t, g, st, sg):
+    return {"period": period, "nisa_tsumitate_delta": t, "nisa_growth_delta": g,
+            "nisa_tsumitate_sold_at_cost": st, "nisa_growth_sold_at_cost": sg}
+
+
+def test_nisa_ledger_fold_empty_degrades_to_zero():
+    assert advice._nisa_ledger_fold([], 2026) == {
+        "tsumitateThisYear": 0, "growthThisYear": 0, "soldThisYearAtCost": 0,
+        "tsumitateLifetime": 0, "growthLifetime": 0,
+    }
+
+
+def test_nisa_ledger_fold_sums_months_into_year():
+    f = advice._nisa_ledger_fold([_lrow("2026-01-01", 100000, 0, 0, 0),
+                                 _lrow("2026-02-01", 100000, 200000, 0, 0)], 2026)
+    assert f["tsumitateThisYear"] == 200000
+    assert f["growthLifetime"] == 200000
+
+
+def test_nisa_ledger_fold_current_year_sale_not_deducted():
+    f = advice._nisa_ledger_fold([_lrow("2026-03-01", 500000, 0, 200000, 0)], 2026)
+    assert f["tsumitateLifetime"] == 500000
+    assert f["soldThisYearAtCost"] == 200000
+
+
+def test_nisa_ledger_fold_past_year_sale_is_deducted():
+    f = advice._nisa_ledger_fold([_lrow("2025-03-01", 500000, 0, 200000, 0)], 2026)
+    assert f["tsumitateLifetime"] == 300000
+
+
+def test_nisa_ledger_fold_drops_invalid_rows():
+    f = advice._nisa_ledger_fold([
+        _lrow("2023-01-01", 900000, 0, 0, 0), _lrow("xxxx-01-01", 900000, 0, 0, 0),
+        _lrow("", 900000, 0, 0, 0), None, 42, [1, 2],
+        {"period": "2026-01-01", "nisa_tsumitate_delta": "abc", "nisa_growth_delta": float("nan"),
+         "nisa_tsumitate_sold_at_cost": [5], "nisa_growth_sold_at_cost": -100},
+    ], 2026)
+    assert f == {"tsumitateThisYear": 0, "growthThisYear": 0, "soldThisYearAtCost": 0,
+                 "tsumitateLifetime": 0, "growthLifetime": 0}
+
+
+def test_nisa_ledger_fold_equals_history_fold():
+    """委譲の証明＝同じ年別実績を history 入力と ledger 入力で与えると5スカラーが一致。"""
+    hist = [
+        {"year": 2025, "tsumitate": 400000, "growth": 900000, "soldTsumitate": 100000, "soldGrowth": 300000},
+        {"year": 2026, "tsumitate": 600000, "growth": 500000, "soldTsumitate": 50000, "soldGrowth": 20000},
+    ]
+    rows = [_lrow("2025-04-01", 400000, 900000, 100000, 300000),
+            _lrow("2026-05-01", 300000, 200000, 50000, 0),
+            _lrow("2026-06-01", 300000, 300000, 0, 20000)]
+    assert advice._nisa_ledger_fold(rows, 2026) == advice._nisa_history_fold(hist, 2026)
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
