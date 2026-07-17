@@ -1,0 +1,39 @@
+# 投資台帳 ETL — Notion「投資取引」DB → Neon me.investment_snapshots。
+# 必要 Secrets: NOTION_TOKEN（読取専用 integration・対象DBに共有必須）/ DATABASE_URL（Neon）。
+#   ※既存2本を再利用＝新設しない。
+# cashflow-pull.yml とは別ファイル・別 concurrency group（別失敗ドメイン＝投資 ETL の失敗が
+#   収支 pull を巻き込まない・db/schema_me.sql:97 の要求）。
+# Claude API は叩かない純 ETL（課金ゼロ）。
+#
+# schedule は台帳にデータが入る（初購入）まで無効。初購入後に手動 dispatch でサニティを取ってから
+# 下の schedule を有効化し、有効化日をここにコメントで残すこと（cashflow-pull.yml の慣習）。
+name: investment-pull
+
+on:
+  workflow_dispatch:
+  # schedule:
+  #   - cron: "0 21 2 * *"  # 毎月 2 日 21:00 UTC = JST 翌 06:00 頃（前月確定後）。初購入後に有効化。
+
+permissions:
+  contents: read
+
+concurrency:
+  group: investment-pull
+  cancel-in-progress: false
+
+jobs:
+  pull:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install deps
+        run: pip install "psycopg[binary]>=3"
+      - name: Run investment ETL
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/etl_investment.py
