@@ -10,6 +10,8 @@ window.MCC = (function () {
   // Task8 修正（focusout ベース・spec §8.2）：setField 等が render 予約だけ立て、実際の再描画は
   // root の focusout（Tab/クリック時の移動先確定後）に委ねる。Enter 確定（focusout が来ない）は
   // setField 側が即 renderRestoring するフォールバック。render() 呼び出しのたびに必ず null へ戻す。
+  // Task8 再入バグ修正：_renderDirty は render() 冒頭で呼び出し元を問わず必ず false に戻す（不変条件＝
+  // render() が走った＝画面は最新＝もう dirty ではない）。詳細は render() 内コメント参照。
   var _renderDirty = false;
   var _pendingFocusKey = null;
 
@@ -1072,6 +1074,7 @@ window.MCC = (function () {
         '<label for="mcc-ac-birthyear">生年</label>' +
         '<input class="mcc-ac-age" id="mcc-ac-birthyear" type="number" min="1900" max="' + currentYear + '" ' +
           'value="' + (state.birthYear > 0 ? state.birthYear : "") + '" placeholder="例: 1986" ' +
+          'data-mcc-focus="birthYear" ' +
           'onchange="MCC.setField(\'birthYear\', this.value)">' +
         readoutHtml +
       '</div>';
@@ -1306,6 +1309,15 @@ window.MCC = (function () {
   }
 
   function render() {
+    // Task8 再入バグ修正（レビュー指摘・実測 CONFIRMED）：render() を直接呼ぶ経路（addGoal/removeGoal/
+    // addReserve/removeReserve/acSetScope・advice refresh や cloud sync 完了等の非同期コールバック）は
+    // _renderDirty に一切触れない。そのため _renderDirty===true の窓（フォールバックタイマー待ち）に
+    // それら直接呼び出しが走ると、root.innerHTML 代入がフォーカス中要素を切断→同期 blur/focusout が
+    // root にバブル→_onRootFocusOut が _renderDirty===true を見て renderRestoring()→render() を呼び、
+    // 外側 render() の innerHTML 代入の最中に内側 render() が再入していた。
+    // 「render() が走った＝画面は最新になった＝もう dirty ではない」が本来の不変条件のため、ここで
+    // 呼び出し元を問わず必ず false に落とす（renderRestoring 内の reset は冗長だが実害なく残す）。
+    _renderDirty = false;
     var root = document.getElementById("mcc-root");
     if (!root) return;
     var vm = R.viewModel(state);
