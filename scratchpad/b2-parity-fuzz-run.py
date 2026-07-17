@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""scratchpad/b2-parity-fuzz-run.py — Task7 パリティ fuzz: Python 側 mode_a_facts 実行ヘルパー。
+"""scratchpad/b2-parity-fuzz-run.py — Task7/Task10 パリティ fuzz: Python 側 mode_a_facts 実行ヘルパー。
 
 scratchpad/b2-parity-fuzz.js から起動される（PYTHONPATH=api/me 前提で `import advice` が解決する）。
-Node が書いた入力 JSON（cases: [{name, state, nowMs}]）を読み、
+Node が書いた入力 JSON（cases: [{name, state, nowMs, cashflow, investment}]）を読み、
 production/personal 両モードの advice.mode_a_facts 出力を書き出す。検証専用・advice.py は無改変。
+Task10: investment（台帳行）も cashflow の隣で受け、mode_a_facts の第5引数として渡す。
 """
 import json
 import math
@@ -36,12 +37,13 @@ def main():
         state = c["state"]
         now_ms = c["nowMs"]
         cashflow = c.get("cashflow")  # scalar-coerce パリティ堅牢化: cfNum 経路も検証（None=Slice3 経路）
+        investment = c.get("investment")  # Task10: 台帳行（0行含む・None は生じない=JS 側は常に配列を渡す）
         try:
-            prod = advice.mode_a_facts(state, False, now_ms, cashflow)
+            prod = advice.mode_a_facts(state, False, now_ms, cashflow, investment)
         except Exception as e:  # noqa: BLE001 — fuzz は例外自体も mismatch として可視化する
             prod = {"__error__": repr(e)}
         try:
-            pers = advice.mode_a_facts(state, True, now_ms, cashflow)
+            pers = advice.mode_a_facts(state, True, now_ms, cashflow, investment)
         except Exception as e:  # noqa: BLE001
             pers = {"__error__": repr(e)}
         out.append({"name": c["name"], "prod": prod, "pers": pers})

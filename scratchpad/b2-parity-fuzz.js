@@ -1,8 +1,10 @@
-// scratchpad/b2-parity-fuzz.js — Task7 JS↔Py modeAFacts/mode_a_facts パリティ fuzz。
+// scratchpad/b2-parity-fuzz.js — Task7/Task10 JS↔Py modeAFacts/mode_a_facts パリティ fuzz。
 //
 // birthYear/assetHoldings/nowMs をランダム生成（巨大/負 nowMs・単一要素配列 coercion・birthYear 未設定 を含む）し、
 // JS money-rules.js modeAFacts と Python advice.mode_a_facts のトップレベル出力（production/personal 両モード）が
 // JSON 正規化後に一致することを検証する。0 mismatch が完了条件。
+// Task10（B#3 Stage3）: 投資台帳の月次行（investmentRows/investment）も cashflow と同じ経路で通す
+// （period 不正・年域外・非有限・配列 coercion を含む）。
 //
 // 実装コード（money-rules.js/advice.py）は変更しない＝検証専用ハーネス。mismatch を見つけたらここでは修正せず
 // scratchpad/b2-parity-fuzz-mismatches.json に詳細を書き出し、呼び出し側が BLOCKED 判断する。
@@ -253,6 +255,26 @@ function genCashflowRows() {
   return rows;
 }
 
+// ---- B#3 Stage3: 台帳行の生成器。period の不正・年域外・非有限・配列も混ぜて両言語の coerce 対称性を突く。----
+function genLedgerRows(rng) {
+  const n = Math.floor(rng() * 6);           // 0〜5行（0行＝configured:false 経路も踏む）
+  const rows = [];
+  for (let i = 0; i < n; i++) {
+    const bad = rng() < 0.25;
+    const year = 2023 + Math.floor(rng() * 6);          // 2023(域外) 〜 2028(未来)
+    const month = 1 + Math.floor(rng() * 12);
+    rows.push({
+      period: bad && rng() < 0.5 ? "xxxx-01-01"
+            : `${year}-${String(month).padStart(2, "0")}-01`,
+      nisa_tsumitate_delta: bad ? [5] : Math.floor(rng() * 1500000),
+      nisa_growth_delta: bad ? NaN : Math.floor(rng() * 2500000),
+      nisa_tsumitate_sold_at_cost: bad ? "abc" : Math.floor(rng() * 400000),
+      nisa_growth_sold_at_cost: bad ? -100 : Math.floor(rng() * 400000),
+    });
+  }
+  return rows;
+}
+
 // ---- ケース生成 ----
 const cases = [];
 for (let i = 0; i < N; i++) {
@@ -261,6 +283,7 @@ for (let i = 0; i < N; i++) {
     state: genState(),
     nowMs: genNowMs(),
     cashflow: genCashflowRows(),
+    investment: genLedgerRows(rng),
   });
 }
 
@@ -282,13 +305,13 @@ function canon(o) {
 
 // ---- JS 側出力（production + personal 両モード）----
 const jsResults = cases.map((c) => {
-  const prod = R.modeAFacts(c.state, { includeRawAmounts: false, nowMs: c.nowMs, cashflow: c.cashflow });
-  const pers = R.modeAFacts(c.state, { includeRawAmounts: true, nowMs: c.nowMs, cashflow: c.cashflow });
-  return { name: c.name, state: c.state, nowMs: c.nowMs, cashflow: c.cashflow, prod: canon(prod), pers: canon(pers) };
+  const prod = R.modeAFacts(c.state, { includeRawAmounts: false, nowMs: c.nowMs, cashflow: c.cashflow, investmentRows: c.investment });
+  const pers = R.modeAFacts(c.state, { includeRawAmounts: true, nowMs: c.nowMs, cashflow: c.cashflow, investmentRows: c.investment });
+  return { name: c.name, state: c.state, nowMs: c.nowMs, cashflow: c.cashflow, investment: c.investment, prod: canon(prod), pers: canon(pers) };
 });
 
 const ioPath = path.join(__dirname, "b2-parity-fuzz-io.json");
-fs.writeFileSync(ioPath, JSON.stringify({ cases: jsResults.map((r) => ({ name: r.name, state: r.state, nowMs: r.nowMs, cashflow: r.cashflow })) }), "utf8");
+fs.writeFileSync(ioPath, JSON.stringify({ cases: jsResults.map((r) => ({ name: r.name, state: r.state, nowMs: r.nowMs, cashflow: r.cashflow, investment: r.investment })) }), "utf8");
 
 // ---- Python 側実行（PYTHONPATH=api/me で advice.mode_a_facts を呼ぶ）----
 const pyScript = path.join(__dirname, "b2-parity-fuzz-run.py");
@@ -313,12 +336,12 @@ for (const jr of jsResults) {
   const prodStr = JSON.stringify(jr.prod);
   const pyProdStr = JSON.stringify(canon(pr ? pr.prod : undefined));
   if (prodStr !== pyProdStr) {
-    mismatches.push({ name: jr.name, mode: "production", state: jr.state, nowMs: jr.nowMs, cashflow: jr.cashflow, js: jr.prod, py: pr ? pr.prod : null });
+    mismatches.push({ name: jr.name, mode: "production", state: jr.state, nowMs: jr.nowMs, cashflow: jr.cashflow, investment: jr.investment, js: jr.prod, py: pr ? pr.prod : null });
   }
   const persStr = JSON.stringify(jr.pers);
   const pyPersStr = JSON.stringify(canon(pr ? pr.pers : undefined));
   if (persStr !== pyPersStr) {
-    mismatches.push({ name: jr.name, mode: "personal", state: jr.state, nowMs: jr.nowMs, cashflow: jr.cashflow, js: jr.pers, py: pr ? pr.pers : null });
+    mismatches.push({ name: jr.name, mode: "personal", state: jr.state, nowMs: jr.nowMs, cashflow: jr.cashflow, investment: jr.investment, js: jr.pers, py: pr ? pr.pers : null });
   }
 }
 
