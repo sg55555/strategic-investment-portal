@@ -493,9 +493,13 @@
     var stored = normalizeNisa(state && state.nisa);
     var now = nisaNow(nowMs);
     var n = nisaEffective(stored, now.year);   // Stage2: history なら履歴の畳み込みに差替（下流は無改修）
-    var configured = stored.anchorYear > 0 || stored.tsumitateThisYear > 0 || stored.growthThisYear > 0 ||
-      stored.tsumitateLifetime > 0 || stored.growthLifetime > 0 || stored.soldThisYearAtCost > 0 ||
-      stored.history.length > 0;
+    // configured は「今有効な入力源にデータがあるか」＝source 別（spec §4）。source 非依存にすると
+    // 「履歴モードで記録→手入力へ戻す」状態（スカラー全0・履歴残存）で「枠を全く使っていない」と
+    // facts が嘘をつく。'ledger'（Stage3・未実装）は当面 manual と同じ枝。
+    var configured = stored.source === "history"
+      ? stored.history.length > 0
+      : (stored.anchorYear > 0 || stored.tsumitateThisYear > 0 || stored.growthThisYear > 0 ||
+         stored.tsumitateLifetime > 0 || stored.growthLifetime > 0 || stored.soldThisYearAtCost > 0);
     var atUsed = n.tsumitateThisYear, agUsed = n.growthThisYear, atTotal = atUsed + agUsed;
     var lifeUsed = n.tsumitateLifetime + n.growthLifetime;
     var annualTsumitateRemaining = Math.max(0, NISA_ANNUAL_TSUMITATE - atUsed);

@@ -111,12 +111,18 @@ nisa: {
 
 現行（money-rules.js:425-426 / advice.py:871-872）は**6数値スカラーの OR**。履歴だけを入れた state はこの判定で `configured:false` になり、`facts.nisa` / `facts.raw.nisa` が**キーごと消える**（`if (nf) facts.nisa = nf` 契約）。
 
+**判定を `source` 別にする**（＝「今有効な入力源にデータがあるか」を見る）：
+
 ```
-configured = (既存6スカラーの OR) || n.history.length > 0
+configured = (stored.source === 'history')
+  ? stored.history.length > 0
+  : (既存6スカラーの OR)
 ```
 
-- 既存 fixture は `history` を持たない → 判定不変 → **両モード全 fixture グリーン維持**。
+- 既存 fixture は `source` 既定が `'manual'` → 判定不変 → **両モード全 fixture グリーン維持**。
 - 両言語同時変更（byte-parity）。
+- `'ledger'`（Stage3・未実装）は当面 manual と同じ枝（`nisaEffective` も非 history は素通しゆえ整合）。
+- **なぜ source 別か**（2026-07-17 レビューで確定・当初案 `(6スカラーOR) || history.length>0` からの変更）：source 非依存にすると「履歴モードで記録 → 手入力モードへ戻す」状態（手入力スカラー全0・履歴は残存＝§5 で消さないため）で `configured:true` になり、**`facts.nisa` が「NISA枠を全く使っていない」と AI コーチに報告する**。実際には履歴に記録がある。Stage2 の目的（数字が黙って嘘をつかない）に反するため source 別が正しい。
 
 ## §5 切替と移行（`MCC.setNisaSource`）
 

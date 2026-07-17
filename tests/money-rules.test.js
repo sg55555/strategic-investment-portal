@@ -1323,6 +1323,22 @@ test("nisaDerive: configured は history のみでも true（スカラー全0）
   assert.equal(R.nisaDerive({ nisa: { source: "history", history: [] } }, Date.UTC(2026, 0, 1)).configured, false);
 });
 
+test("nisaDerive: configured は source 別（履歴モードで記録→手入力へ戻すと未設定に戻る）", () => {
+  const now = Date.UTC(2026, 5, 10);
+  // 履歴モードで記録した後、手入力へ戻した状態（手入力スカラーは全0・履歴は残存）。
+  // source 非依存だと「枠を全く使っていない」と facts が嘘をつくため、手入力に何も無ければ未設定が正。
+  const st = { nisa: { source: "manual", history: [{ year: 2024, tsumitate: 3600000 }] } };
+  assert.equal(R.nisaDerive(st, now).configured, false);
+
+  // 同じ state を履歴モードにすると configured
+  const st2 = { nisa: { source: "history", history: [{ year: 2024, tsumitate: 3600000 }] } };
+  assert.equal(R.nisaDerive(st2, now).configured, true);
+
+  // 手入力モードでスカラーがあれば従来どおり configured（history の有無に依らない）
+  const st3 = { nisa: { source: "manual", tsumitateThisYear: 1, history: [{ year: 2024, tsumitate: 1 }] } };
+  assert.equal(R.nisaDerive(st3, now).configured, true);
+});
+
 test("nisaDerive: staleAnchorYear は history モードで常に false（意味の縮退）", () => {
   const st = { nisa: { source: "history", anchorYear: 2024, history: [{ year: 2024, tsumitate: 1 }] } };
   assert.equal(R.nisaDerive(st, Date.UTC(2026, 5, 10)).staleAnchorYear, false);
