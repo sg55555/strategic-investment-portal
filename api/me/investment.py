@@ -1,7 +1,10 @@
 """GET /api/me/investment — 司令室の投資スナップショット（投資台帳の素データ）。認証必須・読取専用。
 
 → {"investment": [ {period, invest_cash_flow, principal_core_delta, principal_sat_delta,
-                    realized_gain, is_complete, holdings, pulled_at}, ... ]}
+                    realized_gain, is_complete, holdings, pulled_at,
+                    nisa_tsumitate_delta, nisa_growth_delta,
+                    nisa_tsumitate_sold_at_cost, nisa_growth_sold_at_cost}, ... ]}
+（NISA 4列は B#3 Stage3・per-period delta。nisaLedgerFold が年別に畳んで NISA 枠導出の入力にする。）
 業務 math は持たない（元本/実現益/investable の算出は money-rules.js investmentDerived が担う＝単一源）。
 書込は ETL（GitHub Actions / scripts/etl_investment.py）のみ＝この endpoint に PUT は無い（state.py の LWW 同期に乗せない）。
 セッション無効は 401。テーブル未適用/読取失敗は investment:[] で degrade（保有ゼロ/未配線でも UI/Mode A は investable=0 で正常）。
