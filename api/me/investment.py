@@ -18,6 +18,7 @@ import os
 import sys
 
 import psycopg
+from psycopg import errors as pg_errors
 
 COOKIE = "wc_session"
 MAX_MONTHS = 120  # 直近10年分（月次・元本累積は全期間だが payload を抑制）
@@ -72,6 +73,29 @@ def _row_to_dict(rec):
     return out
 
 
+def _read_snapshots(cur):
+    """me.investment_snapshots を読み (rows, schema_ok) を返す。例外は投げない。
+
+    schema_ok=True  → 列/テーブルが存在（rows が空でも「本当にデータ 0 件」＝正常）。
+    schema_ok=False → UndefinedColumn/UndefinedTable＝NISA 列 migration 未適用（silent 化せず可視化）。
+    schema_ok=None  → その他の読取失敗（未知・degrade）。
+    いずれも呼び出し側は 200 で degrade（空配列）を返せる。
+    """
+    try:
+        cur.execute(
+            "SELECT " + ", ".join(COLUMNS) + " FROM me.investment_snapshots "
+            "ORDER BY period DESC LIMIT %s",
+            (MAX_MONTHS,),
+        )
+        return [_row_to_dict(rec) for rec in cur.fetchall()], True
+    except (pg_errors.UndefinedColumn, pg_errors.UndefinedTable) as e:
+        print(f"me/investment schema not applied (migration pending): {e!r}", file=sys.stderr)
+        return [], False
+    except Exception as e:  # noqa: BLE001
+        print(f"me/investment read degraded: {e!r}", file=sys.stderr)
+        return [], None
+
+
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
         token = _cookie_token(self.headers)
@@ -79,18 +103,10 @@ class handler(BaseHTTPRequestHandler):
             with _conn() as conn, conn.cursor() as cur:
                 if not _valid_session(cur, token):
                     return self._json(401, {"error": "unauthorized"})
-                # テーブル未適用/保有ゼロ/読取失敗は空配列で degrade（500 にしない＝investable=0 で正常）。
-                try:
-                    cur.execute(
-                        "SELECT " + ", ".join(COLUMNS) + " FROM me.investment_snapshots "
-                        "ORDER BY period DESC LIMIT %s",
-                        (MAX_MONTHS,),
-                    )
-                    rows = [_row_to_dict(rec) for rec in cur.fetchall()]
-                except Exception as e:  # noqa: BLE001
-                    print(f"me/investment read degraded: {e!r}", file=sys.stderr)
-                    rows = []
-                return self._json(200, {"investment": rows})
+                # 列/テーブル不在（migration 未適用）・読取失敗・0 件を _read_snapshots が分類し
+                # schemaOk で可視化（false=migration 未適用の silent degrade を露出）。
+                rows, schema_ok = _read_snapshots(cur)
+                return self._json(200, {"investment": rows, "schemaOk": schema_ok})
         except Exception as e:  # noqa: BLE001
             print(f"me/investment do_GET error: {e!r}", file=sys.stderr)
             return self._json(500, {"error": "internal"})
