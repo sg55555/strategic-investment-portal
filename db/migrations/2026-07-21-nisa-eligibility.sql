@@ -21,3 +21,21 @@ CREATE TABLE IF NOT EXISTS market.nisa_tsumitate (
   list_updated_at  DATE,                   -- FSA リスト改定日（r0 Excel シリアル由来）
   nisa_source      TEXT NOT NULL DEFAULT 'fsa-tsumitate-xlsx'
 );
+
+-- ── 本番投入 SQL 検証（手動適用後・inert・読取のみ・§3.6）──
+-- 適用（破壊系は手動）:
+--   psql "$DATABASE_URL" -f db/migrations/2026-07-21-nisa-eligibility.sql
+--   DATABASE_URL=... IMAJ_XLSX=... python scripts/refresh_nisa.py
+--   DATABASE_URL=... FSA_XLSX=... IMAJ_XLSX=... python scripts/refresh_nisa_tsumitate.py
+-- 検証:
+--   SELECT distinct nisa_growth_status FROM market.ticker_master;
+--     期待: JP stock=eligible / US=conditional / 該当 JP ETF=eligible(imaj-listed) / 他=unknown
+--   SELECT nisa_growth_status, count(*) FROM market.ticker_master GROUP BY 1;
+--   SELECT category, count(*) FROM market.nisa_tsumitate GROUP BY 1;
+--     期待: index≈286 / active≈65 / etf≈9（loud-fail レンジ内）
+--   SELECT max(list_updated_at) FROM market.nisa_tsumitate;  -- FSA r0 シリアル由来の改定日
+--   -- 再取込で serial 不変（UNIQUE upsert）:
+--   SELECT id, fund_name FROM market.nisa_tsumitate ORDER BY id LIMIT 3;  -- 再実行前後で id 一致
+--   -- 書き手分離: GHA market-refresh 実行後も NISA 列が保持されることを確認:
+--   SELECT ticker, nisa_growth_status, nisa_checked_at FROM market.ticker_master
+--     WHERE nisa_checked_at IS NOT NULL ORDER BY nisa_checked_at DESC LIMIT 5;
