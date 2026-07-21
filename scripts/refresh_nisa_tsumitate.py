@@ -8,6 +8,7 @@ from __future__ import annotations
 import datetime
 import os
 import sys
+import unicodedata
 
 # シート名 → (category, fund_col, mgmt_col, index_col, df_col)。index/df 無しは None。
 # col は 0 始まり列インデックス。r0-r3 メタ・r4 ヘッダ・r5 以降データ。
@@ -71,8 +72,6 @@ def parse_fsa_tsumitate(path_or_wb) -> list[dict]:
                 f"({lo}-{hi}) — FSA sheet {title!r} layout changed?")
     return out
 
-
-import unicodedata
 
 _TS_COLS = ("fund_name", "mgmt_company", "category", "index_name",
             "domestic_foreign", "fund_code", "etf_ticker", "list_updated_at")
