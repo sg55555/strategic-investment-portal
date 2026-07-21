@@ -9,9 +9,11 @@ import hashlib
 import json
 import math
 import os
+import re
 import sys
 import time
 from datetime import datetime, timezone
+from decimal import Decimal
 from http.server import BaseHTTPRequestHandler
 
 import psycopg
@@ -251,6 +253,249 @@ def parse_ai(text):
     return out
 
 
+# ---- NISA 制度モデル（advice.py から逐語複製・パリティテストがドリフト防止／本体編集禁止）----
+NISA_ANNUAL_TSUMITATE = 1200000
+NISA_ANNUAL_GROWTH = 2400000
+NISA_ANNUAL_TOTAL = 3600000
+NISA_LIFETIME = 18000000
+NISA_GROWTH_LIFETIME_CAP = 12000000
+NISA_SOURCES = ("manual", "history", "ledger")
+NISA_MIN_YEAR = 2024  # Stage2: 新NISA開始年＝履歴年の下限（facts非出力・money-rules.js と同値必須）
+NISA_HISTORY_MAX = 50  # Stage2: 履歴件数上限（money-rules.js NISA_HISTORY_MAX と同値必須）
+# 共有 strict-decimal 文法（scalar-coerce パリティ堅牢化 2026-07-15）。ASCII クラス限定＝\d/\s 不使用
+# （\d/\s は Unicode-aware で全角/アラビア数字・Unicode 空白を通し JS Number() と発散復活）。LENIENT 前後 ASCII 空白。
+_DECIMAL_RE = re.compile(r'^[ \t\n\r\f\x0b]*[+-]?(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][+-]?[0-9]+)?[ \t\n\r\f\x0b]*$')
+
+
+def _parse_num(v):                               # → float（nan/±inf を返し得る・呼び元が gate）
+    if isinstance(v, bool):                      # bool を int より先に（Python は bool <: int）
+        return float('nan')
+    if isinstance(v, (int, float, Decimal)):     # Decimal 必須＝advice.py は cashflow の生 Decimal を _cf_num へ直渡し
+        try:
+            return float(v)                      # 巨大 int → double 化＝JS JSON.parse 意味論／float(Decimal) で現行挙動維持
+        except OverflowError:
+            return float('inf') if v > 0 else float('-inf')  # 巨大 int/Decimal(>~1.8e308) → JS JSON.parse の ±Infinity と対称（migrate gate の >0/>=0 判定を JS と一致・num/cfNum では非有限ゲートで 0 へ collapse）
+        except (ValueError, TypeError):
+            return float('nan')                  # Decimal('sNaN') 等の到達不能例外の保険
+    if isinstance(v, str):
+        if not _DECIMAL_RE.match(v):             # 0x/0o/0b/underscore/unicode-digit を拒否
+            return float('nan')
+        try:
+            return float(v)
+        except (ValueError, OverflowError):
+            return float('nan')
+    return float('nan')                          # None, list, dict, datetime, ...
+
+
+def _num(v):
+    n = _parse_num(v)
+    return (n + 0.0) if (math.isfinite(n) and n >= 0) else 0.0   # 非負・+0.0 で -0.0 正規化
+
+
+def _clamp(x, lo, hi):
+    return max(lo, min(hi, x))
+
+
+def _r(x):
+    return int(math.floor(_num(x) + 0.5))  # half-up（全値非負・JS r とパリティ）
+
+
+def _normalize_nisa_year(e):
+    """money-rules.js normalizeNisaYear の鏡像（年は範囲gate・金額は共有 _num・未知キー破棄）。"""
+    s = e if isinstance(e, dict) else {}
+    y = math.floor(_num(s.get("year")))
+    return {
+        "year": y if NISA_MIN_YEAR <= y <= 9999 else 0,
+        "tsumitate": _num(s.get("tsumitate")),
+        "growth": _num(s.get("growth")),
+        "soldTsumitate": _num(s.get("soldTsumitate")),
+        "soldGrowth": _num(s.get("soldGrowth")),
+    }
+
+
+def _normalize_nisa_history(raw):
+    """money-rules.js normalizeNisaHistory の鏡像。順序を厳密に一致させること＝
+    filter → slice(0,NISA_HISTORY_MAX) → map → 無効年除去 → 年で後勝ち畳み → 年昇順。"""
+    arr = raw if isinstance(raw, list) else []
+    kept = [e for e in arr if isinstance(e, dict)][:NISA_HISTORY_MAX]
+    rows = [row for row in (_normalize_nisa_year(e) for e in kept) if row["year"] > 0]
+    by_year = {}
+    for row in rows:
+        by_year[row["year"]] = row  # 後勝ち（合算しない）
+    return [by_year[y] for y in sorted(by_year.keys())]
+
+
+def _normalize_nisa(raw):
+    """money-rules.js normalizeNisa の鏡像（固定形状・非オブジェクト→全0骨格・scalar-only coerce・未知キー破棄）。"""
+    s = raw if isinstance(raw, dict) else {}
+    return {
+        "source": s.get("source") if s.get("source") in NISA_SOURCES else "manual",
+        "anchorYear": _num(s.get("anchorYear")),
+        "tsumitateThisYear": _num(s.get("tsumitateThisYear")),
+        "growthThisYear": _num(s.get("growthThisYear")),
+        "tsumitateLifetime": _num(s.get("tsumitateLifetime")),
+        "growthLifetime": _num(s.get("growthLifetime")),
+        "soldThisYearAtCost": _num(s.get("soldThisYearAtCost")),
+        "history": _normalize_nisa_history(s.get("history")),
+    }
+
+
+def _nisa_now(now_ms):
+    """money-rules.js nisaNow の鏡像（UTC 年/月0基・[1,9999] ガード）。既存 _glide_path と同じ
+    datetime.fromtimestamp(..., tz=timezone.utc) 経路を使う（advice.py 冒頭は `from datetime import datetime, timezone`
+    ゆえ `datetime` は既にクラス名＝`datetime.datetime` ではなく `datetime.fromtimestamp` で呼ぶ）。"""
+    ms = _num(now_ms)
+    try:
+        d = datetime.fromtimestamp(ms / 1000.0, tz=timezone.utc)
+    except (OverflowError, OSError, ValueError):
+        return {"year": 0, "monthIndex": 0, "valid": False}
+    y = d.year
+    if not (1 <= y <= 9999):
+        return {"year": 0, "monthIndex": 0, "valid": False}
+    return {"year": y, "monthIndex": d.month - 1, "valid": True}
+
+
+def _nisa_history_fold(history, current_year):
+    """money-rules.js nisaHistoryFold の鏡像。売却簿価は翌年1/1に復活＝当年の売却は生涯枠から控除しない。
+    未来年は無視（current_year=0＝無効時刻なら全0へ degrade）。"""
+    h = history if isinstance(history, list) else []
+    t_this = g_this = sold_this = 0.0
+    t_life = g_life = 0.0
+    for row in h:
+        y = row["year"]
+        if not (y > 0) or y > current_year:
+            continue
+        t_life += row["tsumitate"]
+        g_life += row["growth"]
+        if y == current_year:
+            t_this = row["tsumitate"]
+            g_this = row["growth"]
+            sold_this = row["soldTsumitate"] + row["soldGrowth"]
+        else:
+            t_life -= row["soldTsumitate"]  # 過去年の売却＝翌年1/1に復活済み
+            g_life -= row["soldGrowth"]
+    return {
+        "tsumitateThisYear": t_this, "growthThisYear": g_this, "soldThisYearAtCost": sold_this,
+        "tsumitateLifetime": max(0.0, t_life), "growthLifetime": max(0.0, g_life),
+    }
+
+
+def _nisa_ledger_year(period):
+    """money-rules.js nisaLedgerYear の鏡像。"YYYY-MM-01" の先頭4桁・域外/不正は 0。"""
+    if not isinstance(period, str) or len(period) < 4:
+        return 0
+    y = math.floor(_num(period[0:4]))
+    return y if NISA_MIN_YEAR <= y <= 9999 else 0
+
+
+def _nisa_ledger_fold(rows, current_year):
+    """money-rules.js nisaLedgerFold の鏡像。月次 delta を年別に畳み _nisa_history_fold へ委譲。
+    制度モデルは _nisa_history_fold が単一源＝ledger と history でドリフトしない。"""
+    arr = rows if isinstance(rows, list) else []
+    by_year = {}
+    for row in arr:
+        if not isinstance(row, dict):
+            continue
+        y = _nisa_ledger_year(row.get("period"))
+        if y == 0:
+            continue
+        acc = by_year.setdefault(y, {"year": y, "tsumitate": 0.0, "growth": 0.0,
+                                     "soldTsumitate": 0.0, "soldGrowth": 0.0})
+        acc["tsumitate"] += _num(row.get("nisa_tsumitate_delta"))
+        acc["growth"] += _num(row.get("nisa_growth_delta"))
+        acc["soldTsumitate"] += _num(row.get("nisa_tsumitate_sold_at_cost"))
+        acc["soldGrowth"] += _num(row.get("nisa_growth_sold_at_cost"))
+    folded = [by_year[y] for y in sorted(by_year.keys())][:NISA_HISTORY_MAX]
+    return _nisa_history_fold(folded, current_year)
+
+
+def _nisa_effective(n, current_year, ledger_rows=None):
+    """money-rules.js nisaEffective の鏡像（history/ledger なら5スカラーを畳み込みで差替・下流は無改修）。"""
+    if n["source"] == "ledger":
+        lf = _nisa_ledger_fold(ledger_rows if isinstance(ledger_rows, list) else [], current_year)
+        return {
+            "source": n["source"], "anchorYear": n["anchorYear"], "history": n["history"],
+            "tsumitateThisYear": lf["tsumitateThisYear"], "growthThisYear": lf["growthThisYear"],
+            "tsumitateLifetime": lf["tsumitateLifetime"], "growthLifetime": lf["growthLifetime"],
+            "soldThisYearAtCost": lf["soldThisYearAtCost"],
+        }
+    if n["source"] != "history":
+        return n
+    f = _nisa_history_fold(n["history"], current_year)
+    return {
+        "source": n["source"], "anchorYear": n["anchorYear"], "history": n["history"],
+        "tsumitateThisYear": f["tsumitateThisYear"], "growthThisYear": f["growthThisYear"],
+        "tsumitateLifetime": f["tsumitateLifetime"], "growthLifetime": f["growthLifetime"],
+        "soldThisYearAtCost": f["soldThisYearAtCost"],
+    }
+
+
+def _nisa_derive(state, now_ms, ledger_rows=None):
+    """money-rules.js nisaDerive の鏡像（単一計算源）。"""
+    stored = _normalize_nisa(state.get("nisa") if isinstance(state, dict) else None)
+    rows = ledger_rows if isinstance(ledger_rows, list) else []
+    now = _nisa_now(now_ms)
+    n = _nisa_effective(stored, now["year"], rows)  # Stage2: history / Stage3: ledger なら畳み込みに差替
+    # configured は「今有効な入力源にデータがあるか」＝source 別（spec §4・JS nisaDerive と同一分岐）。
+    if stored["source"] == "history":
+        configured = len(stored["history"]) > 0
+    elif stored["source"] == "ledger":
+        configured = len(rows) > 0
+    else:
+        configured = (stored["anchorYear"] > 0 or stored["tsumitateThisYear"] > 0 or stored["growthThisYear"] > 0
+                      or stored["tsumitateLifetime"] > 0 or stored["growthLifetime"] > 0
+                      or stored["soldThisYearAtCost"] > 0)
+    at, ag = n["tsumitateThisYear"], n["growthThisYear"]
+    at_total = at + ag
+    life_used = n["tsumitateLifetime"] + n["growthLifetime"]
+    at_rem = max(0.0, NISA_ANNUAL_TSUMITATE - at)
+    ag_rem = max(0.0, NISA_ANNUAL_GROWTH - ag)
+    at_total_rem = max(0.0, NISA_ANNUAL_TOTAL - at_total)
+    life_rem = max(0.0, NISA_LIFETIME - life_used)
+    gcap_rem = max(0.0, NISA_GROWTH_LIFETIME_CAP - n["growthLifetime"])
+    months_left = (12 - now["monthIndex"]) if now["valid"] else 0
+    return {
+        "configured": configured, "n": n, "stored": stored, "year": now["year"],
+        "monthIndex": now["monthIndex"], "valid": now["valid"],
+        "atUsed": at, "agUsed": ag, "atTotal": at_total,
+        "annualTsumitateRemaining": at_rem, "annualGrowthRemaining": ag_rem, "annualTotalRemaining": at_total_rem,
+        "lifeUsed": life_used, "lifetimeRemaining": life_rem, "growthCapRemaining": gcap_rem,
+        "annualTsumitateUsedPct": _clamp(_r(at / NISA_ANNUAL_TSUMITATE * 100), 0, 100),
+        "annualGrowthUsedPct": _clamp(_r(ag / NISA_ANNUAL_GROWTH * 100), 0, 100),
+        "annualTotalUsedPct": _clamp(_r(at_total / NISA_ANNUAL_TOTAL * 100), 0, 100),
+        "lifetimeUsedPct": _clamp(_r(life_used / NISA_LIFETIME * 100), 0, 100),
+        "growthCapUsedPct": _clamp(_r(n["growthLifetime"] / NISA_GROWTH_LIFETIME_CAP * 100), 0, 100),
+        "overContribution": (at > NISA_ANNUAL_TSUMITATE or ag > NISA_ANNUAL_GROWTH or at_total > NISA_ANNUAL_TOTAL
+                             or life_used > NISA_LIFETIME or n["growthLifetime"] > NISA_GROWTH_LIFETIME_CAP),
+        "hasRestorationPending": n["soldThisYearAtCost"] > 0,
+        # 古アンカー警告は manual 限定。history/ledger は年ロールオーバーが自動解決する＝誤警報にしない。
+        "staleAnchorYear": n["source"] == "manual" and now["valid"] and n["anchorYear"] > 0
+        and n["anchorYear"] < now["year"],
+        "monthsLeft": months_left,
+        "monthlyToFillTsumitate": math.ceil(at_rem / months_left) if months_left > 0 else 0,
+        "monthlyToFillGrowth": math.ceil(ag_rem / months_left) if months_left > 0 else 0,
+        "restoresYear": (now["year"] + 1) if now["valid"] else 0,
+    }
+
+
+def _nisa_raw(state, now_ms, ledger_rows=None):
+    """money-rules.js nisaRaw の鏡像（personal 生¥・未設定は None）。"""
+    d = _nisa_derive(state, now_ms, ledger_rows)
+    if not d["configured"]:
+        return None
+    return {
+        "tsumitateThisYear": d["atUsed"], "growthThisYear": d["agUsed"],
+        "tsumitateLifetime": d["n"]["tsumitateLifetime"], "growthLifetime": d["n"]["growthLifetime"],
+        "soldThisYearAtCost": d["n"]["soldThisYearAtCost"],
+        "annualTsumitateRemaining": d["annualTsumitateRemaining"],
+        "annualGrowthRemaining": d["annualGrowthRemaining"],
+        "lifetimeRemaining": d["lifetimeRemaining"],
+        "growthCapRemaining": d["growthCapRemaining"],
+        "monthlyToFillTsumitate": d["monthlyToFillTsumitate"],
+        "restoresYear": d["restoresYear"],
+    }
+
+
 # ---- handler・接続・認証ヘルパ＋定数（me/ グループ規約で advice.py を逐語複製・cross-file import 回避）----
 COOKIE = "wc_session"
 MODEL = "claude-sonnet-4-6"
@@ -373,11 +618,11 @@ def _read_universe(cur, market):
 
 
 # ---- LLM 呼び出し・ユーザプロンプト構築 ----
-def _call_llm(system, user_text):
+def _call_llm(system, user_text, max_tokens=INSIGHT_MAX_TOKENS):
     import anthropic
     client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
     resp = client.with_options(timeout=INSIGHT_LLM_TIMEOUT, max_retries=0).messages.create(
-        model=MODEL, system=system, max_tokens=INSIGHT_MAX_TOKENS,
+        model=MODEL, system=system, max_tokens=max_tokens,
         messages=[{"role": "user", "content": user_text}])
     text = "".join(getattr(b, "text", "") for b in resp.content if getattr(b, "type", "") == "text")
     try:
