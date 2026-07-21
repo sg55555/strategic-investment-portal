@@ -64,3 +64,57 @@ def classify_growth_status(ticker, country, sec_type, name, imaj_codes,
         return ("unknown", "")
     # 5) 判定不能 → unknown（安全側）
     return ("unknown", "")
+
+
+def load_ticker_rows(conn):
+    with conn.cursor() as cur:
+        cur.execute("SELECT ticker, country, type, company_name "
+                    "FROM market.ticker_master ORDER BY ticker")
+        return list(cur.fetchall())
+
+
+def upsert_nisa_status(conn, ticker, status, source):
+    with conn.cursor() as cur:
+        cur.execute(
+            "UPDATE market.ticker_master SET nisa_growth_status=%s, nisa_source=%s, "
+            "nisa_checked_at=now() WHERE ticker=%s",
+            (status, source, ticker))
+
+
+def run(conn, imaj_codes):
+    rows = load_ticker_rows(conn)
+    by_status = {}
+    for ticker, country, sec_type, name in rows:
+        status, source = classify_growth_status(ticker, country, sec_type, name, imaj_codes)
+        upsert_nisa_status(conn, ticker, status, source)
+        by_status[status] = by_status.get(status, 0) + 1
+    return {"updated": len(rows), "by_status": by_status}
+
+
+def _connect():
+    url = os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL")
+    if not url:
+        raise SystemExit("DATABASE_URL not set")
+    import psycopg
+    return psycopg.connect(url)
+
+
+def _imaj_codes():
+    path = os.environ.get("IMAJ_XLSX")
+    if not path or not os.path.exists(path):
+        raise SystemExit("IMAJ_XLSX not set or file missing (成長枠上場対象リスト xlsx)")
+    return parse_imaj_growth_codes(path)
+
+
+def main(argv=None):
+    argv = argv if argv is not None else sys.argv[1:]
+    imaj = _imaj_codes()
+    with _connect() as conn:
+        res = run(conn, imaj)
+    print(f"[refresh_nisa] updated={res['updated']} by_status={res['by_status']}",
+          file=sys.stderr)
+    return 0 if res["updated"] > 0 else 1   # loud-fail: 0 更新は非ゼロ
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

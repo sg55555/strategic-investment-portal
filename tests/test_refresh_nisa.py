@@ -56,3 +56,52 @@ def test_classify_growth_status_all_branches():
         == ("excluded", "jpx-alert")
     # その他（未知の country）→ unknown 安全側
     assert classify_growth_status("XX", "GB", "stock", "Foo", imaj) == ("unknown", "")
+
+
+def test_upsert_nisa_status_touches_only_nisa_columns():
+    from scripts.refresh_nisa import upsert_nisa_status
+    captured = {}
+    class Cur:
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def execute(self, sql, params): captured["sql"] = sql; captured["params"] = params
+    class Conn:
+        def cursor(self): return Cur()
+    upsert_nisa_status(Conn(), "7203.T", "eligible", "jp-negative-list")
+    s = captured["sql"].replace(" ", "").lower()
+    assert "updatemarket.ticker_master" in s
+    assert "nisa_growth_status=%s" in s and "nisa_source=%s" in s
+    assert "nisa_checked_at=now()" in s
+    # 書き手分離: 市場データ列を絶対に触らない
+    for forbidden in ("market_cap", "per=", "pbr", "company_name"):
+        assert forbidden not in s
+    assert captured["params"] == ("eligible", "jp-negative-list", "7203.T")
+
+
+def test_run_classifies_all_rows(monkeypatch):
+    from scripts import refresh_nisa as R
+    rows = [("7203.T", "JP", "stock", "トヨタ"),
+            ("AAPL", "US", "stock", "Apple"),
+            ("1306.T", "JP", "etf", "NEXT FUNDS TOPIX連動型上場投信"),
+            ("9999.T", "JP", "etf", "架空ETF")]
+    monkeypatch.setattr(R, "load_ticker_rows", lambda conn: rows)
+    seen = []
+    monkeypatch.setattr(R, "upsert_nisa_status",
+                        lambda conn, t, st, src: seen.append((t, st, src)))
+    res = R.run(None, {"1306"})
+    assert res["updated"] == 4
+    assert ("7203.T", "eligible", "jp-negative-list") in seen
+    assert ("1306.T", "eligible", "imaj-listed") in seen
+    assert ("9999.T", "unknown", "") in seen
+    assert res["by_status"]["conditional"] == 1
+
+
+def test_main_loud_fails_when_no_rows(monkeypatch):
+    from scripts import refresh_nisa as R
+    class _NullConn:
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+    monkeypatch.setattr(R, "_connect", lambda: _NullConn())
+    monkeypatch.setattr(R, "_imaj_codes", lambda: {"1306"} | {str(9000 + i) for i in range(400)})
+    monkeypatch.setattr(R, "load_ticker_rows", lambda conn: [])
+    assert R.main([]) != 0   # 0 更新は非ゼロ終了
