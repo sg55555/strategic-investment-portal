@@ -33,6 +33,13 @@ def insight_enabled():
     return os.environ.get("ADVICE_MODE", "production").strip().lower() == "personal"
 
 
+def nisa_advice_enabled():
+    # capability 論理積: personal かつ独立 killswitch ON。既定 off（未設定は off）。
+    if os.environ.get("ADVICE_MODE", "production").strip().lower() != "personal":
+        return False
+    return os.environ.get("NISA_ADVICE_ENABLED", "").strip().lower() in ("1", "true", "on")
+
+
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
         token = _cookie_token(self.headers)
@@ -51,7 +58,9 @@ class handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json")
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
-        self.wfile.write(json.dumps({"ok": ok, "insightEnabled": insight_enabled()}).encode())
+        self.wfile.write(json.dumps(
+            {"ok": ok, "insightEnabled": insight_enabled(), "nisaAdviceEnabled": nisa_advice_enabled()}
+        ).encode())
 
     def log_message(self, *args):
         pass
