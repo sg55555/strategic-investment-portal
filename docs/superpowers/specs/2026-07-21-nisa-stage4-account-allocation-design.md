@@ -37,7 +37,7 @@ related: 2026-07-16-nisa-quota-design.md, 2026-07-17-investment-ledger-foundatio
 | 5 | killswitch | **独立env `NISA_ADVICE_ENABLED`（既定OFF）**。NISA助言だけを即時停止でき advice/insight は生存。 |
 | 6 | 既存 silent degrade | **この機会に潰す**が、**独立 plan0 として先行**（Stage3残の既存バグ＝NISA助言と無関係ゆえ blast radius を分離）。 |
 | 7 | 監査ログ | **`me.nisa_log` 新設**（`insight_log`流用不可）。coarsen粗化・personalは ai_response/生¥永続化しない・rate/cooldown独立。 |
-| 8 | 決定論アンカー | **facts非出力・制度モデルleafを読む**（SCHEMA_VERSION据置）。制度モデルは**共有モジュール**から読む（複製禁止・§6）。 |
+| 8 | 決定論アンカー | **facts非出力・制度モデルleafを読む**（SCHEMA_VERSION据置）。制度モデルは**insight.py へ逐語複製**し advice.py↔insight.py パリティテストでドリフト防止（§6・既存 me/ 規約 insight.py:254 準拠）。 |
 | 9 | US個別株166・ETF18 | **`conditional`注記付きで候補に出す**（証券会社取扱い依存・単一公開ソースなし）。注記は**描画層でstatus列根拠に強制注入**（プロンプト依存にしない・§4.5）。 |
 | 10 | 4b入力源 | **`me.mcc_state` の NISA残枠を読む**（本人実枠に接地）。insight.py が初めて個人資産stateを読む結合＝me.nisa_log の coarsen で PII 担保。 |
 | 11 | JP監理・整理 | 当面 **「JP個別株=一律`eligible`」割り切り**（現該当0件で真）。`nisa_source`列に根拠記録・将来JPX差込余地。 |
@@ -140,7 +140,7 @@ feasibility＋writing-plans wf で下記を実測。**(b)(c) は解消済み**�
 
 ### §4.3 入力（facts.nisa残枠 + eligible_products）
 
-- **NISA残枠 facts**：`me.mcc_state`→制度モデルleaf（残枠スカラー）を取得。**取得方式は共有モジュール経由**（§6・「同ファイル内取得可」は insight.py 基準で誤りゆえ**撤回**）。NISA未設定（facts.nisa None＝mcc_stateにNISA設定なし）時は**残枠依存の順位付けを出さず** §4.7 decへ分岐。
+- **NISA残枠 facts**：`me.mcc_state`→制度モデルleaf（残枠スカラー）を取得。**取得方式は insight.py へ逐語複製した `_nisa_derive`**（§6・「同ファイル内取得可」「共有モジュール」案はいずれも撤回）。NISA未設定（facts.nisa None＝mcc_stateにNISA設定なし）時は**残枠依存の順位付けを出さず** §4.7 decへ分岐。
 - **eligible_products**（サーバ構築・決定論）：
   - **統一id名前空間**：`ts:<serial>`（つみたて）／`gw:<ticker>`（成長）のプレフィックス付き str（int/str混在解消・種別跨ぎ衝突を原理的に不能化・kind整合検査を全域化）。
   - つみたて＝`market.nisa_tsumitate`／成長＝`ticker_master WHERE nisa_growth_status IN('eligible','conditional')`＋ETF専用スロット（§3.4-3）。
@@ -157,7 +157,7 @@ feasibility＋writing-plans wf で下記を実測。**(b)(c) は解消済み**�
 1. 出力を構造化し**商品名をプロースに書かせない**（§4.5スキーマ）。
 2. parse段で各 `ref∈eligible_ids` かつ **kind整合**（tsumitate_refs は id が `ts:` 始まりのみ・growth_refs は `gw:` のみ）を **exact set-membership** 検証・範囲外/種別違いはdrop（NER不使用）。id自体の捏造は集合非所属で自動drop。
 3. **tsumitate捏造の盲点対処（構造側一本化）**：既存 `_security_market_hit`（advice.py:1283・ticker_masterのみ読む）は**投信ファンド名を検出不能**。ゆえに tsumitate 領域は「**refs＋描画層join・proseに商品語を一切書かせない**」を強制し、note内の**固有名詞様トークン（カタカナ長連・「ファンド」「インデックス」＋固有名）を保守的検出→degrade**。検出器（`_security_market_hit`/`_market_terms`）は成長ticker/社名の prose 混入検出に流用（§6の複製禁止は**制度モデル限定**＝検出器は複製可）。
-4. **売却negative constraint**：prose に売却動詞（売る/売却/移す/乗り換え/buy back 等）の簡易セマンティックガード→検出時degrade（最上位Non-goalの出力側担保・§13）。`taxable_note` は税務教育に限定。
+4. **売却negative constraint**：prose に売却動詞（売る/売却/移す/乗り換え/buy back 等）の簡易セマンティックガード→検出時degrade（最上位Non-goalの出力側担保・§13）。`taxable_note` は税務教育に限定。**売却動詞ガードは LLM 生成 prose フィールド（headline／tsumitate_plan.note／growth_candidates.note／taxable_note）のみに適用し、サーバ固定文（newMoneyNote／cautions／conditionalDisclaimer）は走査対象外**とする。理由＝`newMoneyNote` は「売却/移し替え指示ではない」旨の**サーバ注入固定文**ゆえ走査すると必ず自ヒットして恒常degradeする（自己矛盾）／`cautions` は「近く売却予定の資産は非課税枠に不向き」等の**正当な両論注意**が売却語を含みうる（誤degrade）／`conditionalDisclaimer` はサーバ強制注入の免責文。固定文の内容担保はサーバ側で行う。
 5. **既保有非考慮の枠付け**：growth候補は既存保有を除外しない（holdings非参照）＝「一般的適格候補・売却を勧めない」注記を付す（de facto移し替え示唆を防ぐ）。
 6. do_POST の **personal専用検証パス**（production 403 は外側で不変）。
 
@@ -165,7 +165,7 @@ feasibility＋writing-plans wf で下記を実測。**(b)(c) は解消済み**�
 
 ```
 { headline,
-  newMoneyNote,              // 固定文「新規資金の配分のみ・売却/移し替え指示ではない」（空→fail-closed非描画）
+  newMoneyNote,              // サーバ注入の固定文「新規資金の配分のみ・売却/移し替え指示ではない」（LLM非生成＝売却動詞ガードと非衝突・§4.4／常に注入ゆえ空にならない）
   tsumitate_plan: { note, refs:[id] },
   growth_candidates: { note, refs:[id], conditionalDisclaimer? },
   taxable_note,              // 税務教育に限定
@@ -245,7 +245,7 @@ understand wf D7/D5 で一次情報確認済み。**決定論アンカーとし�
 - **whitelist突合**：`refs⊆eligible_ids`＋kind整合（`ts:`/`gw:` プレフィックス）exact-match・範囲外/種別違い/id捏造をdrop。
 - **tsumitate捏造**：投信ファンド名を prose に出させ固有名詞様トークン検出→degrade（構造側防御）。
 - **売却指示**：売却動詞を prose に出させ semantic guard→degrade。
-- **cautions/newMoneyNote 欠落**：parse失敗→degrade（構造強制の実証）。
+- **cautions 欠落**：parse失敗→degrade（両論併記の構造強制の実証）。**newMoneyNote はサーバ固定文注入**ゆえ LLM が空/別文言でも常に固定文になる（degradeでなく上書き・§4.4）。
 - **文字数超過**：切詰でなくdegrade。
 - **層分離**：killswitch OFF で money.js 決定論版に商品名が出ない（§8教育のみ）。
 - **敵対 whole-branch wf（ultracode）**：捏造貫通/生¥ログ漏洩/production漏れ/書き手クロバー/degrade健全性/売却滑り込み の多観点。
@@ -263,13 +263,13 @@ understand wf D7/D5 で一次情報確認済み。**決定論アンカーとし�
 
 ## §11 リスク
 
-- **「ちょうど12」未検証**は回避（11/12維持＝新規handler .py足さない・共有モジュールは§3.7-cで関数非計上を検証）。
+- **「ちょうど12」未検証**は回避（11/12維持＝新規handler .py足さない・制度モデルは逐語複製ゆえ新規.py不要）。
 - **FSA直リンクの日付可変**→index毎回スクレイプ＋loud-failガード。
 - **US conditional の誠実さ**＝描画層で免責注入強制（プロンプト非依存）。
 - **JP監理整理の当面割り切り**＝現該当0で真・拡張時に JPX差込（§14）。
 - **令和8年度税制改正**（2027-01）＝可変数はSELECT count注入・テキストは施行日バージョン・施行後レビュー（先取り実装しない）。
 - **persona env 設定漏れ**が「機能が出ない」形（403と区別しにくい）→運用ノート明記。
-- **共有モジュールのVercel計上**＝§3.7-c で検証（計上されるなら明示importへ）。
+- **逐語複製の保守負担**＝advice.py↔insight.py パリティテスト（advice_facts_cases.json 流用）でドリフトを機械検知（§6）。
 
 ## §12 Non-goals（本スコープ）
 
@@ -298,5 +298,5 @@ understand wf D7/D5 で一次情報確認済み。**決定論アンカーとし�
 - 助言対象＝**新規資金の振り分けのみ**。endpoint＝**insight.py 相乗り**（11/12維持）。商品名＝**personalで含める・適格判定機能を創設**。
 - 法務＝**inert先行**／killswitch＝**独立env**／silent degrade＝**この機会に潰す**（plan0独立先行）。
 - US＝**conditional注記付き**／4b入力源＝**me.mcc_state のNISA残枠**／JP監理整理＝**当面一律eligible割り切り**／信託報酬＝**MVPなし＋将来タスク確実記録**。
-- 監査ログ＝me.nisa_log新設／決定論アンカー＝facts非出力・共有モジュール経由（複製禁止）。
+- 監査ログ＝me.nisa_log新設／決定論アンカー＝facts非出力・制度モデルは insight.py へ逐語複製＋advice↔insight パリティ（§6・writing-plans wf で共有モジュール案を撤回）。
 - self-review反映＝plan分割（0/A/B）・gate通過後dispatch・統一id名前空間（ts:/gw:）・coarsen生¥leaf粗化・層分離厳守（money.js商品名なし）・cautions構造強制・tsumitate捏造の構造側一本化・売却negative constraint。
