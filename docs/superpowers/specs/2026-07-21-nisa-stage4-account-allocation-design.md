@@ -7,7 +7,8 @@ backlog: "B #3 NISA枠 — Stage4（口座振り分け助言 / tax-location・�
 related: 2026-07-16-nisa-quota-design.md, 2026-07-17-investment-ledger-foundation-design.md, 2026-07-07-phase2-bundleD-layer2-personal-insight-design.md, 2026-07-14-asset-class-ratio-design.md
 改訂履歴:
   - 2026-07-21 初版（ブレスト確定→spec化。2wf実測で「商品名を出す＝適格判定データ基盤の創設が前提」と判明しStage4を4a/4bへ段階分離）
-  - 2026-07-21 self-review wf（4観点34件）反映＝blocker6件（FSA形式/ETF除外判定/_nisa_derive参照3制約/plan過大/gate順序/tsumitate捏造盲点）＋important主要を解消。plan分割・共有モジュール抽出・gate通過後dispatch・統一id名前空間・coarsen生¥leaf粗化・層分離厳守を確定。
+  - 2026-07-21 self-review wf（4観点34件）反映＝blocker6件（FSA形式/ETF除外判定/_nisa_derive参照3制約/plan過大/gate順序/tsumitate捏造盲点）＋important主要を解消。plan分割・gate通過後dispatch・統一id名前空間・coarsen生¥leaf粗化・層分離厳守を確定。
+  - 2026-07-21 writing-plans wf 実測反映＝§6を**逐語複製＋パリティテスト**に確定（insight.py:254規約準拠・共有モジュール案を撤回）。§3.1成長枠ETF判定を imaj_listed 銘柄コード突合＋決算回数（毎月分配）で精緻化。§3.7の (b)ETF除外・(c)制度モデルを実データで解消（(a)FSA構造も3シート判明・列詳細のみ残）。
 ---
 
 # NISA口座振り分け助言（tax-location）— Stage4 / B#3 層2 設計書
@@ -66,10 +67,11 @@ Stage4 は**3つの独立 plan** に割る（Stage1/2/3 も各独立planだっ�
 | `nisa_source` | text（default `''`） | 判定根拠 |
 | `nisa_checked_at` | timestamptz（default null） | 判定鮮度 |
 
-**判定ルール（`refresh_nisa.py`）**：
-- **JP個別株** → `eligible`（`nisa_source='jp-negative-list'`・監理整理は現該当0＝§1-11。将来 `market_alert!=none` なら `excluded`）。
-- **US個別株・USETF** → `conditional`（`nisa_source='us-broker-conditional'`）。
-- **レバレッジ/インバース/毎月分配 ETF** → `excluded`。**検出方式は実データ確定**（§3.7-b）＝現ユニバースETF23件を実測し、該当0なら空集合で真（JP監理整理同型）、該当ありなら name/ticker パターン or 手動リストで excluded を確定し `nisa_source='etf-rule-excluded'`。
+**判定ルール（`refresh_nisa.py`・実データで確定済み・universe.csv 289件＝JP105/US184・stock266/etf23）**：
+- **JP個別株**（stock/JP）→ `eligible`（`nisa_source='jp-negative-list'`・監理整理は現該当0＝§1-11。将来 `market_alert!=none` なら `excluded`）。
+- **US個別株・USETF**（US全184）→ `conditional`（`nisa_source='us-broker-conditional'`・成長枠取扱いは証券会社依存）。
+- **JP ETF**（5件：1306/1321/1343/1348/2558.T）→ 投信協会 成長枠上場対象リスト（`imaj_listed.xlsx`・419本）に**銘柄コード突合**で該当すれば `eligible`（`nisa_source='imaj-listed'`）、非該当は `unknown`。
+- **レバレッジ/インバース/毎月分配 ETF** → `excluded`。**実測で現ユニバースETF23件に該当0**（全て通常インデックス/セクターETF）＝空集合で真。将来混入に備え name パターン（`レバレッジ|インバース|ブル|ベア|ダブル|2倍|日々|毎月`）でガードし該当を `excluded`（`nisa_source='etf-rule-excluded'`）。毎月分配は投信協会リストの「決算回数」列で機械判定可（§3.4）。
 - 判定不能 → `unknown`（安全側）。
 
 ### §3.2 データモデル②: `market.nisa_tsumitate` 新テーブル（つみたて投資枠・ティッカーなし）
@@ -115,12 +117,12 @@ NISA列/テーブルは**専用updaterのみ**が更新。既存GHA（`market-re
 - **GHA market-refresh 実行後もNISA列が保持される**（書き手分離）ことをSQL確認。
 - ここまで単独で本番投入し検証可能（規制露出ゼロ）。
 
-### §3.7 実装plan先頭で実データ確定する項目（穴を推測で埋めない）
+### §3.7 実データ確定状況（writing-plans wf で実測・穴を推測で埋めない）
 
-feasibility wf で到達性は確認済み（FSA index HTTP200・「対象資産別」xlsx≈38.6KB・286+65+9≈360本）。以下は**実xlsx/実DBを開いて確定**（架空値を書かない）：
-- **(a) FSA取込形式**：index ページ実URL・xlsxリンク抽出regex・3シート実名・各列→フィールド対応表（fund_name/mgmt_company/index_name/domestic_foreign/etf_ticker）・`list_updated_at` 由来セル位置・loud-failの本数レンジ（例300-420）と期待シート実名。
-- **(b) ETF除外判定**：現ユニバースETF23件のname/tickerを実測しレバ/インバ/毎月分配の該当有無→判定方式（空集合 or パターン or 手動リスト）を確定。
-- **(c) 共有モジュールのVercel関数計上**：§6の制度モデル共有モジュールが Vercel関数としてカウントされないこと（handler無し・`api/` 外配置＋includeFiles 同梱）を実デプロイ or ドキュメントで検証。計上されるなら明示import方式へ切替。
+feasibility＋writing-plans wf で下記を実測。**(b)(c) は解消済み**、(a) は構造判明・列詳細のみ実装plan Task に残す：
+- **(a) FSA取込形式（構造判明・列詳細のみ残）**：`scratchpad/nisa_shisan.xlsx`（つみたて枠対象・金融庁公式）＝3シート確定＝「指定インデックス投資信託」(286本・rows≈294)／「指定インデックス投資信託以外の投資信託（アクティブ運用投信等）」(rows≈72)／「上場株式投資信託（ETF）」(9本・rows≈16)。**r0-r3 はメタ行**（r0=日付シリアル 46219＝Excel serial／r1=金融庁／r2=タイトル／r3=本数）＝**実データ列ヘッダは r4以降**。実装plan Task で r4以降の列名→フィールド対応（fund_name/mgmt_company/index_name/domestic_foreign/etf_ticker）と `list_updated_at`（r0 の 46219 を date 変換＝2026年頃）を確定。loud-failレンジ＝インデックス260-320本／アクティブ50-90本／ETF5-15本。**xlsx取得元URL**＝FSA「つみたて投資枠対象商品」ページ（indexページを毎回スクレイプし日付付きリンク抽出）。
+- **(b) ETF除外判定（確定・解消）**：現ユニバースETF23件はレバ/インバ/毎月分配**該当0**（全て通常インデックス/セクターETF）＝空集合で真。将来ガードは §3.1 の name パターン。
+- **(c) 制度モデル方式（確定・解消）**：共有モジュールでなく**逐語複製＋パリティテスト**（§6・§15決定）＝Vercel関数計上リスク回避。
 
 ## §4 Stage4b（plan B）— 口座振り分け助言 endpoint（personal-gated）
 
@@ -206,12 +208,13 @@ Stage4と独立に既に本番で起きている穴（Stage3残・NISA助言と�
 - `investment.py`/`advice.py` の SELECT except を**「列不在（UndefinedColumn）」と「0件」で分岐**し、`configured` 判定に**「列/テーブルが正常か」の診断軸を1本追加**して可視化。
 - **正確化**：Stage4b の**助言ロジックは holdings 個別行を読まず新規資金配分のみ**。ただし残枠スカラーは過去のNISA消化（ledger/history由来）に依存する（「holdings完全非依存」でなく「holdings個別行非参照」が正確）。
 
-## §6 決定論アンカー・共有モジュール・パリティ方針
+## §6 決定論アンカー・制度モデル複製・パリティ方針
 
-- **制度モデル（当年売却非控除・翌年復活・成長内数cap・残枠算出）は複製禁止**。現状 `_nisa_derive` は **advice.py のみに存在**。insight.py 相乗り＋no-cross-import規約（insight.py:254）＋複製禁止の3制約は、**制度モデルを共有モジュールへ抽出**して解消：
-  - 制度モデルを `api/` **外**の共有モジュール（例 `lib/nisa_core.py` 相当・handler無し）へ移し、advice.py と insight.py の両方が import（`includeFiles` で同梱）。**Vercel関数計上されないことを §3.7-c で検証**。計上されるなら advice.py._nisa_derive の**明示import**（no-cross-import規約の例外＝規約理由を確認して限定解除）。
-  - どちらでも**単一源**（ledger/history/新経路の三重ドリフト防止・Stage3 委譲と同思想）。
-- **facts 形状不変・SCHEMA_VERSION据置**（Stage2/3の「形状不変で通す」継承）。
+- **制度モデル（当年売却非控除・翌年復活・成長内数cap・残枠算出＝`_nisa_derive` 依存木）は既存 me/ 規約に従い insight.py へ逐語複製**する。実測＝`insight.py:254`「me/ グループ規約で advice.py を逐語複製・cross-file import 回避」＝insight.py は既に `build_facts`/`peer_context`/`facts_hash`/`_valid_session` 等を advice.py から逐語複製済みの**確立パターン**。共有モジュール/cross-import は Vercel 関数計上の不確実性を負うため採らない（§15決定）。
+  - **複製サブセット**＝Stage4b が残枠算出に要する最小関数群＝`_nisa_derive` とその依存 `_normalize_nisa`/`_nisa_now`/`_nisa_effective`/`_nisa_history_fold`/`_nisa_ledger_fold`/`_nisa_ledger_year`/`_nisa_year`/`_num`/`_clamp`（advice.py:841-1017 相当）＋残枠射影 `_nisa_raw` 相当。
+  - **ドリフト防止＝advice.py↔insight.py パリティテスト**（既存 `tests/fixtures/advice_facts_cases.json` 基盤流用＝同一 state 入力で両者の残枠スカラーが一致することを機械証明）。spec 当初の「単一源」理想は捨てるが、**ドリフト防止という当初意図はテストで維持**。
+- **Stage4b は me.mcc_state を読み、複製した `_nisa_derive` で残枠スカラーを算出**（`_nisa_raw` 相当の11フィールド＝`tsumitateThisYear`/`growthThisYear`/`tsumitateLifetime`/`growthLifetime`/`soldThisYearAtCost`/`annualTsumitateRemaining`/`annualGrowthRemaining`/`lifetimeRemaining`/`growthCapRemaining`/`monthlyToFillTsumitate`/`restoresYear`）。insight.py は facts を持たないため facts 経由でなく直接算出。
+- **advice.py 側は無改修**（facts 形状不変・SCHEMA_VERSION据置＝Stage2/3の「形状不変で通す」継承）。
 - Stage4a データ基盤は JS↔Py パリティ非対象（サーバ専用・純市場データ）。eligible_products 構築・whitelist突合は fixture で担保（§9）。
 
 ## §7 規制ガード（4本柱・法務precondition・killswitch）
