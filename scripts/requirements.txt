@@ -2,3 +2,4 @@
 # NOT deployed to Vercel (Vercel only reads the repo-root requirements.txt for api/* functions).
 psycopg[binary]>=3
 yfinance>=0.2.40
+openpyxl>=3.1
