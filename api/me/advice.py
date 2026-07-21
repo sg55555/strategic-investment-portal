@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 import psycopg
+from psycopg import errors as pg_errors
 from psycopg.types.json import Jsonb
 
 COOKIE = "wc_session"
@@ -1415,6 +1416,34 @@ def _call_llm(system, user_text):
     return text, getattr(resp, "stop_reason", None), req_id, usage
 
 
+def _read_investment_ledger(cur):
+    """me.investment_snapshots の NISA 枠別 delta を読み (rows, schema_ok) を返す。例外は投げない。
+
+    schema_ok=True  → 列/テーブルが存在（rows が空でも真のデータ 0 件）。
+    schema_ok=False → UndefinedColumn/UndefinedTable＝NISA 列 migration 未適用（可視化）。
+    schema_ok=None  → その他の読取失敗（未知・degrade）。
+    失敗時 rows=None（従来どおり mode_a_facts が None を吸収）。autocommit ゆえ後続クエリは無傷。
+    """
+    try:
+        cur.execute(
+            "SELECT period, nisa_tsumitate_delta, nisa_growth_delta, "
+            "nisa_tsumitate_sold_at_cost, nisa_growth_sold_at_cost "
+            "FROM me.investment_snapshots ORDER BY period DESC LIMIT 120"  # 直近10年
+        )
+        rows = [{
+            "period": rec[0].isoformat() if hasattr(rec[0], "isoformat") else rec[0],
+            "nisa_tsumitate_delta": rec[1], "nisa_growth_delta": rec[2],
+            "nisa_tsumitate_sold_at_cost": rec[3], "nisa_growth_sold_at_cost": rec[4],
+        } for rec in cur.fetchall()]
+        return rows, True
+    except (pg_errors.UndefinedColumn, pg_errors.UndefinedTable) as e:
+        print(f"advice ledger schema not applied (migration pending): {e!r}", file=sys.stderr)
+        return None, False
+    except Exception as e:  # noqa: BLE001
+        print(f"advice ledger read degraded: {type(e).__name__}", file=sys.stderr)
+        return None, None
+
+
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
         token = _cookie_token(self.headers)
@@ -1456,22 +1485,11 @@ class handler(BaseHTTPRequestHandler):
                     cf_rows = None
 
                 # B#3 Stage3: 投資台帳を server-side で読む（ledger モードの NISA 枠導出の入力）。
-                # 生額は LLM へ渡さず Mode A 集約のみ。テーブル未適用/読取失敗は inv_rows=None で degrade
-                # （autocommit ゆえ後続クエリは無傷・投資読取失敗が助言全体を落とさない）。
-                inv_rows = None
-                try:
-                    cur.execute(
-                        "SELECT period, nisa_tsumitate_delta, nisa_growth_delta, "
-                        "nisa_tsumitate_sold_at_cost, nisa_growth_sold_at_cost "
-                        "FROM me.investment_snapshots ORDER BY period DESC LIMIT 120"  # 直近10年
-                    )
-                    inv_rows = [{
-                        "period": rec[0].isoformat() if hasattr(rec[0], "isoformat") else rec[0],
-                        "nisa_tsumitate_delta": rec[1], "nisa_growth_delta": rec[2],
-                        "nisa_tsumitate_sold_at_cost": rec[3], "nisa_growth_sold_at_cost": rec[4],
-                    } for rec in cur.fetchall()]
-                except Exception:
-                    inv_rows = None
+                # 生額は LLM へ渡さず Mode A 集約のみ。plan0: 列/テーブル不在（migration 未適用）と
+                # その他読取失敗を分類し診断ログで可視化（inv_rows=None の silent degrade を露出）。
+                inv_rows, inv_schema_ok = _read_investment_ledger(cur)
+                if inv_schema_ok is False:
+                    print("advice diagnostic: nisa ledger columns/table missing (migration pending)", file=sys.stderr)
 
                 facts = mode_a_facts(raw_state, include_raw, now_ms, cf_rows, inv_rows)
                 next_target = facts["nextTarget"]
