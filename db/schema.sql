@@ -15,7 +15,11 @@ CREATE TABLE IF NOT EXISTS market.ticker_master (
   market_cap    DOUBLE PRECISION,
   per           DOUBLE PRECISION,
   pbr           DOUBLE PRECISION,
-  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  nisa_growth_status TEXT NOT NULL DEFAULT 'unknown',  -- 'eligible'|'excluded'|'conditional'|'unknown'
+  market_alert       TEXT NOT NULL DEFAULT 'none',     -- 'none'|'supervision'|'liquidation'
+  nisa_source        TEXT NOT NULL DEFAULT '',
+  nisa_checked_at    TIMESTAMPTZ DEFAULT NULL
 );
 
 -- 株価日足（data.js prices[]）。将来 TimescaleDB hypertable 化可。
@@ -70,3 +74,18 @@ CREATE TABLE IF NOT EXISTS market.ai_comments (
 
 -- 銘柄検索の前方一致/部分一致を軽くするための索引（company_name / ticker）
 CREATE INDEX IF NOT EXISTS idx_ticker_master_name ON market.ticker_master (lower(company_name) text_pattern_ops);
+
+-- つみたて対象投信（金融庁公表・約360本＝証券コードなし・価格系列なし）。
+-- ticker_master/ohlcv/screener 経路に混ぜない（PK=serial・投信は証券コード無し）。
+CREATE TABLE IF NOT EXISTS market.nisa_tsumitate (
+  id               SERIAL PRIMARY KEY,
+  fund_name        TEXT NOT NULL UNIQUE,   -- 自然キー。ON CONFLICT(fund_name) で serial 安定（refs 参照先を版間保持）
+  mgmt_company     TEXT,
+  category         TEXT,                   -- 'index' | 'active' | 'etf'
+  index_name       TEXT,
+  domestic_foreign TEXT,
+  fund_code        TEXT,                   -- IMAJ left-join 補完（null 許容）
+  etf_ticker       TEXT,                   -- ETF 区分のみ（null 許容）
+  list_updated_at  DATE,                   -- FSA リスト改定日（r0 Excel シリアル由来）
+  nisa_source      TEXT NOT NULL DEFAULT 'fsa-tsumitate-xlsx'
+);
