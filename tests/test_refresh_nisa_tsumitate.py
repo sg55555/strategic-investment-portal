@@ -50,3 +50,51 @@ def test_parse_fsa_tsumitate_loud_fails_on_short_index_sheet(tmp_path):
     wb.save(p)
     with pytest.raises(RuntimeError):
         parse_fsa_tsumitate(str(p))
+
+
+def test_upsert_tsumitate_on_conflict_fund_name_preserves_serial():
+    from scripts.refresh_nisa_tsumitate import upsert_tsumitate
+    captured = {}
+    class Cur:
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def executemany(self, sql, rows): captured["sql"] = sql; captured["rows"] = rows
+    class Conn:
+        def cursor(self): return Cur()
+    import datetime
+    rows = [{"fund_name": "F1", "mgmt_company": "M", "category": "index",
+             "index_name": "TOPIX", "domestic_foreign": "国内型",
+             "fund_code": None, "etf_ticker": None,
+             "list_updated_at": datetime.date(2026, 7, 16)}]
+    n = upsert_tsumitate(Conn(), rows)
+    s = captured["sql"].replace(" ", "").lower()
+    assert "insertintomarket.nisa_tsumitate" in s
+    assert "onconflict(fund_name)doupdateset" in s
+    assert "'fsa-tsumitate-xlsx'" in s.replace("'", "'")  # nisa_source 定数
+    assert n == 1
+
+
+def test_enrich_with_imaj_fills_etf_ticker_by_normalized_name(tmp_path):
+    import openpyxl
+    from scripts.refresh_nisa_tsumitate import enrich_with_imaj
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "対象商品一覧"
+    ws.append(["タイトル"])
+    ws.append(["リスト更新日", "別", "別", "銘柄コード", "ファンド名称"])
+    ws.append([20230621, "追加", "上場投信", "13060", "ＮＥＸＴ ＦＵＮＤＳ ＴＯＰＩＸ連動型上場投信"])
+    rows = [{"fund_name": "NEXT FUNDS TOPIX連動型上場投信", "category": "etf",
+             "fund_code": None, "etf_ticker": None}]
+    enrich_with_imaj(rows, wb)
+    assert rows[0]["fund_code"] == "13060"
+    assert rows[0]["etf_ticker"] == "1306"
+
+
+def test_main_loud_fails_when_no_rows(monkeypatch):
+    from scripts import refresh_nisa_tsumitate as R
+    class _NullConn:
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+    monkeypatch.setattr(R, "_connect", lambda: _NullConn())
+    monkeypatch.setattr(R, "_fetch_rows", lambda: [])
+    assert R.main([]) != 0

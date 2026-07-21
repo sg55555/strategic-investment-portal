@@ -70,3 +70,94 @@ def parse_fsa_tsumitate(path_or_wb) -> list[dict]:
                 f"[refresh_nisa_tsumitate] {category} count {n} out of range "
                 f"({lo}-{hi}) — FSA sheet {title!r} layout changed?")
     return out
+
+
+import unicodedata
+
+_TS_COLS = ("fund_name", "mgmt_company", "category", "index_name",
+            "domestic_foreign", "fund_code", "etf_ticker", "list_updated_at")
+
+
+def _norm_name(s) -> str:
+    """全角/半角・空白差を吸収した名寄せキー。"""
+    if not s:
+        return ""
+    return unicodedata.normalize("NFKC", str(s)).replace(" ", "").replace("　", "").lower()
+
+
+def imaj_code_by_name(path_or_wb) -> dict:
+    """IMAJ ファンド名称(正規化) → 5桁銘柄コード の map。"""
+    import openpyxl
+    if isinstance(path_or_wb, str):
+        wb = openpyxl.load_workbook(path_or_wb, read_only=True, data_only=True)
+    else:
+        wb = path_or_wb
+    ws = wb["対象商品一覧"]
+    out = {}
+    for i, row in enumerate(ws.iter_rows(values_only=True)):
+        if i < 2:
+            continue
+        code = row[3] if len(row) > 3 else None
+        name = row[4] if len(row) > 4 else None
+        if code and name:
+            out[_norm_name(name)] = str(code).strip()
+    return out
+
+
+def enrich_with_imaj(rows, path_or_wb) -> None:
+    """fund_code / etf_ticker を IMAJ 名寄せで best-effort 補完（null 許容）。"""
+    code_map = imaj_code_by_name(path_or_wb)
+    for r in rows:
+        code = code_map.get(_norm_name(r["fund_name"]))
+        if code:
+            r["fund_code"] = code
+            if r.get("category") == "etf":
+                r["etf_ticker"] = code[:4]
+
+
+def upsert_tsumitate(conn, rows) -> int:
+    if not rows:
+        return 0
+    for r in rows:                       # 欠けキーを null 埋め（IMAJ 未補完でも INSERT 可）
+        r.setdefault("fund_code", None)
+        r.setdefault("etf_ticker", None)
+    cols = ",".join(_TS_COLS) + ",nisa_source"
+    ph = ",".join([f"%({c})s" for c in _TS_COLS]) + ",'fsa-tsumitate-xlsx'"
+    setexpr = ", ".join(f"{c}=EXCLUDED.{c}" for c in _TS_COLS if c != "fund_name")
+    sql = (f"INSERT INTO market.nisa_tsumitate ({cols}) VALUES ({ph}) "
+           f"ON CONFLICT (fund_name) DO UPDATE SET {setexpr}")
+    with conn.cursor() as cur:
+        cur.executemany(sql, rows)
+    return len(rows)
+
+
+def _connect():
+    url = os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL")
+    if not url:
+        raise SystemExit("DATABASE_URL not set")
+    import psycopg
+    return psycopg.connect(url)
+
+
+def _fetch_rows():
+    path = os.environ.get("FSA_XLSX")
+    if not path or not os.path.exists(path):
+        raise SystemExit("FSA_XLSX not set or file missing (つみたて投資枠対象商品 xlsx)")
+    rows = parse_fsa_tsumitate(path)
+    imaj = os.environ.get("IMAJ_XLSX")
+    if imaj and os.path.exists(imaj):
+        enrich_with_imaj(rows, imaj)     # IMAJ は fund_code/etf_ticker 補完のみ（任意）
+    return rows
+
+
+def main(argv=None):
+    argv = argv if argv is not None else sys.argv[1:]
+    rows = _fetch_rows()
+    with _connect() as conn:
+        n = upsert_tsumitate(conn, rows)
+    print(f"[refresh_nisa_tsumitate] upserted={n}", file=sys.stderr)
+    return 0 if n > 0 else 1   # loud-fail: 0 件は非ゼロ
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
