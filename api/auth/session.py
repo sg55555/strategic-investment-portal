@@ -35,9 +35,9 @@ def insight_enabled():
 
 def nisa_advice_enabled():
     # capability 論理積: personal かつ独立 killswitch ON。既定 off（未設定は off）。
-    if os.environ.get("ADVICE_MODE", "production").strip().lower() != "personal":
-        return False
-    return os.environ.get("NISA_ADVICE_ENABLED", "").strip().lower() in ("1", "true", "on")
+    # insight_enabled() を再利用（personal 判定の単一源＝DRY・fail-closed ゲートの stale 化防止）。
+    return insight_enabled() and (
+        os.environ.get("NISA_ADVICE_ENABLED", "").strip().lower() in ("1", "true", "on"))
 
 
 class handler(BaseHTTPRequestHandler):
