@@ -20,6 +20,9 @@ def test_migration_adds_four_ticker_master_columns_idempotent():
         ("nisa_checked_at", "null"),
     ]:
         assert re.search(rf"add column if not exists\s+{col}\b", s), f"missing add {col}"
+        assert re.search(
+            rf"add column if not exists\s+{col}\b[^,]*default\s+{re.escape(default)}", s
+        ), f"wrong/missing default for {col}"
     assert s.count("add column if not exists") >= 4
 
 
