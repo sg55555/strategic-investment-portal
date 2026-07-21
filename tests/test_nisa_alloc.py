@@ -38,3 +38,27 @@ def test_nisa_constants_parity():
     for k in ("NISA_ANNUAL_TSUMITATE","NISA_ANNUAL_GROWTH","NISA_ANNUAL_TOTAL","NISA_LIFETIME",
               "NISA_GROWTH_LIFETIME_CAP","NISA_MIN_YEAR","NISA_HISTORY_MAX"):
         assert getattr(advice, k) == getattr(insight, k), k
+
+def _ts(i, name, cat="index"): return {"id": i, "fund_name": name, "mgmt_company": "運用A", "category": cat, "index_name": "TOPIX"}
+def _gw(tk, mkt="JP", st="eligible"): return {"ticker": tk, "company_name": tk+"社", "industry": "情報", "type": "stock", "market": mkt, "nisa_growth_status": st}
+
+def test_build_eligible_ids_and_prefix():
+    out = insight.build_eligible_products([_ts(1, "A"), _ts(2, "B")], [_gw("7203"), _gw("AAPL", "US", "conditional")])
+    ids = insight.eligible_ids(out["products"])
+    assert "ts:1" in ids and "ts:2" in ids and "gw:7203" in ids and "gw:AAPL" in ids
+    byid = {p["id"]: p for p in out["products"]}
+    assert byid["ts:1"]["kind"] == "tsumitate" and byid["ts:1"]["name"] == "A"
+    assert byid["gw:AAPL"]["status"] == "conditional" and byid["gw:AAPL"]["extra"]["market"] == "US"
+
+def test_build_eligible_truncation_deterministic():
+    ts_rows = [_ts(i, "F%02d" % i) for i in range(70)]      # 70 > cap 60
+    out = insight.build_eligible_products(ts_rows, [], caps=(60, 60))
+    tprods = [p for p in out["products"] if p["kind"] == "tsumitate"]
+    assert len(tprods) == 60 and out["tsumitate_truncated"] is True
+    assert [p["name"] for p in tprods] == sorted(p["name"] for p in tprods)   # fund_name 昇順で截断
+
+def test_build_eligible_category_then_name_order():
+    out = insight.build_eligible_products(
+        [_ts(1, "Zzz", "index"), _ts(2, "Aaa", "active"), _ts(3, "Mmm", "etf")], [], caps=(2, 60))
+    names = [p["name"] for p in out["products"] if p["kind"] == "tsumitate"]
+    assert names == ["Zzz", "Aaa"] and out["tsumitate_truncated"] is True   # index(Zzz)→active(Aaa) が etf(Mmm)より優先

@@ -516,6 +516,58 @@ INSIGHT_RATE_WINDOW_MIN = _envint("INSIGHT_RATE_WINDOW_MIN", 10)
 INSIGHT_RATE_MAX = _envint("INSIGHT_RATE_MAX_PER_WINDOW", 30)
 UNIVERSE_LIMIT = _envint("INSIGHT_UNIVERSE_LIMIT", 40)
 
+
+# ---- planB Task3: eligible_products 決定論ビルダー（統一 id 名前空間 ts:/gw:・cap 截断）----
+NISA_TSUMITATE_CAP = _envint("NISA_TSUMITATE_CAP", 60)
+NISA_GROWTH_CAP = _envint("NISA_GROWTH_CAP", 60)
+_TS_CAT_RANK = {"index": 0, "active": 1, "etf": 2}
+
+
+def build_eligible_products(tsumitate_rows, growth_rows, caps=None):
+    cap_t, cap_g = caps if caps else (NISA_TSUMITATE_CAP, NISA_GROWTH_CAP)
+    ts = sorted((r for r in (tsumitate_rows or []) if isinstance(r, dict)),
+                key=lambda r: (_TS_CAT_RANK.get((r.get("category") or ""), 9), str(r.get("fund_name") or "")))
+    ts_trunc = len(ts) > cap_t
+    ts_prods = [{
+        "id": "ts:" + str(r.get("id")), "kind": "tsumitate", "name": r.get("fund_name"),
+        "extra": {"mgmtCompany": r.get("mgmt_company"), "category": r.get("category"), "indexName": r.get("index_name")},
+        "status": "eligible",
+    } for r in ts[:cap_t]]
+    gw = sorted((r for r in (growth_rows or []) if isinstance(r, dict)),
+                key=lambda r: (0 if (r.get("market") or "JP") == "JP" else 1, str(r.get("ticker") or "")))
+    gw_trunc = len(gw) > cap_g
+    gw_prods = [{
+        "id": "gw:" + str(r.get("ticker")), "kind": "growth", "name": r.get("company_name"),
+        "extra": {"ticker": r.get("ticker"), "industry": r.get("industry"), "market": r.get("market")},
+        "status": r.get("nisa_growth_status") or "unknown",
+    } for r in gw[:cap_g]]
+    return {"products": ts_prods + gw_prods, "tsumitate_truncated": ts_trunc, "growth_truncated": gw_trunc}
+
+
+def eligible_ids(products):
+    return {p["id"] for p in (products or []) if isinstance(p, dict) and p.get("id")}
+
+
+def _read_eligible_products(cur):
+    ts_rows, gw_rows = [], []
+    try:
+        cur.execute("SELECT id, fund_name, mgmt_company, category, index_name FROM market.nisa_tsumitate")
+        for i, fn, mc, cat, idx in cur.fetchall():
+            ts_rows.append({"id": i, "fund_name": fn, "mgmt_company": mc, "category": cat, "index_name": idx})
+    except Exception:
+        ts_rows = []
+    try:
+        cur.execute(
+            "SELECT ticker, company_name, industry, type, "
+            "CASE WHEN (country='US' OR currency='USD') THEN 'US' ELSE 'JP' END AS market, nisa_growth_status "
+            "FROM market.ticker_master WHERE nisa_growth_status IN ('eligible','conditional')")
+        for tk, nm, ind, typ, mkt, st in cur.fetchall():
+            gw_rows.append({"ticker": tk, "company_name": nm, "industry": ind, "type": typ, "market": mkt, "nisa_growth_status": st})
+    except Exception:
+        gw_rows = []
+    return build_eligible_products(ts_rows, gw_rows)
+
+
 _FIN_COLS = ("net_sales", "net_income", "net_assets", "current_assets", "non_current_assets",
              "current_liabilities", "non_current_liabilities", "operating_income",
              "operating_cf", "investing_cf")
