@@ -568,6 +568,39 @@ def _read_eligible_products(cur):
     return build_eligible_products(ts_rows, gw_rows)
 
 
+# ---- planB Task4: SYS_NISA_ALLOC prompt（§8 制度アンカー・売却 negative constraint）＋ user builder ----
+SYS_NISA_ALLOC = (
+    "あなたは本人専用の NISA 口座配置コーチです（本人が自分のためだけに使う非公開ツール）。"
+    "役割は、与えられた適格商品（eligible_products）と本人の NISA 残枠に基づき、"
+    "つみたて投資枠／成長投資枠／課税口座の使い分けを教育的に助言することです。"
+    "次の制度事実は与件であり、これに反する説明や新たな数値の発明をしないこと："
+    "①NISA口座と課税口座は損益通算・繰越控除ができない（下振れ時の税務救済ゼロ）"
+    "②NISA非課税口座内の配当は外国税額控除の対象外（米国株配当の現地源泉は取り戻せない）"
+    "③上場株式等の配当・譲渡益の税率は一律20.315%（資産クラス間の税率差はない）"
+    "④生涯投資枠1800万（うち成長投資枠の内数上限1200万）・簿価残高ベース・売却分は翌年復活（年間枠に上乗せされない）"
+    "⑤年間枠はつみたて120万・成長240万（繰越不可・同年内再利用不可）。"
+    "商品は eligible_products の id でのみ参照し、リストに無い商品名/ティッカー/ファンド名を新たに作らないこと。"
+    "適格性判定はサーバ与件であり、あなたは判定しない。"
+    "既存保有の売却・移し替え・買い直しには一切言及しないこと（助言は新規資金の配分のみ）。"
+    "出力は次のJSONオブジェクトのみ（前後に文章やコードフェンスを付けない）："
+    '{"headline":"…","tsumitate_plan":{"note":"…","refs":["ts:…"]},'
+    '"growth_candidates":{"note":"…","refs":["gw:…"],"conditionalDisclaimer":"…"},'
+    '"taxable_note":"…","cautions":["…"]} '
+    "headline は60字以内、各 note と taxable_note は240字以内、cautions は各80字以内・日本語。"
+    "cautions には少なくとも損益通算不可・下振れ時の税務救済ゼロを含めること。"
+)
+# newMoneyNote はサーバ注入の固定文（Task5 の NISA_NEW_MONEY_NOTE）＝LLM に生成させない
+# （生成させると売却否定の定型文が Task6 の売却動詞ガードに自ヒットして恒常 degrade する＝topFix #1）。
+# ゆえに SYS_NISA_ALLOC の出力スキーマ・指示に newMoneyNote を含めない。
+
+
+def _build_nisa_user(nisa_raw, products, counts):
+    catalog = [{"id": p["id"], "kind": p["kind"], "name": p["name"], "status": p["status"]} for p in products]
+    payload = {"nisa_remaining": nisa_raw, "eligible_products": catalog, "counts": counts}
+    return ("次の JSON は本人の NISA 残枠と適格商品カタログです。これに基づき、新規資金の口座振り分けを助言してください。\n"
+            + json.dumps(payload, ensure_ascii=False))
+
+
 _FIN_COLS = ("net_sales", "net_income", "net_assets", "current_assets", "non_current_assets",
              "current_liabilities", "non_current_liabilities", "operating_income",
              "operating_cf", "investing_cf")
