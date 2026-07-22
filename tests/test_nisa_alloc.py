@@ -171,6 +171,19 @@ def test_coarsen_nisa_facts_buckets_and_drops_raw_yen():
 def test_coarsen_nisa_none_is_none():
     assert insight.coarsen_nisa_facts(None) is None
 
+def test_nisa_gate_order_production_403_before_killswitch():
+    # production は killswitch ON でも 403（状態を探れない＝killswitch 評価前に遮断）
+    assert insight.nisa_gate(True, "production", True, True) == ("403", "personal-only")
+    # 未認証は最優先で 401
+    assert insight.nisa_gate(False, "personal", True, True) == ("401", "unauthorized")
+    # personal + 鍵無は 503
+    assert insight.nisa_gate(True, "personal", False, True) == ("503", "not configured")
+    # personal + 鍵あり + killswitch off は nisa-advice-disabled（403）
+    assert insight.nisa_gate(True, "personal", True, False) == ("403", "nisa-advice-disabled")
+    # 全通過
+    assert insight.nisa_gate(True, "personal", True, True) == ("ok", None)
+
+
 def test_coarsen_nisa_facts_clamps_over_contribution_and_no_yen_leak():
     # over-contribution: 125% of caps must clamp to bucket 100, never exceed the {0,25,50,75,100} set.
     raw = {"tsumitateThisYear": 1500000, "growthThisYear": 3000000, "tsumitateLifetime": 1500000,

@@ -782,6 +782,29 @@ def _mode():
     return "personal" if os.environ.get("ADVICE_MODE", "production").strip().lower() == "personal" else "production"
 
 
+# ---- planB Task8: kind dispatch ＋ gate 順序固定（production は killswitch 評価前に 403）----
+NISA_MAX_TOKENS = _envint("NISA_MAX_TOKENS", 1200)
+NISA_RATE_WINDOW_MIN = _envint("NISA_RATE_WINDOW_MIN", 10)
+NISA_RATE_MAX = _envint("NISA_RATE_MAX_PER_WINDOW", 30)
+NISA_COOLDOWN_SEC = _envint("NISA_COOLDOWN_SEC", 4)
+
+
+def _nisa_killswitch():
+    return os.environ.get("NISA_ADVICE_ENABLED", "").strip().lower() in ("1", "true", "on")
+
+
+def nisa_gate(valid_session, mode, has_key, killswitch):
+    if not valid_session:
+        return ("401", "unauthorized")
+    if mode != "personal":
+        return ("403", "personal-only")     # production 完全遮断＝killswitch 評価前
+    if not has_key:
+        return ("503", "not configured")
+    if not killswitch:
+        return ("403", "nisa-advice-disabled")
+    return ("ok", None)
+
+
 # ---- DB 読取ヘルパ（対象財務・meta・peer・universe・comment：market.* のみ）----
 def _read_target(cur, ticker):
     cur.execute("SELECT company_name, industry, currency, country, type, per, pbr "
@@ -883,6 +906,7 @@ class handler(BaseHTTPRequestHandler):
             except Exception:
                 req = {}
             ticker = (req.get("ticker") or "").strip() if isinstance(req, dict) else ""
+            kind = (req.get("kind") or "").strip() if isinstance(req, dict) else ""
             with _conn() as conn, conn.cursor() as cur:
                 if not _valid_session(cur, token):
                     return self._json(401, {"error": "unauthorized"})
@@ -891,6 +915,10 @@ class handler(BaseHTTPRequestHandler):
                 if not os.environ.get("ANTHROPIC_API_KEY", ""):
                     print("insight: ANTHROPIC_API_KEY not set", file=sys.stderr)
                     return self._json(503, {"error": "not configured"})
+                if kind == "nisa_allocation":
+                    if not _nisa_killswitch():
+                        return self._json(403, {"error": "nisa-advice-disabled"})
+                    return self._handle_nisa(cur, started)
                 if not ticker:
                     return self._json(400, {"error": "ticker required"})
                 target = _read_target(cur, ticker)
@@ -947,6 +975,10 @@ class handler(BaseHTTPRequestHandler):
         except Exception as e:  # noqa: BLE001
             print(f"insight error: {type(e).__name__}", file=sys.stderr)
             return self._json(500, {"error": "internal"})
+
+    def _handle_nisa(self, cur, started):
+        # Task9 で本体実装に置換。ここでは gate/dispatch 配線のみ検証するためのスタブ。
+        return self._json(404, {"error": "not_implemented"})
 
     def _log(self, cur, mode, ticker, facts, fhash, ai_status, ai, req_id, usage, latency):
         try:
