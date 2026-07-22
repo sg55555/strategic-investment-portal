@@ -83,3 +83,38 @@ def test_build_nisa_user_injects_counts_and_ids_not_prose_names():
     user = insight._build_nisa_user(raw, out["products"], {"tsumitate": 360, "growth": 190})
     assert "ts:1" in user and "gw:7203" in user      # id は渡る
     assert "360" in user                              # 可変本数注入
+
+
+import json as _json
+ELIG = {"ts:1", "ts:2", "gw:7203", "gw:AAPL"}
+def _mk(**over):
+    base = {"headline": "配分の考え方", "newMoneyNote": "新規資金の配分のみで売却指示ではありません",
+            "tsumitate_plan": {"note": "つみたて枠を優先", "refs": ["ts:1"]},
+            "growth_candidates": {"note": "成長枠候補", "refs": ["gw:7203"]},
+            "taxable_note": "課税口座は損益通算可", "cautions": ["損益通算不可", "下振れ時の税務救済なし"]}
+    base.update(over); return _json.dumps(base, ensure_ascii=False)
+
+def test_parse_drops_nonmember_and_wrong_prefix_refs():
+    p = insight.parse_nisa_ai(_mk(tsumitate_plan={"note": "x", "refs": ["ts:1", "ts:999", "gw:7203"]},
+                                  growth_candidates={"note": "y", "refs": ["gw:AAPL", "gw:NOPE", "ts:1"]}), ELIG)
+    assert p["tsumitate_plan"]["refs"] == ["ts:1"]      # ts:999 非member / gw:7203 prefix不整合を drop
+    assert p["growth_candidates"]["refs"] == ["gw:AAPL"] # gw:NOPE 非member / ts:1 prefix不整合を drop
+
+def test_parse_missing_cautions_degrades():
+    assert insight.parse_nisa_ai(_mk(cautions=[]), ELIG) is None            # cautions 欠落は degrade
+
+def test_parse_newmoneynote_is_server_injected_constant():
+    # topFix #1: newMoneyNote は LLM 出力を無視してサーバ固定文を注入＝空/別文言でも degrade しない。
+    p = insight.parse_nisa_ai(_mk(newMoneyNote=""), ELIG)
+    assert p is not None and p["newMoneyNote"] == insight.NISA_NEW_MONEY_NOTE
+    p2 = insight.parse_nisa_ai(_mk(newMoneyNote="LLMの勝手な文言"), ELIG)
+    assert p2 is not None and p2["newMoneyNote"] == insight.NISA_NEW_MONEY_NOTE
+
+def test_parse_char_overflow_degrades_not_truncated():
+    assert insight.parse_nisa_ai(_mk(headline="あ" * 61), ELIG) is None            # headline>60
+    assert insight.parse_nisa_ai(_mk(taxable_note="い" * 241), ELIG) is None        # note>240
+    assert insight.parse_nisa_ai(_mk(cautions=["う" * 81, "ok"]), ELIG) is None     # caution>80
+
+def test_parse_valid_passes():
+    p = insight.parse_nisa_ai(_mk(), ELIG)
+    assert p is not None and p["tsumitate_plan"]["refs"] == ["ts:1"] and p["cautions"]

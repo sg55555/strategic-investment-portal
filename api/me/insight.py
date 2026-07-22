@@ -601,6 +601,55 @@ def _build_nisa_user(nisa_raw, products, counts):
             + json.dumps(payload, ensure_ascii=False))
 
 
+# ---- planB Task5: parse ＋ whitelist（exact set-membership・prefix 整合・文字数 degrade）----
+# newMoneyNote はサーバ注入の固定文（topFix #1）＝LLM 生成に依存させない。売却否定の定型文を LLM に
+# 書かせると Task6 の売却動詞ガード（売却/移し替え）に必ず自ヒットして恒常 degrade するため、
+# サーバが固定文を注入し、走査対象からも外す（Task6 _nisa_prose_fields）。
+NISA_NEW_MONEY_NOTE = "新規資金の配分のみで、既存保有の売却・移し替え指示ではありません。"
+
+
+def _nisa_refs_filter(refs, prefix, eligible):
+    out = []
+    if isinstance(refs, list):
+        for r in refs:
+            if isinstance(r, str) and r.startswith(prefix) and r in eligible and r not in out:
+                out.append(r)
+    return out
+
+
+def parse_nisa_ai(text, eligible):
+    try:
+        obj = json.loads(text)
+    except Exception:
+        return None
+    if not isinstance(obj, dict):
+        return None
+    def _s(v):
+        return v.strip() if isinstance(v, str) else ""
+    headline = _s(obj.get("headline"))
+    tp = obj.get("tsumitate_plan") if isinstance(obj.get("tsumitate_plan"), dict) else {}
+    gc = obj.get("growth_candidates") if isinstance(obj.get("growth_candidates"), dict) else {}
+    tp_note, gc_note = _s(tp.get("note")), _s(gc.get("note"))
+    taxable = _s(obj.get("taxable_note"))
+    cond = _s(gc.get("conditionalDisclaimer"))
+    cautions = [_s(c) for c in obj.get("cautions")] if isinstance(obj.get("cautions"), list) else []
+    cautions = [c for c in cautions if c]
+    # 構造強制: cautions 欠落は degrade（両論併記の構造強制）。newMoneyNote はサーバ固定文ゆえ欠落判定しない。
+    if not cautions:
+        return None
+    # 文字数超過は切詰でなく degrade（意味毀損防止）。newMoneyNote は固定文ゆえ長さ検査対象外。
+    if len(headline) > 60 or len(tp_note) > 240 or len(gc_note) > 240 \
+       or len(taxable) > 240 or len(cond) > 240 or any(len(c) > 80 for c in cautions):
+        return None
+    return {
+        "headline": headline, "newMoneyNote": NISA_NEW_MONEY_NOTE,   # サーバ固定文を注入（LLM 出力は無視）
+        "tsumitate_plan": {"note": tp_note, "refs": _nisa_refs_filter(tp.get("refs"), "ts:", eligible)},
+        "growth_candidates": {"note": gc_note, "refs": _nisa_refs_filter(gc.get("refs"), "gw:", eligible),
+                              "conditionalDisclaimer": cond},
+        "taxable_note": taxable, "cautions": cautions,
+    }
+
+
 _FIN_COLS = ("net_sales", "net_income", "net_assets", "current_assets", "non_current_assets",
              "current_liabilities", "non_current_liabilities", "operating_income",
              "operating_cf", "investing_cf")
