@@ -118,3 +118,32 @@ def test_parse_char_overflow_degrades_not_truncated():
 def test_parse_valid_passes():
     p = insight.parse_nisa_ai(_mk(), ELIG)
     assert p is not None and p["tsumitate_plan"]["refs"] == ["ts:1"] and p["cautions"]
+
+
+TERMS = {"tickers": {"7203", "AAPL"}, "names": ["トヨタ自動車"]}
+def _parsed(**o):
+    base = {"headline": "配分", "newMoneyNote": "新規資金のみ",
+            "tsumitate_plan": {"note": "枠を優先", "refs": []},
+            "growth_candidates": {"note": "候補", "refs": [], "conditionalDisclaimer": ""},
+            "taxable_note": "課税口座", "cautions": ["損益通算不可"]}
+    base.update(o); return base
+
+def test_prose_clean_passes_neutral():
+    assert insight.nisa_prose_clean(_parsed(), TERMS) is True
+
+def test_prose_ticker_or_name_hit_degrades():
+    assert insight.nisa_prose_clean(_parsed(taxable_note="7203を課税口座で"), TERMS) is False   # 裸ticker
+    assert insight.nisa_prose_clean(_parsed(headline="トヨタ自動車を軸に"), TERMS) is False       # 社名
+
+def test_prose_fund_name_token_degrades():
+    assert insight.nisa_prose_clean(_parsed(growth_candidates={"note": "オルカンインデックスが良い", "refs": [], "conditionalDisclaimer": ""}), TERMS) is False
+    assert insight.nisa_prose_clean(_parsed(tsumitate_plan={"note": "このファンドを推す", "refs": []}), TERMS) is False
+
+def test_prose_sell_verb_degrades():
+    assert insight.nisa_prose_clean(_parsed(taxable_note="含み損の銘柄を売却して"), TERMS) is False   # taxable_note は走査対象
+    assert insight.nisa_prose_clean(_parsed(tsumitate_plan={"note": "課税口座からNISAへ移し替え", "refs": []}), TERMS) is False  # tsumitate note も走査対象
+
+def test_prose_clean_ignores_server_fixed_fields():
+    # topFix #1: newMoneyNote 固定文・cautions は走査対象外＝売却/移し替え語を含んでも degrade しない（恒常 degrade 回避）。
+    assert insight.nisa_prose_clean(_parsed(newMoneyNote="新規資金の配分のみで、既存保有の売却・移し替え指示ではありません。"), TERMS) is True
+    assert insight.nisa_prose_clean(_parsed(cautions=["近く売却予定の資産は非課税枠に不向きです"]), TERMS) is True

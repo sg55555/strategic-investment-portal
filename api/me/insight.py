@@ -650,6 +650,69 @@ def parse_nisa_ai(text, eligible):
     }
 
 
+# ---- planB Task6: 第2ベルト（advice.py 逐語複製＋投信名様トークン＋売却動詞→degrade）----
+# 個別銘柄の動的検出（leak-1）: market.ticker_master の ticker/社名と AI 出力を照合。
+# 裸の証券コード（例 7203）も「universe に実在する ticker」としてここで捕捉（年号 2030 等は誤検出しない）。
+_MARKET_TERMS = None  # プロセス内キャッシュ（Fluid Compute がインスタンス再利用）
+
+
+def _market_terms(cur):
+    global _MARKET_TERMS
+    if _MARKET_TERMS is not None:
+        return _MARKET_TERMS
+    tickers, names = set(), []
+    try:
+        cur.execute("SELECT ticker, company_name FROM market.ticker_master")
+        for t, nm in cur.fetchall():
+            if t:
+                tickers.add(str(t).upper())
+            if nm:
+                core = re.sub(r"(株式会社|\(株\)|（株）|ホールディングス|ＨＤ|HD|,?\s*(Inc|Corp|Ltd|Co|PLC|SA|AG)\.?)",
+                              "", str(nm)).strip()
+                if len(core) >= 2:
+                    names.append(core)
+    except Exception:
+        pass
+    _MARKET_TERMS = {"tickers": tickers, "names": names}
+    return _MARKET_TERMS
+
+
+def _security_market_hit(text, terms):
+    up = text.upper()
+    for t in terms.get("tickers", ()):  # ticker は語境界つき（数字/英字の途中一致を避ける）
+        if re.search(r"(?<![0-9A-Za-z])" + re.escape(t) + r"(?![0-9A-Za-z])", up):
+            return True
+    return any(nm and nm in text for nm in terms.get("names", ()))
+
+
+# 投信ファンド名は NER 不能ゆえ「固有名詞様トークン」を保守的検出（カタカナ長連・商品語）→ degrade。
+_NISA_FUND_TOKEN_RE = re.compile(r"[ァ-ヶー]{6,}|ファンド|インデックス|ｅ?ＭＡＸＩＳ|eMAXIS|オルカン")
+# 売却/移し替え動詞（最上位 Non-goal の出力側担保）。
+_SELL_VERB_RE = re.compile(r"売る|売却|売り(?:払|に出)|移す|移し替え|乗り換え|買い直|買い替え|buy ?back", re.IGNORECASE)
+
+def _nisa_prose_fields(parsed):
+    # topFix #1: 売却/商品語ガードは LLM が自由記述する prose のみ＝headline/tsumitate note/growth note/
+    # taxable_note に適用する。サーバ固定文/免責は走査対象外にする：
+    #   - newMoneyNote＝サーバ注入の固定文（売却否定の定型文）＝走査すると必ず売却動詞に自ヒットして恒常 degrade。
+    #   - cautions＝「近く売却予定の資産は非課税枠に不向き」等の正当な両論注意が売却語を含みうる（誤 degrade）。
+    #   - conditionalDisclaimer＝build_nisa_response がサーバ固定文を強制注入（そもそも gc.note のみ走査で対象外）。
+    tp = parsed.get("tsumitate_plan") or {}
+    gc = parsed.get("growth_candidates") or {}
+    fields = [parsed.get("headline", ""), tp.get("note", ""), gc.get("note", ""),
+              parsed.get("taxable_note", "")]
+    return [f for f in fields if isinstance(f, str) and f]
+
+def nisa_prose_clean(parsed, terms):
+    for f in _nisa_prose_fields(parsed):
+        if _security_market_hit(f, terms):
+            return False
+        if _NISA_FUND_TOKEN_RE.search(f):
+            return False
+        if _SELL_VERB_RE.search(f):
+            return False
+    return True
+
+
 _FIN_COLS = ("net_sales", "net_income", "net_assets", "current_assets", "non_current_assets",
              "current_liabilities", "non_current_liabilities", "operating_income",
              "operating_cf", "investing_cf")
