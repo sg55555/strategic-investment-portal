@@ -170,3 +170,19 @@ def test_coarsen_nisa_facts_buckets_and_drops_raw_yen():
 
 def test_coarsen_nisa_none_is_none():
     assert insight.coarsen_nisa_facts(None) is None
+
+def test_coarsen_nisa_facts_clamps_over_contribution_and_no_yen_leak():
+    # over-contribution: 125% of caps must clamp to bucket 100, never exceed the {0,25,50,75,100} set.
+    raw = {"tsumitateThisYear": 1500000, "growthThisYear": 3000000, "tsumitateLifetime": 1500000,
+           "growthLifetime": 15000000, "soldThisYearAtCost": 0,
+           "annualTsumitateRemaining": 0, "annualGrowthRemaining": 0,
+           "lifetimeRemaining": 0, "growthCapRemaining": 0,
+           "monthlyToFillTsumitate": 0, "restoresYear": 2027}
+    c = insight.coarsen_nisa_facts(raw)
+    for k in ("annualTsumitateUsedBucket", "annualGrowthUsedBucket", "lifetimeUsedBucket", "growthCapUsedBucket"):
+        assert c[k] in (0, 25, 50, 75, 100), (k, c[k])   # clamped — never 125
+    assert c["annualTsumitateUsedBucket"] == 100 and c["growthCapUsedBucket"] == 100
+    import json as _j
+    blob = _j.dumps(c)
+    for yen in ("1500000", "3000000", "15000000"):       # over-cap raw ¥ must not leak either
+        assert yen not in blob, yen

@@ -729,10 +729,10 @@ def coarsen_nisa_facts(nisa_raw):
     # 入力源ラベル（manual/history/ledger）は観測価値が低く、単一射影（_nisa_raw 1 本）を崩す対価に見合わない。
     # 監査に必要な残枠は bucket 化した leaf のみで足りる。
     return {
-        "annualTsumitateUsedBucket": _bucket25(at / NISA_ANNUAL_TSUMITATE * 100),
-        "annualGrowthUsedBucket": _bucket25(ag / NISA_ANNUAL_GROWTH * 100),
-        "lifetimeUsedBucket": _bucket25(life / NISA_LIFETIME * 100),
-        "growthCapUsedBucket": _bucket25(_num(nisa_raw.get("growthLifetime")) / NISA_GROWTH_LIFETIME_CAP * 100),
+        "annualTsumitateUsedBucket": _bucket25(_clamp(at / NISA_ANNUAL_TSUMITATE * 100, 0, 100)),
+        "annualGrowthUsedBucket": _bucket25(_clamp(ag / NISA_ANNUAL_GROWTH * 100, 0, 100)),
+        "lifetimeUsedBucket": _bucket25(_clamp(life / NISA_LIFETIME * 100, 0, 100)),
+        "growthCapUsedBucket": _bucket25(_clamp(_num(nisa_raw.get("growthLifetime")) / NISA_GROWTH_LIFETIME_CAP * 100, 0, 100)),
         "restoresYear": nisa_raw.get("restoresYear", 0),
     }
 
