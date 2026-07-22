@@ -199,3 +199,31 @@ def test_coarsen_nisa_facts_clamps_over_contribution_and_no_yen_leak():
     blob = _j.dumps(c)
     for yen in ("1500000", "3000000", "15000000"):       # over-cap raw ¥ must not leak either
         assert yen not in blob, yen
+
+
+def test_build_nisa_response_resolves_refs_and_injects_conditional():
+    out = insight.build_eligible_products([_ts(1, "つみA")], [_gw("AAPL", "US", "conditional")])
+    elig = insight.eligible_ids(out["products"])
+    ai = {"headline": "h", "newMoneyNote": "新規のみ",
+          "tsumitate_plan": {"note": "n", "refs": ["ts:1"]},
+          "growth_candidates": {"note": "g", "refs": ["gw:AAPL"], "conditionalDisclaimer": ""},
+          "taxable_note": "t", "cautions": ["損益通算不可"]}
+    resp = insight.build_nisa_response({"text": "x"}, ai, "ok", out["products"], elig,
+                                       {"tsumitate_truncated": False, "growth_truncated": False})
+    byid = {r["id"]: r for r in resp["resolvedRefs"]}
+    assert byid["ts:1"]["name"] == "つみA" and byid["gw:AAPL"]["status"] == "conditional"
+    assert resp["ai"]["growth_candidates"]["conditionalDisclaimer"] == insight.NISA_CONDITIONAL_DISCLAIMER
+
+def test_build_nisa_response_truncation_appends_caution():
+    out = insight.build_eligible_products([_ts(1, "A")], [])
+    elig = insight.eligible_ids(out["products"])
+    ai = {"headline": "h", "newMoneyNote": "新規のみ", "tsumitate_plan": {"note": "n", "refs": ["ts:1"]},
+          "growth_candidates": {"note": "", "refs": [], "conditionalDisclaimer": ""},
+          "taxable_note": "", "cautions": ["損益通算不可"]}
+    resp = insight.build_nisa_response({}, ai, "ok", out["products"], elig,
+                                       {"tsumitate_truncated": True, "growth_truncated": False})
+    assert any("網羅" in c or "全" in c for c in resp["ai"]["cautions"])   # 非網羅注記が追加される
+
+def test_build_nisa_response_degrade_null_ai():
+    resp = insight.build_nisa_response({"x": 1}, None, "degraded", [], set(), {"tsumitate_truncated": False, "growth_truncated": False})
+    assert resp["ai"] is None and resp["resolvedRefs"] == [] and resp["aiStatus"] == "degraded"

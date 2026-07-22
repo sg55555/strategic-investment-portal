@@ -737,6 +737,36 @@ def coarsen_nisa_facts(nisa_raw):
     }
 
 
+# ---- planB Task9: 200 レスポンス整形（resolvedRefs join・conditional 強制・cap 截断 caution）----
+NISA_CONDITIONAL_DISCLAIMER = (
+    "※成長投資枠での取扱いは証券会社により異なります。ご利用の証券会社の対象銘柄をご確認ください。")
+
+
+def build_nisa_response(deterministic, ai, ai_status, products, eligible, truncated):
+    if ai is None:
+        return {"deterministic": deterministic, "ai": None, "aiStatus": ai_status, "resolvedRefs": []}
+    byid = {p["id"]: p for p in (products or [])}
+    ref_ids = list((ai.get("tsumitate_plan") or {}).get("refs") or []) + \
+              list((ai.get("growth_candidates") or {}).get("refs") or [])
+    resolved, seen = [], set()
+    for rid in ref_ids:
+        if rid in byid and rid not in seen:
+            p = byid[rid]
+            seen.add(rid)
+            resolved.append({"id": p["id"], "name": p["name"], "extra": p["extra"], "status": p["status"]})
+    # US conditional 強制注入（描画層 = サーバの status 列根拠・プロンプト非依存）。
+    if any(r["id"].startswith("gw:") and r["status"] == "conditional" for r in resolved):
+        gc = dict(ai.get("growth_candidates") or {})
+        gc["conditionalDisclaimer"] = NISA_CONDITIONAL_DISCLAIMER
+        ai = {**ai, "growth_candidates": gc}
+    # cap 截断時は非網羅注記を cautions に追加。
+    if truncated.get("tsumitate_truncated") or truncated.get("growth_truncated"):
+        cautions = list(ai.get("cautions") or [])
+        cautions.append("表示は全適格商品を網羅していません（一部のみ）。")
+        ai = {**ai, "cautions": cautions}
+    return {"deterministic": deterministic, "ai": ai, "aiStatus": ai_status, "resolvedRefs": resolved}
+
+
 def _log_nisa(cur, session_hash, nisa_raw, ai_status, refs_count, degrade_reason):
     try:
         cur.execute(
@@ -977,8 +1007,72 @@ class handler(BaseHTTPRequestHandler):
             return self._json(500, {"error": "internal"})
 
     def _handle_nisa(self, cur, started):
-        # Task9 で本体実装に置換。ここでは gate/dispatch 配線のみ検証するためのスタブ。
-        return self._json(404, {"error": "not_implemented"})
+        token = _cookie_token(self.headers)
+        session_hash = hashlib.sha256((token or "").encode("utf-8")).hexdigest()
+        cur.execute("SELECT state FROM me.mcc_state WHERE id = 1")
+        row = cur.fetchone()
+        raw_state = row[0] if row and isinstance(row[0], dict) else {}
+        cur.execute("SELECT extract(epoch from now()) * 1000")
+        now_ms = float(cur.fetchone()[0])
+        ledger_rows = None
+        try:
+            cur.execute("SELECT period, nisa_tsumitate_delta, nisa_growth_delta, "
+                        "nisa_tsumitate_sold_at_cost, nisa_growth_sold_at_cost "
+                        "FROM me.investment_snapshots ORDER BY period DESC LIMIT 120")
+            ledger_rows = [{"period": r[0].isoformat() if hasattr(r[0], "isoformat") else r[0],
+                            "nisa_tsumitate_delta": r[1], "nisa_growth_delta": r[2],
+                            "nisa_tsumitate_sold_at_cost": r[3], "nisa_growth_sold_at_cost": r[4]}
+                           for r in cur.fetchall()]
+        except Exception:
+            ledger_rows = None
+        nisa_raw = _nisa_raw(raw_state, now_ms, ledger_rows)
+        det = {"note": "NISA残枠に応じた口座配分の考え方は下の教育原則をご参照ください。"}
+        if nisa_raw is None:   # NISA 未設定＝残枠不明 → 決定論 decline（残枠依存の順位付けを出さない）
+            self._log_and_respond(cur, session_hash, None, det, None, "not_configured", [], set(), 0)
+            return
+        bundle = _read_eligible_products(cur)
+        products, eligible = bundle["products"], eligible_ids(bundle["products"])
+        counts = {"tsumitate": sum(1 for p in products if p["kind"] == "tsumitate"),
+                  "growth": sum(1 for p in products if p["kind"] == "growth")}
+        # rate → cooldown（advice/insight 同順・nisa_log 独立窓）。
+        cur.execute("SELECT count(*) FROM me.nisa_log WHERE created_at > now() - make_interval(mins => %s)",
+                    (NISA_RATE_WINDOW_MIN,))
+        if cur.fetchone()[0] >= NISA_RATE_MAX:
+            return self._json(429, {"error": "too many requests"})
+        cur.execute("SELECT 1 FROM me.nisa_log WHERE ai_status IN ('ok','failed','refusal','truncated','filtered') "
+                    "AND created_at > now() - make_interval(secs => %s) LIMIT 1", (NISA_COOLDOWN_SEC,))
+        if cur.fetchone():
+            self._log_and_respond(cur, session_hash, nisa_raw, det, None, "cooldown", products, eligible, 0)
+            return
+        status, parsed = "ok", None
+        try:
+            text, stop, _rid, _u = _call_llm(SYS_NISA_ALLOC, _build_nisa_user(nisa_raw, products, counts), NISA_MAX_TOKENS)
+            if stop == "max_tokens":
+                status = "truncated"
+            elif stop not in ("end_turn", None):
+                status = "refusal"
+            else:
+                parsed = parse_nisa_ai(text, eligible)
+                if parsed is None:
+                    status = "failed"
+                elif not nisa_prose_clean(parsed, _market_terms(cur)):
+                    parsed, status = None, "filtered"
+        except Exception as e:  # noqa: BLE001
+            print(f"nisa LLM error: {type(e).__name__}", file=sys.stderr)
+            status, parsed = "failed", None
+        self._log_and_respond(cur, session_hash, nisa_raw, det, parsed, status, products, eligible,
+                              bundle)
+
+    def _log_and_respond(self, cur, session_hash, nisa_raw, det, parsed, status, products, eligible, truncated):
+        refs_count = 0
+        if isinstance(parsed, dict):
+            refs_count = len((parsed.get("tsumitate_plan") or {}).get("refs") or []) + \
+                         len((parsed.get("growth_candidates") or {}).get("refs") or [])
+        trunc = truncated if isinstance(truncated, dict) else {"tsumitate_truncated": False, "growth_truncated": False}
+        _log_nisa(cur, session_hash, nisa_raw, status, refs_count,
+                  None if status == "ok" else status)
+        resp = build_nisa_response(det, parsed if status == "ok" else None, status, products, eligible, trunc)
+        return self._json(200, {**resp, "generatedAt": datetime.now(timezone.utc).isoformat()})
 
     def _log(self, cur, mode, ticker, facts, fhash, ai_status, ai, req_id, usage, latency):
         try:
