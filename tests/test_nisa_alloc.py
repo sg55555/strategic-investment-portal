@@ -147,3 +147,26 @@ def test_prose_clean_ignores_server_fixed_fields():
     # topFix #1: newMoneyNote 固定文・cautions は走査対象外＝売却/移し替え語を含んでも degrade しない（恒常 degrade 回避）。
     assert insight.nisa_prose_clean(_parsed(newMoneyNote="新規資金の配分のみで、既存保有の売却・移し替え指示ではありません。"), TERMS) is True
     assert insight.nisa_prose_clean(_parsed(cautions=["近く売却予定の資産は非課税枠に不向きです"]), TERMS) is True
+
+
+def test_coarsen_nisa_facts_buckets_and_drops_raw_yen():
+    raw = {"tsumitateThisYear": 700000, "growthThisYear": 0, "tsumitateLifetime": 700000,
+           "growthLifetime": 0, "soldThisYearAtCost": 123456,
+           "annualTsumitateRemaining": 500000, "annualGrowthRemaining": 2400000,
+           "lifetimeRemaining": 17300000, "growthCapRemaining": 12000000,
+           "monthlyToFillTsumitate": 55000, "restoresYear": 2027}
+    c = insight.coarsen_nisa_facts(raw)
+    # bucket 化された leaf は 0/25/50/75/100 のみ
+    for k in ("annualTsumitateUsedBucket", "lifetimeUsedBucket", "growthCapUsedBucket"):
+        assert c[k] in (0, 25, 50, 75, 100), (k, c[k])
+    # 生¥ leaf は非保存（監査指紋を残さない）
+    assert "monthlyToFillTsumitate" not in c and "soldThisYearAtCost" not in c
+    assert "annualTsumitateRemaining" not in c and "lifetimeRemaining" not in c
+    # restoresYear（年・非¥）は透過
+    assert c["restoresYear"] == 2027
+    # 生¥そのものが値として現れない
+    import json as _j
+    assert "123456" not in _j.dumps(c) and "700000" not in _j.dumps(c) and "17300000" not in _j.dumps(c)
+
+def test_coarsen_nisa_none_is_none():
+    assert insight.coarsen_nisa_facts(None) is None

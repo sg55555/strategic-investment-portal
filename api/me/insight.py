@@ -260,6 +260,7 @@ NISA_ANNUAL_TOTAL = 3600000
 NISA_LIFETIME = 18000000
 NISA_GROWTH_LIFETIME_CAP = 12000000
 NISA_SOURCES = ("manual", "history", "ledger")
+NISA_PROMPT_VERSION = "nisa-alloc-v1"  # planB Task7: me.nisa_log 監査ログの prompt_version（本節が定義を所有）
 NISA_MIN_YEAR = 2024  # Stage2: 新NISA開始年＝履歴年の下限（facts非出力・money-rules.js と同値必須）
 NISA_HISTORY_MAX = 50  # Stage2: 履歴件数上限（money-rules.js NISA_HISTORY_MAX と同値必須）
 # 共有 strict-decimal 文法（scalar-coerce パリティ堅牢化 2026-07-15）。ASCII クラス限定＝\d/\s 不使用
@@ -711,6 +712,40 @@ def nisa_prose_clean(parsed, terms):
         if _SELL_VERB_RE.search(f):
             return False
     return True
+
+
+# ---- planB Task7: me.nisa_log 監査ログ（生¥ leaf を bucket 化して排除・INSERT ヘルパ）----
+def _bucket25(p):
+    return int(round(_num(p) / 25.0)) * 25  # 0/25/50/75/100（advice.coarsen と同方針）
+
+
+def coarsen_nisa_facts(nisa_raw):
+    if not isinstance(nisa_raw, dict):
+        return None
+    at, ag = nisa_raw.get("tsumitateThisYear", 0), nisa_raw.get("growthThisYear", 0)
+    life = _num(nisa_raw.get("tsumitateLifetime")) + _num(nisa_raw.get("growthLifetime"))
+    # topFix #4: source は載せない。_nisa_raw の 11 フィールドに source は存在せず（advice.py:1041-1056）、
+    # 載せるには _handle_nisa 側で _nisa_derive を二重計算して n['source'] を別途渡す必要がある。
+    # 入力源ラベル（manual/history/ledger）は観測価値が低く、単一射影（_nisa_raw 1 本）を崩す対価に見合わない。
+    # 監査に必要な残枠は bucket 化した leaf のみで足りる。
+    return {
+        "annualTsumitateUsedBucket": _bucket25(at / NISA_ANNUAL_TSUMITATE * 100),
+        "annualGrowthUsedBucket": _bucket25(ag / NISA_ANNUAL_GROWTH * 100),
+        "lifetimeUsedBucket": _bucket25(life / NISA_LIFETIME * 100),
+        "growthCapUsedBucket": _bucket25(_num(nisa_raw.get("growthLifetime")) / NISA_GROWTH_LIFETIME_CAP * 100),
+        "restoresYear": nisa_raw.get("restoresYear", 0),
+    }
+
+
+def _log_nisa(cur, session_hash, nisa_raw, ai_status, refs_count, degrade_reason):
+    try:
+        cur.execute(
+            "INSERT INTO me.nisa_log (session_hash, facts_coarsened, ai_response, ai_status, "
+            "prompt_version, refs_count, degrade_reason) VALUES (%s,%s,%s,%s,%s,%s,%s)",
+            (session_hash, Jsonb(coarsen_nisa_facts(nisa_raw)) if nisa_raw is not None else None,
+             None, ai_status, NISA_PROMPT_VERSION, refs_count, degrade_reason))
+    except Exception as e:  # noqa: BLE001
+        print(f"nisa log error: {type(e).__name__}", file=sys.stderr)
 
 
 _FIN_COLS = ("net_sales", "net_income", "net_assets", "current_assets", "non_current_assets",
