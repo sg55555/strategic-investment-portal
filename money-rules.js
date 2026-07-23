@@ -655,6 +655,13 @@
     };
   }
 
+  // B#3 Stage4b: NISA 口座配置の決定論 decline 教育文言（§8・商品名を含まない＝層1 公開クライアント常駐可）。
+  function nisaAllocEducation() {
+    return "NISA枠は損益通算・繰越控除ができず、下振れ時の税務救済がありません。米国株配当は外国税額控除が使えない点にも注意します。"
+      + "非課税メリットが大きい長期保有・分配課税の重い資産を優先的に非課税枠へ寄せる考え方が基本ですが、"
+      + "売却予定・含み損益・投資期間を踏まえてご自身で判断してください。具体的な適格商品の候補はログイン後に表示されます。";
+  }
+
   // Task3: 確保枠の月次コミット合計（定常寄与＝投影のコアドラッグ）。cd.reserveAlloc(配列)や cd.toReserves(今月実配分・phase依存)は投影に使わない。
   function reserveMonthlyTotal(s, nowMs) {
     var reserves = Array.isArray(s.reserves) ? s.reserves : [];
@@ -1323,7 +1330,7 @@
   return {
     STORAGE_KEY: STORAGE_KEY, CURRENT_VERSION: CURRENT_VERSION,
     NEXT_TARGETS: NEXT_TARGETS, FACTS_SCHEMA_VERSION: FACTS_SCHEMA_VERSION,
-    DISCLAIMER: DISCLAIMER, DISCLAIMER_VERSION: DISCLAIMER_VERSION,
+    DISCLAIMER: DISCLAIMER, DISCLAIMER_VERSION: DISCLAIMER_VERSION, nisaAllocEducation: nisaAllocEducation,
     GLOSSARY: GLOSSARY, onboardingSteps: onboardingSteps,
     defaultState: defaultState, migrate: migrate, normalizeGoal: normalizeGoal,
     normalizeReserve: normalizeReserve, reserveMonthly: reserveMonthly,

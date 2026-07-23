@@ -28,6 +28,12 @@ window.MCC = (function () {
   var adviceBusy = false;
   var adviceErr = "";
 
+  // B#3 Stage4b: NISA 口座配分助言（layer1 nisaSection カード）の状態。advice/adviceBusy/adviceErr と同型。
+  var nisaAdvice = null;       // 直近の 200 レスポンス {deterministic, ai, aiStatus, resolvedRefs}（fe-4 同型で温存）
+  var nisaAdviceBusy = false;
+  var nisaAdviceErr = "";
+  var _nisaCap = null;         // {ok, insightEnabled, nisaAdviceEnabled}（probe 済み・成功のみキャッシュ）
+
   // Slice4: 収支連携（投資余力）。/api/me/cashflow の生行を保持（read-only・ログイン時のみ取得）。
   var _cashflowRows = [];
   // データ基盤Phase2: 投資台帳。/api/me/investment の生行を保持（read-only・保有ゼロ/未配線でも空配列で degrade）。
@@ -157,6 +163,26 @@ window.MCC = (function () {
     }).catch(function () { adviceBusy = false; adviceErr = "通信エラー"; render(); });
   }
 
+  // B#3 Stage4b: NISA 口座配分助言をオンデマンド取得。最新 state を Neon へ反映してからサーバに集約・LLM させる。
+  function requestNisaAdvice() {
+    if (nisaAdviceBusy) return;
+    if (!sync.loggedIn) { nisaAdvice = null; nisaAdviceErr = "セッションが切れました。再ログインしてください"; render(); return; }
+    nisaAdviceBusy = true; nisaAdviceErr = ""; render();
+    flushNow().then(function () {
+      return apiJSON("POST", "/api/me/insight", { kind: "nisa_allocation" });
+    }).then(function (res) {
+      nisaAdviceBusy = false;
+      // fe-4: 401 以外（403/429/503/一過性）は直前の良好な助言を破棄せず nisaAdviceErr のみ表示。
+      if (res.status === 401) { sync.loggedIn = false; nisaAdvice = null; nisaAdviceErr = "セッションが切れました。再ログインしてください"; }
+      else if (res.status === 403) { nisaAdvice = null; nisaAdviceErr = ""; _nisaCap = null; }   // capability 失効＝可視ゲートで隠す（次 probe で再判定）
+      else if (res.status === 429) { nisaAdviceErr = "短時間に相談が多すぎます。少し待って再試行してください"; }
+      else if (res.status === 503) { nisaAdviceErr = "AIコーチは未設定です（教育原則は上に表示）"; }
+      else if (!res.ok || !res.data) { nisaAdviceErr = "候補の取得に失敗しました"; }
+      else { nisaAdvice = res.data; nisaAdvice._stateTs = (state && Number(state.updatedAt)) || 0; }
+      render();
+    }).catch(function () { nisaAdviceBusy = false; nisaAdviceErr = "通信エラー"; render(); });
+  }
+
   // Slice4: 収支スナップショットを取得（認証データ＝ログイン時のみ意味がある）。失敗は空配列で degrade。
   // 成功時のみ rows を差し替え＝refresh の一過性失敗で表示中の good データを空に落とさない（requestAdvice fe-4 と同型）。
   // 初回ロードは prior が [] なので挙動不変。401 は他経路(reconcile/cloudFlush/requestAdvice)と一貫して loggedIn を倒す。
@@ -249,6 +275,22 @@ window.MCC = (function () {
       sync.loggedIn = !!(res.ok && res.data && res.data.ok);
       return sync.loggedIn;
     }).catch(function () { sync.loggedIn = false; return false; });
+  }
+
+  // B#3 Stage4b: NISA 助言 capability probe（detail.js probeInsightCap 234-246 同型）。
+  //  /api/auth/session を叩き {ok, insightEnabled, nisaAdviceEnabled} を成功時のみキャッシュ。
+  //  production(非personal)/killswitch OFF では nisaAdviceEnabled=false → 可視ゲートで完全非描画（痕跡ゼロ）。
+  //  fetch 失敗/非2xx はすべて fail-closed（nisaAdviceEnabled:false）で隠す側に倒す。
+  function probeNisaCap() {
+    if (_nisaCap && _nisaCap.ok) return Promise.resolve(_nisaCap);   // 成功のみ短絡（negative は毎回再 probe）
+    return fetch("/api/auth/session", { credentials: "same-origin" })
+      .then(function (r) { return r.ok ? r.json() : { ok: false, nisaAdviceEnabled: false }; })
+      .then(function (j) {
+        var cap = { ok: !!j.ok, insightEnabled: !!j.insightEnabled, nisaAdviceEnabled: !!j.nisaAdviceEnabled };
+        if (cap.ok) _nisaCap = cap;   // 成功のみキャッシュ（未ログイン/失敗はキャッシュせず mid-session login を拾う）
+        return cap;
+      })
+      .catch(function () { return { ok: false, nisaAdviceEnabled: false }; });
   }
 
   // ログイン直後/セッション確認後に1回。last-write-wins（updatedAt 比較）で調停する。
@@ -446,6 +488,8 @@ window.MCC = (function () {
         else { render(); }
       });
     }
+    // B#3 Stage4b: NISA capability probe（成功のみキャッシュ＝再 probe で mid-session login を拾う）。
+    probeNisaCap().then(function (cap) { if (cap.ok) render(); });
   }
 
   function backToPortal() {
@@ -1195,6 +1239,56 @@ window.MCC = (function () {
       'onchange="MCC.setNisaYearField(\'' + yearEsc + '\', \'' + field + '\', this.value)"></td>';
   }
 
+  // B#3 Stage4b: NISA 口座配分助言カード（capability 可視ゲート・DISCLAIMER 常時・resolvedRefs で id→name join）。
+  //  fail-closed＝probe 未完/未ログイン/killswitch OFF では空文字＝痕跡ゼロ（detail.js wireInsightCard 820 同型）。
+  function nisaAdviceCard(vm) {
+    if (!(_nisaCap && _nisaCap.ok && _nisaCap.nisaAdviceEnabled)) return "";   // 可視ゲート (cap.ok && nisaAdviceEnabled)
+    var edu = '<div class="mcc-nisa-alloc-edu">' + esc(R.nisaAllocEducation()) + '</div>';
+    var aiHtml = '';
+    if (nisaAdvice && nisaAdvice.ai) {
+      var a = nisaAdvice.ai;
+      var byId = {};
+      (nisaAdvice.resolvedRefs || []).forEach(function (r) { byId[r.id] = r; });   // resolvedRefs で id→name join（LLM は表示名を出さない）
+      var nameList = function (refs) {
+        return (refs || []).map(function (id) { return byId[id] ? esc(byId[id].name) : ""; })
+          .filter(function (s) { return s; }).join("・");
+      };
+      var tp = a.tsumitate_plan || {}, gc = a.growth_candidates || {};
+      var tsNames = nameList(tp.refs), gwNames = nameList(gc.refs);
+      var cond = gc.conditionalDisclaimer ? '<div class="mcc-nisa-alloc-cond">' + esc(gc.conditionalDisclaimer) + '</div>' : '';
+      var cautions = (a.cautions || []).map(function (c) { return '<li>' + esc(c) + '</li>'; }).join("");
+      aiHtml =
+        '<div class="mcc-nisa-alloc-ai">' +
+          '<div class="mcc-nisa-alloc-head">' + esc(a.headline || "") + '</div>' +
+          '<div class="mcc-nisa-alloc-note">' + esc(a.newMoneyNote || "") + '</div>' +
+          (tp.note ? '<div class="mcc-nisa-alloc-block"><div class="mcc-nisa-alloc-blabel">つみたて投資枠</div><div>' + esc(tp.note) + '</div>' +
+            (tsNames ? '<div class="mcc-nisa-alloc-prods">' + tsNames + '</div>' : '') + '</div>' : '') +
+          (gc.note ? '<div class="mcc-nisa-alloc-block"><div class="mcc-nisa-alloc-blabel">成長投資枠</div><div>' + esc(gc.note) + '</div>' +
+            (gwNames ? '<div class="mcc-nisa-alloc-prods">' + gwNames + '</div>' : '') + cond + '</div>' : '') +
+          (a.taxable_note ? '<div class="mcc-nisa-alloc-block"><div class="mcc-nisa-alloc-blabel">課税口座</div><div>' + esc(a.taxable_note) + '</div></div>' : '') +
+          (cautions ? '<ul class="mcc-nisa-alloc-cautions">' + cautions + '</ul>' : '') +
+        '</div>';
+    } else if (nisaAdvice && !nisaAdvice.ai) {
+      // degrade（LLM 失敗/cooldown/残枠未設定）＝教育原則のみ（商品名なし・層1 文言）。
+      var why = nisaAdvice.aiStatus === "cooldown" ? "少し時間を置いてから、もう一度お試しください。"
+        : nisaAdvice.aiStatus === "not_configured" ? "NISA残枠が未設定です。上で残枠を入力すると候補を出せます。"
+        : "候補は今取得できませんでした（教育原則は上に表示）。";
+      aiHtml = '<div class="mcc-nisa-alloc-ai mcc-nisa-alloc-ai-muted">' + esc(why) + '</div>';
+    }
+    var btn = sync.loggedIn
+      ? '<button class="mcc-nisa-alloc-btn" onclick="MCC.requestNisaAdvice()"' + (nisaAdviceBusy ? ' disabled' : '') + '>' +
+          (nisaAdviceBusy ? '取得中…' : (nisaAdvice ? '再取得' : '口座配分の候補を見る')) + '</button>'
+      : '<span class="mcc-nisa-alloc-login">ログインすると適格商品の候補を表示できます</span>';
+    var err = nisaAdviceErr ? '<div class="mcc-nisa-alloc-err">' + esc(nisaAdviceErr) + '</div>' : '';
+    var disc = '<div class="mcc-nisa-alloc-disclaimer">' + esc(R.DISCLAIMER) + '</div>';   // 常時同梱（fail-closed 免責）
+    return '<div class="mcc-nisa-alloc">' +
+      '<div class="mcc-section-title mcc-section-title-gap">口座振り分けの候補（個人モード）</div>' +
+      '<div class="mcc-section-desc">新規資金をどの口座（つみたて/成長/課税）に置くかの候補です。売却・移し替えの助言ではありません。</div>' +
+      edu + aiHtml +
+      '<div class="mcc-nisa-alloc-actions">' + btn + '</div>' + err + disc +
+    '</div>';
+  }
+
   function nisaSection(vm) {
     if (!vm) return "";
     var loggedIn = sync.loggedIn;
@@ -1397,7 +1491,7 @@ window.MCC = (function () {
     return '<div class="mcc-nisa" id="mcc-sec-nisa">' +
       '<div class="mcc-section-title mcc-section-title-gap">NISA枠（非課税枠）' + termHelp("NISA枠") + '</div>' +
       '<div class="mcc-section-desc">課税を避けられる「枠」の消化。バケツ（いつ）・資産クラス（何を）と直交する「どの口座で持つか」の軸。</div>' +
-      bodyHtml + inputHtml +
+      bodyHtml + inputHtml + nisaAdviceCard(vm) +
     '</div>';
   }
 
@@ -1660,7 +1754,7 @@ window.MCC = (function () {
     init: init, show: show, backToPortal: backToPortal, setField: setField,
     load: load, save: save, render: render, exportJSON: exportJSON, importJSON: importJSON,
     doLogin: doLogin, logout: logout, addGoal: addGoal, removeGoal: removeGoal,
-    requestAdvice: requestAdvice, applySurplus: applySurplus,
+    requestAdvice: requestAdvice, requestNisaAdvice: requestNisaAdvice, applySurplus: applySurplus,
     saveAnchor: saveAnchor, editAnchor: editAnchor, refreshData: refreshData, jumpTo: jumpTo, adoptAvgExpense: adoptAvgExpense,
     addReserve: addReserve, removeReserve: removeReserve, fundReserve: fundReserve, setReserveField: setReserveField,
     acSetScope: acSetScope, acFillCashOnly: acFillCashOnly,

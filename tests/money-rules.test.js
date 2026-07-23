@@ -1730,3 +1730,10 @@ test("nisaViewModel: reconcile は manual では available:false（差を語ら�
   assert.equal(vm.reconcile.available, false);
   assert.equal(vm.reconcile.sourceLabel, "");
 });
+
+test("nisaAllocEducation is product-name-free institutional text", () => {
+  const t = R.nisaAllocEducation();
+  assert.ok(typeof t === "string" && t.length > 0);
+  assert.ok(t.includes("損益通算") || t.includes("非課税"));   // §8 教育原則
+  assert.ok(!/ファンド|eMAXIS|オルカン|インデックス/.test(t)); // 商品名/商品語を含まない（層1 公開クライアント）
+});
