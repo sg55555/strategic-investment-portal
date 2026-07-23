@@ -227,3 +227,43 @@ def test_build_nisa_response_truncation_appends_caution():
 def test_build_nisa_response_degrade_null_ai():
     resp = insight.build_nisa_response({"x": 1}, None, "degraded", [], set(), {"tsumitate_truncated": False, "growth_truncated": False})
     assert resp["ai"] is None and resp["resolvedRefs"] == [] and resp["aiStatus"] == "degraded"
+
+
+# ---- planB Task11: E2E 捏造貫通ゼロ パイプライン受入テスト（offline）----
+def test_e2e_fabrication_zero_and_conditional_injected():
+    out = insight.build_eligible_products([_ts(1, "つみA"), _ts(2, "つみB")],
+                                          [_gw("7203", "JP", "eligible"), _gw("AAPL", "US", "conditional")])
+    products, elig = out["products"], insight.eligible_ids(out["products"])
+    # 擬似 LLM 応答: 実在 ts:1 / gw:AAPL + 捏造 ts:999・gw:FAKE・prefix 不整合 gw:1
+    llm = json.dumps({
+        "headline": "新規資金の配分",
+        "newMoneyNote": "新規資金の配分のみで売却指示ではありません",
+        "tsumitate_plan": {"note": "つみたて枠を優先的に埋めます", "refs": ["ts:1", "ts:999"]},
+        "growth_candidates": {"note": "成長枠の候補です", "refs": ["gw:AAPL", "gw:FAKE", "gw:1"], "conditionalDisclaimer": ""},
+        "taxable_note": "課税口座は損益通算ができます",
+        "cautions": ["損益通算・繰越控除ができません", "下振れ時の税務救済はありません"],
+    }, ensure_ascii=False)
+    parsed = insight.parse_nisa_ai(llm, elig)
+    assert parsed is not None
+    assert parsed["newMoneyNote"] == insight.NISA_NEW_MONEY_NOTE  # topFix #1: サーバ固定文注入（売却動詞ガードと非衝突）
+    assert parsed["tsumitate_plan"]["refs"] == ["ts:1"]        # ts:999 捏造を drop
+    assert parsed["growth_candidates"]["refs"] == ["gw:AAPL"]  # gw:FAKE 捏造 / gw:1 prefix 不整合を drop
+    assert insight.nisa_prose_clean(parsed, {"tickers": set(), "names": []}) is True
+    resp = insight.build_nisa_response({}, parsed, "ok", products, elig, out)
+    ids = {r["id"] for r in resp["resolvedRefs"]}
+    assert ids == {"ts:1", "gw:AAPL"}                          # 実在適格のみ解決（捏造ゼロ）
+    assert {r["name"] for r in resp["resolvedRefs"]} == {"つみA", "AAPL社"}  # id→name join
+    assert resp["ai"]["growth_candidates"]["conditionalDisclaimer"] == insight.NISA_CONDITIONAL_DISCLAIMER
+    assert resp["ai"]["cautions"]                               # cautions 描画
+
+def test_e2e_sell_verb_slips_in_degrades():
+    out = insight.build_eligible_products([_ts(1, "つみA")], [])
+    elig = insight.eligible_ids(out["products"])
+    llm = json.dumps({
+        "headline": "配分", "newMoneyNote": "新規資金のみ",
+        "tsumitate_plan": {"note": "含み損の課税口座分を売却してNISAへ移し替えます", "refs": ["ts:1"]},
+        "growth_candidates": {"note": "", "refs": [], "conditionalDisclaimer": ""},
+        "taxable_note": "", "cautions": ["損益通算不可"]}, ensure_ascii=False)
+    parsed = insight.parse_nisa_ai(llm, elig)
+    assert parsed is not None                                   # 構造は通る
+    assert insight.nisa_prose_clean(parsed, {"tickers": set(), "names": []}) is False  # 売却語で degrade
