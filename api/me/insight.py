@@ -632,21 +632,21 @@ def parse_nisa_ai(text, eligible):
     gc = obj.get("growth_candidates") if isinstance(obj.get("growth_candidates"), dict) else {}
     tp_note, gc_note = _s(tp.get("note")), _s(gc.get("note"))
     taxable = _s(obj.get("taxable_note"))
-    cond = _s(gc.get("conditionalDisclaimer"))
     cautions = [_s(c) for c in obj.get("cautions")] if isinstance(obj.get("cautions"), list) else []
     cautions = [c for c in cautions if c]
     # 構造強制: cautions 欠落は degrade（両論併記の構造強制）。newMoneyNote はサーバ固定文ゆえ欠落判定しない。
     if not cautions:
         return None
     # 文字数超過は切詰でなく degrade（意味毀損防止）。newMoneyNote は固定文ゆえ長さ検査対象外。
+    # conditionalDisclaimer は LLM 出力を採用しない（C1a）ので長さ検査対象からも外れる。
     if len(headline) > 60 or len(tp_note) > 240 or len(gc_note) > 240 \
-       or len(taxable) > 240 or len(cond) > 240 or any(len(c) > 80 for c in cautions):
+       or len(taxable) > 240 or any(len(c) > 80 for c in cautions):
         return None
     return {
         "headline": headline, "newMoneyNote": NISA_NEW_MONEY_NOTE,   # サーバ固定文を注入（LLM 出力は無視）
         "tsumitate_plan": {"note": tp_note, "refs": _nisa_refs_filter(tp.get("refs"), "ts:", eligible)},
         "growth_candidates": {"note": gc_note, "refs": _nisa_refs_filter(gc.get("refs"), "gw:", eligible),
-                              "conditionalDisclaimer": cond},
+                              "conditionalDisclaimer": ""},   # C1a: サーバ専有。LLM値は採用しない（newMoneyNote と同型）
         "taxable_note": taxable, "cautions": cautions,
     }
 
@@ -696,7 +696,9 @@ def _nisa_prose_fields(parsed):
     # taxable_note に適用する。サーバ固定文/免責は走査対象外にする：
     #   - newMoneyNote＝サーバ注入の固定文（売却否定の定型文）＝走査すると必ず売却動詞に自ヒットして恒常 degrade。
     #   - cautions＝「近く売却予定の資産は非課税枠に不向き」等の正当な両論注意が売却語を含みうる（誤 degrade）。
-    #   - conditionalDisclaimer＝build_nisa_response がサーバ固定文を強制注入（そもそも gc.note のみ走査で対象外）。
+    #     ただし商品名/ticker/投信トークンは cautions にも許容しない＝ nisa_prose_clean 側で別途名前だけ走査する（C1b）。
+    #   - conditionalDisclaimer＝C1a で parse_nisa_ai が LLM 値を採用せず常に ""（サーバ専有・build_nisa_response が
+    #     conditional 時のみ固定文を注入）にしたため、走査自体が不要（LLM 由来の文字列がそもそも存在しない）。
     tp = parsed.get("tsumitate_plan") or {}
     gc = parsed.get("growth_candidates") or {}
     fields = [parsed.get("headline", ""), tp.get("note", ""), gc.get("note", ""),
@@ -711,6 +713,14 @@ def nisa_prose_clean(parsed, terms):
             return False
         if _SELL_VERB_RE.search(f):
             return False
+    # C1b: cautions は「商品名/ticker/投信トークン」のみ走査する（売却動詞は走査しない）。
+    # cautions は両論併記の注意書きとして、正当な売却タイミング教育（例:「近く売却予定の資産は非課税枠に
+    # 不向き」）を含みうるため売却動詞は許容する。ただし商品名/ticker/ファンド名様トークンは resolvedRefs
+    # 経由でのみユーザーに提示されるべきで、cautions の自由記述に紛れ込ませてはならない。
+    for c in (parsed.get("cautions") or []):
+        if isinstance(c, str) and c:
+            if _security_market_hit(c, terms) or _NISA_FUND_TOKEN_RE.search(c):
+                return False
     return True
 
 

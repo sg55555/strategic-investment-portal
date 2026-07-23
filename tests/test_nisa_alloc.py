@@ -267,3 +267,52 @@ def test_e2e_sell_verb_slips_in_degrades():
     parsed = insight.parse_nisa_ai(llm, elig)
     assert parsed is not None                                   # 構造は通る
     assert insight.nisa_prose_clean(parsed, {"tickers": set(), "names": []}) is False  # 売却語で degrade
+
+
+# ---- planB 全ブランチレビュー I1: advice.py/insight.py 逐語複製の検出器パリティ固定 ----
+import inspect
+
+def test_detectors_source_parity_advice_vs_insight():
+    for name in ("_security_market_hit", "_market_terms"):
+        a = inspect.getsource(getattr(advice, name))
+        b = inspect.getsource(getattr(insight, name))
+        assert a == b, name + " drifted between advice.py and insight.py"
+
+
+# ---- planB 全ブランチレビュー C1: 第2抜け穴（cautions / conditionalDisclaimer）を閉じる受入テスト ----
+def test_caution_with_product_name_degrades():
+    TERMS2 = {"tickers": {"7203"}, "names": ["トヨタ自動車"]}
+    # fabricated/real fund word in a caution must degrade (name leak)
+    assert insight.nisa_prose_clean({"headline": "配分", "newMoneyNote": "x",
+        "tsumitate_plan": {"note": "枠優先", "refs": []},
+        "growth_candidates": {"note": "候補", "refs": [], "conditionalDisclaimer": ""},
+        "taxable_note": "課税", "cautions": ["eMAXIS Slim を推奨します"]}, TERMS2) is False
+    # real ticker in a caution must degrade
+    assert insight.nisa_prose_clean({"headline": "配分", "newMoneyNote": "x",
+        "tsumitate_plan": {"note": "枠優先", "refs": []},
+        "growth_candidates": {"note": "候補", "refs": [], "conditionalDisclaimer": ""},
+        "taxable_note": "課税", "cautions": ["7203を非課税枠に"]}, TERMS2) is False
+
+def test_caution_with_legit_sell_education_stays_clean():
+    TERMS2 = {"tickers": set(), "names": []}
+    # sell-verb in a caution is legitimate education (no product name) -> NOT degraded
+    assert insight.nisa_prose_clean({"headline": "配分", "newMoneyNote": "x",
+        "tsumitate_plan": {"note": "枠優先", "refs": []},
+        "growth_candidates": {"note": "候補", "refs": [], "conditionalDisclaimer": ""},
+        "taxable_note": "課税", "cautions": ["近く売却予定の資産は非課税枠に不向きです"]}, TERMS2) is True
+
+def test_conditional_disclaimer_llm_value_never_survives():
+    import json as _j
+    # LLM injects a malicious conditionalDisclaimer (sell-verb + fake fund); parse must drop it entirely.
+    llm = _j.dumps({"headline": "h", "newMoneyNote": "x",
+        "tsumitate_plan": {"note": "n", "refs": []},
+        "growth_candidates": {"note": "g", "refs": [], "conditionalDisclaimer": "オルカンを売却して乗り換えを"},
+        "taxable_note": "t", "cautions": ["損益通算不可"]}, ensure_ascii=False)
+    parsed = insight.parse_nisa_ai(llm, set())
+    assert parsed is not None
+    assert parsed["growth_candidates"]["conditionalDisclaimer"] == ""   # LLM value dropped
+    # and through build_nisa_response with NO conditional resolved -> still "" (never the LLM text)
+    resp = insight.build_nisa_response({}, parsed, "ok", [], set(),
+        {"tsumitate_truncated": False, "growth_truncated": False})
+    assert resp["ai"]["growth_candidates"]["conditionalDisclaimer"] == ""
+    assert "売却" not in resp["ai"]["growth_candidates"]["conditionalDisclaimer"]
