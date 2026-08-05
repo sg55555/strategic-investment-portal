@@ -130,7 +130,14 @@ window.MCC = (function () {
     _cloudBusy = true;
     apiJSON("PUT", "/api/me/state", { state: state }).then(function (res) {
       _cloudBusy = false;
-      if (res.status === 401) { sync.loggedIn = false; _cloudDirty = false; repaintSyncBar(); }
+      if (res.status === 401) {
+        sync.loggedIn = false; _cloudDirty = false;
+        // B2: 背景 401（保存に行った PUT がセッション切れで弾かれた）を鮮度行にも出す。同期バーだけだと、
+        // 画面に残っている収支カード/導出現金が「実は古い（セッションが切れて以降は追随していない）」ことが
+        // 伝わらない＝ユーザーが気付かず古い額を見続ける事故になる。full render はせず両方とも部分描画。
+        _cfFetchErr = "セッションが切れています。再ログインしてください";
+        repaintSyncBar(); repaintStaleNotice();
+      }
       else if (res.ok) { _cloudDirty = false; sync.lastSyncOk = true; paintSyncStatus(); }
       else { sync.lastSyncOk = false; paintSyncStatus(); }
       if (_cloudPending) { _cloudPending = false; cloudFlush(); }
@@ -233,7 +240,14 @@ window.MCC = (function () {
   // kakeibo→Neon の ETL は起動せず、既に Neon にある確定データの再取得のみ＝副作用ゼロ・安全。
   // 「今どこまで取り込まれているか」をその場で確定できるようにする（鮮度行の隣にボタンを置く）。
   function refreshData() {
-    if (_refreshing || !sync.loggedIn) return;
+    if (_refreshing) return;
+    if (!sync.loggedIn) {
+      // B2: 未ログインでの「↻ 最新に更新」相当（ボタン自体は収支セクションが未ログインで非描画のため
+      // 通常は押せないが、ログイン欄クリック直後の一瞬など sync.loggedIn=false のまま呼ばれ得る）。
+      // 従来は無言 return＝押しても何も起きない「死にボタン」だった。再ログイン導線へ誘導する。
+      _cfFetchErr = "セッションが切れています。再ログインしてください";
+      render(); jumpTo("sync"); return;
+    }
     _refreshing = true;
     render();  // 即「更新中…」を反映（ボタン無効化）
     var done = function () { _refreshing = false; render(); };
@@ -302,6 +316,16 @@ window.MCC = (function () {
   function syncStatusText() {
     if (!sync.loggedIn) return "☁ クラウド同期（複数端末で共有）";
     return sync.lastSyncOk === false ? "☁ ⚠ 同期エラー（後で再試行）" : "☁ ✓ この端末はクラウド同期中";
+  }
+
+  // B2: 背景 401（cloudFlush の PUT がセッション切れで弾かれた）で鮮度行（id=mcc-cf-fetchnote）だけを差し替える。
+  // repaintSyncBar と同方針＝full render は入力フォーカス/未確定テキストを壊すため避ける。要素が無ければ何もしない
+  // （未ログイン等で収支セクション自体が非描画＝該当 DOM が無い）。cv は fetchNoteHtml と同じ算出方法で作り直す。
+  function repaintStaleNotice() {
+    var el = document.getElementById("mcc-cf-fetchnote");
+    if (!el) return;
+    var cv = R.cashflowViewModel(_cashflowRows, state, Date.now());
+    el.outerHTML = fetchNoteHtml(cv);
   }
 
   // ---- 認証 ----
@@ -707,6 +731,23 @@ window.MCC = (function () {
       '<line class="mcc-spark-axis" x1="0" y1="' + mid + '" x2="' + w + '" y2="' + mid + '"></line>' + bars + '</svg></div>';
   }
 
+  // B2: 鮮度行（id=mcc-cf-fetchnote）の生成 HTML を1本化。cashflowSection（初期/full render 時）と
+  // repaintStaleNotice（背景401時の部分描画）の両方から呼ぶ＝二重実装で表示が食い違う事故を構造的に防ぐ。
+  // cv は R.cashflowViewModel(...) の戻り（staleDays/dataFresh のみ参照・業務math はここに置かない）。
+  function fetchNoteHtml(cv) {
+    var freshTxt = cv.staleDays == null ? "クラウドの最新データを表示中"
+      : ("クラウド更新: " + cv.staleDays + "日前（毎日 朝6時ごろ自動）" + (cv.dataFresh ? "" : "・更新が止まっている可能性"));
+    return '<div id="mcc-cf-fetchnote">' +
+        '<div class="mcc-cf-fresh' + (cv.dataFresh === false ? " stale" : "") + '">' +
+          '<span class="mcc-cf-fresh-txt">' + esc(freshTxt) + '</span>' +
+          '<span class="mcc-cf-fetchinfo">この端末での最終取得: ' + esc(fmtAgo(_cfFetchedAt)) + '</span>' +
+          '<button class="mcc-cf-refresh" title="クラウド（保存済みデータ）を再取得します。新しい月は毎日の自動更新で増えます。" onclick="MCC.refreshData()"' + (_refreshing ? " disabled" : "") + '>' +
+            (_refreshing ? "更新中…" : "↻ 最新に更新") + '</button>' +
+        '</div>' +
+        (_cfFetchErr ? '<div class="mcc-cf-fetcherr">⚠ ' + esc(_cfFetchErr) + '</div>' : "") +
+      '</div>';
+  }
+
   // Slice4: 収支カード＋投資余力ゲージ＋鮮度。業務 math は持たず cv（cashflowViewModel）を描くのみ。
   // cd = R.cashDerived(...) の戻り。render() が1回だけ算出して渡す（reservesSection と共有＝2重算出の解消）。
   function cashflowSection(cv, cd) {
@@ -778,18 +819,7 @@ window.MCC = (function () {
     // 鮮度＋「今すぐ最新化」。日次自動更新（毎日 朝6時ごろ）を待たずにユーザー任意で取り直せる（Neon 再取得のみ）。
     // ETL 由来の鮮度（staleDays＝クラウド上のデータがいつのものか）と、B1 で新設した「この端末での最終取得」
     // （_cfFetchedAt＝このブラウザがいつ fetch に成功したか）は別概念＝両方を並記する（後続 B3 が TTL 判定に使用）。
-    var freshTxt = cv.staleDays == null ? "クラウドの最新データを表示中"
-      : ("クラウド更新: " + cv.staleDays + "日前（毎日 朝6時ごろ自動）" + (cv.dataFresh ? "" : "・更新が止まっている可能性"));
-    var fresh =
-      '<div id="mcc-cf-fetchnote">' +
-        '<div class="mcc-cf-fresh' + (cv.dataFresh === false ? " stale" : "") + '">' +
-          '<span class="mcc-cf-fresh-txt">' + esc(freshTxt) + '</span>' +
-          '<span class="mcc-cf-fetchinfo">この端末での最終取得: ' + esc(fmtAgo(_cfFetchedAt)) + '</span>' +
-          '<button class="mcc-cf-refresh" title="クラウド（保存済みデータ）を再取得します。新しい月は毎日の自動更新で増えます。" onclick="MCC.refreshData()"' + (_refreshing ? " disabled" : "") + '>' +
-            (_refreshing ? "更新中…" : "↻ 最新に更新") + '</button>' +
-        '</div>' +
-        (_cfFetchErr ? '<div class="mcc-cf-fetcherr">⚠ ' + esc(_cfFetchErr) + '</div>' : "") +
-      '</div>';
+    var fresh = fetchNoteHtml(cv);
 
     // データ基盤Phase1: 定点アンカー＋確定月収支で現在現金を自動算出（手入力ドリフトの解消・投資フローはPhase2で合算）。
     // cd は render() が算出済みのものを受け取る（同一 nowMs・同一入力での再算出をやめ、表示間の不整合を構造的に消す）。

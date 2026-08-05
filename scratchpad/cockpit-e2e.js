@@ -305,6 +305,98 @@ function check(name, cond, detail) {
     check("C6_gauge_uses_saved_value_when_degraded", /¥111/.test(c.gaugeText || ""), c.gaugeText);
     await ctxC.close();
 
+    // ============ シナリオD（Task B2 ①）: 背景401（cloudFlush の PUT）→ 鮮度行に警告＋フル再描画無し ============
+    // 収支カードが見えている状態（ログイン中）で PUT /api/me/state だけ 401 に切り替え、編集保存を走らせる。
+    // repaintStaleNotice()/repaintSyncBar() が「対象要素だけの部分描画」であることを、フォーカス中の入力に
+    // 立てた独自マーカー属性（DOM ノードの同一性の証拠）が生き残るかで直接検証する＝ full render なら
+    // #mcc-root.innerHTML が丸ごと作り直されノードごと消える＝マーカーもフォーカスも消える。
+    const ctxD = await browser.newContext({ viewport: { width: 1280, height: 2400 } });
+    await mockApi(ctxD, STATE_ANCHOR);
+    let putState401 = false;
+    await ctxD.route("**/api/me/state", (route) => {
+      if (route.request().method() !== "PUT") {
+        return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ state: STATE_ANCHOR }) });
+      }
+      return putState401
+        ? route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ error: "unauthorized" }) })
+        : route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) });
+    });
+    const pageD = await ctxD.newPage();
+    pageD.on("pageerror", (e) => pageErrors.push("D:" + String((e && e.message) || e)));
+    await openCockpit(pageD);
+
+    // 1回目の編集：save() 自身が起こす（正常な・想定内の）即時 full render を先に済ませておく
+    // （B2 が守るのはこの後に来る「debounce 後の背景 401」の部分描画であって、この直後の描画ではない）。
+    await pageD.evaluate(() => { MCC.setField("buckets.core.amount", "5000"); });
+    await pageD.waitForTimeout(150);
+    // 再描画後の（新しい）入力ノードへフォーカス＋独自マーカーを付与＝これが「アクティブ入力」の基準点。
+    await pageD.focus('#mcc-sec-buckets input[data-mcc-focus="buckets.core.amount"]');
+    await pageD.evaluate(() => { document.activeElement.setAttribute("data-b2-marker", "keepme"); });
+    // ここから PUT を 401 に切り替える。1回目の編集で仕込んだ debounce(800ms) タイマーは張られたまま
+    // なので、以降に発火する cloudFlush の PUT がそのまま 401 を踏む。
+    putState401 = true;
+    await pageD.waitForTimeout(900); // debounce(800ms) 経過＋fetch/後続処理の完了待ち
+    const dSnap = await pageD.evaluate(() => {
+      const el = document.activeElement;
+      return {
+        activeMarker: el && el.getAttribute ? el.getAttribute("data-b2-marker") : null,
+        activeFocusKey: el && el.getAttribute ? el.getAttribute("data-mcc-focus") : null,
+        fetchErrText: (() => { const e = document.querySelector(".mcc-cf-fetcherr"); return e ? e.textContent.trim() : null; })(),
+        syncStatusText: (() => { const e = document.getElementById("mcc-sync-status"); return e ? e.textContent.trim() : null; })(),
+        cfSectionStillPresent: !!document.getElementById("mcc-sec-cashflow"),
+      };
+    });
+    check("D1_fetcherr_shows_session_expired_after_bg_401", /セッションが切れています/.test(dSnap.fetchErrText || ""), dSnap.fetchErrText);
+    check("D1_sync_bar_reflects_logged_out", dSnap.syncStatusText === "☁ クラウド同期（複数端末で共有）", dSnap.syncStatusText);
+    // フル再描画なし＝独自マーカーが消えずに残っている（＝ノードが作り直されていない）
+    check("D1_no_full_rerender_marker_survives", dSnap.activeMarker === "keepme", dSnap.activeMarker);
+    // アクティブ入力のフォーカスがそのまま保持されている（body 等へ逃げていない）
+    check("D1_focus_preserved_on_same_input", dSnap.activeFocusKey === "buckets.core.amount", dSnap.activeFocusKey);
+    check("D1_cashflow_section_not_torn_down_by_partial_repaint", dSnap.cfSectionStillPresent === true, dSnap.cfSectionStillPresent);
+    await ctxD.close();
+
+    // ============ シナリオE（Task B2 ②）: sync.loggedIn=false での ↻ 相当（死にボタン解消）============
+    // セッションが最初から無い状態（/api/auth/session が ok:false）で MCC.refreshData() を呼ぶ。
+    // 旧実装は `if (_refreshing || !sync.loggedIn) return;` の無言 return＝押しても何も起きない死にボタン
+    // だった。新実装はログイン欄へ jumpTo（スクロール＋flash）して再ログイン導線を示す。
+    // 収支セクション自体が未ログインでは非描画（既存の認証データゲート・本タスクの対象外）なので、
+    // このシナリオで観測できる「警告」は鮮度行のテキストではなくログイン欄への誘導（flash）そのもの。
+    const ctxE = await browser.newContext({ viewport: { width: 1280, height: 2400 } });
+    const netCallsE = [];
+    await ctxE.route("**/api/auth/session", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: false }) }));
+    await ctxE.route("**/api/me/**", (route) => {
+      netCallsE.push(route.request().method() + " " + route.request().url());
+      route.fulfill({ status: 401, contentType: "application/json", body: "{}" });
+    });
+    await ctxE.route("**/api/market/**", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ stocks: {}, updated_at: "" }) }));
+    const pageE = await ctxE.newPage();
+    pageE.on("pageerror", (e) => pageErrors.push("E:" + String((e && e.message) || e)));
+    await pageE.goto(BASE + "/?diag=off", { waitUntil: "domcontentloaded" });
+    await pageE.evaluate(() => { try { localStorage.removeItem("mcc_state"); } catch (e) {} });
+    await pageE.evaluate(() => MCC.show());
+    await pageE.waitForTimeout(500); // 収支セクションは出現しない（未ログイン）ので固定 wait でセッション確認の完了を待つ
+    const eBefore = await pageE.evaluate(() => ({
+      cfSection: !!document.getElementById("mcc-sec-cashflow"),
+      syncFlashed: (document.getElementById("mcc-sec-sync") || {}).className || "",
+    }));
+    check("E2_precondition_logged_out_no_cashflow_section", eBefore.cfSection === false, eBefore.cfSection);
+    check("E2_precondition_sync_not_yet_flashed", !/mcc-jump-flash/.test(eBefore.syncFlashed), eBefore.syncFlashed);
+    netCallsE.length = 0;
+    await pageE.evaluate(() => MCC.refreshData());
+    await pageE.waitForTimeout(300);
+    const eAfter = await pageE.evaluate(() => ({
+      syncClass: (document.getElementById("mcc-sec-sync") || {}).className || "",
+      loginFormPresent: !!document.getElementById("mcc-pw"),
+    }));
+    // 死にボタンでなくなった＝呼ぶとログイン欄へ実際にジャンプ（スクロール＋flash）する
+    check("E2_deadbutton_now_jumps_to_sync", /mcc-jump-flash/.test(eAfter.syncClass), eAfter.syncClass);
+    check("E2_login_form_shown_as_redirect_target", eAfter.loginFormPresent === true, eAfter.loginFormPresent);
+    // 無言 return の代わりに導線を出すだけで、未ログインのままデータ取得を試みたりはしない（回帰防止）
+    check("E2_no_cashflow_investment_calls_attempted_while_logged_out", netCallsE.length === 0, JSON.stringify(netCallsE));
+    await ctxE.close();
+
     // --- アサート5: pageerror 0 ---
     check("C5_no_page_errors", pageErrors.length === 0, JSON.stringify(pageErrors));
   } catch (e) {
