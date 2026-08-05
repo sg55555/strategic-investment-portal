@@ -46,6 +46,10 @@ NISA_HISTORY_MAX = 50  # Stage2: 履歴件数上限（money-rules.js NISA_HISTOR
 # "YYYY-MM-DD\n" 等の末尾改行を両言語で同様に弾く（deadline/period/id のパリティ）。
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}\Z")
 _GOAL_ID_RE = re.compile(r"^[A-Za-z0-9_-]+\Z")
+# データ基盤Phase1: アンカー日付の正規化専用（money-rules.js _DATE_RE/_MONTH_RE の鏡像）。ASCII クラス限定
+# （\d は Unicode-aware で全角/アラビア数字を通し JS の /^\d{4}.../ ＝ASCII-only 正規表現と発散するため使わない）。
+_ANCHOR_DATE_RE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}\Z")
+_ANCHOR_MONTH_RE = re.compile(r"^[0-9]{4}-[0-9]{2}\Z")
 
 
 def _envint(name, default):
@@ -442,6 +446,7 @@ def _migrate(raw):
     buffer_months = _num(raw.get("bufferMonths")) if _bm > 0 else 6.0
     _scp = _parse_num(raw.get("satelliteCapPct"))
     sat_cap_pct = _num(raw.get("satelliteCapPct")) if _scp >= 0 else 10.0
+    anchor_n = _normalize_anchor(raw.get("anchor"))
 
     goals_raw = raw.get("goals")
     filtered = [g for g in goals_raw if isinstance(g, dict)] if isinstance(goals_raw, list) else []
@@ -465,6 +470,8 @@ def _migrate(raw):
         "satelliteCapPct": sat_cap_pct,
         "reserves": reserves,
         "goals": goals,
+        "cashSource": "anchor" if anchor_n["date"] else "manual",  # anchor.date 由来（raw値は無視・dead フラグ一本化）
+        "anchor": anchor_n,
         "updatedAt": _num(raw.get("updatedAt")),
         "birthYear": _normalize_birth_year(raw.get("birthYear")),
         "assetHoldings": _normalize_asset_holdings(raw.get("assetHoldings")),
@@ -727,6 +734,77 @@ def _months_to_buffer_bucket(m):
     if m <= 36:
         return "1_3y"
     return "over_3y"
+
+
+def _normalize_anchor(a):
+    """アンカー（基準月の月初現金）の安全正規化（money-rules.js normalizeAnchor の鏡像）。日付は月単位＝
+    常に月初(YYYY-MM-01)へスナップ。既存の YYYY-MM-DD は月初へ丸め・YYYY-MM も受理・それ以外は""。"""
+    raw = a.get("date") if isinstance(a, dict) else None
+    raw = raw if isinstance(raw, str) else ""
+    if _ANCHOR_DATE_RE.match(raw):
+        date = raw[0:7] + "-01"
+    elif _ANCHOR_MONTH_RE.match(raw):
+        date = raw + "-01"
+    else:
+        date = ""
+    return {"date": date, "amount": _num(a.get("amount") if isinstance(a, dict) else None)}
+
+
+def _cash_derived(cf_rows, inv_rows, anchor, now_ms):
+    """データ基盤Phase1/2: 定点アンカー＋確定月の(kakeibo balance + 投資現金フロー)累積で現在現金を導出
+    （money-rules.js cashDerived の鏡像）。inv_rows は {period, invest_cash_flow} の生 dict のまま period 一致
+    でのみ畳み込む（正規化/isComplete は問わない＝JS の icf 構築と同じ・_cashflow_rows の filter は掛けない）。"""
+    a = _normalize_anchor(anchor)
+    if not a["date"]:
+        return {"anchorConfigured": False, "derivedCash": 0, "derivedCashLive": 0, "monthsCovered": 0}
+    anchor_ym = a["date"][0:7]
+    rows = _cashflow_rows(cf_rows)
+    icf = {}
+    if isinstance(inv_rows, list):
+        for r in inv_rows:
+            if isinstance(r, dict) and isinstance(r.get("period"), str):
+                icf[r["period"]] = _cf_num(r.get("invest_cash_flow"))
+    sum_complete = 0.0
+    sum_live = 0.0
+    months_covered = 0
+    for r in rows:
+        if r["period"][0:7] < anchor_ym:  # アンカー月より前は対象外
+            continue
+        flow = r["balance"] + icf.get(r["period"], 0)
+        sum_live += flow
+        if r["isComplete"]:
+            sum_complete += flow
+            months_covered += 1
+    return {
+        "anchorConfigured": True,
+        "derivedCash": a["amount"] + sum_complete,   # 権威（確定月のみ）
+        "derivedCashLive": a["amount"] + sum_live,    # 参考（当月部分含む）
+        "monthsCovered": months_covered,
+    }
+
+
+def _effective_state(s, cf_rows, inv_rows, now_ms):
+    """実効値方式（spec §2.1）: 基準（アンカー）設定済み＋確定rowsありなら buffer の実効値を
+    _r(derivedCash) に差し替えたコピーを返す（money-rules.js effectiveState の鏡像）。保存 state は不変
+    （LWW 安全）。適用不能は入力 s をそのまま返す（同一参照＝完全 no-op が後方互換の機械証明点）。
+    丸めはここで1回のみ（par-2）。"""
+    if not isinstance(s, dict):
+        return s
+    anchor = s.get("anchor")
+    if not isinstance(anchor, dict) or not anchor.get("date"):
+        return s
+    if not isinstance(cf_rows, list) or not cf_rows:
+        return s
+    cd = _cash_derived(cf_rows, inv_rows, anchor, now_ms)
+    if not cd["anchorConfigured"]:
+        return s
+    eff = dict(s)
+    eff["buckets"] = {
+        "buffer": {"amount": _r(cd["derivedCash"])},
+        "core": s["buckets"]["core"],
+        "satellite": s["buckets"]["satellite"],
+    }
+    return eff
 
 
 def _cashflow_derived(rows, s, now_ms):

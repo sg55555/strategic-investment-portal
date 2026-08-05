@@ -1222,6 +1222,34 @@ def test_nisa_derive_manual_stale_anchor_still_true():
     assert d["staleAnchorYear"] is True
 
 
+def test_cash_derived_mirror_basic():
+    cf = [{"period": "2026-07-01", "balance": 70000, "is_complete": True}]
+    cd = advice._cash_derived(cf, [], {"date": "2026-07-01", "amount": 1000000}, 0)
+    assert cd["anchorConfigured"] is True
+    assert cd["derivedCash"] == 1070000
+    assert cd["monthsCovered"] == 1
+
+
+def test_effective_state_noop_paths():
+    s = advice._migrate({"buckets": {"buffer": {"amount": 500}}})
+    cf = [{"period": "2026-07-01", "balance": 1, "is_complete": True}]
+    assert advice._effective_state(s, cf, [], 0) is s          # anchor無し
+    s2 = advice._migrate({"anchor": {"date": "2026-07-01", "amount": 100}})
+    assert advice._effective_state(s2, [], [], 0) is s2        # rows空
+
+
+def test_effective_state_applies_and_migrate_keeps_anchor():
+    s = advice._migrate({"anchor": {"date": "2026-07", "amount": 100000.4},   # YYYY-MM→月初スナップ
+                         "buckets": {"buffer": {"amount": 111}}})
+    assert s["anchor"]["date"] == "2026-07-01"
+    assert s["cashSource"] == "anchor"
+    cf = [{"period": "2026-07-01", "balance": 1000.3, "is_complete": True}]
+    inv = [{"period": "2026-07-01", "invest_cash_flow": -500}]
+    eff = advice._effective_state(s, cf, inv, 0)
+    assert eff["buckets"]["buffer"]["amount"] == advice._r(100000.4 + 1000.3 - 500)
+    assert s["buckets"]["buffer"]["amount"] == 111
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
