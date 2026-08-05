@@ -1,5 +1,5 @@
 {
-  "_doc": "modeAFacts のパリティ単一源。money-rules.test.js(JS) と test_advice_facts.py(Python還元器) が同一の期待値を読み、両実装のドリフトを防ぐ。cashflow-* は Slice4 収支連携(投資余力)の cashflow 入力を伴うケース。cashflow-* は Slice4 収支連携(投資余力)の cashflow 入力を伴うケース。nowMs=0 で deadline バケツは null（日付バケツは tests 側で別途固定 nowMs で検証）。 assetclass-* は B#2 資産クラス比率(Task5)の facts.assetClasses 集約ケース(a)-(m)（birthYear未設定/域外nowMsはキー省略・端数吸収タイブレーク・partial-funding・adversarial-coercion等）。",
+  "_doc": "modeAFacts のパリティ単一源。money-rules.test.js(JS) と test_advice_facts.py(Python還元器) が同一の期待値を読み、両実装のドリフトを防ぐ。cashflow-* は Slice4 収支連携(投資余力)の cashflow 入力を伴うケース。cashflow-* は Slice4 収支連携(投資余力)の cashflow 入力を伴うケース。nowMs=0 で deadline バケツは null（日付バケツは tests 側で別途固定 nowMs で検証）。 assetclass-* は B#2 資産クラス比率(Task5)の facts.assetClasses 集約ケース(a)-(m)（birthYear未設定/域外nowMsはキー省略・端数吸収タイブレーク・partial-funding・adversarial-coercion等）。 anchor-* は Task A4: anchor モード実効化（cashDerived/effectiveState）の facts パリティケース（live/unachieved/half-up境界/no-rows degrade/investment cashflow 合算/adversarial coercion）。",
   "cases": [
     {
       "name": "empty",
@@ -10375,6 +10375,982 @@
             "monthlyToFillTsumitate": 171429,
             "restoresYear": 2027
           }
+        }
+      }
+    },
+    {
+      "name": "anchor-live-basic",
+      "state": {
+        "monthlyExpense": 200000,
+        "bufferMonths": 6,
+        "satelliteCapPct": 10,
+        "buckets": {
+          "buffer": {
+            "amount": 111
+          },
+          "core": {
+            "amount": 0
+          },
+          "satellite": {
+            "amount": 0
+          }
+        },
+        "anchor": {
+          "date": "2026-07-01",
+          "amount": 1000000
+        }
+      },
+      "cashflow": [
+        {
+          "period": "2026-07-01",
+          "total_income": 300000,
+          "salary_income": 300000,
+          "misc_income": 0,
+          "fixed_expense": 120000,
+          "variable_expense": 110000,
+          "total_expense": 230000,
+          "balance": 70000,
+          "is_complete": true,
+          "breakdown": null,
+          "pulled_at": ""
+        }
+      ],
+      "nowMs": 0,
+      "production": {
+        "mode": "production",
+        "currency": "JPY",
+        "bufferConfigured": true,
+        "bufferMonths": 6,
+        "bufferProgressPct": 89,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "buffer",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 6,
+        "cashSource": "anchor",
+        "roadmap": {
+          "phase": "buffer",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "fallback",
+          "etaToCoreBucket": "3_10y"
+        },
+        "cashflow": {
+          "available": true,
+          "monthsCovered": 1,
+          "insufficientData": true,
+          "savingsRatePct": 23,
+          "surplusPositive": true,
+          "surplusToExpensePct": 35,
+          "investableSurplusPositive": false,
+          "nextDestination": "buffer",
+          "monthsToBufferBucket": "lt6",
+          "surplusTrend": null,
+          "deficitMonthsInLast6": 0,
+          "fixedBurdenBucket": "mid",
+          "windfallPresent": false,
+          "dataFresh": null,
+          "currencyMismatch": false
+        }
+      },
+      "personal": {
+        "mode": "personal",
+        "currency": "JPY",
+        "bufferConfigured": true,
+        "bufferMonths": 6,
+        "bufferProgressPct": 89,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "buffer",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 6,
+        "cashSource": "anchor",
+        "roadmap": {
+          "phase": "buffer",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "fallback",
+          "etaToCoreBucket": "3_10y"
+        },
+        "raw": {
+          "monthlyExpense": 200000,
+          "bufferAmount": 1070000,
+          "bufferTarget": 1200000,
+          "bufferRemaining": 130000,
+          "coreAmount": 0,
+          "satelliteAmount": 0,
+          "investable": 0,
+          "satelliteCap": 0,
+          "satelliteOver": 0,
+          "totalAssets": 1070000,
+          "goals": [],
+          "cashflow": {
+            "monthlySurplus": 70000,
+            "investableSurplus": 0,
+            "toBuffer": 70000,
+            "toCore": 0,
+            "toSatellite": 0,
+            "avgIncome": 300000,
+            "avgExpense": 230000,
+            "bufferRemaining": 130000,
+            "monthsToBufferComplete": 2,
+            "windfallTtm": 0
+          },
+          "roadmap": {
+            "coreTarget": 4800000,
+            "coreRemaining": 4800000,
+            "northStarTarget": 0,
+            "thisMonthToCore": 0,
+            "thisMonthToSatellite": 0
+          }
+        },
+        "cashflow": {
+          "available": true,
+          "monthsCovered": 1,
+          "insufficientData": true,
+          "savingsRatePct": 23,
+          "surplusPositive": true,
+          "surplusToExpensePct": 35,
+          "investableSurplusPositive": false,
+          "nextDestination": "buffer",
+          "monthsToBufferBucket": "lt6",
+          "surplusTrend": null,
+          "deficitMonthsInLast6": 0,
+          "fixedBurdenBucket": "mid",
+          "windfallPresent": false,
+          "dataFresh": null,
+          "currencyMismatch": false
+        }
+      }
+    },
+    {
+      "name": "anchor-unachieved",
+      "state": {
+        "monthlyExpense": 220000,
+        "bufferMonths": 6,
+        "satelliteCapPct": 10,
+        "buckets": {
+          "buffer": {
+            "amount": 111
+          },
+          "core": {
+            "amount": 0
+          },
+          "satellite": {
+            "amount": 0
+          }
+        },
+        "anchor": {
+          "date": "2026-07-01",
+          "amount": 600000
+        }
+      },
+      "cashflow": [
+        {
+          "period": "2026-07-01",
+          "total_income": 250000,
+          "salary_income": 250000,
+          "misc_income": 0,
+          "fixed_expense": 120000,
+          "variable_expense": 80000,
+          "total_expense": 200000,
+          "balance": 50000,
+          "is_complete": true,
+          "breakdown": null,
+          "pulled_at": ""
+        },
+        {
+          "period": "2026-08-01",
+          "total_income": 250000,
+          "salary_income": 250000,
+          "misc_income": 7000,
+          "fixed_expense": 120000,
+          "variable_expense": 87000,
+          "total_expense": 207000,
+          "balance": 43000,
+          "is_complete": true,
+          "breakdown": null,
+          "pulled_at": ""
+        }
+      ],
+      "nowMs": 0,
+      "production": {
+        "mode": "production",
+        "currency": "JPY",
+        "bufferConfigured": true,
+        "bufferMonths": 6,
+        "bufferProgressPct": 53,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "buffer",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 6,
+        "cashSource": "anchor",
+        "roadmap": {
+          "phase": "buffer",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "fallback",
+          "etaToCoreBucket": "over_10y"
+        },
+        "cashflow": {
+          "available": true,
+          "monthsCovered": 2,
+          "insufficientData": true,
+          "savingsRatePct": 19,
+          "surplusPositive": true,
+          "surplusToExpensePct": 20,
+          "investableSurplusPositive": false,
+          "nextDestination": "buffer",
+          "monthsToBufferBucket": "1_3y",
+          "surplusTrend": null,
+          "deficitMonthsInLast6": 0,
+          "fixedBurdenBucket": "mid",
+          "windfallPresent": true,
+          "dataFresh": null,
+          "currencyMismatch": false
+        }
+      },
+      "personal": {
+        "mode": "personal",
+        "currency": "JPY",
+        "bufferConfigured": true,
+        "bufferMonths": 6,
+        "bufferProgressPct": 53,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "buffer",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 6,
+        "cashSource": "anchor",
+        "roadmap": {
+          "phase": "buffer",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "fallback",
+          "etaToCoreBucket": "over_10y"
+        },
+        "raw": {
+          "monthlyExpense": 220000,
+          "bufferAmount": 693000,
+          "bufferTarget": 1320000,
+          "bufferRemaining": 627000,
+          "coreAmount": 0,
+          "satelliteAmount": 0,
+          "investable": 0,
+          "satelliteCap": 0,
+          "satelliteOver": 0,
+          "totalAssets": 693000,
+          "goals": [],
+          "cashflow": {
+            "monthlySurplus": 43000,
+            "investableSurplus": 0,
+            "toBuffer": 43000,
+            "toCore": 0,
+            "toSatellite": 0,
+            "avgIncome": 250000,
+            "avgExpense": 203500,
+            "bufferRemaining": 627000,
+            "monthsToBufferComplete": 15,
+            "windfallTtm": 7000
+          },
+          "roadmap": {
+            "coreTarget": 5280000,
+            "coreRemaining": 5280000,
+            "northStarTarget": 0,
+            "thisMonthToCore": 0,
+            "thisMonthToSatellite": 0
+          }
+        },
+        "cashflow": {
+          "available": true,
+          "monthsCovered": 2,
+          "insufficientData": true,
+          "savingsRatePct": 19,
+          "surplusPositive": true,
+          "surplusToExpensePct": 20,
+          "investableSurplusPositive": false,
+          "nextDestination": "buffer",
+          "monthsToBufferBucket": "1_3y",
+          "surplusTrend": null,
+          "deficitMonthsInLast6": 0,
+          "fixedBurdenBucket": "mid",
+          "windfallPresent": true,
+          "dataFresh": null,
+          "currencyMismatch": false
+        }
+      }
+    },
+    {
+      "name": "anchor-halfup-boundary",
+      "state": {
+        "monthlyExpense": 100000,
+        "bufferMonths": 6,
+        "satelliteCapPct": 10,
+        "buckets": {
+          "buffer": {
+            "amount": 222
+          },
+          "core": {
+            "amount": 0
+          },
+          "satellite": {
+            "amount": 0
+          }
+        },
+        "anchor": {
+          "date": "2026-07-01",
+          "amount": 599999.5
+        }
+      },
+      "cashflow": [
+        {
+          "period": "2026-07-01",
+          "total_income": 250000,
+          "salary_income": 250000,
+          "misc_income": 0,
+          "fixed_expense": 120000,
+          "variable_expense": 130000,
+          "total_expense": 250000,
+          "balance": 0,
+          "is_complete": true,
+          "breakdown": null,
+          "pulled_at": ""
+        }
+      ],
+      "nowMs": 0,
+      "production": {
+        "mode": "production",
+        "currency": "JPY",
+        "bufferConfigured": true,
+        "bufferMonths": 6,
+        "bufferProgressPct": 100,
+        "bufferAchieved": true,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "core",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 6,
+        "cashSource": "anchor",
+        "roadmap": {
+          "phase": "core",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "fallback",
+          "etaToCoreBucket": "none"
+        },
+        "cashflow": {
+          "available": true,
+          "monthsCovered": 1,
+          "insufficientData": true,
+          "savingsRatePct": 0,
+          "surplusPositive": false,
+          "surplusToExpensePct": 0,
+          "investableSurplusPositive": false,
+          "nextDestination": "core",
+          "monthsToBufferBucket": "achieved",
+          "surplusTrend": null,
+          "deficitMonthsInLast6": 0,
+          "fixedBurdenBucket": "mid",
+          "windfallPresent": false,
+          "dataFresh": null,
+          "currencyMismatch": false
+        }
+      },
+      "personal": {
+        "mode": "personal",
+        "currency": "JPY",
+        "bufferConfigured": true,
+        "bufferMonths": 6,
+        "bufferProgressPct": 100,
+        "bufferAchieved": true,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "core",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 6,
+        "cashSource": "anchor",
+        "roadmap": {
+          "phase": "core",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "fallback",
+          "etaToCoreBucket": "none"
+        },
+        "raw": {
+          "monthlyExpense": 100000,
+          "bufferAmount": 600000,
+          "bufferTarget": 600000,
+          "bufferRemaining": 0,
+          "coreAmount": 0,
+          "satelliteAmount": 0,
+          "investable": 0,
+          "satelliteCap": 0,
+          "satelliteOver": 0,
+          "totalAssets": 600000,
+          "goals": [],
+          "cashflow": {
+            "monthlySurplus": 0,
+            "investableSurplus": 0,
+            "toBuffer": 0,
+            "toCore": 0,
+            "toSatellite": 0,
+            "avgIncome": 250000,
+            "avgExpense": 250000,
+            "bufferRemaining": 0,
+            "monthsToBufferComplete": 0,
+            "windfallTtm": 0
+          },
+          "roadmap": {
+            "coreTarget": 2400000,
+            "coreRemaining": 2400000,
+            "northStarTarget": 0,
+            "thisMonthToCore": 0,
+            "thisMonthToSatellite": 0
+          }
+        },
+        "cashflow": {
+          "available": true,
+          "monthsCovered": 1,
+          "insufficientData": true,
+          "savingsRatePct": 0,
+          "surplusPositive": false,
+          "surplusToExpensePct": 0,
+          "investableSurplusPositive": false,
+          "nextDestination": "core",
+          "monthsToBufferBucket": "achieved",
+          "surplusTrend": null,
+          "deficitMonthsInLast6": 0,
+          "fixedBurdenBucket": "mid",
+          "windfallPresent": false,
+          "dataFresh": null,
+          "currencyMismatch": false
+        }
+      }
+    },
+    {
+      "name": "anchor-no-rows-degrade",
+      "state": {
+        "monthlyExpense": 100000,
+        "bufferMonths": 6,
+        "satelliteCapPct": 10,
+        "buckets": {
+          "buffer": {
+            "amount": 250000
+          },
+          "core": {
+            "amount": 0
+          },
+          "satellite": {
+            "amount": 0
+          }
+        },
+        "anchor": {
+          "date": "2026-07-01",
+          "amount": 999999
+        }
+      },
+      "cashflow": [],
+      "nowMs": 0,
+      "production": {
+        "mode": "production",
+        "currency": "JPY",
+        "bufferConfigured": true,
+        "bufferMonths": 6,
+        "bufferProgressPct": 42,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "buffer",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 6,
+        "cashSource": "anchor",
+        "roadmap": {
+          "phase": "buffer",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "fallback",
+          "etaToCoreBucket": "none"
+        },
+        "cashflow": {
+          "available": false,
+          "monthsCovered": 0,
+          "insufficientData": true,
+          "savingsRatePct": 0,
+          "surplusPositive": false,
+          "surplusToExpensePct": 0,
+          "investableSurplusPositive": false,
+          "nextDestination": "buffer",
+          "monthsToBufferBucket": "never",
+          "surplusTrend": null,
+          "deficitMonthsInLast6": 0,
+          "fixedBurdenBucket": null,
+          "windfallPresent": false,
+          "dataFresh": null,
+          "currencyMismatch": false
+        }
+      },
+      "personal": {
+        "mode": "personal",
+        "currency": "JPY",
+        "bufferConfigured": true,
+        "bufferMonths": 6,
+        "bufferProgressPct": 42,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "buffer",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 6,
+        "cashSource": "anchor",
+        "roadmap": {
+          "phase": "buffer",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "fallback",
+          "etaToCoreBucket": "none"
+        },
+        "raw": {
+          "monthlyExpense": 100000,
+          "bufferAmount": 250000,
+          "bufferTarget": 600000,
+          "bufferRemaining": 350000,
+          "coreAmount": 0,
+          "satelliteAmount": 0,
+          "investable": 0,
+          "satelliteCap": 0,
+          "satelliteOver": 0,
+          "totalAssets": 250000,
+          "goals": [],
+          "cashflow": {
+            "monthlySurplus": 0,
+            "investableSurplus": 0,
+            "toBuffer": 0,
+            "toCore": 0,
+            "toSatellite": 0,
+            "avgIncome": 0,
+            "avgExpense": 0,
+            "bufferRemaining": 350000,
+            "monthsToBufferComplete": null,
+            "windfallTtm": 0
+          },
+          "roadmap": {
+            "coreTarget": 2400000,
+            "coreRemaining": 2400000,
+            "northStarTarget": 0,
+            "thisMonthToCore": 0,
+            "thisMonthToSatellite": 0
+          }
+        },
+        "cashflow": {
+          "available": false,
+          "monthsCovered": 0,
+          "insufficientData": true,
+          "savingsRatePct": 0,
+          "surplusPositive": false,
+          "surplusToExpensePct": 0,
+          "investableSurplusPositive": false,
+          "nextDestination": "buffer",
+          "monthsToBufferBucket": "never",
+          "surplusTrend": null,
+          "deficitMonthsInLast6": 0,
+          "fixedBurdenBucket": null,
+          "windfallPresent": false,
+          "dataFresh": null,
+          "currencyMismatch": false
+        }
+      }
+    },
+    {
+      "name": "anchor-invest-cashflow",
+      "state": {
+        "monthlyExpense": 150000,
+        "bufferMonths": 6,
+        "satelliteCapPct": 10,
+        "buckets": {
+          "buffer": {
+            "amount": 333
+          },
+          "core": {
+            "amount": 0
+          },
+          "satellite": {
+            "amount": 0
+          }
+        },
+        "anchor": {
+          "date": "2026-07-01",
+          "amount": 800000
+        }
+      },
+      "cashflow": [
+        {
+          "period": "2026-07-01",
+          "total_income": 270000,
+          "salary_income": 270000,
+          "misc_income": 0,
+          "fixed_expense": 130000,
+          "variable_expense": 120000,
+          "total_expense": 250000,
+          "balance": 20000,
+          "is_complete": true,
+          "breakdown": null,
+          "pulled_at": ""
+        }
+      ],
+      "investment": [
+        {
+          "period": "2026-07-01",
+          "invest_cash_flow": -100000,
+          "principal_core_delta": 100000,
+          "principal_sat_delta": 0,
+          "realized_gain": 0,
+          "is_complete": true,
+          "pulled_at": ""
+        }
+      ],
+      "nowMs": 0,
+      "production": {
+        "mode": "production",
+        "currency": "JPY",
+        "bufferConfigured": true,
+        "bufferMonths": 6,
+        "bufferProgressPct": 80,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "buffer",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 6,
+        "cashSource": "anchor",
+        "roadmap": {
+          "phase": "buffer",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "fallback",
+          "etaToCoreBucket": "over_10y"
+        },
+        "cashflow": {
+          "available": true,
+          "monthsCovered": 1,
+          "insufficientData": true,
+          "savingsRatePct": 7,
+          "surplusPositive": true,
+          "surplusToExpensePct": 13,
+          "investableSurplusPositive": false,
+          "nextDestination": "buffer",
+          "monthsToBufferBucket": "6_12",
+          "surplusTrend": null,
+          "deficitMonthsInLast6": 0,
+          "fixedBurdenBucket": "mid",
+          "windfallPresent": false,
+          "dataFresh": null,
+          "currencyMismatch": false
+        }
+      },
+      "personal": {
+        "mode": "personal",
+        "currency": "JPY",
+        "bufferConfigured": true,
+        "bufferMonths": 6,
+        "bufferProgressPct": 80,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "buffer",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 6,
+        "cashSource": "anchor",
+        "roadmap": {
+          "phase": "buffer",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "fallback",
+          "etaToCoreBucket": "over_10y"
+        },
+        "raw": {
+          "monthlyExpense": 150000,
+          "bufferAmount": 720000,
+          "bufferTarget": 900000,
+          "bufferRemaining": 180000,
+          "coreAmount": 0,
+          "satelliteAmount": 0,
+          "investable": 0,
+          "satelliteCap": 0,
+          "satelliteOver": 0,
+          "totalAssets": 720000,
+          "goals": [],
+          "cashflow": {
+            "monthlySurplus": 20000,
+            "investableSurplus": 0,
+            "toBuffer": 20000,
+            "toCore": 0,
+            "toSatellite": 0,
+            "avgIncome": 270000,
+            "avgExpense": 250000,
+            "bufferRemaining": 180000,
+            "monthsToBufferComplete": 9,
+            "windfallTtm": 0
+          },
+          "roadmap": {
+            "coreTarget": 3600000,
+            "coreRemaining": 3600000,
+            "northStarTarget": 0,
+            "thisMonthToCore": 0,
+            "thisMonthToSatellite": 0
+          }
+        },
+        "cashflow": {
+          "available": true,
+          "monthsCovered": 1,
+          "insufficientData": true,
+          "savingsRatePct": 7,
+          "surplusPositive": true,
+          "surplusToExpensePct": 13,
+          "investableSurplusPositive": false,
+          "nextDestination": "buffer",
+          "monthsToBufferBucket": "6_12",
+          "surplusTrend": null,
+          "deficitMonthsInLast6": 0,
+          "fixedBurdenBucket": "mid",
+          "windfallPresent": false,
+          "dataFresh": null,
+          "currencyMismatch": false
+        }
+      }
+    },
+    {
+      "name": "anchor-adversarial",
+      "state": {
+        "monthlyExpense": 100000,
+        "bufferMonths": 6,
+        "satelliteCapPct": 10,
+        "buckets": {
+          "buffer": {
+            "amount": 250000
+          },
+          "core": {
+            "amount": 0
+          },
+          "satellite": {
+            "amount": 0
+          }
+        },
+        "anchor": {
+          "date": "2026-13",
+          "amount": "NaN"
+        }
+      },
+      "cashflow": [
+        {
+          "period": "2026-07-01",
+          "total_income": 280000,
+          "salary_income": 280000,
+          "misc_income": 0,
+          "fixed_expense": 110000,
+          "variable_expense": 90000,
+          "total_expense": 200000,
+          "balance": 80000,
+          "is_complete": true,
+          "breakdown": null,
+          "pulled_at": ""
+        }
+      ],
+      "nowMs": 0,
+      "production": {
+        "mode": "production",
+        "currency": "JPY",
+        "bufferConfigured": true,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "buffer",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 6,
+        "cashSource": "anchor",
+        "roadmap": {
+          "phase": "buffer",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "fallback",
+          "etaToCoreBucket": "3_10y"
+        },
+        "cashflow": {
+          "available": true,
+          "monthsCovered": 1,
+          "insufficientData": true,
+          "savingsRatePct": 29,
+          "surplusPositive": true,
+          "surplusToExpensePct": 80,
+          "investableSurplusPositive": false,
+          "nextDestination": "buffer",
+          "monthsToBufferBucket": "6_12",
+          "surplusTrend": null,
+          "deficitMonthsInLast6": 0,
+          "fixedBurdenBucket": "mid",
+          "windfallPresent": false,
+          "dataFresh": null,
+          "currencyMismatch": false
+        }
+      },
+      "personal": {
+        "mode": "personal",
+        "currency": "JPY",
+        "bufferConfigured": true,
+        "bufferMonths": 6,
+        "bufferProgressPct": 0,
+        "bufferAchieved": false,
+        "satelliteCapPct": 10,
+        "satelliteFillPct": 0,
+        "satelliteIsOver": false,
+        "satelliteOverByPct": 0,
+        "coreSharePct": 0,
+        "investableConfigured": false,
+        "nextTarget": "buffer",
+        "goalsCount": 0,
+        "goals": [],
+        "rulesVersion": 2,
+        "schemaVersion": 6,
+        "cashSource": "anchor",
+        "roadmap": {
+          "phase": "buffer",
+          "coreProgressPct": 0,
+          "coreEstablished": false,
+          "satelliteUnlocked": false,
+          "coreTargetSource": "fallback",
+          "etaToCoreBucket": "3_10y"
+        },
+        "raw": {
+          "monthlyExpense": 100000,
+          "bufferAmount": 0,
+          "bufferTarget": 600000,
+          "bufferRemaining": 600000,
+          "coreAmount": 0,
+          "satelliteAmount": 0,
+          "investable": 0,
+          "satelliteCap": 0,
+          "satelliteOver": 0,
+          "totalAssets": 0,
+          "goals": [],
+          "cashflow": {
+            "monthlySurplus": 80000,
+            "investableSurplus": 0,
+            "toBuffer": 80000,
+            "toCore": 0,
+            "toSatellite": 0,
+            "avgIncome": 280000,
+            "avgExpense": 200000,
+            "bufferRemaining": 600000,
+            "monthsToBufferComplete": 8,
+            "windfallTtm": 0
+          },
+          "roadmap": {
+            "coreTarget": 2400000,
+            "coreRemaining": 2400000,
+            "northStarTarget": 0,
+            "thisMonthToCore": 0,
+            "thisMonthToSatellite": 0
+          }
+        },
+        "cashflow": {
+          "available": true,
+          "monthsCovered": 1,
+          "insufficientData": true,
+          "savingsRatePct": 29,
+          "surplusPositive": true,
+          "surplusToExpensePct": 80,
+          "investableSurplusPositive": false,
+          "nextDestination": "buffer",
+          "monthsToBufferBucket": "6_12",
+          "surplusTrend": null,
+          "deficitMonthsInLast6": 0,
+          "fixedBurdenBucket": "mid",
+          "windfallPresent": false,
+          "dataFresh": null,
+          "currencyMismatch": false
         }
       }
     }
