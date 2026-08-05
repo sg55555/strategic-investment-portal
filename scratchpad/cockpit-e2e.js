@@ -212,13 +212,21 @@ function check(name, cond, detail) {
     check("A2_no_fallback_note_when_linked", a.bufferNoteText === null, a.bufferNoteText);
     // inline onclick は公開APIの export 漏れがあっても「押しても無反応」で無音故障する＝実際に押して確かめる
     // （jumpTo は対象要素に .mcc-jump-flash を付ける＝ハンドラ到達の観測点）。
+    // D1: バケツは設定・ガイドタブへ移動したので、実クリックの前にそのタブへ切替える（タブバーも実クリック）。
+    await pageA.click("#mcc-tab-btn-config");
     await pageA.click("#mcc-sec-buckets .mcc-bucket .mcc-jump");
     await pageA.waitForTimeout(150);
     const jumped = await pageA.evaluate(() => {
       const el = document.getElementById("mcc-sec-cashflow");
-      return !!el && el.classList.contains("mcc-jump-flash");
+      return {
+        flashed: !!el && el.classList.contains("mcc-jump-flash"),
+        // 収支は dash タブ＝ジャンプで自動的に dash へ戻っている（hidden が外れている）はず
+        dashVisible: !document.getElementById("mcc-tab-dash").hidden,
+        storedTab: (() => { try { return localStorage.getItem("mcc_tab"); } catch (e) { return null; } })(),
+      };
     });
-    check("A2_jump_handler_reaches_cashflow", jumped === true, jumped);
+    check("A2_jump_handler_reaches_cashflow", jumped.flashed === true, jumped.flashed);
+    check("A2_jump_switches_back_to_dash_tab", jumped.dashVisible === true, JSON.stringify(jumped));
 
     // --- アサート3: 反映ボタン無し＋autonote／applySurplus 防衛ゲート ---
     check("A3_apply_button_absent", a.applyBtnExists === false, a.applyBtnText);
@@ -327,6 +335,9 @@ function check(name, cond, detail) {
 
     // 1回目の編集：save() 自身が起こす（正常な・想定内の）即時 full render を先に済ませておく
     // （B2 が守るのはこの後に来る「debounce 後の背景 401」の部分描画であって、この直後の描画ではない）。
+    // D1: バケツ（＝この検証で使うアクティブ入力）は設定・ガイドタブへ移動したため、先にそのタブへ。
+    // switchTab は再描画しない設計なので、この切替自体はマーカー/フォーカスの検証に影響しない。
+    await pageD.evaluate(() => MCC.switchTab("config"));
     await pageD.evaluate(() => { MCC.setField("buckets.core.amount", "5000"); });
     await pageD.waitForTimeout(150);
     // 再描画後の（新しい）入力ノードへフォーカス＋独自マーカーを付与＝これが「アクティブ入力」の基準点。
@@ -503,6 +514,153 @@ function check(name, cond, detail) {
     const fAfterExpire = await pageF.evaluate(() => !!document.getElementById("mcc-sec-cashflow"));
     check("F4_cashflow_section_hidden_after_session_expiry_render", fAfterExpire === false, fAfterExpire);
     await ctxF.close();
+
+    // ============ シナリオG（Task D1）: #mcc-root 内 2タブ骨格（dash / config）============
+    // 検証観点: 既定タブ／セクションの振り分け／クリック切替（hidden＋aria＋localStorage）／
+    // 非アクティブ面の DOM 温存（details 開閉・未確定入力値）／リロード復元／jumpTo のタブ追随。
+    const ctxG = await browser.newContext({ viewport: { width: 1280, height: 2400 } });
+    await mockApi(ctxG, STATE_ANCHOR);
+    const pageG = await ctxG.newPage();
+    pageG.on("pageerror", (e) => pageErrors.push("G:" + String((e && e.message) || e)));
+    await openCockpit(pageG);
+
+    // offsetParent は hidden（display:none）で null＝属性だけでなく「実際に見えているか」を確認できる。
+    const tabState = () => pageG.evaluate(() => ({
+      dashHidden: document.getElementById("mcc-tab-dash").hidden,
+      configHidden: document.getElementById("mcc-tab-config").hidden,
+      dashSelected: document.getElementById("mcc-tab-btn-dash").getAttribute("aria-selected"),
+      configSelected: document.getElementById("mcc-tab-btn-config").getAttribute("aria-selected"),
+      storedTab: (() => { try { return localStorage.getItem("mcc_tab"); } catch (e) { return null; } })(),
+      dashHasSync: !!document.querySelector("#mcc-tab-dash #mcc-sec-sync"),
+      dashHasNisa: !!document.querySelector("#mcc-tab-dash #mcc-sec-nisa"),
+      dashHasCashflow: !!document.querySelector("#mcc-tab-dash #mcc-sec-cashflow"),
+      dashHasAssets: !!document.querySelector("#mcc-tab-dash #mcc-sec-assets"),
+      dashHasGoals: !!document.querySelector("#mcc-tab-dash #mcc-sec-goals"),
+      configHasGuide: !!document.querySelector("#mcc-tab-config .mcc-guide"),
+      configHasBuckets: !!document.querySelector("#mcc-tab-config #mcc-sec-buckets"),
+      configHasSettings: !!document.querySelector("#mcc-tab-config #mcc-sec-settings"),
+      configHasTools: !!document.querySelector("#mcc-tab-config .mcc-tools"),
+      cashflowVisible: !!(document.getElementById("mcc-sec-cashflow") || {}).offsetParent,
+      bucketsVisible: !!(document.getElementById("mcc-sec-buckets") || {}).offsetParent,
+    }));
+
+    // --- G1: 既定は dash（localStorage 未設定）---
+    const g1 = await tabState();
+    check("G1_default_tab_is_dash", g1.dashHidden === false && g1.configHidden === true, JSON.stringify(g1));
+    check("G1_default_aria_selected", g1.dashSelected === "true" && g1.configSelected === "false", JSON.stringify(g1));
+    check("G1_dash_content_visible_config_not", g1.cashflowVisible === true && g1.bucketsVisible === false, JSON.stringify(g1));
+
+    // --- G2: セクションの振り分け（brief の割当どおり）---
+    check("G2_dash_holds_sync_nisa_cashflow_assets_goals",
+      g1.dashHasSync && g1.dashHasNisa && g1.dashHasCashflow && g1.dashHasAssets && g1.dashHasGoals, JSON.stringify(g1));
+    check("G2_config_holds_guide_buckets_settings_tools",
+      g1.configHasGuide && g1.configHasBuckets && g1.configHasSettings && g1.configHasTools, JSON.stringify(g1));
+
+    // --- G3: タブバーの実クリックで切替（hidden／aria／localStorage／実描画）---
+    await pageG.click("#mcc-tab-btn-config");
+    await pageG.waitForTimeout(80);
+    const g3 = await tabState();
+    check("G3_click_config_swaps_hidden", g3.dashHidden === true && g3.configHidden === false, JSON.stringify(g3));
+    check("G3_click_config_swaps_aria", g3.dashSelected === "false" && g3.configSelected === "true", JSON.stringify(g3));
+    check("G3_click_config_persists_localstorage", g3.storedTab === "config", g3.storedTab);
+    check("G3_click_config_swaps_visibility", g3.bucketsVisible === true && g3.cashflowVisible === false, JSON.stringify(g3));
+
+    // --- G4: 非アクティブ面は DOM から消えない（details 開閉・未確定入力値が切替で失われない）---
+    await pageG.evaluate(() => {
+      document.getElementById("mcc-sec-settings").open = true;
+      document.querySelector('#mcc-sec-buckets input[data-mcc-focus="buckets.core.amount"]').value = "424242"; // change 未発火＝未確定
+    });
+    await pageG.click("#mcc-tab-btn-dash");
+    const g4mid = await pageG.evaluate(() => ({
+      bucketsStillInDom: !!document.getElementById("mcc-sec-buckets"),
+      bucketsVisible: !!(document.getElementById("mcc-sec-buckets") || {}).offsetParent,
+    }));
+    await pageG.click("#mcc-tab-btn-config");
+    const g4 = await pageG.evaluate(() => ({
+      settingsOpen: document.getElementById("mcc-sec-settings").open,
+      coreValue: document.querySelector('#mcc-sec-buckets input[data-mcc-focus="buckets.core.amount"]').value,
+    }));
+    check("G4_inactive_pane_stays_in_dom", g4mid.bucketsStillInDom === true && g4mid.bucketsVisible === false, JSON.stringify(g4mid));
+    check("G4_details_open_survives_tab_roundtrip", g4.settingsOpen === true, g4.settingsOpen);
+    check("G4_uncommitted_input_survives_tab_roundtrip", g4.coreValue === "424242", g4.coreValue);
+
+    // --- G5: リロード後に localStorage からタブが復元される（config のまま）---
+    await pageG.goto(BASE + "/?diag=off", { waitUntil: "domcontentloaded" });
+    await pageG.evaluate(() => MCC.show());
+    // config タブ復元後は収支セクションが hidden＝visible 待ちにすると固まるので attached で待つ。
+    await pageG.waitForSelector("#mcc-sec-cashflow", { state: "attached", timeout: 8000 });
+    await pageG.waitForTimeout(250);
+    const g5 = await tabState();
+    check("G5_tab_restored_after_reload", g5.configHidden === false && g5.dashHidden === true, JSON.stringify(g5));
+    check("G5_restored_aria_selected", g5.configSelected === "true" && g5.dashSelected === "false", JSON.stringify(g5));
+
+    // --- G6/G7: jumpTo が属するタブへ自動切替（既存7ターゲット全て）＋details open＋flash ---
+    const jumpTargets = [
+      ["settings", "mcc-sec-settings", "config"],
+      ["buckets", "mcc-sec-buckets", "config"],
+      ["sync", "mcc-sec-sync", "dash"],
+      ["cashflow", "mcc-sec-cashflow", "dash"],
+      ["goals", "mcc-sec-goals", "dash"],
+      ["assets", "mcc-sec-assets", "dash"],
+      ["nisa", "mcc-sec-nisa", "dash"],
+    ];
+    for (const [key, id, tab] of jumpTargets) {
+      // 直前の状態に依存しないよう、必ず「反対のタブ」から飛ばす（切替が起きたことを毎回観測する）。
+      await pageG.evaluate((otherTab) => {
+        MCC.switchTab(otherTab);
+        document.querySelectorAll(".mcc-jump-flash").forEach((n) => n.classList.remove("mcc-jump-flash"));
+      }, tab === "dash" ? "config" : "dash");
+      const r = await pageG.evaluate(({ key, id }) => {
+        MCC.jumpTo(key);
+        const el = document.getElementById(id);
+        return {
+          flashed: !!el && el.classList.contains("mcc-jump-flash"),
+          visible: !!(el && el.offsetParent),
+          activeTab: document.getElementById("mcc-tab-config").hidden ? "dash" : "config",
+          detailsOpen: el && el.tagName === "DETAILS" ? el.open : null,
+        };
+      }, { key, id });
+      check("G6_jump_" + key + "_switches_to_" + tab + "_tab", r.activeTab === tab, JSON.stringify(r));
+      check("G6_jump_" + key + "_flashes_and_visible", r.flashed === true && r.visible === true, JSON.stringify(r));
+      if (key === "settings") check("G6_jump_settings_opens_details", r.detailsOpen === true, r.detailsOpen);
+    }
+
+    // --- G8: ガイド内リンクを実クリック（inline onclick＝公開API export 漏れの検出点）---
+    // ガイドは config タブの折りたたみ内。dash 側へ飛ぶリンクは押した瞬間に自分ごと hidden になるため、
+    // 1本ごとに config へ戻して details を開き直す。
+    const guideExpect = [
+      { idx: 0, id: "mcc-sec-settings", tab: "config" },
+      { idx: 1, id: "mcc-sec-buckets", tab: "config" },
+      { idx: 2, id: "mcc-sec-sync", tab: "dash" },
+      { idx: 3, id: "mcc-sec-cashflow", tab: "dash" },
+    ];
+    const guideCount = await pageG.evaluate(() => {
+      MCC.switchTab("config");
+      const g = document.querySelector(".mcc-guide");
+      if (g) g.open = true;
+      return document.querySelectorAll(".mcc-guide .mcc-guide-steps .mcc-jump").length;
+    });
+    check("G8_guide_links_count", guideCount === guideExpect.length, guideCount);
+    for (const g of guideExpect) {
+      await pageG.evaluate(() => {
+        MCC.switchTab("config");
+        const el = document.querySelector(".mcc-guide"); if (el) el.open = true;
+        document.querySelectorAll(".mcc-jump-flash").forEach((n) => n.classList.remove("mcc-jump-flash"));
+      });
+      await pageG.locator(".mcc-guide .mcc-guide-steps .mcc-jump").nth(g.idx).click();
+      await pageG.waitForTimeout(80);
+      const gr = await pageG.evaluate((id) => {
+        const el = document.getElementById(id);
+        return {
+          flashed: !!el && el.classList.contains("mcc-jump-flash"),
+          visible: !!(el && el.offsetParent),
+          activeTab: document.getElementById("mcc-tab-config").hidden ? "dash" : "config",
+        };
+      }, g.id);
+      check("G8_guide_link_" + g.idx + "_reaches_" + g.id, gr.flashed === true && gr.visible === true, JSON.stringify(gr));
+      check("G8_guide_link_" + g.idx + "_lands_on_" + g.tab, gr.activeTab === g.tab, JSON.stringify(gr));
+    }
+    await ctxG.close();
 
     // --- アサート5: pageerror 0 ---
     check("C5_no_page_errors", pageErrors.length === 0, JSON.stringify(pageErrors));

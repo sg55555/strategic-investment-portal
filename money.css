@@ -29,6 +29,36 @@
 }
 .mcc-nav-btn:hover { background: rgba(79,70,229,0.25); }
 .mcc-placeholder { color: var(--c-text-dim); text-align: center; padding: 40px; }
+
+/* --- D1: #mcc-root 内 2タブ（01 ダッシュボード / 02 設定・ガイド）。
+   baseline＝構造/寸法＋実在 var() 色のみ（ネオンの発光/縁は theme D 層＝§2b。§18/§19 と同じ二層構成）。
+   sticky は確定モック docs/superpowers/specs/assets/2026-08-05-mock-hybrid.html 準拠。
+   横は .mcc-wrap の左右 padding(18px) を負マージンで打ち消し、バーだけ全幅（スクロール時に
+   コンテンツがバー脇から透けない）。上下位置はずらさない＝トップバー（戻る/タイトル）は従来どおり流れる。 --- */
+.mcc-tabbar-outer {
+  position: sticky; top: 0; z-index: 50; margin: 0 -18px 14px; padding: 0 18px;
+  background: var(--c-surface-solid); border-bottom: 1px solid rgba(129,140,248,0.25);
+}
+.mcc-tabbar { display: flex; align-items: stretch; gap: 2px; }
+.mcc-tab {
+  position: relative; appearance: none; background: none; border: none; cursor: pointer;
+  font-size: 0.82rem; font-weight: 700; letter-spacing: 2px; color: var(--c-text-dim);
+  padding: 12px 18px; transition: color 0.15s, text-shadow 0.15s;
+}
+.mcc-tab:hover { color: var(--c-cyan-pale); }
+.mcc-tab[aria-selected="true"] { color: var(--c-cyan-bright); }
+.mcc-tab-num { color: var(--c-text-mute); font-size: 0.62rem; margin-right: 4px; }
+/* アクティブ下線（色は theme D で発光させる。baseline では実在トークンの単色） */
+.mcc-tab::after {
+  content: ""; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 2px;
+  background: transparent; transition: background 0.15s, box-shadow 0.15s;
+}
+.mcc-tab[aria-selected="true"]::after { background: var(--c-cyan); }
+/* 非アクティブ面は DOM に残したまま隠すだけ（hidden 属性が唯一の切替源＝JS は display を触らない）。
+   タブ切替のたびに再描画しないため、details の開閉・未確定の入力値・フォーカスが保たれる。
+   フェードイン等のアニメは付けない（render() は編集確定のたびに走る＝面全体が毎回ちらつく）。 */
+.mcc-pane[hidden] { display: none; }
+@media (max-width: 860px) { .mcc-tab { padding: 12px 10px; letter-spacing: 1px; } }
 .mcc-gauge-card { background: rgba(15,20,34,0.6); border: 1px solid rgba(129,140,248,0.25); border-radius: 12px; padding: 18px; margin-bottom: 16px; box-shadow: 0 0 40px rgba(79,70,229,0.15) inset; }
 .mcc-gauge-label { color: var(--c-text-dim); font-size: 0.78rem; letter-spacing: 1px; margin-bottom: 10px; }
 .mcc-gauge-bar { height: 14px; background: rgba(255,255,255,0.06); border-radius: 8px; overflow: hidden; }
@@ -659,6 +689,23 @@
   transition: box-shadow .15s, background .15s;
 }
 [data-theme="D"] #money-view .mcc-nav-btn:hover { background: rgba(77,93,255,0.16); box-shadow: 0 0 14px rgba(138,160,255,0.4); }
+
+/* ---------- 2b. D1: 2タブバー（確定モック 2026-08-05-mock-hybrid.html の .tabbar/.tab を写経） ---------- */
+[data-theme="D"] #money-view .mcc-tabbar-outer {
+  background: rgba(3,6,11,0.88);
+  border-bottom: 1px solid rgba(0,229,255,0.22);
+  box-shadow: 0 6px 26px rgba(0,0,0,0.55), 0 1px 0 rgba(0,229,255,0.06);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+[data-theme="D"] #money-view .mcc-tab { font-family: var(--mcc-mono); }
+[data-theme="D"] #money-view .mcc-tab[aria-selected="true"] {
+  color: var(--c-cyan-bright); text-shadow: 0 0 10px rgba(0,229,255,0.55);
+}
+[data-theme="D"] #money-view .mcc-tab[aria-selected="true"]::after {
+  background: linear-gradient(90deg, var(--c-cyan), var(--c-emerald-bright));
+  box-shadow: 0 0 12px rgba(0,229,255,0.75), 0 0 4px rgba(0,229,255,0.9);
+}
+[data-theme="D"] #money-view .mcc-tab[aria-selected="true"] .mcc-tab-num { color: var(--c-emerald-bright); }
 
 /* ---------- 3. クラウド同期バー ---------- */
 [data-theme="D"] #money-view .mcc-sync {

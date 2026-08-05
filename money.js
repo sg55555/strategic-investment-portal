@@ -1586,17 +1586,79 @@ window.MCC = (function () {
       '" aria-label="' + esc(term + "とは：" + g.def) + '">?</span>';
   }
 
+  // ---- D1: #mcc-root 内 2タブ（01 ダッシュボード / 02 設定・ガイド）----
+  // 中央ルーター（index.html の showView・#money ハッシュ・show()/backToPortal()）は無改造。タブは
+  // 司令室内部の状態に閉じる（URL に出さない＝ブラウザの「戻る」の意味を変えない）。
+  // 保持は localStorage("mcc_tab") のみ（クラウド state に入れない＝端末ごとの見た目の都合であって
+  // 家計データではない。cloud に混ぜると LWW の対象になり他端末の表示タブを勝手に動かす）。
+  var _TAB_KEY = "mcc_tab";
+  var _TABS = ["dash", "config"];
+  var _TAB_LABELS = { dash: { num: "01", label: "ダッシュボード" }, config: { num: "02", label: "設定・ガイド" } };
+  function _loadTab() {
+    try { var v = localStorage.getItem(_TAB_KEY); return v === "config" ? "config" : "dash"; }
+    catch (e) { return "dash"; }   // プライベートブラウズ等は既定タブ
+  }
+  var _activeTab = _loadTab();
+
+  // タブ切替。**再描画しない**（hidden 属性の付け外しと aria-selected の更新だけ）＝非アクティブ側の
+  // DOM は生きたまま残る。これが不変条件：details の開閉・未確定の入力値・フォーカスがタブ移動で
+  // 失われない／jumpTo が掴んでいる要素参照が切替で detach しない（render() だと innerHTML ごと
+  // 作り直され、切替直後に触る要素が「画面に無い古いノード」になる）。
+  function switchTab(name) {
+    var tab = name === "config" ? "config" : "dash";   // 不明値は既定（dash）へ倒す
+    _activeTab = tab;
+    try { localStorage.setItem(_TAB_KEY, tab); } catch (e) { /* 保存不可でもセッション内は _activeTab が保持 */ }
+    for (var i = 0; i < _TABS.length; i++) {
+      var pane = document.getElementById("mcc-tab-" + _TABS[i]);
+      if (pane) pane.hidden = (_TABS[i] !== tab);   // 表示/非表示は CSS（[hidden]{display:none}）に委ねる
+      var btn = document.getElementById("mcc-tab-btn-" + _TABS[i]);
+      if (btn) btn.setAttribute("aria-selected", _TABS[i] === tab ? "true" : "false");
+    }
+  }
+
+  function tabBar() {
+    var btns = "";
+    for (var i = 0; i < _TABS.length; i++) {
+      var t = _TABS[i];
+      btns +=
+        '<button type="button" class="mcc-tab" id="mcc-tab-btn-' + t + '" data-tab="' + t + '" role="tab"' +
+          ' aria-selected="' + (_activeTab === t ? "true" : "false") + '" aria-controls="mcc-tab-' + t + '"' +
+          ' onclick="MCC.switchTab(\'' + t + '\')">' +
+          '<span class="mcc-tab-num">' + _TAB_LABELS[t].num + '</span>' + esc(_TAB_LABELS[t].label) +
+        '</button>';
+    }
+    return '<div class="mcc-tabbar-outer"><nav class="mcc-tabbar" role="tablist" aria-label="司令室のタブ">' +
+      btns + '</nav></div>';
+  }
+
   // ① ガイド/ステッパー内の「設定」等のセクション参照 → 該当セクションへスクロール（折りたたみは開く）。
-  var _JUMP_TARGETS = { settings: "mcc-sec-settings", buckets: "mcc-sec-buckets", sync: "mcc-sec-sync", cashflow: "mcc-sec-cashflow", goals: "mcc-sec-goals", assets: "mcc-sec-assets", nisa: "mcc-sec-nisa" };
+  // D1: どちらのタブに居るかも同じ表に持たせる（id とタブを 2枚の並行 map に分けると、セクションを
+  // 移すたびに片方だけ直して divergent になる＝「切替わらないジャンプ」が無音で生まれる）。
+  var _JUMP_TARGETS = {
+    settings: { id: "mcc-sec-settings", tab: "config" },
+    buckets:  { id: "mcc-sec-buckets",  tab: "config" },
+    sync:     { id: "mcc-sec-sync",     tab: "dash" },
+    cashflow: { id: "mcc-sec-cashflow", tab: "dash" },
+    goals:    { id: "mcc-sec-goals",    tab: "dash" },
+    assets:   { id: "mcc-sec-assets",   tab: "dash" },
+    nisa:     { id: "mcc-sec-nisa",     tab: "dash" },
+  };
   // 収支セクションは未ログインだと描画されない（認証データ）。連携にはログインが前提なので login 欄へフォールバック。
   var _JUMP_FALLBACK = { cashflow: "sync" };
   function jumpLink(key, label) {
     return '<button type="button" class="mcc-jump" onclick="MCC.jumpTo(\'' + key + '\')">' + esc(label) + '</button>';
   }
   function jumpTo(key) {
-    var el = document.getElementById(_JUMP_TARGETS[key]);
-    if (!el && _JUMP_FALLBACK[key]) el = document.getElementById(_JUMP_TARGETS[_JUMP_FALLBACK[key]]);
+    var t = _JUMP_TARGETS[key];
+    var el = t ? document.getElementById(t.id) : null;
+    if (!el && _JUMP_FALLBACK[key]) {
+      t = _JUMP_TARGETS[_JUMP_FALLBACK[key]];
+      el = t ? document.getElementById(t.id) : null;
+    }
     if (!el) return;
+    // D1: 対象が非アクティブタブに居ると hidden 下でスクロールもフラッシュも起きない（＝押しても
+    // 何も起きない無音故障）。タブ判定は key ではなく**解決後**のターゲット（フォールバック込み）で行う。
+    switchTab(t.tab);
     // <details>（設定など）は開いてから見せる＝「開いて入力」を1クリックで完結。
     if (el.tagName === "DETAILS") { el.open = true; }
     else { var det = el.closest ? el.closest("details") : null; if (det) det.open = true; }
@@ -1790,7 +1852,20 @@ window.MCC = (function () {
     var dets = root.querySelectorAll("details[id]");
     for (var di = 0; di < dets.length; di++) if (dets[di].open) openIds.push(dets[di].id);
 
-    root.innerHTML = syncBar() + saveWarn + guideSection() + stepperSection(ob) + gauge + banner + roadmapSection(rm, sync.loggedIn) + assetClassSection(vm) + nisaSection(R.nisaViewModel(eff, cd, now, _investmentRows)) + cashflowSection(cv, cdMain) + reservesSection(cv, cdMain) + adviceSection(vm) + buckets + goalsSection(vm) + settings + tools;
+    // D1: 2タブ骨格。ここでは既存セクションを「毎日見る面（dash）」と「いじる・読む面（config）」へ
+    // 機械的に振り分けるだけ（各セクション関数の中身・見た目の再設計は D2/D3）。
+    // 非アクティブ側も **DOM には残す**（hidden 属性のみ）＝details の開閉/入力値/イベント配線が
+    // タブ移動で失われない。display は CSS 側（.mcc-pane[hidden]）に委ねる。
+    var dashHtml = syncBar() + saveWarn + stepperSection(ob) + gauge + banner +
+      roadmapSection(rm, sync.loggedIn) + assetClassSection(vm) +
+      nisaSection(R.nisaViewModel(eff, cd, now, _investmentRows)) +
+      cashflowSection(cv, cdMain) + reservesSection(cv, cdMain) + adviceSection(vm) + goalsSection(vm);
+    var configHtml = guideSection() + buckets + settings + tools;
+    root.innerHTML = tabBar() +
+      '<div class="mcc-pane" id="mcc-tab-dash" role="tabpanel" aria-labelledby="mcc-tab-btn-dash"' +
+        (_activeTab === "dash" ? "" : " hidden") + '>' + dashHtml + '</div>' +
+      '<div class="mcc-pane" id="mcc-tab-config" role="tabpanel" aria-labelledby="mcc-tab-btn-config"' +
+        (_activeTab === "config" ? "" : " hidden") + '>' + configHtml + '</div>';
 
     for (var oi = 0; oi < openIds.length; oi++) {
       var d = document.getElementById(openIds[oi]);
@@ -1878,6 +1953,7 @@ window.MCC = (function () {
     doLogin: doLogin, logout: logout, addGoal: addGoal, removeGoal: removeGoal,
     requestAdvice: requestAdvice, requestNisaAdvice: requestNisaAdvice, applySurplus: applySurplus,
     saveAnchor: saveAnchor, editAnchor: editAnchor, refreshData: refreshData, jumpTo: jumpTo, adoptAvgExpense: adoptAvgExpense,
+    switchTab: switchTab,
     addReserve: addReserve, removeReserve: removeReserve, fundReserve: fundReserve, setReserveField: setReserveField,
     acSetScope: acSetScope, acFillCashOnly: acFillCashOnly,
     setNisaSource: setNisaSource, addNisaYear: addNisaYear,
