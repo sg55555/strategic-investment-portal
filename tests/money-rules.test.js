@@ -1737,3 +1737,34 @@ test("nisaAllocEducation is product-name-free institutional text", () => {
   assert.ok(t.includes("損益通算") || t.includes("非課税"));   // §8 教育原則
   assert.ok(!/ファンド|eMAXIS|オルカン|インデックス/.test(t)); // 商品名/商品語を含まない（層1 公開クライアント）
 });
+
+test("effectiveState: anchor設定+確定rowsで buffer 実効値が derivedCash になる（保存stateは不変）", () => {
+  const s = R.migrate({ anchor: { date: "2026-07-01", amount: 1000000 },
+    buckets: { buffer: { amount: 111 }, core: { amount: 50 }, satellite: { amount: 0 } } });
+  const rows = [{ period: "2026-07-01", balance: 70000, is_complete: true, pulled_at: "2026-08-02T21:50:28Z" }];
+  const eff = R.effectiveState(s, rows, [], 1754400000000);
+  assert.equal(eff.buckets.buffer.amount, 1070000);
+  assert.equal(s.buckets.buffer.amount, 111);          // 保存 state 不変
+  assert.equal(eff.buckets.core, s.buckets.core);       // 他バケツは参照共有
+  assert.notEqual(eff, s);
+});
+test("effectiveState: no-op 3経路は同一参照を返す", () => {
+  const sManual = R.migrate({ buckets: { buffer: { amount: 500 } } });   // anchor 無し
+  const rows = [{ period: "2026-07-01", balance: 1, is_complete: true }];
+  assert.equal(R.effectiveState(sManual, rows, [], 0), sManual);
+  const sAnchor = R.migrate({ anchor: { date: "2026-07-01", amount: 100 } });
+  assert.equal(R.effectiveState(sAnchor, [], [], 0), sAnchor);           // rows 空
+  assert.equal(R.effectiveState(sAnchor, null, [], 0), sAnchor);         // rows 不正
+});
+test("effectiveState: invest_cash_flow を合算し r() は1回だけ", () => {
+  const s = R.migrate({ anchor: { date: "2026-07-01", amount: 100000.4 } });
+  const rows = [{ period: "2026-07-01", balance: 1000.3, is_complete: true }];
+  const inv = [{ period: "2026-07-01", invest_cash_flow: -500 }];
+  const eff = R.effectiveState(s, rows, inv, 0);
+  assert.equal(eff.buckets.buffer.amount, Math.round(100000.4 + 1000.3 - 500)); // 単一丸め＝合算後1回
+});
+test("migrate: cashSource は anchor.date から導出（raw値は無視）", () => {
+  assert.equal(R.migrate({ anchor: { date: "2026-07-01", amount: 1 } }).cashSource, "anchor");
+  assert.equal(R.migrate({ anchor: { date: "2026-07-01", amount: 1 }, cashSource: "manual" }).cashSource, "anchor");
+  assert.equal(R.migrate({ cashSource: "anchor" }).cashSource, "manual"); // anchor 無しは常に manual
+});

@@ -330,7 +330,7 @@
       },
       satelliteCapPct: _scp >= 0 ? num(raw.satelliteCapPct) : d.satelliteCapPct,
       lastAppliedCashflowPeriod: (typeof raw.lastAppliedCashflowPeriod === "string" && _DATE_RE.test(raw.lastAppliedCashflowPeriod)) ? raw.lastAppliedCashflowPeriod : "",
-      cashSource: raw.cashSource === "anchor" ? "anchor" : "manual",          // 二軸（既定 manual＝後方互換）
+      cashSource: normalizeAnchor(raw.anchor).date ? "anchor" : "manual",     // anchor.date 由来（raw値は無視・dead フラグ一本化）
       investmentSource: raw.investmentSource === "ledger" ? "ledger" : "manual",
       anchor: normalizeAnchor(raw.anchor),
       reserves: Array.isArray(raw.reserves)
@@ -1060,6 +1060,24 @@
     };
   }
 
+  // 実効値方式（spec §2.1）: 基準（アンカー）設定済み＋確定rowsありなら buffer の実効値を
+  // r(derivedCash) に差し替えたコピーを返す。保存 state は不変（LWW 安全）。適用不能は入力を
+  // そのまま返す（同一参照＝完全 no-op が後方互換の機械証明点）。丸めはここで1回のみ（par-2）。
+  function effectiveState(s, cashflowRows_in, investmentRows_in, nowMs) {
+    if (!s || !s.anchor || !s.anchor.date) return s;
+    if (!Array.isArray(cashflowRows_in) || !cashflowRows_in.length) return s;
+    var cd = cashDerived(cashflowRows_in, investmentRows_in, s.anchor, nowMs);
+    if (!cd.anchorConfigured) return s;
+    var eff = {};
+    for (var k in s) if (Object.prototype.hasOwnProperty.call(s, k)) eff[k] = s[k];
+    eff.buckets = {
+      buffer: { amount: r(cd.derivedCash) },
+      core: s.buckets.core,
+      satellite: s.buckets.satellite,
+    };
+    return eff;
+  }
+
   // データ基盤Phase2: 生 投資snapshot 行 → 正規化（period 昇順・不正行は捨てる・cashflowRows と同流儀）。
   function investmentRows(rows) {
     if (!Array.isArray(rows)) return [];
@@ -1347,6 +1365,7 @@
     deadlineBucket: deadlineBucket, modeAFacts: modeAFacts,
     cashflowDerived: cashflowDerived, cashflowViewModel: cashflowViewModel,
     normalizeAnchor: normalizeAnchor, cashDerived: cashDerived,
+    effectiveState: effectiveState,
     investmentDerived: investmentDerived,
     parseNum: parseNum, num: num, cfNum: cfNum, parseIsoMs: parseIsoMs, normalizeAssetHoldings: normalizeAssetHoldings, ASSET_CLASSES: ASSET_CLASSES,
     glidePath: glidePath, regionBreakdown: regionBreakdown,
