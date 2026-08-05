@@ -132,7 +132,12 @@ async function openCockpit(page) {
   await page.goto(BASE + "/?diag=off", { waitUntil: "domcontentloaded" });
   // D1: mcc_tab（表示中タブ）も消す。config が残ったコンテキストだと収支セクションが hidden のままで、
   // 下の waitForSelector（既定 state:"visible"）が 8 秒ハングして無関係な失敗になる。
-  await page.evaluate(() => { try { localStorage.removeItem("mcc_state"); localStorage.removeItem("mcc_tab"); } catch (e) {} });
+  // D3: 折りたたみの開閉（mcc_details）も消す＝各シナリオの初期状態を「保存なし＝既定 open は収支のみ」に固定。
+  await page.evaluate(() => {
+    try {
+      localStorage.removeItem("mcc_state"); localStorage.removeItem("mcc_tab"); localStorage.removeItem("mcc_details");
+    } catch (e) {}
+  });
   await page.evaluate(() => MCC.show());
   // cashflowSection は loggedIn かつ rows 到着後にしか出ない＝両方の完了シグナルになる。
   await page.waitForSelector("#mcc-sec-cashflow", { timeout: 8000 });
@@ -147,9 +152,38 @@ async function snapshot(page) {
     const bufferBucket = bucketsEl ? bucketsEl.querySelector(".mcc-bucket") : null;
     const bufferInput = q('#mcc-sec-buckets input[data-mcc-focus="buckets.buffer.amount"]');
     const cfEl = q("#mcc-sec-cashflow");
+    // D3: 6本の折りたたみ（存在／既定 open／1行ダイジェスト／どちらのペインに居るか）
+    const FOLD_IDS = ["mcc-sec-cashflow", "mcc-sec-roadmap", "mcc-sec-nisa",
+      "mcc-sec-assets", "mcc-sec-reserves-goals", "mcc-sec-advice"];
+    const folds = {};
+    FOLD_IDS.forEach((id) => {
+      const el = document.getElementById(id);
+      folds[id] = el ? {
+        tag: el.tagName,
+        isFold: /\bmcc-fold\b/.test(el.className),
+        open: !!el.open,
+        digest: (() => { const d = el.querySelector(".mcc-fold-dg"); return d ? d.textContent.trim() : null; })(),
+        inDash: !!document.querySelector("#mcc-tab-dash #" + id),
+      } : null;
+    });
     return {
-      gaugeText: txt(".mcc-gauge-card"),
-      gaugeFillWidth: (q(".mcc-gauge-fill") || {}).style ? q(".mcc-gauge-fill").style.width : null,
+      // D3: ゲージ独立カードは廃止（ヒーロー右カラムへ一本化）＝「消えたこと」を正のアサートで固定する
+      gaugeCardExists: !!q(".mcc-gauge-card"),
+      folds: folds,
+      // D3: 入力系の配置（dash＝読む面に入力を残さない／config＝入力はすべてここ）
+      placement: {
+        dashHoldingInputs: document.querySelectorAll('#mcc-tab-dash input[data-mcc-focus^="assetHoldings."]').length,
+        configHoldingInputs: document.querySelectorAll('#mcc-tab-config input[data-mcc-focus^="assetHoldings."]').length,
+        dashNisaInputs: document.querySelectorAll('#mcc-tab-dash input[data-mcc-focus^="nisa."]').length,
+        configNisaInputs: document.querySelectorAll('#mcc-tab-config input[data-mcc-focus^="nisa."]').length,
+        dashBirthYear: !!document.querySelector("#mcc-tab-dash #mcc-ac-birthyear"),
+        configBirthYear: !!document.querySelector("#mcc-tab-config #mcc-ac-birthyear"),
+        dashAddForms: document.querySelectorAll("#mcc-tab-dash #mcc-rsv-label, #mcc-tab-dash #mcc-goal-label").length,
+        configAddForms: document.querySelectorAll("#mcc-tab-config #mcc-rsv-label, #mcc-tab-config #mcc-goal-label").length,
+        dashAnchorBlocks: document.querySelectorAll("#mcc-tab-dash .mcc-anchor").length,
+        configAnchorCard: !!document.querySelector("#mcc-tab-config #mcc-sec-anchor"),
+        dashInputCount: document.querySelectorAll("#mcc-tab-dash input").length,
+      },
       bufferInputExists: !!bufferInput,
       bufferInputValue: bufferInput ? bufferInput.value : null,
       autoBadgeText: txt(".mcc-auto-badge"),
@@ -241,10 +275,13 @@ function check(name, cond, detail) {
     const a = await snapshot(pageA);
 
     // --- アサート1: ゲージが実効値由来 ---
-    check("A1_gauge_shows_derived_amount", /¥1,070,000/.test(a.gaugeText || ""), a.gaugeText);
-    check("A1_gauge_pct_100", /100%/.test(a.gaugeText || ""), a.gaugeText);
-    check("A1_gauge_not_stale_manual_value", !/¥111\b/.test(a.gaugeText || ""), a.gaugeText);
-    check("A1_gauge_fill_100pct", a.gaugeFillWidth === "100%", a.gaugeFillWidth);
+    // D3 期待変更: 独立ゲージカード（.mcc-gauge-card）は廃止しヒーロー右カラムへ一本化。同じ4点
+    // （導出額・100%・保存値111が出ないこと・フィル幅）を**ヒーロー側の同等要素**で固定し直す。
+    check("A1_hero_gauge_shows_derived_amount", /¥1,070,000/.test(a.heroGaugeNoteText || ""), a.heroGaugeNoteText);
+    check("A1_hero_gauge_pct_100", a.heroGaugePctText === "100%", a.heroGaugePctText);
+    check("A1_hero_gauge_not_stale_manual_value", !/¥111\b/.test(a.heroGaugeNoteText || ""), a.heroGaugeNoteText);
+    check("A1_hero_gauge_fill_100pct", a.heroGaugeFillWidth === "100%", a.heroGaugeFillWidth);
+    check("A1_gauge_card_removed", a.gaugeCardExists === false, a.gaugeCardExists);
     // D2 期待変更: 導出現金の金額表示は収支カード（.mcc-anchor-main）からヒーローへ一本化した。
     // 旧 A1_anchor_block_agrees と同じ意図（ゲージと同じ導出額が本文にも出ている）をヒーローで固定する。
     check("A1_hero_amount_agrees", a.heroAmountText === "¥1,070,000", a.heroAmountText);
@@ -281,8 +318,46 @@ function check(name, cond, detail) {
     check("A8_wf_chips_only_in_cashflow", a.cfWfChips > 0 && a.rmWfChips === 0,
       JSON.stringify({ cf: a.cfWfChips, rm: a.rmWfChips }));
     check("A8_roadmap_thismonth_is_text_line", /バッファ ¥0 → コア ¥70,000/.test(a.rmWfText || ""), a.rmWfText);
-    check("A8_anchor_edit_link_kept_in_cashflow", a.anchorEditExists === true, a.anchorEditExists);
-    check("A8_anchor_sub_kept_in_cashflow", /貯蓄額の基準＝2026年7月のはじめ/.test(a.anchorSubText || ""), a.anchorSubText);
+    // D3 期待変更: アンカーの説明・「基準を変更」は設定・ガイドタブの「貯蓄の基準」カードへ移設。
+    // 存在アサート自体は維持し、**どのペインに居るか**を追加で固定する（移設先を正で押さえる）。
+    check("A8_anchor_edit_moved_to_config", a.anchorEditExists === true, a.anchorEditExists);
+    check("A8_anchor_sub_moved_to_config", /貯蓄額の基準＝2026年7月のはじめ/.test(a.anchorSubText || ""), a.anchorSubText);
+    check("A8_anchor_card_in_config_pane", a.placement.configAnchorCard === true, JSON.stringify(a.placement));
+    check("A8_no_anchor_block_left_in_dash", a.placement.dashAnchorBlocks === 0, a.placement.dashAnchorBlocks);
+
+    // --- D3-1: 折りたたみ6本（存在・既定 open は収支のみ・1行ダイジェスト）---
+    const F = a.folds;
+    check("D3_folds_all_six_present",
+      Object.keys(F).every((k) => F[k] && F[k].tag === "DETAILS" && F[k].isFold && F[k].inDash), JSON.stringify(F));
+    check("D3_default_open_is_cashflow_only",
+      F["mcc-sec-cashflow"].open === true &&
+      ["mcc-sec-roadmap", "mcc-sec-nisa", "mcc-sec-assets", "mcc-sec-reserves-goals", "mcc-sec-advice"]
+        .every((k) => F[k].open === false),
+      JSON.stringify(Object.keys(F).map((k) => k + ":" + F[k].open)));
+    check("D3_digest_cashflow", F["mcc-sec-cashflow"].digest === "2026年7月 +¥70,000・貯蓄率 14%",
+      F["mcc-sec-cashflow"].digest);
+    check("D3_digest_roadmap", F["mcc-sec-roadmap"].digest === "育てる（長期投資）・いまここ",
+      F["mcc-sec-roadmap"].digest);
+    // NISA/資産クラスはこのフィクスチャでは未入力＝「—」相当の安全表示になる（データ有りの digest は下の A9 で）
+    check("D3_digest_nisa_empty_safe", /^未入力・設定タブで入力できます$/.test(F["mcc-sec-nisa"].digest || ""),
+      F["mcc-sec-nisa"].digest);
+    check("D3_digest_assets_empty_safe", /^未入力・設定タブで保有額を入力できます$/.test(F["mcc-sec-assets"].digest || ""),
+      F["mcc-sec-assets"].digest);
+    check("D3_digest_reserves_goals", /未設定/.test(F["mcc-sec-reserves-goals"].digest || ""),
+      F["mcc-sec-reserves-goals"].digest);
+    check("D3_digest_advice", F["mcc-sec-advice"].digest === "相談はここから", F["mcc-sec-advice"].digest);
+
+    // --- D3-2: 入力系は dash に無く config に全部ある ---
+    check("D3_no_holding_inputs_in_dash", a.placement.dashHoldingInputs === 0, a.placement.dashHoldingInputs);
+    check("D3_all_15_holding_inputs_in_config", a.placement.configHoldingInputs === 15, a.placement.configHoldingInputs);
+    check("D3_no_nisa_inputs_in_dash", a.placement.dashNisaInputs === 0, a.placement.dashNisaInputs);
+    check("D3_nisa_inputs_in_config", a.placement.configNisaInputs >= 6, a.placement.configNisaInputs);
+    check("D3_birthyear_moved_to_config",
+      a.placement.dashBirthYear === false && a.placement.configBirthYear === true, JSON.stringify(a.placement));
+    check("D3_add_forms_moved_to_config",
+      a.placement.dashAddForms === 0 && a.placement.configAddForms === 2, JSON.stringify(a.placement));
+    // このフィクスチャは確保枠ゼロ＝枠ごとの「編集」欄も無い。ダッシュボードの入力欄は完全にゼロになる。
+    check("D3_dash_has_zero_inputs", a.placement.dashInputCount === 0, a.placement.dashInputCount);
 
     // --- アサート2: バケツのバッファ欄が read-only 表示＋バッジ ---
     check("A2_buffer_input_absent", a.bufferInputExists === false, a.bufferInputValue);
@@ -294,20 +369,23 @@ function check(name, cond, detail) {
     // inline onclick は公開APIの export 漏れがあっても「押しても無反応」で無音故障する＝実際に押して確かめる
     // （jumpTo は対象要素に .mcc-jump-flash を付ける＝ハンドラ到達の観測点）。
     // D1: バケツは設定・ガイドタブへ移動したので、実クリックの前にそのタブへ切替える（タブバーも実クリック）。
+    // D3 期待変更: 「基準を変更」の飛び先は収支カードではなく config の「貯蓄の基準」カード（フォームの移設先）。
+    // 旧アサートの意図（inline onclick が公開 API に到達し、対象が flash する）はそのまま新しい着地点で固定する。
     await pageA.click("#mcc-tab-btn-config");
     await pageA.click("#mcc-sec-buckets .mcc-bucket .mcc-jump");
     await pageA.waitForTimeout(150);
     const jumped = await pageA.evaluate(() => {
-      const el = document.getElementById("mcc-sec-cashflow");
+      const el = document.getElementById("mcc-sec-anchor");
       return {
         flashed: !!el && el.classList.contains("mcc-jump-flash"),
-        // 収支は dash タブ＝ジャンプで自動的に dash へ戻っている（hidden が外れている）はず
-        dashVisible: !document.getElementById("mcc-tab-dash").hidden,
+        // アンカーは config タブ＝切替は起きず config のまま（フォームと同じ面に居る）
+        configVisible: !document.getElementById("mcc-tab-config").hidden,
+        visible: !!(el && el.offsetParent),
         storedTab: (() => { try { return localStorage.getItem("mcc_tab"); } catch (e) { return null; } })(),
       };
     });
-    check("A2_jump_handler_reaches_cashflow", jumped.flashed === true, jumped.flashed);
-    check("A2_jump_switches_back_to_dash_tab", jumped.dashVisible === true, JSON.stringify(jumped));
+    check("A2_jump_handler_reaches_anchor_card", jumped.flashed === true && jumped.visible === true, JSON.stringify(jumped));
+    check("A2_jump_stays_on_config_tab", jumped.configVisible === true, JSON.stringify(jumped));
 
     // --- アサート3: 反映ボタン無し＋autonote／applySurplus 防衛ゲート ---
     check("A3_apply_button_absent", a.applyBtnExists === false, a.applyBtnText);
@@ -330,6 +408,24 @@ function check(name, cond, detail) {
     check("A6_acFillCashOnly_writes_effective_total", aFill.storedCash === DERIVED_CASH, aFill.storedCash);
     check("A6_acFillCashOnly_not_stale_total", aFill.storedCash !== STALE_BUFFER, aFill.storedCash);
 
+    // --- A9（D3）: データが入った状態のダイジェスト（資産クラス＝上位クラス％／NISA＝生涯残・つみたて％）---
+    // 直前の fill で assetHoldings.buffer.cash に導出現金が入っている＝総資産スコープなら現金 100%。
+    await pageA.evaluate(() => MCC.acSetScope("total"));
+    await pageA.waitForTimeout(150);
+    const aTotal = await snapshot(pageA);
+    check("A9_digest_assets_top_classes", aTotal.folds["mcc-sec-assets"].digest === "現金 100%",
+      aTotal.folds["mcc-sec-assets"].digest);
+    // NISA は当年つみたて拠出だけ入れる（年間枠 1,200,000 の 33%／生涯簿価残は 0＝残 18,000,000）
+    await pageA.evaluate(() => MCC.setField("nisa.tsumitateThisYear", "400000"));
+    await pageA.waitForTimeout(250);
+    const aNisa = await snapshot(pageA);
+    check("A9_digest_nisa_with_data", aNisa.folds["mcc-sec-nisa"].digest === "生涯残 ¥18,000,000・つみたて 33%",
+      aNisa.folds["mcc-sec-nisa"].digest);
+    // 入力は config 側（dash の NISA fold には入力欄が生えていない）＝配置の回帰検出
+    check("A9_nisa_input_still_only_in_config",
+      aNisa.placement.dashNisaInputs === 0 && aNisa.placement.configNisaInputs >= 6, JSON.stringify(aNisa.placement));
+    await pageA.evaluate(() => MCC.acSetScope("core"));
+
     // --- アサート B1続き: /api/me/cashflow を 500 でモックした再取得後に fetcherr 表示＋rows 温存 ---
     // 500 route に意図的な遅延を入れ、無遅延の /api/me/investment（成功＝_cfFetchErr を ""へ）より必ず後に
     // 解決させる。loadCashflow/loadInvestment は _cfFetchedAt/_cfFetchErr を共有する設計（brief B1 で明示許容）
@@ -344,7 +440,8 @@ function check(name, cond, detail) {
     check("B1_fetcherr_shown_after_500",
       /更新に失敗しました（HTTP 500）・直前のデータを表示中/.test(aErr.fetchErrText || ""), aErr.fetchErrText);
     check("B1_rows_preserved_yen_still_shown_after_500", aErr.cfStatsHaveYen === true, aErr.cfStatsHaveYen);
-    check("B1_gauge_unaffected_by_fetch_error", /¥1,070,000/.test(aErr.gaugeText || ""), aErr.gaugeText);
+    // D3 期待変更: ゲージカード廃止 → ヒーロー右カラムのゲージ注記で同じ「取得失敗でも導出額は不変」を固定。
+    check("B1_hero_gauge_unaffected_by_fetch_error", /¥1,070,000/.test(aErr.heroGaugeNoteText || ""), aErr.heroGaugeNoteText);
     await ctxA.close();
 
     // ============ シナリオB: anchor 無し＝manual 無回帰 ============
@@ -366,7 +463,8 @@ function check(name, cond, detail) {
     // 誘導注記が出る側の分岐を正のアサートで固定する（旧版はここを「注記なし」で固定していた）。
     check("B4_anchor_setup_note_shown", /基準（アンカー）を設定すると/.test(b.bufferNoteText || ""), b.bufferNoteText);
     check("B4_anchor_setup_note_has_jump", b.bufferNoteHasJump === true, b.bufferNoteHasJump);
-    check("B4_gauge_uses_saved_value", /¥111/.test(b.gaugeText || ""), b.gaugeText);
+    check("B4_hero_gauge_uses_saved_value", /¥111/.test(b.heroGaugeNoteText || ""), b.heroGaugeNoteText);
+    check("B4_gauge_card_removed", b.gaugeCardExists === false, b.gaugeCardExists);
     // --- D2-B: manual モードのヒーロー＝保存値表示＋設定誘導（自動算出の痕跡を出さない）---
     check("B5_hero_present", b.heroExists === true, b.heroExists);
     check("B5_hero_label_is_buffer_cash", /バッファ（現金）/.test(b.heroLabelText || ""), b.heroLabelText);
@@ -375,10 +473,21 @@ function check(name, cond, detail) {
     check("B5_hero_no_auto_badge", b.heroAutoBadgeText === null, b.heroAutoBadgeText);
     check("B5_hero_no_ref_block", b.heroRefAmountText === null, b.heroRefAmountText);
     check("B5_hero_basis_guides_to_anchor_setup", /基準（アンカー）を設定すると/.test(b.heroBasisText || ""), b.heroBasisText);
-    check("B5_hero_basis_has_jump", b.heroBasisJumpText === "「収支と投資余力」", b.heroBasisJumpText);
+    // D3 期待変更: アンカー設定フォームが config へ移ったので、ヒーローの誘導も「貯蓄の基準」へ張り替えた
+    // （旧「収支と投資余力」のままだと、開いた先にフォームが無い無音の迷子になる）。
+    check("B5_hero_basis_has_jump", b.heroBasisJumpText === "「貯蓄の基準」", b.heroBasisJumpText);
     check("B5_hero_fresh_row_present_when_logged_in", b.fetchNoteInHero === true, b.fetchNoteInHero);
     check("B5_banner_removed_in_manual_too", b.bannerExists === false, b.bannerExists);
-    check("B5_anchor_form_kept_in_cashflow", b.anchorFormExists === true, b.anchorFormExists);
+    // D3 期待変更: 未設定時の anchor フォームは config の「貯蓄の基準」カードに在る（dash には無い）
+    check("B5_anchor_form_moved_to_config", b.anchorFormExists === true && b.placement.configAnchorCard === true,
+      JSON.stringify({ form: b.anchorFormExists, card: b.placement.configAnchorCard }));
+    check("B5_no_anchor_block_in_dash", b.placement.dashAnchorBlocks === 0, b.placement.dashAnchorBlocks);
+    // manual モード（anchor 無し）でも入力は config に全部あり、dash 側は表示だけで成立している
+    check("B5_manual_inputs_all_in_config",
+      b.placement.dashHoldingInputs === 0 && b.placement.configHoldingInputs === 15 &&
+      b.placement.dashAddForms === 0 && b.placement.configAddForms === 2, JSON.stringify(b.placement));
+    check("B5_manual_folds_present",
+      Object.keys(b.folds).every((k) => b.folds[k] && b.folds[k].isFold && b.folds[k].inDash), JSON.stringify(b.folds));
     // 反映が実際に効く（従来どおり buffer に toBuffer=70,000 が積まれる）
     await pageB.click("#mcc-sec-cashflow .mcc-cf-apply");
     await pageB.waitForTimeout(250);
@@ -403,13 +512,19 @@ function check(name, cond, detail) {
     check("C6_input_keeps_saved_value", Number(c.bufferInputValue) === STALE_BUFFER, c.bufferInputValue);
     check("C6_rows_missing_note_shown", /収支データが未連携のため自動算出できません/.test(c.bufferNoteText || ""), c.bufferNoteText);
     check("C6_rows_missing_note_states_anchor_is_set", /基準（アンカー）は設定済み/.test(c.bufferNoteText || ""), c.bufferNoteText);
-    check("C6_gauge_uses_saved_value_when_degraded", /¥111/.test(c.gaugeText || ""), c.gaugeText);
+    check("C6_hero_gauge_uses_saved_value_when_degraded", /¥111/.test(c.heroGaugeNoteText || ""), c.heroGaugeNoteText);
     // --- D2-C: degrade 経路のヒーロー（基準あり・rows 無し）＝保存値＋「なぜ自動にならないか」を明示 ---
     check("C7_hero_amount_is_saved_value", c.heroAmountText === "¥111", c.heroAmountText);
     check("C7_hero_basis_states_rows_missing", /収支データが未連携のため保存値を表示中/.test(c.heroBasisText || ""), c.heroBasisText);
     check("C7_hero_power_none_note", /収支データが未連携です/.test(c.heroPowerNoneText || ""), c.heroPowerNoneText);
     // B1 レビュー minor: staleDays==null（pulled_at 無し＝rows 空）でもカデンス文言を必ず出す
     check("C7_fresh_cadence_shown_when_staleDays_null", /毎日 朝6時ごろ/.test(c.freshTxt || ""), c.freshTxt);
+    // D3 持ち越し(d): ログイン済み・rows 空の degrade では「クラウドの最新データを表示中」と言わない
+    // （収支が何も出ていない画面と矛盾する）。「まだ取り込めていません」＋カデンスに振る。
+    check("C7_fresh_says_not_yet_ingested_when_no_rows",
+      /収支データはまだ取り込めていません/.test(c.freshTxt || ""), c.freshTxt);
+    check("C7_fresh_does_not_claim_latest_when_no_rows",
+      !/クラウドの最新データを表示中/.test(c.freshTxt || ""), c.freshTxt);
     await ctxC.close();
 
     // ============ シナリオD（Task B2 ①）: 背景401（cloudFlush の PUT）→ 鮮度行に警告＋フル再描画無し ============
@@ -463,6 +578,21 @@ function check(name, cond, detail) {
     // アクティブ入力のフォーカスがそのまま保持されている（body 等へ逃げていない）
     check("D1_focus_preserved_on_same_input", dSnap.activeFocusKey === "buckets.core.amount", dSnap.activeFocusKey);
     check("D1_cashflow_section_not_torn_down_by_partial_repaint", dSnap.cfSectionStillPresent === true, dSnap.cfSectionStillPresent);
+    // D3 持ち越し(e): 背景401 の直後に**フル再描画**が走っても警告が消えないこと。旧実装は鮮度行の
+    // 描画ゲートが sync.loggedIn 単独だったため、401 でログアウト扱いになった瞬間に次の render で
+    // 「セッションが切れています」ごと無言で消えていた（＝失敗が無かったことになる）。
+    await pageD.evaluate(() => MCC.render());
+    await pageD.waitForTimeout(150);
+    const dFull = await pageD.evaluate(() => ({
+      fetchNoteCount: document.querySelectorAll("#mcc-cf-fetchnote").length,
+      inHero: !!document.querySelector(".mcc-hero #mcc-cf-fetchnote"),
+      fetchErrText: (() => { const e = document.querySelector(".mcc-cf-fetcherr"); return e ? e.textContent.trim() : null; })(),
+      loginFormShown: !!document.getElementById("mcc-pw"),
+    }));
+    check("D2_stale_notice_survives_full_render_after_401",
+      dFull.fetchNoteCount === 1 && dFull.inHero === true && /セッションが切れています/.test(dFull.fetchErrText || ""),
+      JSON.stringify(dFull));
+    check("D2_login_form_offered_after_401", dFull.loginFormShown === true, dFull.loginFormShown);
     await ctxD.close();
 
     // ============ シナリオE（Task B2 ②）: sync.loggedIn=false での ↻ 相当（死にボタン解消）============
@@ -557,6 +687,14 @@ function check(name, cond, detail) {
     check("E2_login_form_shown_as_redirect_target", eAfter.loginFormPresent === true, eAfter.loginFormPresent);
     // 無言 return の代わりに導線を出すだけで、未ログインのままデータ取得を試みたりはしない（回帰防止）
     check("E2_no_cashflow_investment_calls_attempted_while_logged_out", netCallsE.length === 0, JSON.stringify(netCallsE));
+    // D3 持ち越し(e): 未ログインでも _cfFetchErr がある間は鮮度行を出す＝「押したのに何も出ない」を作らない
+    // （E3 の「未ログインでは鮮度行なし」は _cfFetchErr が空のとき＝初期状態の話で、両立する）。
+    const eErrRow = await pageE.evaluate(() => ({
+      count: document.querySelectorAll("#mcc-cf-fetchnote").length,
+      err: (() => { const e = document.querySelector(".mcc-cf-fetcherr"); return e ? e.textContent.trim() : null; })(),
+    }));
+    check("E4_fetchnote_appears_with_error_when_logged_out",
+      eErrRow.count === 1 && /セッションが切れています。再ログインしてください/.test(eErrRow.err || ""), JSON.stringify(eErrRow));
     await ctxE.close();
 
     // ============ シナリオF（Task B3）: タブ復帰時の自動再取得（TTL 10分）============
@@ -686,11 +824,17 @@ function check(name, cond, detail) {
       dashHasNisa: !!document.querySelector("#mcc-tab-dash #mcc-sec-nisa"),
       dashHasCashflow: !!document.querySelector("#mcc-tab-dash #mcc-sec-cashflow"),
       dashHasAssets: !!document.querySelector("#mcc-tab-dash #mcc-sec-assets"),
-      dashHasGoals: !!document.querySelector("#mcc-tab-dash #mcc-sec-goals"),
+      // D3: 確保枠＋資産目標は dash の統合 fold／追加フォーム（#mcc-sec-goals）は config
+      dashHasReservesGoals: !!document.querySelector("#mcc-tab-dash #mcc-sec-reserves-goals"),
+      dashHasGoalsAddCard: !!document.querySelector("#mcc-tab-dash #mcc-sec-goals"),
       configHasGuide: !!document.querySelector("#mcc-tab-config .mcc-guide"),
       configHasBuckets: !!document.querySelector("#mcc-tab-config #mcc-sec-buckets"),
       configHasSettings: !!document.querySelector("#mcc-tab-config #mcc-sec-settings"),
       configHasTools: !!document.querySelector("#mcc-tab-config .mcc-tools"),
+      configHasAnchor: !!document.querySelector("#mcc-tab-config #mcc-sec-anchor"),
+      configHasAssetsInput: !!document.querySelector("#mcc-tab-config #mcc-sec-assets-input"),
+      configHasNisaInput: !!document.querySelector("#mcc-tab-config #mcc-sec-nisa-input"),
+      configHasGoalsAdd: !!document.querySelector("#mcc-tab-config #mcc-sec-goals"),
       cashflowVisible: !!(document.getElementById("mcc-sec-cashflow") || {}).offsetParent,
       bucketsVisible: !!(document.getElementById("mcc-sec-buckets") || {}).offsetParent,
     }));
@@ -702,10 +846,17 @@ function check(name, cond, detail) {
     check("G1_dash_content_visible_config_not", g1.cashflowVisible === true && g1.bucketsVisible === false, JSON.stringify(g1));
 
     // --- G2: セクションの振り分け（brief の割当どおり）---
-    check("G2_dash_holds_sync_nisa_cashflow_assets_goals",
-      g1.dashHasSync && g1.dashHasNisa && g1.dashHasCashflow && g1.dashHasAssets && g1.dashHasGoals, JSON.stringify(g1));
+    // D3 期待変更: 資産目標の**追加フォーム**は config（#mcc-sec-goals）へ移り、dash 側には確保枠と
+    // 統合した表示 fold（#mcc-sec-reserves-goals）が居る。旧 dashHasGoals はこの2点に分解して固定する。
+    check("G2_dash_holds_sync_nisa_cashflow_assets_reservesgoals",
+      g1.dashHasSync && g1.dashHasNisa && g1.dashHasCashflow && g1.dashHasAssets && g1.dashHasReservesGoals,
+      JSON.stringify(g1));
+    check("G2_dash_has_no_add_form_card", g1.dashHasGoalsAddCard === false, JSON.stringify(g1));
     check("G2_config_holds_guide_buckets_settings_tools",
       g1.configHasGuide && g1.configHasBuckets && g1.configHasSettings && g1.configHasTools, JSON.stringify(g1));
+    check("G2_config_holds_all_moved_inputs",
+      g1.configHasAnchor && g1.configHasAssetsInput && g1.configHasNisaInput && g1.configHasGoalsAdd,
+      JSON.stringify(g1));
 
     // --- G3: タブバーの実クリックで切替（hidden／aria／localStorage／実描画）---
     await pageG.click("#mcc-tab-btn-config");
@@ -746,12 +897,19 @@ function check(name, cond, detail) {
     check("G5_restored_aria_selected", g5.configSelected === "true" && g5.dashSelected === "false", JSON.stringify(g5));
 
     // --- G6/G7: jumpTo が属するタブへ自動切替（既存7ターゲット全て）＋details open＋flash ---
+    // D3 期待変更: 入力へ行くキー（goals＝追加フォーム）は config へ。新キー（anchor/assetsInput/
+    // nisaInput/reserves/roadmap）も同じループで全数チェックする＝表と実体の乖離を作らせない。
     const jumpTargets = [
       ["settings", "mcc-sec-settings", "config"],
       ["buckets", "mcc-sec-buckets", "config"],
+      ["anchor", "mcc-sec-anchor", "config"],
+      ["assetsInput", "mcc-sec-assets-input", "config"],
+      ["nisaInput", "mcc-sec-nisa-input", "config"],
+      ["goals", "mcc-sec-goals", "config"],
       ["sync", "mcc-sec-sync", "dash"],
       ["cashflow", "mcc-sec-cashflow", "dash"],
-      ["goals", "mcc-sec-goals", "dash"],
+      ["roadmap", "mcc-sec-roadmap", "dash"],
+      ["reserves", "mcc-sec-reserves-goals", "dash"],
       ["assets", "mcc-sec-assets", "dash"],
       ["nisa", "mcc-sec-nisa", "dash"],
     ];
@@ -854,6 +1012,99 @@ function check(name, cond, detail) {
     await pageG.evaluate(() => { if (window.__restoreLs) window.__restoreLs(); });
     check("G10_save_warn_in_both_panes", g10.dashWarn === true && g10.configWarn === true, JSON.stringify(g10));
     check("G10_save_warn_text_in_config", /保存できませんでした/.test(g10.configWarnText || ""), g10.configWarnText);
+
+    // --- G11（D3）: config へ移設した追加フォームが実際に機能し、dash の統合 fold に反映される ---
+    // addReserve/addGoal は DOM の id を読む＝カードごと移設した今も id が生きているかは実クリックでしか分からない。
+    await pageG.evaluate(() => MCC.switchTab("config"));
+    await pageG.fill("#mcc-rsv-label", "登記費用");
+    await pageG.fill("#mcc-rsv-target", "300000");
+    await pageG.click(".mcc-rsv-addbtn");
+    await pageG.waitForTimeout(250);
+    await pageG.fill("#mcc-goal-label", "FIRE資金");
+    await pageG.fill("#mcc-goal-amount", "10000000");
+    await pageG.click(".mcc-goal-addbtn");
+    await pageG.waitForTimeout(250);
+    const g11 = await pageG.evaluate(() => {
+      const fold = document.getElementById("mcc-sec-reserves-goals");
+      const edit = fold ? fold.querySelector('details[id^="mcc-rsv-edit-"]') : null;
+      return {
+        rsvCards: document.querySelectorAll("#mcc-sec-reserves-goals .mcc-rsv").length,
+        goalCards: document.querySelectorAll("#mcc-sec-reserves-goals .mcc-goal").length,
+        digest: (() => { const d = fold && fold.querySelector(".mcc-fold-dg"); return d ? d.textContent.trim() : null; })(),
+        editId: edit ? edit.id : null,
+        editIdsUnique: (() => {
+          const ids = Array.from(document.querySelectorAll('details[id^="mcc-rsv-edit-"]')).map((e) => e.id);
+          return ids.length === new Set(ids).size;
+        })(),
+        storedReserves: (() => {
+          try { return JSON.parse(localStorage.getItem("mcc_state") || "null").reserves.length; } catch (e) { return null; }
+        })(),
+      };
+    });
+    check("G11_reserve_added_from_config_form", g11.rsvCards === 1 && g11.storedReserves === 1, JSON.stringify(g11));
+    check("G11_goal_added_from_config_form", g11.goalCards === 1, JSON.stringify(g11));
+    check("G11_digest_reflects_both", /^登記費用 <?0%?/.test(g11.digest || "") && /FIRE資金/.test(g11.digest || ""), g11.digest);
+    check("G11_reserve_edit_details_has_id", /^mcc-rsv-edit-r/.test(g11.editId || ""), g11.editId);
+    check("G11_reserve_edit_ids_unique", g11.editIdsUnique === true, g11.editIdsUnique);
+
+    // --- G12（D3）: 折りたたみ開閉の保持（再描画をまたぐ・リロードで復元）---
+    // 収支を閉じ／ロードマップと確保枠の編集ボックスを開く → 編集を1回走らせて全再描画 → 状態維持を確認。
+    await pageG.evaluate(() => {
+      MCC.switchTab("dash");
+      document.getElementById("mcc-sec-cashflow").open = false;
+      document.getElementById("mcc-sec-roadmap").open = true;
+      document.querySelector('details[id^="mcc-rsv-edit-"]').open = true;
+    });
+    await pageG.waitForTimeout(80);
+    await pageG.evaluate(() => MCC.setField("buckets.core.amount", "800000")); // 全再描画を起こす
+    await pageG.waitForTimeout(250);
+    const g12a = await pageG.evaluate(() => ({
+      cashflowOpen: document.getElementById("mcc-sec-cashflow").open,
+      roadmapOpen: document.getElementById("mcc-sec-roadmap").open,
+      editOpen: document.querySelector('details[id^="mcc-rsv-edit-"]').open,
+      stored: (() => { try { return localStorage.getItem("mcc_details"); } catch (e) { return null; } })(),
+    }));
+    check("G12_fold_state_survives_rerender",
+      g12a.cashflowOpen === false && g12a.roadmapOpen === true && g12a.editOpen === true, JSON.stringify(g12a));
+    check("G12_fold_state_persisted_to_localstorage",
+      /"mcc-sec-cashflow":false/.test(g12a.stored || "") && /"mcc-sec-roadmap":true/.test(g12a.stored || ""), g12a.stored);
+
+    // リロード（localStorage からの復元＝ページを跨いだ保持）
+    await pageG.goto(BASE + "/?diag=off", { waitUntil: "domcontentloaded" });
+    await pageG.evaluate(() => MCC.show());
+    await pageG.waitForSelector("#mcc-sec-cashflow", { state: "attached", timeout: 8000 });
+    await pageG.waitForTimeout(250);
+    const g12b = await pageG.evaluate(() => ({
+      cashflowOpen: document.getElementById("mcc-sec-cashflow").open,
+      roadmapOpen: document.getElementById("mcc-sec-roadmap").open,
+      // AIコーチだけは一度も開いていない（他5本は G6 の jumpTo が開く＝保存済み）＝既定 closed の対照群
+      adviceOpen: document.getElementById("mcc-sec-advice").open,
+      // 確保枠は reconcile（クラウド state が新しい）で消えるため、編集ボックスの復元はリロード前の
+      // 再描画またぎ（G12_fold_state_survives_rerender）で固定済み。
+      reserveCards: document.querySelectorAll("#mcc-sec-reserves-goals .mcc-rsv").length,
+    }));
+    check("G12_fold_state_restored_after_reload",
+      g12b.cashflowOpen === false && g12b.roadmapOpen === true, JSON.stringify(g12b));
+    check("G12_untouched_fold_keeps_default_closed", g12b.adviceOpen === false, JSON.stringify(g12b));
+
+    // --- G13（D3）: ガイドにも id が付き、開閉が保持される（details 全id化）---
+    await pageG.evaluate(() => { MCC.switchTab("config"); document.getElementById("mcc-sec-guide").open = true; });
+    await pageG.waitForTimeout(80);
+    await pageG.evaluate(() => MCC.setField("buckets.core.amount", "810000"));
+    await pageG.waitForTimeout(250);
+    const g13 = await pageG.evaluate(() => ({
+      guideOpen: document.getElementById("mcc-sec-guide").open,
+      guideIsSameNode: !!document.querySelector(".mcc-guide#mcc-sec-guide"),
+      duplicateIds: (() => {
+        const ids = Array.from(document.querySelectorAll("[id]")).map((e) => e.id);
+        const seen = {}, dups = [];
+        ids.forEach((i) => { if (seen[i]) dups.push(i); seen[i] = 1; });
+        return dups;
+      })(),
+    }));
+    check("G13_guide_open_survives_rerender", g13.guideOpen === true && g13.guideIsSameNode === true, JSON.stringify(g13));
+    // 配置換えで id が二重にならないこと（fold へ id を移した際の典型事故）
+    check("G13_no_duplicate_ids_in_document", g13.duplicateIds.length === 0, JSON.stringify(g13.duplicateIds));
     await ctxG.close();
 
     // ============ シナリオH（Task D2）: 当月（進行中）行あり＝ヒーローの「当月込みの参考値」 ============
@@ -870,7 +1121,7 @@ function check(name, cond, detail) {
     check("H1_hero_ref_amount_includes_partial_month", h.heroRefAmountText === "¥1,040,000", h.heroRefAmountText);
     check("H1_hero_ref_chip_is_provisional", h.heroChipProvText === "暫定・毎日自動更新", h.heroChipProvText);
     check("H1_hero_basis_delta_is_confirmed_only", /確定1ヶ月分 \+¥70,000/.test(h.heroBasisText || ""), h.heroBasisText);
-    check("H1_hero_amount_and_gauge_agree", /¥1,070,000/.test(h.gaugeText || ""), h.gaugeText);
+    check("H1_hero_amount_and_gauge_agree", /¥1,070,000/.test(h.heroGaugeNoteText || ""), h.heroGaugeNoteText);
     // 重複統合の再確認（当月行があっても増殖しない）
     check("H2_single_fetchnote_in_hero", h.fetchNoteCount === 1 && h.fetchNoteInHero === true,
       JSON.stringify({ n: h.fetchNoteCount, inHero: h.fetchNoteInHero }));
@@ -894,6 +1145,66 @@ function check(name, cond, detail) {
     check("H3_fetchnote_still_single_and_in_hero_after_refresh",
       hAfter.count === 1 && hAfter.inHero === true, JSON.stringify(hAfter));
     await ctxH.close();
+
+    // ============ シナリオI（Task D3）: setup 段（月の生活費すら未入力・未ログイン）============
+    // vm.next.target === "setup" の唯一の層。ステッパー／ヒーローの基準文言／ゲージ未設定注記が
+    // すべて「まず設定へ」を指すため、ここで「次の一手」帯まで出すと同じ CTA が4重になる（旧 banner の
+    // setup 抑止と同じ意図）。抑制されていること＋他の導線は生きていることを実測する。
+    const ctxI = await browser.newContext({ viewport: { width: 1280, height: 2400 } });
+    await ctxI.route("**/api/auth/session", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: false }) }));
+    await ctxI.route("**/api/me/**", (route) => route.fulfill({ status: 401, contentType: "application/json", body: "{}" }));
+    await ctxI.route("**/api/market/**", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ stocks: {}, updated_at: "" }) }));
+    const pageI = await ctxI.newPage();
+    pageI.on("pageerror", (e) => pageErrors.push("I:" + String((e && e.message) || e)));
+    await pageI.goto(BASE + "/?diag=off", { waitUntil: "domcontentloaded" });
+    await pageI.evaluate(() => { try { localStorage.clear(); } catch (e) {} });
+    await pageI.reload({ waitUntil: "domcontentloaded" });
+    await pageI.evaluate(() => MCC.show());
+    await pageI.waitForTimeout(500);
+    const iSnap = await pageI.evaluate(() => {
+      const q = (sel) => document.querySelector(sel);
+      const txt = (sel) => { const e = q(sel); return e ? e.textContent.trim() : null; };
+      return {
+        heroExists: !!q(".mcc-hero"),
+        heroNext: txt(".mcc-hero-next"),
+        stepperExists: !!q(".mcc-stepper"),
+        stepperNext: txt(".mcc-stepper-next"),
+        gaugeNote: txt(".mcc-hero-side .mcc-hero-ref-note"),
+        gaugeNoteJump: txt(".mcc-hero-side .mcc-jump"),
+        adviceRule: txt(".mcc-advice-rule"),
+        cashflowFold: !!document.getElementById("mcc-sec-cashflow"),
+        foldsPresent: ["mcc-sec-roadmap", "mcc-sec-nisa", "mcc-sec-assets", "mcc-sec-reserves-goals", "mcc-sec-advice"]
+          .every((id) => !!document.getElementById(id)),
+        configInputs: document.querySelectorAll('#mcc-tab-config input[data-mcc-focus^="assetHoldings."]').length,
+        configAddForms: document.querySelectorAll("#mcc-tab-config #mcc-rsv-label, #mcc-tab-config #mcc-goal-label").length,
+        anchorCard: !!document.getElementById("mcc-sec-anchor"),
+        gaugeCard: !!q(".mcc-gauge-card"),
+      };
+    });
+    check("I1_hero_present_in_setup_stage", iSnap.heroExists === true, iSnap.heroExists);
+    check("I1_hero_next_suppressed_in_setup", iSnap.heroNext === null, iSnap.heroNext);
+    check("I1_stepper_shown_in_setup", iSnap.stepperExists === true, iSnap.stepperExists);
+    check("I1_stepper_next_points_to_settings", /月の生活費/.test(iSnap.stepperNext || ""), iSnap.stepperNext);
+    check("I1_gauge_note_offers_settings_link", iSnap.gaugeNoteJump === "「設定」", iSnap.gaugeNoteJump);
+    check("I1_advice_rule_still_states_setup", /月の生活費を入力/.test(iSnap.adviceRule || ""), iSnap.adviceRule);
+    check("I2_no_cashflow_fold_when_logged_out", iSnap.cashflowFold === false, iSnap.cashflowFold);
+    check("I2_other_five_folds_present", iSnap.foldsPresent === true, iSnap.foldsPresent);
+    check("I2_inputs_available_in_config_even_logged_out",
+      iSnap.configInputs === 15 && iSnap.configAddForms === 2, JSON.stringify(iSnap));
+    // 基準（アンカー）は収支連携が前提＝未ログインでは出さない（jumpTo は _JUMP_FALLBACK でログイン欄へ倒す）
+    check("I2_anchor_card_gated_by_login", iSnap.anchorCard === false, iSnap.anchorCard);
+    check("I2_gauge_card_removed", iSnap.gaugeCard === false, iSnap.gaugeCard);
+    // 未ログイン時の anchor ジャンプがログイン欄へフォールバックする（存在しないカードへ飛ばして無反応にしない）
+    await pageI.evaluate(() => {
+      document.querySelectorAll(".mcc-jump-flash").forEach((n) => n.classList.remove("mcc-jump-flash"));
+      MCC.jumpTo("anchor");
+    });
+    await pageI.waitForTimeout(120);
+    const iJump = await pageI.evaluate(() => (document.getElementById("mcc-sec-sync") || {}).className || "");
+    check("I3_anchor_jump_falls_back_to_sync_when_logged_out", /mcc-jump-flash/.test(iJump), iJump);
+    await ctxI.close();
 
     // --- アサート5: pageerror 0 ---
     check("C5_no_page_errors", pageErrors.length === 0, JSON.stringify(pageErrors));

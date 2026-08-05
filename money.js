@@ -642,6 +642,8 @@ window.MCC = (function () {
     '</div>';
   }
 
+  // D3: 資産目標＝**表示部のみ**（ダッシュボードの折りたたみ⑤に統合表示）。追加フォームは
+  // 設定・ガイドタブの reservesGoalsAddCard へ移設した（毎日見る面に空フォームを常設しない）。
   function goalsSection(vm) {
     var items = vm.goals.map(function (g) {
       var badge = g.achieved ? '<span class="mcc-goal-done">達成 ✓</span>' : '';
@@ -656,16 +658,21 @@ window.MCC = (function () {
         '<div class="mcc-goal-stat">' + sub + (dl ? ' ' + dl : '') + '</div>' +
       '</div>';
     }).join("");
-    var form =
-      '<div class="mcc-goal-add">' +
-        '<input type="text" id="mcc-goal-label" placeholder="目標名（例: FIRE資金）" maxlength="40">' +
-        '<input type="number" id="mcc-goal-amount" placeholder="目標額" min="0" step="100000">' +
-        '<input type="date" id="mcc-goal-deadline" title="期限（任意）">' +
-        '<button class="mcc-goal-addbtn" onclick="MCC.addGoal()">＋ 目標を追加</button>' +
-      '</div>';
-    var empty = '<div class="mcc-goals-empty">総資産（' + vm.fmt(vm.totalAssets) + '）に対する資産目標を追加できます。</div>';
-    return '<div class="mcc-goals" id="mcc-sec-goals"><div class="mcc-section-title">資産目標</div><div class="mcc-section-desc">総資産に対する目標と達成度（確保枠は含めません）。</div>' +
-      (items || empty) + form + '</div>';
+    var empty = '<div class="mcc-goals-empty">総資産（' + vm.fmt(vm.totalAssets) + '）に対する資産目標は ' +
+      jumpLink("goals", "「確保枠・資産目標を追加」") + '（設定・ガイドタブ）から登録できます。</div>';
+    return '<div class="mcc-goals"><div class="mcc-section-title">資産目標</div>' +
+      '<div class="mcc-section-desc">総資産に対する目標と達成度（確保枠は含めません）。</div>' +
+      (items || empty) + '</div>';
+  }
+
+  // 目標の追加フォーム（設定・ガイドタブ）。id は addGoal() が読む3つのまま＝ハンドラ側は無改修。
+  function goalAddForm() {
+    return '<div class="mcc-goal-add">' +
+      '<input type="text" id="mcc-goal-label" placeholder="目標名（例: FIRE資金）" maxlength="40">' +
+      '<input type="number" id="mcc-goal-amount" placeholder="目標額" min="0" step="100000">' +
+      '<input type="date" id="mcc-goal-deadline" title="期限（任意）">' +
+      '<button class="mcc-goal-addbtn" onclick="MCC.addGoal()">＋ 目標を追加</button>' +
+    '</div>';
   }
 
   // AI規律コーチ。決定論ルールを最上位（権威）に、AI を従属表示、免責(DISCLAIMER)を常時同梱（client 定数）。
@@ -705,11 +712,15 @@ window.MCC = (function () {
     var err = adviceErr ? '<div class="mcc-advice-err">' + esc(adviceErr) + '</div>' : '';
     var disc = '<div class="mcc-advice-disclaimer">' + esc(R.DISCLAIMER) + '</div>';
 
-    return '<div class="mcc-advice">' +
-      '<div class="mcc-section-title">AI規律コーチ</div><div class="mcc-section-desc">決定論ルールが最優先・AIはその補足です。</div>' +
-      ruleHead + rule + aiHtml +
-      '<div class="mcc-advice-actions">' + btn + '</div>' + err + disc +
-    '</div>';
+    // D3: ダッシュボードの折りたたみ⑥（中身は現行のまま）。ダイジェストは相談の状態だけ（助言本文を
+    // summary に出すと、折りたたんだ状態で AI の言葉が規律ルールより前に出てしまう）。
+    var digest = !sync.loggedIn ? 'ログインすると相談できます' : (advice ? '相談済み・再相談できます' : '相談はここから');
+    return foldSection("mcc-sec-advice", "mcc-fold-ai", "AIコーチ", esc(digest),
+      '<div class="mcc-advice">' +
+        '<div class="mcc-section-desc">決定論ルールが最優先・AIはその補足です。</div>' +
+        ruleHead + rule + aiHtml +
+        '<div class="mcc-advice-actions">' + btn + '</div>' + err + disc +
+      '</div>');
   }
 
   // 収支推移のスパークライン（balance バー・正=緑/負=赤・当月は半透明）。isolated SVG＝Chart.js を持ち込まない。
@@ -738,8 +749,14 @@ window.MCC = (function () {
   // B1 レビュー minor: staleDays==null（＝pulled_at が無い/最新）でも「毎日 朝6時ごろ自動」の**カデンス**を
   // 必ず出す。ここが「クラウドの最新データを表示中」だけだと、更新頻度を知る手掛かりが画面から消え、
   // ユーザーは「当月ぶんが出ないのは壊れているのか、まだ自動更新が来ていないのか」を判別できない。
+  // D3 持ち越し(d): staleDays==null は「pulled_at が無い」＝**最新**と**まだ1件も取り込めていない**の
+  // 両方で起こる。後者（ログイン済みだが rows 空）で「クラウドの最新データを表示中」と出すと、収支が
+  // 何も出ていない画面と真っ向から矛盾する（ユーザーには壊れて見える）。hasData で言い分けを分ける。
   function fetchNoteHtml(cv) {
-    var freshTxt = cv.staleDays == null ? "クラウドの最新データを表示中（毎日 朝6時ごろ自動更新）"
+    var freshTxt = cv.staleDays == null
+      ? (cv.hasData
+          ? "クラウドの最新データを表示中（毎日 朝6時ごろ自動更新）"
+          : "収支データはまだ取り込めていません（毎日 朝6時ごろ自動更新）")
       : ("クラウド更新: " + cv.staleDays + "日前（毎日 朝6時ごろ自動）" + (cv.dataFresh ? "" : "・更新が止まっている可能性"));
     return '<div class="mcc-cf-fetchnote" id="mcc-cf-fetchnote">' +
         '<div class="mcc-cf-fresh' + (cv.dataFresh === false ? " stale" : "") + '">' +
@@ -782,7 +799,9 @@ window.MCC = (function () {
       // 未ログイン＝この端末の保存値しか出せない層。何をすれば自動になるかを1手で示す（ログイン欄へ）。
       basis = 'この端末に保存された値です。ログインすると自動算出・収支が反映されます → ' + jumpLink("sync", "ログイン");
     } else if (!cd.anchorConfigured) {
-      basis = jumpLink("cashflow", "「収支と投資余力」") + 'で基準（アンカー）を設定すると、確定収支から自動算出に切り替わります。';
+      // D3: 基準（アンカー）の設定フォームは設定・ガイドタブの「貯蓄の基準」カードへ移設した。
+      // 飛び先を旧位置（収支カード）のままにすると、開いた先にフォームが無い＝無音の迷子になる。
+      basis = jumpLink("anchor", "「貯蓄の基準」") + 'で基準（アンカー）を設定すると、確定収支から自動算出に切り替わります。';
     } else {
       basis = '基準（アンカー）は設定済みですが、収支データが未連携のため保存値を表示中です。';
     }
@@ -810,14 +829,20 @@ window.MCC = (function () {
       ? '<div class="mcc-hero-power">' + cv.fmt(cv.investableSurplus) + ' <small>/ 月（平滑後）</small></div>'
       : '<div class="mcc-hero-power-none">' + (sync.loggedIn
           ? '収支データが未連携です' : 'ログインして収支を連携すると表示されます') + '</div>';
-    var next = '<div class="mcc-hero-next mcc-hero-next-' + esc(vm.next.target) + '">' +
+    // D3 持ち越し(c): setup 段（月の生活費すら未入力）では「次の一手」帯を出さない。この段では
+    // ステッパー・ヒーローの基準文言・ゲージ未設定注記・（AIカードの決定論行）が同じ「まず設定へ」を
+    // 指しており、4重の CTA になって何から始めればよいか逆に読み取れなくなる（旧 banner の setup 抑止と同じ意図）。
+    var next = vm.next.target === "setup" ? ""
+      : '<div class="mcc-hero-next mcc-hero-next-' + esc(vm.next.target) + '">' +
         '<span class="mcc-hero-next-icon">▶</span>' +
         '<span>次の一手：<strong>' + esc(vm.next.message) + '</strong></span></div>';
 
     // ---- 下端: 鮮度行（B1）----
     // 未ログインでは出さない（クラウドの鮮度も「この端末での最終取得」も意味を持たない＝取得していない）。
     // このとき id=mcc-cf-fetchnote は文書に存在しないが、repaintStaleNotice は要素が無ければ no-op（既存挙動）。
-    var fresh = sync.loggedIn ? fetchNoteHtml(cv) : "";
+    // D3 持ち越し(e): ただし _cfFetchErr（背景401＝セッション切れ／取得失敗）がある間は**未ログインでも出す**。
+    // 出さないと、repaintStaleNotice が差し込んだ警告が次のフル render で無言に消える（＝失敗が無かったことになる）。
+    var fresh = (sync.loggedIn || _cfFetchErr) ? fetchNoteHtml(cv) : "";
 
     return '<div class="mcc-hero">' +
       '<div class="mcc-hero-main">' +
@@ -844,17 +869,23 @@ window.MCC = (function () {
   }
 
   // Slice4: 収支カード＋投資余力ゲージ＋鮮度。業務 math は持たず cv（cashflowViewModel）を描くのみ。
-  // cd = R.cashDerived(...) の戻り。render() が1回だけ算出して渡す（reservesSection と共有＝2重算出の解消）。
-  function cashflowSection(cv, cd) {
+  // D3: ダッシュボードの折りたたみ①（既定 open）。summary の1行ダイジェストは cv の既存フィールド
+  // （latestPeriod / balance・balanceFmt / savingsRatePct＝表示行と同じ3値）だけで組む＝新しい業務 math は作らない。
+  // 基準（アンカー）の設定フォーム・「基準を変更」は設定・ガイドタブの「貯蓄の基準」カード（anchorCard）へ
+  // 移設済み＝ここには残さない。それに伴い cd（cashDerived）はこの関数では不要になったので引数から外した
+  // （anchorCard/reservesSection には render() が引き続き同じ1回ぶんを渡す）。
+  function cashflowSection(cv) {
     if (!sync.loggedIn) return "";  // 認証データ＝未ログインでは出さない
-    var title = '<div class="mcc-section-title">収支と投資余力' + termHelp("投資余力") + '</div><div class="mcc-section-desc">毎月の収支から、無理なく投資に回せる額を出します。</div>';
+    var title = '<div class="mcc-section-desc">毎月の収支から、無理なく投資に回せる額を出します。' + termHelp("投資余力") + '</div>';
     if (!cv.hasData) {
-      return '<div class="mcc-cashflow" id="mcc-sec-cashflow">' + title +
-        '<div class="mcc-cashflow-empty">収支データが未連携です。kakeibo（家計）の月次収支を取り込むと、毎月いくら投資に回せるか（投資余力）が表示されます。</div></div>';
+      return foldSection("mcc-sec-cashflow", "mcc-fold-cf", "収支の詳細", '<b>未連携</b>',
+        '<div class="mcc-cashflow">' + title +
+        '<div class="mcc-cashflow-empty">収支データが未連携です。kakeibo（家計）の月次収支を取り込むと、毎月いくら投資に回せるか（投資余力）が表示されます。</div></div>');
     }
     if (cv.currencyMismatch) {
-      return '<div class="mcc-cashflow" id="mcc-sec-cashflow">' + title +
-        '<div class="mcc-cashflow-empty">通貨が JPY 以外のため投資余力は表示しません（収支連携は JPY 前提）。</div></div>';
+      return foldSection("mcc-sec-cashflow", "mcc-fold-cf", "収支の詳細", '<b>JPY 以外</b>',
+        '<div class="mcc-cashflow">' + title +
+        '<div class="mcc-cashflow-empty">通貨が JPY 以外のため投資余力は表示しません（収支連携は JPY 前提）。</div></div>');
     }
     var partial = cv.latestIsPartial
       ? '<span class="mcc-cf-partial">（進行中・暫定）</span>'
@@ -913,22 +944,36 @@ window.MCC = (function () {
       ? '<div class="mcc-cf-note">実支出の平均（' + cv.fmt(cv.avgExpense) + '/月）が設定の月の生活費と乖離しています。' + jumpLink("settings", "「設定」") + 'の見直しを検討してください。</div>' : "";
     // D2: 鮮度行（旧 var fresh）はヒーロー下端へ移設（id=mcc-cf-fetchnote が文書内で1個であること＝
     // repaintStaleNotice の契約を守るため、ここでは描かない）。
+    // D3: アンカーの説明文・設定フォーム・「基準を変更」も設定・ガイドタブへ移設（anchorCard）。ここには
+    // 「どこで変えられるか」の導線1行だけを残す（毎日見る面に入力欄を戻さない）。
+    var anchorLink = '<div class="mcc-cf-note">貯蓄額の基準（アンカー）の設定・変更は ' +
+      jumpLink("anchor", "「貯蓄の基準」") + '（設定・ガイドタブ）から。</div>';
 
-    // データ基盤Phase1: 定点アンカー＋確定月収支で現在現金を自動算出（手入力ドリフトの解消・投資フローはPhase2で合算）。
-    // cd は render() が算出済みのものを受け取る（同一 nowMs・同一入力での再算出をやめ、表示間の不整合を構造的に消す）。
-    var anchorBlock;
+    // ダイジェスト＝表示行と同じ3値（月・その月の収支・貯蓄率）。b/クラスは表示のみで値は cv 由来。
+    var digest = esc(fmtAnchorMonth(cv.latestPeriod)) +
+      ' <b class="' + (cv.balance < 0 ? "neg" : "pos") + '">' + (cv.balance >= 0 ? "+" : "") + cv.balanceFmt + '</b>' +
+      '・貯蓄率 <b>' + cv.savingsRatePct + '%</b>';
+
+    return foldSection("mcc-sec-cashflow", "mcc-fold-cf", "収支の詳細", digest,
+      '<div class="mcc-cashflow">' + title + head + surplus + applyBtn + sparkline(cv.history) + cats + insuf + divNote + anchorLink + '</div>');
+  }
+
+  // D3: 「貯蓄の基準（アンカー）」カード＝設定・ガイドタブ。旧 cashflowSection の anchorBlock を移設。
+  // 金額（導出現金）の表示はヒーローに一本化済みなので、ここは**設定値そのもの**と変更導線／未設定時の
+  // 入力フォームだけを持つ（ヒーローの内訳行と同じ説明を二度書かない）。
+  // 収支連携が前提の設定なので描画ゲートは cashflowSection と同じ sync.loggedIn（未ログイン時は
+  // _JUMP_FALLBACK で anchor→sync＝ログイン欄へ倒す）。
+  function anchorCard(cv, cd) {
+    if (!sync.loggedIn) return "";
+    var body;
     if (cd.anchorConfigured) {
-      // D2 重複統合③: 自動算出された**金額**の表示はヒーローへ一本化し、ここには残さない（同じ数字が
-      // 2箇所にあると、片方だけ古い/食い違うように見える事故と、単純な縦の冗長さの両方を生む）。
-      // ただし「何を基準にしているか」と「基準を変更する」導線は入力の文脈＝ここに残す
-      // （D3 で設定・ガイドタブの「貯蓄の基準」カードへ移設予定・今回は既存位置のまま）。
-      anchorBlock =
+      body =
         '<div class="mcc-anchor">' +
-          '<div class="mcc-anchor-sub">貯蓄額の基準＝' + esc(fmtAnchorMonth(cd.anchorDate)) + 'のはじめ（' + cv.fmt(cd.anchorAmount) + '）＋ その後の確定収支 ' + cd.monthsCovered + 'ヶ月分を自動加算。算出された金額は画面上部（サマリー）に表示しています。</div>' +
+          '<div class="mcc-anchor-sub">貯蓄額の基準＝' + esc(fmtAnchorMonth(cd.anchorDate)) + 'のはじめ（' + cv.fmt(cd.anchorAmount) + '）</div>' +
           '<button class="mcc-anchor-edit" onclick="MCC.editAnchor()">基準を変更</button>' +
         '</div>';
     } else {
-      anchorBlock =
+      body =
         '<div class="mcc-anchor mcc-anchor-setup">' +
           '<div class="mcc-anchor-cta">いまの貯蓄額を自動算出します。<b>基準にする月</b>と、<b>その月のはじめ（1日時点）の貯蓄額</b>を1回入れるだけ。以降は選んだ月からの確定収支を自動で積み上げます（月の途中で取引があっても、扱いは月単位なので二重計上は起きません）。</div>' +
           '<div class="mcc-anchor-form">' +
@@ -938,8 +983,9 @@ window.MCC = (function () {
           '</div>' +
         '</div>';
     }
-
-    return '<div class="mcc-cashflow" id="mcc-sec-cashflow">' + title + head + anchorBlock + surplus + applyBtn + sparkline(cv.history) + cats + insuf + divNote + '</div>';
+    return cfgCard("mcc-sec-anchor", "貯蓄の基準（アンカー）",
+      '基準にした月の月初残高に、それ以降の確定収支を毎回自動加算します（扱いは月単位なので二重計上は起きません）。算出された金額はダッシュボード上部のサマリーに表示されます。',
+      body);
   }
 
   // Slice4.5: 確保枠（目的別の取り置き）。cv.reserves（reserveAlloc・純関数算出）を描くのみ。
@@ -964,8 +1010,10 @@ window.MCC = (function () {
         monthly = '<span class="mcc-rsv-monthly muted">期日/月額 未設定 — 満額確保で入金</span>';
       }
       var alloc = rv.allocated > 0 ? '<span class="mcc-rsv-alloc">今回反映 +' + cv.fmt(rv.allocated) + '</span>' : '';
+      // D3「details 全id化」: 編集ボックスにも id を与える（確定のたびに走る全再描画で開いていた編集が
+      // 閉じてしまうのを防ぐ＝_captureDetails/_restoreDetails の対象に載せる）。id は枠 id 由来で一意。
       var edit =
-        '<details class="mcc-rsv-editbox"><summary>編集</summary>' +
+        '<details class="mcc-rsv-editbox" id="mcc-rsv-edit-' + esc(rv.id) + '"><summary>編集</summary>' +
           '<label class="mcc-field"><span>目標額</span><input type="number" min="0" step="50000" value="' + rv.target +
             '" onchange="MCC.setReserveField(\'' + esc(rv.id) + '\',\'target\',this.value)"></label>' +
           '<label class="mcc-field"><span>確保済み</span><input type="number" min="0" step="10000" value="' + rv.saved +
@@ -999,16 +1047,48 @@ window.MCC = (function () {
       ? '<div class="mcc-rsv-summary">取り分け済み 合計 ' + cv.fmt(cv.reservesTotalSaved) + ' / 目標 ' + cv.fmt(cv.reservesTotalTarget) +
           (cv.reservesActive > 0 ? '・積立中 ' + cv.reservesActive + '枠' : '') + freeLine + '</div>'
       : '';
-    var form =
-      '<div class="mcc-rsv-add">' +
-        '<input type="text" id="mcc-rsv-label" placeholder="確保枠名（例: 登記費用）" maxlength="40">' +
-        '<input type="number" id="mcc-rsv-target" placeholder="目標額" min="0" step="50000">' +
-        '<input type="date" id="mcc-rsv-deadline" title="期日（任意・逆算で月額を提案）">' +
-        '<button class="mcc-rsv-addbtn" onclick="MCC.addReserve()">＋ 確保枠を追加</button>' +
-      '</div>';
-    var empty = '<div class="mcc-rsv-empty">住宅の登記費用・不動産取得税など、近い将来に使う目的別のお金を「確保枠」として取り置きできます。期日を入れると毎月の積立額を逆算し、投資余力（コア）より<strong>先に</strong>確保します。時期が読めない費用は満額確保で手元分を一括計上できます。</div>';
+    var empty = '<div class="mcc-rsv-empty">住宅の登記費用・不動産取得税など、近い将来に使う目的別のお金を「確保枠」として取り置きできます。期日を入れると毎月の積立額を逆算し、投資余力（コア）より<strong>先に</strong>確保します。追加は ' +
+      jumpLink("goals", "「確保枠・資産目標を追加」") + '（設定・ガイドタブ）から。</div>';
     return '<div class="mcc-reserves"><div class="mcc-section-title">確保枠（目的別の取り置き）' + termHelp("確保枠") + '</div><div class="mcc-section-desc">投資より先に取り置く目的別の貯金。期日から毎月の積立額を逆算します。</div>' +
-      (cards || empty) + summary + form + '</div>';
+      (cards || empty) + summary + '</div>';
+  }
+
+  // 確保枠の追加フォーム（設定・ガイドタブ）。id は addReserve() が読む3つのまま＝ハンドラ側は無改修。
+  function reserveAddForm() {
+    return '<div class="mcc-rsv-add">' +
+      '<input type="text" id="mcc-rsv-label" placeholder="確保枠名（例: 登記費用）" maxlength="40">' +
+      '<input type="number" id="mcc-rsv-target" placeholder="目標額" min="0" step="50000">' +
+      '<input type="date" id="mcc-rsv-deadline" title="期日（任意・逆算で月額を提案）">' +
+      '<button class="mcc-rsv-addbtn" onclick="MCC.addReserve()">＋ 確保枠を追加</button>' +
+    '</div>';
+  }
+
+  // D3: ダッシュボードの折りたたみ⑤＝確保枠＋資産目標の統合カード（どちらも「目的のためのお金」で、
+  // 別カードに分けると総資産との関係が2画面に割れる）。ダイジェストは先頭の枠/目標の進捗（VM 由来の
+  // progress/progressPct）だけを出す＝新しい集計は作らない。
+  function reservesGoalsSection(vm, cv, cd) {
+    var rs = cv.reserves || [];
+    var parts = [];
+    if (rs.length) {
+      parts.push(esc(rs[0].label || "（無題）") + ' <b>' + Math.round((rs[0].progress || 0) * 100) + '%</b> 確保');
+    }
+    if (vm.goals.length) {
+      parts.push(esc(vm.goals[0].label || "（無題）") + ' <b>' + vm.goals[0].progressPct + '%</b>');
+    }
+    var rest = rs.length + vm.goals.length - parts.length;
+    var digest = parts.length
+      ? parts.join("・") + (rest > 0 ? '・他' + rest + '件' : '')
+      : '<b>未設定</b>・設定タブで追加できます';
+    return foldSection("mcc-sec-reserves-goals", "mcc-fold-rg", "確保枠・資産目標", digest,
+      reservesSection(cv, cd) + goalsSection(vm));
+  }
+
+  // 確保枠・資産目標の追加フォーム2つ（設定・ガイドタブ）。id="mcc-sec-goals"＝jumpTo("goals") の着地点。
+  function reservesGoalsAddCard(vm) {
+    return cfgCard("mcc-sec-goals", "確保枠・資産目標を追加",
+      '確保枠＝投資より先に取り置く目的別の貯金（期日から毎月の積立額を逆算）。資産目標＝総資産に対する到達目標。登録済みの進捗はダッシュボードの「確保枠・資産目標」に出ます。',
+      '<div class="mcc-cfg-sub">確保枠を追加</div>' + reserveAddForm() +
+      '<div class="mcc-cfg-sub">資産目標を追加（総資産 ' + vm.fmt(vm.totalAssets) + '）</div>' + goalAddForm());
   }
 
   // ---- Task6: フェーズ型ロードマップ（守る/育てる/攻める）----
@@ -1135,12 +1215,18 @@ window.MCC = (function () {
       '%（現在 ' + rm.coreProgress.pct + '%）</div>';
   }
 
+  // D3: ダッシュボードの折りたたみ②。ダイジェスト＝いま居るフェーズ名（rail の「現在」判定と同じ
+  // _RM_CURRENT_KEY マッピングで rm.phases の label を引くだけ＝別の判定を作らない）。
   function roadmapSection(rm, loggedIn) {
-    return '<div class="mcc-roadmap" id="mcc-sec-roadmap">' +
-      '<div class="mcc-section-title">ロードマップ</div>' +
-      '<div class="mcc-section-desc">守る（バッファ）→ 育てる（コア）→ 攻める（サテライト）の進み具合と、今月の配分。</div>' +
-      _rmPhaseRail(rm) + _rmNorthStar(rm, loggedIn) + _rmThisMonth(rm, loggedIn) + _rmTimeline(rm) + _rmSatChip(rm, loggedIn) +
-    '</div>';
+    var curKey = _RM_CURRENT_KEY[rm.phase] || "buffer";
+    var curLabel = "";
+    for (var i = 0; i < rm.phases.length; i++) { if (rm.phases[i].key === curKey) { curLabel = rm.phases[i].label; break; } }
+    var digest = '<b>' + esc(curLabel || "—") + '</b>・いまここ';
+    return foldSection("mcc-sec-roadmap", "mcc-fold-rm", "ロードマップ", digest,
+      '<div class="mcc-roadmap">' +
+        '<div class="mcc-section-desc">守る（バッファ）→ 育てる（コア）→ 攻める（サテライト）の進み具合と、今月の配分。</div>' +
+        _rmPhaseRail(rm) + _rmNorthStar(rm, loggedIn) + _rmThisMonth(rm, loggedIn) + _rmTimeline(rm) + _rmSatChip(rm, loggedIn) +
+      '</div>');
   }
 
   // ---- Task6 (backlog B#2): 資産クラス比率。業務mathはすべて R.*（money-rules.js Task1-5純関数）へ委譲・ここは薄いUI層。----
@@ -1268,39 +1354,27 @@ window.MCC = (function () {
   // 現状=手入力assetHoldings（R.bucketCurrentPct/R.totalCurrentPct）、ドリフト=R.assetClassDrift。
   // vm は render() が渡す標準 viewModel（vm.fmt/vm.totalAssets/vm.coreAmount を使用）。sync.loggedIn/state はクロージャ経由
   // （adviceSection 等の既存パターンと同型）。id="mcc-sec-assets"（_JUMP_TARGETS 登録）。
+  // D3: ダッシュボードの折りたたみ④＝**表示部のみ**（保有額入力15欄・生年入力・「現状は現金のみ」は
+  // 設定・ガイドタブの assetInputCard へ移設）。ダイジェスト＝現在地バーと同じ currentMap の上位3クラス
+  // （並べ替えは表示順の決定のみで、%の値は R.bucketCurrentPct/R.totalCurrentPct が出したものをそのまま使う）。
   function assetClassSection(vm) {
     var nowMs = Date.now();
     var gp = R.glidePath(state.birthYear, nowMs);
     var scope = _acScope;
     var holdings = R.normalizeAssetHoldings(state.assetHoldings);
-    var currentYear = new Date(nowMs).getUTCFullYear();
 
     var readoutHtml = gp.configured ? "" :
-      '<div class="mcc-ac-readout mcc-ac-readout-muted">生年を入力すると、年齢に合わせた設計図（目標比率）が表示されます</div>';
+      '<div class="mcc-ac-readout mcc-ac-readout-muted">' + jumpLink("assetsInput", "「資産クラス入力」") +
+      'で生年を入力すると、年齢に合わせた設計図（目標比率）が表示されます</div>';
 
     var toolbar =
       '<div class="mcc-ac-toolbar">' +
         '<button type="button" class="mcc-ac-tbtn' + (scope === "core" ? " on" : "") + '" onclick="MCC.acSetScope(\'core\')">コアの設計図</button>' +
         '<button type="button" class="mcc-ac-tbtn' + (scope === "total" ? " on" : "") + '" onclick="MCC.acSetScope(\'total\')">総資産で俯瞰</button>' +
-        '<span style="flex:1"></span>' +
-        '<button type="button" class="mcc-ac-tbtn" onclick="MCC.acFillCashOnly()">現状は現金のみ</button>' +
       '</div>';
 
-    // spec §3.4/§5-7: 現状入力（buffer=cashのみ／core・satellite=クラス別）。¥ゲート対象外＝未ログインでも常時表示。
-    var acInputHtml =
-      '<details class="mcc-ac-input" id="mcc-ac-input"><summary>現状の保有額を入力</summary>' +
-        '<div class="mcc-ac-input-bucket"><div class="mcc-ac-input-bktitle">' + esc(AC_BUCKET_NAMES.buffer) + '</div>' +
-          moneyInput("現金", "assetHoldings.buffer.cash", holdings.buffer.cash) +
-        '</div>' +
-        '<div class="mcc-ac-input-bucket"><div class="mcc-ac-input-bktitle">' + esc(AC_BUCKET_NAMES.core) + '</div>' +
-          '<div class="mcc-ac-input-grid">' + R.ASSET_CLASSES.map(function (k) {
-            return moneyInput(esc(AC_NAMES[k]), "assetHoldings.core." + k, holdings.core[k]);
-          }).join("") + '</div></div>' +
-        '<div class="mcc-ac-input-bucket"><div class="mcc-ac-input-bktitle">' + esc(AC_BUCKET_NAMES.satellite) + '</div>' +
-          '<div class="mcc-ac-input-grid">' + R.ASSET_CLASSES.map(function (k) {
-            return moneyInput(esc(AC_NAMES[k]), "assetHoldings.satellite." + k, holdings.satellite[k]);
-          }).join("") + '</div></div>' +
-      '</details>';
+    // 現在地（現状）の比率。gp.configured に依存しない（生年は目標側の入力）＝ダイジェストにも使う。
+    var currentMap = scope === "total" ? R.totalCurrentPct(holdings) : R.bucketCurrentPct(holdings, "core").classPct;
 
     var donutHtml = "", barsHtml = "", railHtml = "", bandsHtml = "";
 
@@ -1308,7 +1382,6 @@ window.MCC = (function () {
       var weights = { buffer: R.bufferTarget(state), core: R.coreTarget(state), satellite: R.satelliteCap(state) };
       // spec §3.3: targetPctはバケツ目標額ウェイト、currentPctはassetHoldings実額ウェイト（非対称・R.totalTargetPct/R.totalCurrentPctへ委譲）。
       var target = scope === "total" ? R.totalTargetPct(gp.R, weights) : R.bucketTargets("core", gp.R);
-      var currentMap = scope === "total" ? R.totalCurrentPct(holdings) : R.bucketCurrentPct(holdings, "core").classPct;
       // spec §3.4: あるバケツ(または総資産)のclassesが全0だがamount>0の場合、既存amountを「未分類」1本として現在地バー限定で計上。
       var amountForUnc = scope === "total" ? vm.totalAssets : vm.coreAmount;
       var classSum = currentMap ? _acSum(currentMap) : 0;
@@ -1367,6 +1440,33 @@ window.MCC = (function () {
       yenReadoutHtml = '<div class="mcc-ac-yen">現状の保有合計（' + (scope === "total" ? "総資産" : "コア") + '）<strong>' + vm.fmt(hSum) + '</strong></div>';
     }
 
+    var disc = '<div class="mcc-ac-disc">' + esc(R.DISCLAIMER) + ' 目標は絶対的な正解ではなく、年齢別の一般的な目安です。</div>';
+
+    // ダイジェスト＝現在地の上位3クラス（値は currentMap のまま・並べ替えのみ表示都合）。
+    var top = [];
+    for (var ti = 0; ti < R.ASSET_CLASSES.length; ti++) {
+      var tk = R.ASSET_CLASSES[ti], tp = (currentMap && currentMap[tk]) || 0;
+      if (tp > 0) top.push({ k: tk, p: tp });
+    }
+    top.sort(function (x, y) { return y.p - x.p; });
+    var digest = top.length
+      ? top.slice(0, 3).map(function (x) { return esc(AC_NAMES[x.k]) + ' <b>' + x.p + '%</b>'; }).join(" / ")
+      : '<b>未入力</b>・設定タブで保有額を入力できます';
+
+    return foldSection("mcc-sec-assets", "mcc-fold-ac", "資産クラス", digest,
+      '<div class="mcc-assets">' +
+        '<div class="mcc-section-desc">年齢に合わせた"設計図"（目標）と、今の"現在地"（現状）のズレを見える化します。' + termHelp("資産クラス") + '</div>' +
+        '<div class="mcc-ac-card neonb">' +
+          readoutHtml + toolbar + donutHtml + yenReadoutHtml + barsHtml + railHtml + bandsHtml + disc +
+        '</div>' +
+      '</div>');
+  }
+
+  // D3: 資産クラスの入力（設定・ガイドタブ）＝生年・保有額15欄・「現状は現金のみ」クイックフィル。
+  // 入力欄の path / onchange ハンドラは無改修（配置だけを移す）。
+  function assetInputCard() {
+    var holdings = R.normalizeAssetHoldings(state.assetHoldings);
+    var currentYear = new Date(Date.now()).getUTCFullYear();
     var ageRow =
       '<div class="mcc-ac-agerow">' +
         '<label for="mcc-ac-birthyear">生年</label>' +
@@ -1374,18 +1474,27 @@ window.MCC = (function () {
           'value="' + (state.birthYear > 0 ? state.birthYear : "") + '" placeholder="例: 1986" ' +
           'data-mcc-focus="birthYear" ' +
           'onchange="MCC.setField(\'birthYear\', this.value)">' +
-        readoutHtml +
+        '<span class="mcc-ac-readout mcc-ac-readout-muted">年齢に合わせた目標比率（設計図）の算出に使います</span>' +
+        '<button type="button" class="mcc-ac-tbtn" onclick="MCC.acFillCashOnly()">現状は現金のみ</button>' +
       '</div>';
-
-    var disc = '<div class="mcc-ac-disc">' + esc(R.DISCLAIMER) + ' 目標は絶対的な正解ではなく、年齢別の一般的な目安です。</div>';
-
-    return '<div class="mcc-assets" id="mcc-sec-assets">' +
-      '<div class="mcc-section-title mcc-section-title-gap">資産クラス比率' + termHelp("資産クラス") + '</div>' +
-      '<div class="mcc-section-desc">年齢に合わせた"設計図"（目標）と、今の"現在地"（現状）のズレを見える化します。</div>' +
-      '<div class="mcc-ac-card neonb">' +
-        ageRow + toolbar + donutHtml + acInputHtml + yenReadoutHtml + barsHtml + railHtml + bandsHtml + disc +
-      '</div>' +
-    '</div>';
+    // spec §3.4/§5-7: 現状入力（buffer=cashのみ／core・satellite=クラス別）。¥ゲート対象外＝未ログインでも常時表示。
+    var acInputHtml =
+      '<details class="mcc-ac-input" id="mcc-ac-input"' + (_foldIsOpen("mcc-ac-input") ? " open" : "") + '><summary>現状の保有額を入力</summary>' +
+        '<div class="mcc-ac-input-bucket"><div class="mcc-ac-input-bktitle">' + esc(AC_BUCKET_NAMES.buffer) + '</div>' +
+          moneyInput("現金", "assetHoldings.buffer.cash", holdings.buffer.cash) +
+        '</div>' +
+        '<div class="mcc-ac-input-bucket"><div class="mcc-ac-input-bktitle">' + esc(AC_BUCKET_NAMES.core) + '</div>' +
+          '<div class="mcc-ac-input-grid">' + R.ASSET_CLASSES.map(function (k) {
+            return moneyInput(esc(AC_NAMES[k]), "assetHoldings.core." + k, holdings.core[k]);
+          }).join("") + '</div></div>' +
+        '<div class="mcc-ac-input-bucket"><div class="mcc-ac-input-bktitle">' + esc(AC_BUCKET_NAMES.satellite) + '</div>' +
+          '<div class="mcc-ac-input-grid">' + R.ASSET_CLASSES.map(function (k) {
+            return moneyInput(esc(AC_NAMES[k]), "assetHoldings.satellite." + k, holdings.satellite[k]);
+          }).join("") + '</div></div>' +
+      '</details>';
+    return cfgCard("mcc-sec-assets-input", "資産クラス入力",
+      '商品タイプ別の保有額（バケツとは別軸）。ダッシュボードの「資産クラス」の現在地バーに反映されます。',
+      ageRow + acInputHtml);
   }
 
   // ---- B#3 NISA枠（backlog #3・Task9・レイアウトD）----
@@ -1468,11 +1577,11 @@ window.MCC = (function () {
     '</div>';
   }
 
+  // D3: ダッシュボードの折りたたみ③＝**表示部のみ**（使用状況の入力 details は設定・ガイドタブの
+  // nisaInputCard へ移設）。ダイジェスト＝生涯枠の残り（¥は loggedIn のみ・未ログインは%）＋当年つみたて消化%。
   function nisaSection(vm) {
     if (!vm) return "";
     var loggedIn = sync.loggedIn;
-    var n = R.normalizeNisa(state.nisa);
-    var currentYear = new Date(Date.now()).getUTCFullYear();
 
     var bodyHtml;
     if (!vm.configured) {
@@ -1566,6 +1675,28 @@ window.MCC = (function () {
 
       bodyHtml = hud + heroHtml + grid2Html + chipsHtml;
     }
+
+    var digest = !vm.configured
+      ? '<b>未入力</b>・設定タブで入力できます'
+      : ('生涯残 <b>' + esc(loggedIn ? R.yen(vm.lifetime.remaining) : vm.lifetime.remainingPct + "%") + '</b>' +
+         '・つみたて <b>' + vm.annual.tsumitate.usedPct + '%</b>');
+
+    return foldSection("mcc-sec-nisa", "mcc-fold-nisa", "NISA", digest,
+      '<div class="mcc-nisa">' +
+        '<div class="mcc-section-desc">課税を避けられる「枠」の消化。バケツ（いつ）・資産クラス（何を）と直交する「どの口座で持つか」の軸。' + termHelp("NISA枠") + '</div>' +
+        bodyHtml +
+        '<div class="mcc-nisa-gate">使用状況の入力は ' + jumpLink("nisaInput", "「NISA入力」") + '（設定・ガイドタブ）から。¥はログイン時のみ表示（未ログインは%のみ）。</div>' +
+        nisaAdviceCard(vm) +
+      '</div>');
+  }
+
+  // D3: NISA 使用状況の入力（設定・ガイドタブ）。入力源トグル／手入力欄／年別テーブル／リコンサイルを
+  // そのまま移設（ハンドラ・値の出所は無改修＝配置のみ）。vm は render() が1回だけ作る nisaViewModel。
+  function nisaInputCard(vm) {
+    if (!vm) return "";
+    var loggedIn = sync.loggedIn;
+    var n = R.normalizeNisa(state.nisa);
+    var currentYear = new Date(Date.now()).getUTCFullYear();
 
     // 入力源トグル（手入力/年別履歴/投資台帳）＝本PJ初の入力源切替UI。以降（B#2/B#4）の先例になる。
     // ledger は台帳が認証の向こう側にあるため未ログインでは選べない（setNisaSource 側と二重防衛）。
@@ -1661,17 +1792,16 @@ window.MCC = (function () {
       '</div>';
 
     var inputHtml =
-      '<details class="mcc-nisa-input" id="mcc-nisa-input"><summary>使用状況を入力（クラウド同期）</summary>' +
+      '<details class="mcc-nisa-input" id="mcc-nisa-input"' + (_foldIsOpen("mcc-nisa-input") ? " open" : "") + '>' +
+        '<summary>使用状況を入力（クラウド同期）</summary>' +
         srcToggle +
         (vm.source === "history" ? historyHtml : (vm.source === "ledger" ? ledgerHtml : manualFieldsHtml)) +
         '<div class="mcc-nisa-gate">¥はログイン時のみ表示（未ログインは%のみ）。入力は未ログインでも可能です。</div>' +
       '</details>';
 
-    return '<div class="mcc-nisa" id="mcc-sec-nisa">' +
-      '<div class="mcc-section-title mcc-section-title-gap">NISA枠（非課税枠）' + termHelp("NISA枠") + '</div>' +
-      '<div class="mcc-section-desc">課税を避けられる「枠」の消化。バケツ（いつ）・資産クラス（何を）と直交する「どの口座で持つか」の軸。</div>' +
-      bodyHtml + inputHtml + nisaAdviceCard(vm) +
-    '</div>';
+    return cfgCard("mcc-sec-nisa-input", "NISA入力（使用状況）",
+      '使用額を入れると、残り枠と消化率がダッシュボードの「NISA」に反映されます。',
+      '<div class="mcc-nisa">' + inputHtml + '</div>');
   }
 
   // ① 用語ヘルプ：GLOSSARY(money-rules.js 単一源)から定義を引き ? ツールチップを返す。見出し/バケツ名に添える。
@@ -1683,6 +1813,83 @@ window.MCC = (function () {
     // title でなく data-def＋CSS ポップオーバー(:hover/:focus)＝ホバーに加えタップ/キーボードでも定義が出る。
     return '<span class="mcc-help" tabindex="0" role="note" data-def="' + esc(g.read + "：" + g.def) +
       '" aria-label="' + esc(term + "とは：" + g.def) + '">?</span>';
+  }
+
+  // ---- D3: 1行ダイジェスト付き折りたたみ（確定モック 2026-08-05-mock-hybrid.html の details.sec を移植）----
+  // ダッシュボード＝「ヒーロー（結論）＋折りたたみ6本（詳細）」。閉じていても summary のダイジェスト1行で
+  // 各セクションの現在値が読める＝「開かないと何も分からない折りたたみ」にしない（畳んだ画面が空にならない）。
+  //
+  // 開閉の保持は localStorage のみ（クラウド state に入れない＝端末ごとの見た目の都合であって家計データ
+  // ではない。cloud に混ぜると LWW の対象になり他端末の開閉を勝手に動かす。タブ mcc_tab と同じ方針）。
+  // 既存の「render 直前に開いている details[id] を拾い、直後に開き直す」機構（全再描画でアコーディオンが
+  // 閉じるのを防ぐ）を、そのまま localStorage 永続に格上げした＝リロードしても開閉が戻る。
+  var _FOLD_KEY = "mcc_details";
+  // 保存された開閉が**無いとき**の既定 open。ダッシュボードは収支だけ（毎日見る筆頭）＝開幕から縦に長くしない。
+  // 設定タブの入力 details は開いておく（入力するために開いた面で、さらに1クリック要求しない）。
+  var _FOLD_DEFAULT_OPEN = { "mcc-sec-cashflow": true, "mcc-sec-settings": true, "mcc-ac-input": true, "mcc-nisa-input": true };
+  function _loadFolds() {
+    try {
+      var v = JSON.parse(localStorage.getItem(_FOLD_KEY) || "{}");
+      return (v && typeof v === "object" && !Array.isArray(v)) ? v : {};
+    } catch (e) { return {}; }   // プライベートブラウズ/壊れた値＝既定（メモリ内のみ）で動く
+  }
+  var _foldOpen = _loadFolds();
+  function _foldIsOpen(id) {
+    return typeof _foldOpen[id] === "boolean" ? _foldOpen[id] : !!_FOLD_DEFAULT_OPEN[id];
+  }
+  // render 直前に現在の開閉を吸い上げて保存（id 付き details のみ＝id 無し details の既存挙動は変えない）。
+  // 描画されていない details（未ログインで出ない収支など）のキーは触らない＝前回の開閉が保たれる。
+  function _captureDetails(root) {
+    var dets = root.querySelectorAll("details[id]");
+    if (!dets.length) return;
+    var live = {};
+    for (var i = 0; i < dets.length; i++) { _foldOpen[dets[i].id] = dets[i].open; live[dets[i].id] = true; }
+    // 動的 id（確保枠ごとの編集ボックス）だけは削除時に掃除する＝枠の作成/削除を繰り返しても
+    // キーが無限に溜まらない。確保枠カードは毎 render 必ず描かれるので「今 DOM に無い＝消された枠」。
+    for (var id in _foldOpen) {
+      if (Object.prototype.hasOwnProperty.call(_foldOpen, id) && id.indexOf("mcc-rsv-edit-") === 0 && !live[id]) {
+        delete _foldOpen[id];
+      }
+    }
+    try { localStorage.setItem(_FOLD_KEY, JSON.stringify(_foldOpen)); } catch (e) { /* 保存不可でもセッション内は保持 */ }
+  }
+  // render 直後に開状態を戻す。生成 HTML 側の open 属性と同じ結果になる冪等操作（open=true のみ・閉じない）
+  // ＝open 属性を出していない既存 details（ガイド/確保枠の編集など）もここで復元される。
+  function _restoreDetails() {
+    for (var id in _foldOpen) {
+      if (!Object.prototype.hasOwnProperty.call(_foldOpen, id) || !_foldOpen[id]) continue;
+      var d = document.getElementById(id);
+      if (d && d.tagName === "DETAILS") d.open = true;
+    }
+  }
+  // 開閉のたびに即保存（render を待たない）。render 直前の _captureDetails だけだと、「開いて読んで
+  // そのまま離脱」＝間に再描画が挟まらない典型動線で保存されず、次回また閉じた状態に戻る。
+  // toggle はバブルしないので **capture フェーズ** で root に1つだけ張る（各 details に付けない＝
+  // 全再描画で作り直される要素に個別ハンドラを配らない）。
+  function _onRootToggle(e) {
+    var t = e.target;
+    if (!t || t.tagName !== "DETAILS" || !t.id) return;
+    if (_foldOpen[t.id] === !!t.open) return;   // 変化なし（render 直後の復元で発火した分）＝書かない
+    _foldOpen[t.id] = !!t.open;
+    try { localStorage.setItem(_FOLD_KEY, JSON.stringify(_foldOpen)); } catch (err) { /* 保存不可でもセッション内は保持 */ }
+  }
+
+  // digestHtml は呼び元が組み立てた HTML 片（中の動的値は各呼び元が esc() 済み）。name は必ず esc する。
+  function foldSection(id, accent, name, digestHtml, bodyHtml) {
+    return '<details class="mcc-fold ' + accent + '" id="' + id + '"' + (_foldIsOpen(id) ? " open" : "") + '>' +
+      '<summary><span class="mcc-fold-mk"></span><span class="mcc-fold-nm">' + esc(name) + '</span>' +
+        '<span class="mcc-fold-dg">' + digestHtml + '</span></summary>' +
+      '<div class="mcc-fold-body">' + bodyHtml + '</div>' +
+    '</details>';
+  }
+
+  // 設定・ガイドタブのカード枠（title/desc は呼び元の固定文言＝HTML 片をそのまま埋める）。
+  function cfgCard(id, title, desc, bodyHtml) {
+    return '<div class="mcc-cfg-card" id="' + id + '">' +
+      '<div class="mcc-section-title">' + title + '</div>' +
+      (desc ? '<div class="mcc-section-desc">' + desc + '</div>' : '') +
+      bodyHtml +
+    '</div>';
   }
 
   // ---- D1: #mcc-root 内 2タブ（01 ダッシュボード / 02 設定・ガイド）----
@@ -1739,17 +1946,25 @@ window.MCC = (function () {
   // ① ガイド/ステッパー内の「設定」等のセクション参照 → 該当セクションへスクロール（折りたたみは開く）。
   // D1: どちらのタブに居るかも同じ表に持たせる（id とタブを 2枚の並行 map に分けると、セクションを
   // 移すたびに片方だけ直して divergent になる＝「切替わらないジャンプ」が無音で生まれる）。
+  // D3: 入力系が設定・ガイドタブへ移ったので、**入力に行く導線**（anchor/goals/assetsInput/nisaInput）は
+  // config 側の新 id を指す。表示だけのキー（cashflow/assets/nisa）は dash の折りたたみ本体を指す。
   var _JUMP_TARGETS = {
-    settings: { id: "mcc-sec-settings", tab: "config" },
-    buckets:  { id: "mcc-sec-buckets",  tab: "config" },
-    sync:     { id: "mcc-sec-sync",     tab: "dash" },
-    cashflow: { id: "mcc-sec-cashflow", tab: "dash" },
-    goals:    { id: "mcc-sec-goals",    tab: "dash" },
-    assets:   { id: "mcc-sec-assets",   tab: "dash" },
-    nisa:     { id: "mcc-sec-nisa",     tab: "dash" },
+    settings:    { id: "mcc-sec-settings",       tab: "config" },
+    buckets:     { id: "mcc-sec-buckets",        tab: "config" },
+    anchor:      { id: "mcc-sec-anchor",         tab: "config" },
+    assetsInput: { id: "mcc-sec-assets-input",   tab: "config" },
+    nisaInput:   { id: "mcc-sec-nisa-input",     tab: "config" },
+    goals:       { id: "mcc-sec-goals",          tab: "config" },
+    sync:        { id: "mcc-sec-sync",           tab: "dash" },
+    cashflow:    { id: "mcc-sec-cashflow",       tab: "dash" },
+    roadmap:     { id: "mcc-sec-roadmap",        tab: "dash" },
+    reserves:    { id: "mcc-sec-reserves-goals", tab: "dash" },
+    assets:      { id: "mcc-sec-assets",         tab: "dash" },
+    nisa:        { id: "mcc-sec-nisa",           tab: "dash" },
   };
   // 収支セクションは未ログインだと描画されない（認証データ）。連携にはログインが前提なので login 欄へフォールバック。
-  var _JUMP_FALLBACK = { cashflow: "sync" };
+  // 基準（アンカー）カードも同じゲート（収支連携が前提の設定）＝未ログインではログイン欄へ倒す。
+  var _JUMP_FALLBACK = { cashflow: "sync", anchor: "sync" };
   function jumpLink(key, label) {
     return '<button type="button" class="mcc-jump" onclick="MCC.jumpTo(\'' + key + '\')">' + esc(label) + '</button>';
   }
@@ -1779,7 +1994,9 @@ window.MCC = (function () {
         '<span class="mcc-glo-read">' + esc(g.read) + '</span>' +
         '<span class="mcc-glo-def">' + esc(g.def) + '</span></div>';
     }).join("");
-    return '<details class="mcc-guide"><summary>はじめに / 使い方</summary>' +
+    // D3「details 全id化」: id を与えて開閉保持の対象にする（_captureDetails/_restoreDetails）。
+    return '<details class="mcc-guide" id="mcc-sec-guide"' + (_foldIsOpen("mcc-sec-guide") ? " open" : "") +
+      '><summary>ガイド・用語集（はじめに / 使い方）</summary>' +
       '<div class="mcc-guide-body">' +
         '<p class="mcc-guide-lead">このビューは、お金を <b>守る（バッファ）</b>・<b>育てる（コア）</b>・<b>攻める（サテライト）</b> の3つに分け、規律よく管理・判断支援するための画面です。投機ではなく「ルールを守る・学ぶ」ための道具です。</p>' +
         '<div class="mcc-guide-rule">配分の芯：<b>バッファ → 確保枠 → コア →（余剰のみ上限内）サテライト</b> の順に満たします。</div>' +
@@ -1856,18 +2073,9 @@ window.MCC = (function () {
     // （effectiveState は buckets のみ差し替えるため eff.anchor === state.anchor だが、参照元を eff に統一する）。
     var cdMain = R.cashDerived(_cashflowRows, _investmentRows, (eff && eff.anchor) || {}, now);
 
-    var gaugeStat = vm.bufferConfigured
-      ? ('<strong>' + vm.bufferProgressPct + '%</strong> ' +
-          '（' + vm.fmt(vm.bufferAmount) + ' / ' + vm.fmt(vm.bufferTarget) + '）' +
-          (vm.bufferRemaining > 0 ? ' ・あと ' + vm.fmt(vm.bufferRemaining) : ' ・達成'))
-      : '未設定 — ' + jumpLink("settings", "「設定」") + 'で月の生活費を入力するとバッファ目標が決まります';
-    var gauge =
-      '<div class="mcc-gauge-card">' +
-        '<div class="mcc-gauge-label">バッファ目標（生活防衛資金）' + termHelp("バッファ") + '</div>' +
-        '<div class="mcc-gauge-bar"><div class="mcc-gauge-fill" style="width:' + (vm.bufferConfigured ? vm.bufferProgressPct : 0) + '%"></div></div>' +
-        '<div class="mcc-gauge-stat">' + gaugeStat + '</div>' +
-      '</div>';
-
+    // D3: 旧 .mcc-gauge-card（バッファ達成率の独立カード）は廃止＝ヒーロー右カラムのゲージへ一本化。
+    // 同じ達成率・同じ金額・同じ「設定」導線を縦に2枚並べると、どちらが最新かを読む作業が増えるだけで
+    // 情報は増えない（D2 のヒーロー統合で残った最後の重複）。
     // D2 重複統合①: 旧 banner（vm.next.message の単独帯）は廃止。次の一手はヒーロー右下に一本化した
     // （同じ文言が banner・ヒーロー・AIカードの3箇所に出ると、どれが今の指示なのか分からなくなる）。
     // adviceSection の決定論行だけは残す＝「AI より規律ルールが上位」を示す AI カード内の文脈表示のため。
@@ -1883,7 +2091,7 @@ window.MCC = (function () {
     var bufferField = _anchorLinked
       ? '<div class="mcc-bucket-auto"><span class="mcc-auto-badge">自動連動中</span>' +
           '<strong class="mcc-bucket-auto-val">' + vm.fmt(vm.bufferAmount) + '</strong>' +
-          '<button type="button" class="mcc-jump" onclick="MCC.jumpTo(\'cashflow\')">基準を変更</button></div>'
+          '<button type="button" class="mcc-jump" onclick="MCC.jumpTo(\'anchor\')">基準を変更</button></div>'
       : moneyInput("保有額", "buckets.buffer.amount", vm.bufferAmount);
     var bufferNote = "";
     if (!_anchorLinked) {
@@ -1895,13 +2103,14 @@ window.MCC = (function () {
           : "収支データを連携し、基準（アンカー）を設定すると、この金額は自動算出に切り替わります。") + '</div>';
       } else if (!cdMain.anchorConfigured) {
         // ログイン済み＋収支あり＝あと1手（基準の設定）で自動化できる唯一の層。該当セクションへ導線を張る。
-        bufferNote = '<div class="mcc-bucket-note">' + jumpLink("cashflow", "「収支と投資余力」") +
+        // D3: 飛び先は設定・ガイドタブの「貯蓄の基準」カード（フォームの移設先）。
+        bufferNote = '<div class="mcc-bucket-note">' + jumpLink("anchor", "「貯蓄の基準」") +
           'で基準（アンカー）を設定すると、この金額は自動算出に切り替わります。</div>';
       }
     }
-    var buckets =
-      '<div class="mcc-section-title mcc-section-title-gap">いま持っている資産の内訳（保有額）</div>' +
-      '<div class="mcc-section-desc">いま各バケツに入っている<b>現在の残高</b>を入力します（これから振り分ける予定額ではありません）。3つの合計が総資産になります。</div>' +
+    // D3: 設定タブのカード枠に載せる（jumpTo("buckets") の着地点＝内側の #mcc-sec-buckets は不変）。
+    var buckets = cfgCard("mcc-sec-buckets-card", "バケツ保有額（いま持っている資産の内訳）",
+      'いま各バケツに入っている<b>現在の残高</b>を入力します（これから振り分ける予定額ではありません）。3つの合計が総資産になります。',
       '<div class="mcc-buckets" id="mcc-sec-buckets">' +
         '<div class="mcc-bucket"><div class="mcc-bucket-name">バッファ（現金）' + termHelp("バッファ") + '</div>' +
           bufferField + bufferNote + '</div>' +
@@ -1915,7 +2124,7 @@ window.MCC = (function () {
           '<div class="mcc-sat-cap">上限 ' + vm.fmt(vm.satelliteCap) + '（investable比 ' + vm.satelliteCapPct + '%）</div>' +
           satWarn +
         '</div>' +
-      '</div>';
+      '</div>');
 
     // 収支連携済みなら、実支出の平均を「月の生活費」に採用できる提案を出す（毎回ゼロから入力する手間を削減）。
     var expenseSuggest = "";
@@ -1933,52 +2142,55 @@ window.MCC = (function () {
         '</div>';
     }
     var settings =
-      '<details class="mcc-settings" id="mcc-sec-settings"><summary>設定</summary>' +
+      '<details class="mcc-settings" id="mcc-sec-settings"' + (_foldIsOpen("mcc-sec-settings") ? " open" : "") + '>' +
+        '<summary>設定（月の生活費・規律のルール）</summary>' +
+        '<div class="mcc-section-desc">バッファ目標＝月の生活費 × ヶ月数。サテライト上限もここから決まります。</div>' +
         moneyInput("月の生活費", "monthlyExpense", vm.monthlyExpense) +
         expenseSuggest +
         moneyInput("バッファ目標（ヶ月）", "bufferMonths", vm.bufferMonths) +
         moneyInput("サテライト上限（%）", "satelliteCapPct", vm.satelliteCapPct) +
       '</details>';
 
-    var tools =
+    var tools = cfgCard("mcc-sec-tools", "データとツール",
+      'この端末の保存値を JSON で書き出し／読み込みできます（ログイン中はクラウドにも同期されます）。',
       '<div class="mcc-tools">' +
         '<button class="mcc-tool-btn" onclick="MCC.exportJSON()">↓ エクスポート(JSON)</button>' +
         '<label class="mcc-tool-btn">↑ インポート<input type="file" accept="application/json" style="display:none" ' +
           'onchange="if(this.files[0])MCC.importJSON(this.files[0])"></label>' +
-      '</div>';
+      '</div>');
 
     var saveWarn = lastSaveOk ? '' : '<div class="mcc-save-warn">⚠ 保存できませんでした（プライベートブラウズ等）。この端末に値が保存されない可能性があります。</div>';
 
     // 全再描画方式は維持しつつ、確定(onchange)のたびにアコーディオンが閉じるのを防ぐ
     // （id 付き <details> のみが対象＝id 無し details の既存挙動は変えない）。
-    var openIds = [];
-    var dets = root.querySelectorAll("details[id]");
-    for (var di = 0; di < dets.length; di++) if (dets[di].open) openIds.push(dets[di].id);
+    // D3: 拾った開閉は localStorage にも保存する＝リロード後も同じ折りたたみ状態で開く。
+    _captureDetails(root);
 
-    // D1: 2タブ骨格。ここでは既存セクションを「毎日見る面（dash）」と「いじる・読む面（config）」へ
-    // 機械的に振り分けるだけ（各セクション関数の中身・見た目の再設計は D2/D3）。
+    // D3: 2タブ＋「ヒーロー（結論）＋折りたたみ6本（詳細）」構成。
+    //  dash   = ログイン欄／保存警告／ステッパー／ヒーロー ＋ 折りたたみ6本（収支・ロードマップ・NISA・
+    //           資産クラス・確保枠と資産目標・AIコーチ）。**入力欄は置かない**（毎日見る面は読む面）。
+    //  config = 貯蓄の基準／設定（月の生活費）／バケツ保有額／資産クラス入力／NISA入力／確保枠・資産目標の
+    //           追加／データとツール／ガイド・用語集。**入力はすべてここ**（探す場所を1つにする）。
+    // syncBar（ログイン欄）は dash 先頭に残す：ログイン状態は毎日見る面で常に見えている必要があり
+    // （未ログインだと収支・AIが丸ごと出ない＝原因が画面から読めなくなる）、jumpTo("sync") の着地点でもある。
     // 非アクティブ側も **DOM には残す**（hidden 属性のみ）＝details の開閉/入力値/イベント配線が
     // タブ移動で失われない。display は CSS 側（.mcc-pane[hidden]）に委ねる。
-    // D2: ヒーロー（サマリー）は dash の先頭寄り＝A層情報が最初に目に入る位置へ。ログイン欄（syncBar）と
-    // ステッパーは D3 で config へ移す前提のため、今回は位置を変えずヒーローをその直後に差し込む。
-    var dashHtml = syncBar() + saveWarn + stepperSection(ob) + heroSection(vm, cv, cdMain) + gauge +
-      roadmapSection(rm, sync.loggedIn) + assetClassSection(vm) +
-      nisaSection(R.nisaViewModel(eff, cd, now, _investmentRows)) +
-      cashflowSection(cv, cdMain) + reservesSection(cv, cdMain) + adviceSection(vm) + goalsSection(vm);
+    var nvm = R.nisaViewModel(eff, cd, now, _investmentRows);
+    var dashHtml = syncBar() + saveWarn + stepperSection(ob) + heroSection(vm, cv, cdMain) +
+      cashflowSection(cv) + roadmapSection(rm, sync.loggedIn) + nisaSection(nvm) +
+      assetClassSection(vm) + reservesGoalsSection(vm, cv, cdMain) + adviceSection(vm);
     // review fix 2: saveWarn は**両ペインの先頭**に出す。設定タブは入力の面（保存が最も走る場所）で、
     // dash 限定にすると「編集しているタブでは保存失敗の警告が見えない」＝最悪の位置になる。
     // id を持たない純警告 HTML ゆえ二重描画しても DOM 上の衝突は無い（同一文言・同一クラス）。
-    var configHtml = saveWarn + guideSection() + buckets + settings + tools;
+    var configHtml = saveWarn + anchorCard(cv, cdMain) + settings + buckets +
+      assetInputCard() + nisaInputCard(nvm) + reservesGoalsAddCard(vm) + tools + guideSection();
     root.innerHTML = tabBar() +
       '<div class="mcc-pane" id="mcc-tab-dash" role="tabpanel" aria-labelledby="mcc-tab-btn-dash"' +
         (_activeTab === "dash" ? "" : " hidden") + '>' + dashHtml + '</div>' +
       '<div class="mcc-pane" id="mcc-tab-config" role="tabpanel" aria-labelledby="mcc-tab-btn-config"' +
         (_activeTab === "config" ? "" : " hidden") + '>' + configHtml + '</div>';
 
-    for (var oi = 0; oi < openIds.length; oi++) {
-      var d = document.getElementById(openIds[oi]);
-      if (d) d.open = true;
-    }
+    _restoreDetails();
     // focusout ベースのフォーカス復元（spec §8.2）：setField（Enter確定）／root の focusout（Tab・クリック確定）
     // が render 直前に _pendingFocusKey をセットする。他の呼び出し元（addGoal/removeReserve 等）は
     // 常に null のままゆえフォーカス復元は起きない＝既存挙動のまま。呼び出し元を問わず必ず null に戻す
@@ -2039,6 +2251,7 @@ window.MCC = (function () {
     load();
     var root = document.getElementById("mcc-root");
     if (root) root.addEventListener("focusout", _onRootFocusOut);
+    if (root) root.addEventListener("toggle", _onRootToggle, true);   // D3: 折りたたみ開閉の即時保存（capture＝toggle は非バブル）
     render();  // localStorage で即描画（セッション確認は司令室を開いた初回に遅延）
   }
 

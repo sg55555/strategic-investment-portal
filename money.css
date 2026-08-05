@@ -109,8 +109,8 @@
 .mcc-hero-next-buffer .mcc-hero-next-icon { color: var(--c-indigo-bright); }
 .mcc-hero-next-rebalance { background: rgba(255,0,61,0.1); border-left-color: var(--c-danger-soft); color: var(--c-danger-soft); }
 .mcc-hero-next-rebalance .mcc-hero-next-icon { color: var(--c-danger-soft); }
-.mcc-hero-next-setup { background: rgba(148,163,184,0.1); border-left-color: var(--c-slate); color: var(--c-text-bright); }
-.mcc-hero-next-setup .mcc-hero-next-icon { color: var(--c-slate); }
+/* D3: setup 段（月の生活費 未入力）は「次の一手」帯を出さない仕様にしたため .mcc-hero-next-setup は
+   到達不能になった＝規則も残さない（ステッパー＋ゲージ未設定注記が同じ CTA を担う）。 */
 .mcc-hero > .mcc-cf-fetchnote {
   grid-column: 1 / -1; padding: 8px 18px;
   border-top: 1px solid rgba(129,140,248,0.2); background: rgba(0,0,0,0.25);
@@ -121,13 +121,58 @@
   .mcc-hero-main { border-right: none; border-bottom: 1px solid rgba(129,140,248,0.2); }
   .mcc-hero-amount { font-size: 2.1rem; }
 }
-.mcc-gauge-card { background: rgba(15,20,34,0.6); border: 1px solid rgba(129,140,248,0.25); border-radius: 12px; padding: 18px; margin-bottom: 16px; box-shadow: 0 0 40px rgba(79,70,229,0.15) inset; }
-.mcc-gauge-label { color: var(--c-text-dim); font-size: 0.78rem; letter-spacing: 1px; margin-bottom: 10px; }
-.mcc-gauge-bar { height: 14px; background: rgba(255,255,255,0.06); border-radius: 8px; overflow: hidden; }
-.mcc-gauge-fill { height: 100%; background: linear-gradient(90deg, var(--c-indigo), var(--c-indigo-bright), var(--c-emerald)); transition: width 0.4s ease; }
-.mcc-gauge-stat { margin-top: 10px; color: var(--c-text); font-size: 0.86rem; }
-.mcc-gauge-stat strong { color: var(--c-violet); font-size: 1.1rem; }
-/* D2: 旧 .mcc-banner*（次の一手の単独帯）はヒーローの .mcc-hero-next へ一本化したため削除。 */
+/* D2: 旧 .mcc-banner*（次の一手の単独帯）はヒーローの .mcc-hero-next へ一本化したため削除。
+   D3: 旧 .mcc-gauge-*（バッファ達成率の独立カード）もヒーロー右カラム（.mcc-hero-gauge-*）へ
+   一本化したため削除＝要素を消したら CSS も残さない（次に触る人が生きた規則と誤読する）。 */
+
+/* --- D3: 1行ダイジェスト付き折りたたみ（確定モック 2026-08-05-mock-hybrid.html の details.sec）。
+   baseline＝構造/寸法＋実在 var() 色のみ（グラス/発光/意味色アクセントは theme D 層＝§2d）。 --- */
+.mcc-fold {
+  background: rgba(15,20,34,0.55); border: 1px solid rgba(129,140,248,0.22);
+  border-radius: 10px; margin-bottom: 10px;
+}
+.mcc-fold > summary {
+  list-style: none; cursor: pointer; padding: 11px 14px;
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+}
+.mcc-fold > summary::-webkit-details-marker { display: none; }
+.mcc-fold > summary:focus-visible { outline: 1px solid var(--c-cyan); outline-offset: -1px; }
+.mcc-fold-mk { color: var(--c-cyan-bright); font-size: 0.8rem; width: 1em; flex: none; }
+.mcc-fold[open] > summary .mcc-fold-mk::before { content: "▾"; }
+.mcc-fold:not([open]) > summary .mcc-fold-mk::before { content: "▸"; }
+.mcc-fold-nm { font-size: 0.8rem; font-weight: 700; letter-spacing: 2px; white-space: nowrap; color: var(--c-text-bright); }
+/* ダイジェストは1行固定（溢れは省略記号）＝summary の高さが内容で暴れない */
+.mcc-fold-dg {
+  color: var(--c-text-faint); font-size: 0.7rem; letter-spacing: 0.3px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 200px; min-width: 0;
+}
+.mcc-fold-dg b { color: var(--c-text-dim); font-weight: 700; }
+.mcc-fold-dg .pos { color: var(--c-emerald); }
+.mcc-fold-dg .neg { color: var(--c-danger-soft); }
+.mcc-fold-body { border-top: 1px solid rgba(129,140,248,0.16); padding: 14px; }
+@media (max-width: 560px) { .mcc-fold > summary .mcc-fold-dg { flex-basis: 100%; } }
+/* fold の中では各セクションの**外枠カード装飾を解除**する（fold 自身がカード＝二重枠にしない）。
+   セクション内部の要素（統計カード/バー/チップ）の見た目は一切変えない。 */
+.mcc-fold-body > .mcc-cashflow,
+.mcc-fold-body > .mcc-roadmap,
+.mcc-fold-body > .mcc-reserves,
+.mcc-fold-body > .mcc-advice,
+.mcc-fold-body > .mcc-nisa,
+.mcc-fold-body > .mcc-goals,
+.mcc-fold-body > .mcc-assets .mcc-ac-card {
+  background: none; border: none; box-shadow: none; border-radius: 0; padding: 0; margin: 0;
+}
+.mcc-fold-body > .mcc-goals { margin-top: 18px; }
+.mcc-fold-body > .mcc-assets .mcc-ac-card { margin-top: 0; }
+
+/* --- D3: 設定・ガイドタブのカード枠（入力の面を1粒度で揃える） --- */
+.mcc-cfg-card {
+  background: rgba(15,20,34,0.5); border: 1px solid rgba(129,140,248,0.2);
+  border-radius: 10px; padding: 14px 16px; margin-bottom: 12px;
+}
+.mcc-cfg-card > .mcc-section-title { margin-bottom: 6px; }
+.mcc-cfg-sub { color: var(--c-text-dim); font-size: 0.72rem; font-weight: 700; letter-spacing: 1px; margin: 12px 0 6px; }
+.mcc-cfg-card .mcc-anchor { margin-top: 0; }
 .mcc-buckets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 @media (max-width: 640px) { .mcc-buckets { grid-template-columns: 1fr; } }
 .mcc-bucket { background: rgba(15,20,34,0.5); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 14px; }
@@ -148,8 +193,18 @@
 .mcc-sat-fill.over { background: var(--c-danger); }
 .mcc-sat-cap { color: var(--c-text-dim); font-size: 0.7rem; margin-top: 6px; }
 .mcc-sat-warn { color: var(--c-danger-soft); font-size: 0.74rem; font-weight: 700; margin-top: 6px; }
-.mcc-settings { margin-top: 18px; color: var(--c-text-bright); }
-.mcc-settings summary { cursor: pointer; font-size: 0.8rem; letter-spacing: 1px; }
+/* D3: 設定タブのカード粒度を .mcc-cfg-card と揃える（入力の面で枠のある/ないが混在すると、
+   どこまでが1つの設定群なのかが読み取れなくなる）。summary がカード見出しを兼ねる。 */
+.mcc-settings {
+  color: var(--c-text-bright);
+  background: rgba(15,20,34,0.5); border: 1px solid rgba(129,140,248,0.2);
+  border-radius: 10px; padding: 14px 16px; margin: 0 0 12px;
+}
+.mcc-settings summary { cursor: pointer; font-size: 0.8rem; letter-spacing: 1px; list-style: none; font-weight: 700; }
+.mcc-settings summary::-webkit-details-marker { display: none; }
+.mcc-settings > summary::before { content: "▸ "; color: var(--c-cyan); }
+.mcc-settings[open] > summary::before { content: "▾ "; }
+.mcc-settings > .mcc-section-desc { margin-top: 6px; }
 /* 実支出平均を月の生活費に採用する提案（収支連携済みのみ） */
 .mcc-expense-suggest { margin: 4px 0 12px; padding: 8px 10px; border-radius: 8px; background: rgba(56,189,248,0.07); border-left: 3px solid var(--c-cyan); }
 .mcc-expense-suggest-main { color: var(--c-text-bright); font-size: 0.76rem; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
@@ -819,10 +874,6 @@
   box-shadow: inset 0 0 18px rgba(255,23,68,0.1); color: var(--c-danger-soft);
 }
 [data-theme="D"] #money-view .mcc-hero-next-rebalance strong { color: var(--c-danger-soft); text-shadow: 0 0 10px rgba(255,23,68,0.5); }
-[data-theme="D"] #money-view .mcc-hero-next-setup {
-  background: rgba(107,125,138,0.1); border-left-color: var(--c-slate); color: var(--c-text-bright); box-shadow: none;
-}
-[data-theme="D"] #money-view .mcc-hero-next-setup strong { color: var(--c-text-bright); text-shadow: none; }
 [data-theme="D"] #money-view .mcc-hero > .mcc-cf-fetchnote {
   background: rgba(0,0,0,0.3); border-top-color: rgba(0,229,255,0.12);
 }
@@ -875,19 +926,51 @@
 [data-theme="D"] #money-view .mcc-step-current .mcc-step-label { color: var(--c-cyan-pale); }
 [data-theme="D"] #money-view .mcc-stepper-next { background: rgba(0,0,0,0.4); border: 1px solid rgba(0,229,255,0.16); border-radius: 2px; color: var(--c-cyan-pale); }
 
-/* ---------- 6. ゲージ（バッファ＝indigo主役） ---------- */
-[data-theme="D"] #money-view .mcc-gauge-card {
-  background: rgba(5,9,15,0.72); border: 1px solid rgba(138,160,255,0.34); border-radius: 3px;
-  box-shadow: inset 0 0 26px rgba(77,93,255,0.08), 0 0 18px rgba(77,93,255,0.1);
+/* ---------- 2d. D3: ダイジェスト付き折りたたみ（確定モック details.sec を写経）＋設定カード ---------- */
+[data-theme="D"] #money-view .mcc-fold {
+  background: rgba(5,9,15,0.72); border: 1px solid rgba(0,229,255,0.18); border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
   backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
 }
-[data-theme="D"] #money-view .mcc-gauge-label { color: var(--c-text-dim); font-family: var(--mcc-mono); letter-spacing: 1px; }
-[data-theme="D"] #money-view .mcc-gauge-fill {
-  background: linear-gradient(90deg, var(--c-indigo), var(--c-cyan), var(--c-emerald-bright));
-  box-shadow: 0 0 12px rgba(0,229,255,0.5);
+[data-theme="D"] #money-view .mcc-fold > summary { transition: background .15s; }
+[data-theme="D"] #money-view .mcc-fold > summary:hover { background: rgba(0,229,255,0.04); }
+[data-theme="D"] #money-view .mcc-fold-nm { font-family: var(--mcc-mono); }
+[data-theme="D"] #money-view .mcc-fold-dg { font-family: var(--mcc-mono); color: var(--c-text-faint); }
+[data-theme="D"] #money-view .mcc-fold-dg b { color: var(--c-text-dim); }
+[data-theme="D"] #money-view .mcc-fold-dg .pos { color: var(--c-emerald-soft); }
+[data-theme="D"] #money-view .mcc-fold-dg .neg { color: var(--c-danger-soft); }
+[data-theme="D"] #money-view .mcc-fold-body { border-top: 1px solid rgba(0,229,255,0.12); }
+/* セクション別アクセント（意味色マップ・モック逐語）＝畳んだ状態でも「どの話題か」が色で分かる */
+[data-theme="D"] #money-view .mcc-fold-cf { border-color: rgba(0,229,255,0.32); }
+[data-theme="D"] #money-view .mcc-fold-cf > summary .mcc-fold-nm { color: var(--c-cyan-bright); text-shadow: 0 0 8px rgba(0,229,255,0.35); }
+[data-theme="D"] #money-view .mcc-fold-rm { border-color: rgba(138,160,255,0.34); }
+[data-theme="D"] #money-view .mcc-fold-rm > summary .mcc-fold-nm { color: var(--c-indigo-bright); text-shadow: 0 0 8px rgba(138,160,255,0.35); }
+[data-theme="D"] #money-view .mcc-fold-nisa { border-color: rgba(245,112,255,0.34); }
+[data-theme="D"] #money-view .mcc-fold-nisa > summary .mcc-fold-nm { color: var(--c-violet); text-shadow: 0 0 8px rgba(245,112,255,0.4); }
+[data-theme="D"] #money-view .mcc-fold-ac { border-color: rgba(0,229,255,0.2); }
+[data-theme="D"] #money-view .mcc-fold-ac > summary .mcc-fold-nm { color: var(--c-cyan-bright); text-shadow: 0 0 8px rgba(0,229,255,0.35); }
+[data-theme="D"] #money-view .mcc-fold-rg { border-color: rgba(255,179,0,0.34); }
+[data-theme="D"] #money-view .mcc-fold-rg > summary .mcc-fold-nm { color: var(--c-amber-bright); text-shadow: 0 0 8px rgba(255,179,0,0.35); }
+[data-theme="D"] #money-view .mcc-fold-ai { border-color: rgba(138,160,255,0.34); }
+[data-theme="D"] #money-view .mcc-fold-ai > summary .mcc-fold-nm { color: var(--c-indigo-bright); text-shadow: 0 0 8px rgba(138,160,255,0.35); }
+/* 二重枠の解除（baseline と同じ列挙を theme D の詳細度で上書きする＝§8/§9/§10/§17/§18 のカード装飾を無効化） */
+[data-theme="D"] #money-view .mcc-fold-body > .mcc-cashflow,
+[data-theme="D"] #money-view .mcc-fold-body > .mcc-roadmap,
+[data-theme="D"] #money-view .mcc-fold-body > .mcc-reserves,
+[data-theme="D"] #money-view .mcc-fold-body > .mcc-advice,
+[data-theme="D"] #money-view .mcc-fold-body > .mcc-nisa,
+[data-theme="D"] #money-view .mcc-fold-body > .mcc-goals,
+[data-theme="D"] #money-view .mcc-fold-body > .mcc-assets .mcc-ac-card,
+[data-theme="D"] #money-view .mcc-fold-body > .mcc-assets .mcc-ac-card.neonb {
+  background: none; border: none; box-shadow: none; border-radius: 0; padding: 0;
+  backdrop-filter: none; -webkit-backdrop-filter: none;
 }
-[data-theme="D"] #money-view .mcc-gauge-stat { font-family: var(--mcc-mono); }
-[data-theme="D"] #money-view .mcc-gauge-stat strong { color: var(--c-violet); text-shadow: 0 0 10px rgba(245,112,255,0.5); }
+[data-theme="D"] #money-view .mcc-cfg-card {
+  background: rgba(5,9,15,0.72); border: 1px solid rgba(0,229,255,0.18); border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+  backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+}
+[data-theme="D"] #money-view .mcc-cfg-sub { font-family: var(--mcc-mono); color: var(--c-cyan-pale); letter-spacing: 1px; }
 
 /* ---------- 7. （D2: 旧バナー層は削除＝次の一手はヒーロー §2c の .mcc-hero-next へ一本化） ---------- */
 [data-theme="D"] #money-view .mcc-save-warn { background: rgba(4,8,13,0.7); border: 1px solid rgba(255,92,138,0.55); border-radius: 3px; box-shadow: 0 0 16px rgba(255,23,68,0.14); font-family: var(--mcc-mono); }
@@ -995,6 +1078,11 @@
 
 /* ---------- 13. 設定 / ツール ---------- */
 [data-theme="D"] #money-view .mcc-settings summary { font-family: var(--mcc-mono); letter-spacing: 1px; color: var(--c-cyan-pale); cursor: pointer; }
+[data-theme="D"] #money-view .mcc-settings {
+  background: rgba(5,9,15,0.72); border: 1px solid rgba(0,229,255,0.18); border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+  backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+}
 [data-theme="D"] #money-view .mcc-tool-btn {
   background: rgba(0,229,255,0.04); border: 1px solid rgba(0,229,255,0.3); color: var(--c-cyan-pale);
   border-radius: 3px; font-family: var(--mcc-mono); letter-spacing: 0.5px; transition: box-shadow .15s, background .15s;
@@ -1002,7 +1090,6 @@
 [data-theme="D"] #money-view .mcc-tool-btn:hover { background: rgba(0,229,255,0.12); box-shadow: 0 0 14px rgba(0,229,255,0.25); }
 
 /* ---------- 14. 全バー(トラック)＋ 入力欄（黒地・ネオン細枠・等幅・focusグロー） ---------- */
-[data-theme="D"] #money-view .mcc-gauge-bar,
 [data-theme="D"] #money-view .mcc-sat-bar,
 [data-theme="D"] #money-view .mcc-goal-bar,
 [data-theme="D"] #money-view .mcc-rsv-bar {
