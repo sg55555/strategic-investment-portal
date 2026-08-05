@@ -59,17 +59,75 @@
    フェードイン等のアニメは付けない（render() は編集確定のたびに走る＝面全体が毎回ちらつく）。 */
 .mcc-pane[hidden] { display: none; }
 @media (max-width: 860px) { .mcc-tab { padding: 12px 10px; letter-spacing: 1px; } }
+
+/* --- D2: ダッシュボード先頭のサマリーヒーロー（左=確定貯蓄額/参考値・右=達成率/投資余力/次の一手・
+   下端=鮮度行）。確定モック docs/superpowers/specs/assets/2026-08-05-mock-hybrid.html の .hero 系を
+   .mcc-hero* として移植。baseline＝構造/寸法＋実在 var() 色のみ（発光/ガラスは theme D 層＝§2c）。
+   鮮度行（#mcc-cf-fetchnote）は grid の最終行に全幅で置く＝repaintStaleNotice の outerHTML 差し替えでも
+   同じ位置に戻る（クラス .mcc-cf-fetchnote は fetchNoteHtml が毎回付けるため部分描画で崩れない）。 --- */
+.mcc-hero {
+  display: grid; grid-template-columns: 1.5fr 1fr; gap: 0;
+  background: rgba(15,20,34,0.6); border: 1px solid rgba(129,140,248,0.3); border-radius: 12px;
+  margin-bottom: 14px; overflow: hidden;
+}
+.mcc-hero-main { padding: 20px 24px 16px; border-right: 1px solid rgba(129,140,248,0.2); min-width: 0; }
+.mcc-hero-side { padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; justify-content: center; min-width: 0; }
+.mcc-hero-label { color: var(--c-text-dim); font-size: 0.74rem; letter-spacing: 2px; }
+.mcc-hero-chip-live, .mcc-hero-chip-prov, .mcc-hero-badge-done, .mcc-hero-badge-auto {
+  display: inline-block; margin-left: 8px; padding: 0 7px; border-radius: 5px;
+  font-size: 0.6rem; letter-spacing: 1px; vertical-align: 1px; white-space: nowrap;
+}
+.mcc-hero-chip-live { border: 1px solid rgba(16,185,129,0.5); color: var(--c-emerald-soft); }
+.mcc-hero-chip-prov { border: 1px solid rgba(251,191,36,0.5); color: var(--c-amber-pale); }
+.mcc-hero-badge-done { border: 1px solid rgba(16,185,129,0.5); color: var(--c-emerald-soft); margin-left: 0; }
+.mcc-hero-badge-auto { border: 1px dashed rgba(56,189,248,0.45); color: var(--c-cyan-pale); margin-left: 6px; }
+.mcc-hero-amount {
+  font-size: 2.6rem; font-weight: 700; line-height: 1.15; letter-spacing: 1px;
+  color: var(--c-cyan-bright); overflow-wrap: anywhere;
+}
+.mcc-hero-basis { color: var(--c-text-faint); font-size: 0.68rem; line-height: 1.7; margin-top: 4px; }
+.mcc-hero-basis b { color: var(--c-cyan-pale); font-weight: 400; }
+.mcc-hero-ref { margin-top: 14px; padding-top: 12px; border-top: 1px dashed rgba(129,140,248,0.25); }
+.mcc-hero-ref-label { color: var(--c-text-dim); font-size: 0.7rem; letter-spacing: 1px; }
+.mcc-hero-ref-amount { font-size: 1.4rem; font-weight: 700; color: var(--c-text-bright); }
+.mcc-hero-ref-note { color: var(--c-text-faint); font-size: 0.66rem; line-height: 1.5; margin-top: 2px; }
+.mcc-hero-side-label { color: var(--c-text-dim); font-size: 0.68rem; letter-spacing: 1.5px; margin-bottom: 5px; }
+.mcc-hero-gauge-row { display: flex; align-items: center; gap: 10px; }
+.mcc-hero-gauge-track { flex: 1; min-width: 0; height: 10px; background: rgba(255,255,255,0.06); border: 1px solid rgba(129,140,248,0.2); border-radius: 6px; overflow: hidden; }
+.mcc-hero-gauge-fill { height: 100%; background: linear-gradient(90deg, var(--c-indigo), var(--c-indigo-bright), var(--c-emerald)); transition: width 0.4s ease; }
+.mcc-hero-gauge-pct { color: var(--c-emerald-bright); font-size: 1.05rem; font-weight: 700; white-space: nowrap; }
+.mcc-hero-power { font-size: 1.5rem; font-weight: 700; color: var(--c-emerald-bright); line-height: 1.25; }
+.mcc-hero-power small { color: var(--c-text-dim); font-size: 0.66rem; font-weight: 400; letter-spacing: 1px; }
+.mcc-hero-power-none { color: var(--c-text-dim); font-size: 0.74rem; line-height: 1.5; }
+.mcc-hero-next {
+  display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 6px;
+  background: rgba(16,185,129,0.08); border-left: 3px solid var(--c-emerald);
+  color: var(--c-emerald-pale); font-size: 0.8rem; font-weight: 700; line-height: 1.5;
+}
+.mcc-hero-next-icon { color: var(--c-emerald-bright); flex: 0 0 auto; }
+.mcc-hero-next-buffer { background: rgba(79,70,229,0.12); border-left-color: var(--c-indigo-bright); color: var(--c-indigo-pale); }
+.mcc-hero-next-buffer .mcc-hero-next-icon { color: var(--c-indigo-bright); }
+.mcc-hero-next-rebalance { background: rgba(255,0,61,0.1); border-left-color: var(--c-danger-soft); color: var(--c-danger-soft); }
+.mcc-hero-next-rebalance .mcc-hero-next-icon { color: var(--c-danger-soft); }
+.mcc-hero-next-setup { background: rgba(148,163,184,0.1); border-left-color: var(--c-slate); color: var(--c-text-bright); }
+.mcc-hero-next-setup .mcc-hero-next-icon { color: var(--c-slate); }
+.mcc-hero > .mcc-cf-fetchnote {
+  grid-column: 1 / -1; padding: 8px 18px;
+  border-top: 1px solid rgba(129,140,248,0.2); background: rgba(0,0,0,0.25);
+}
+.mcc-hero > .mcc-cf-fetchnote .mcc-cf-fresh { margin-top: 0; }
+@media (max-width: 860px) {
+  .mcc-hero { grid-template-columns: 1fr; }
+  .mcc-hero-main { border-right: none; border-bottom: 1px solid rgba(129,140,248,0.2); }
+  .mcc-hero-amount { font-size: 2.1rem; }
+}
 .mcc-gauge-card { background: rgba(15,20,34,0.6); border: 1px solid rgba(129,140,248,0.25); border-radius: 12px; padding: 18px; margin-bottom: 16px; box-shadow: 0 0 40px rgba(79,70,229,0.15) inset; }
 .mcc-gauge-label { color: var(--c-text-dim); font-size: 0.78rem; letter-spacing: 1px; margin-bottom: 10px; }
 .mcc-gauge-bar { height: 14px; background: rgba(255,255,255,0.06); border-radius: 8px; overflow: hidden; }
 .mcc-gauge-fill { height: 100%; background: linear-gradient(90deg, var(--c-indigo), var(--c-indigo-bright), var(--c-emerald)); transition: width 0.4s ease; }
 .mcc-gauge-stat { margin-top: 10px; color: var(--c-text); font-size: 0.86rem; }
 .mcc-gauge-stat strong { color: var(--c-violet); font-size: 1.1rem; }
-.mcc-banner { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-radius: 10px; margin-bottom: 16px; font-size: 0.9rem; color: var(--c-text); border: 1px solid; }
-.mcc-banner-icon { color: var(--c-indigo-bright); }
-.mcc-banner-buffer { background: rgba(79,70,229,0.12); border-color: rgba(129,140,248,0.4); }
-.mcc-banner-core { background: rgba(16,185,129,0.1); border-color: rgba(16,185,129,0.35); }
-.mcc-banner-rebalance { background: rgba(255,0,61,0.1); border-color: rgba(255,122,157,0.5); }
+/* D2: 旧 .mcc-banner*（次の一手の単独帯）はヒーローの .mcc-hero-next へ一本化したため削除。 */
 .mcc-buckets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 @media (max-width: 640px) { .mcc-buckets { grid-template-columns: 1fr; } }
 .mcc-bucket { background: rgba(15,20,34,0.5); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 14px; }
@@ -104,7 +162,6 @@
 .mcc-tools { display: flex; gap: 10px; margin-top: 18px; }
 .mcc-tool-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); color: var(--c-text-bright); padding: 7px 12px; border-radius: 7px; cursor: pointer; font-size: 0.74rem; }
 .mcc-tool-btn:hover { background: rgba(255,255,255,0.1); }
-.mcc-banner-setup { background: rgba(148,163,184,0.10); border-color: rgba(148,163,184,0.4); }
 .mcc-save-warn { background: rgba(255,0,61,0.12); border: 1px solid rgba(255,122,157,0.5); border-radius:10px; padding:10px 14px; color:var(--c-danger-soft); font-size:0.78rem; margin-bottom:12px; }
 
 /* --- v2: クラウド同期バー --- */
@@ -453,7 +510,8 @@
 
 .mcc-rm-thismonth { margin-bottom: 12px; }
 .mcc-rm-thismonth-head { color: var(--c-text-bright); font-size: 0.78rem; letter-spacing: 0.5px; font-weight: 700; margin-bottom: 6px; }
-.mcc-rm-wf { display: flex; flex-wrap: wrap; gap: 6px; }
+/* D2 重複統合②: ロードマップ側はチップでなくテキスト1行（チップ .mcc-wf-* は cashflowSection のみ） */
+.mcc-rm-wf-text { color: var(--c-text-bright); font-size: 0.76rem; line-height: 1.6; }
 .mcc-rm-note { color: var(--c-text-dim); font-size: 0.72rem; line-height: 1.6; }
 
 .mcc-rm-timeline { color: var(--c-text-dim); font-size: 0.78rem; line-height: 1.6; margin-bottom: 12px; }
@@ -707,6 +765,68 @@
 }
 [data-theme="D"] #money-view .mcc-tab[aria-selected="true"] .mcc-tab-num { color: var(--c-emerald-bright); }
 
+/* ---------- 2c. D2: サマリーヒーロー（確定モック 2026-08-05-mock-hybrid.html の .hero 系を写経） ---------- */
+[data-theme="D"] #money-view .mcc-hero {
+  background: rgba(5,9,15,0.72); border: 1px solid rgba(0,229,255,0.32); border-radius: 3px;
+  box-shadow: inset 0 0 30px rgba(0,229,255,0.05), 0 0 26px rgba(0,229,255,0.09);
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+}
+[data-theme="D"] #money-view .mcc-hero-main { border-right-color: rgba(0,229,255,0.14); }
+[data-theme="D"] #money-view .mcc-hero-label { font-family: var(--mcc-mono); }
+[data-theme="D"] #money-view .mcc-hero-amount {
+  font-family: var(--mcc-mono); color: var(--c-cyan-bright);
+  text-shadow: 0 0 18px rgba(0,229,255,0.55), 0 0 4px rgba(0,229,255,0.4);
+}
+[data-theme="D"] #money-view .mcc-hero-chip-live {
+  border-color: rgba(0,230,118,0.5); border-radius: 2px; color: var(--c-emerald-soft); box-shadow: 0 0 8px rgba(0,230,118,0.18);
+}
+[data-theme="D"] #money-view .mcc-hero-chip-prov {
+  border-color: rgba(255,179,0,0.5); border-radius: 2px; color: var(--c-amber-pale); box-shadow: 0 0 8px rgba(255,179,0,0.18);
+}
+[data-theme="D"] #money-view .mcc-hero-badge-done { border-color: rgba(0,230,118,0.5); border-radius: 2px; color: var(--c-emerald-soft); }
+[data-theme="D"] #money-view .mcc-hero-badge-auto { border-color: rgba(0,229,255,0.45); border-radius: 2px; color: var(--c-cyan-pale); }
+[data-theme="D"] #money-view .mcc-hero-basis b { color: var(--c-cyan-pale); }
+[data-theme="D"] #money-view .mcc-hero-ref { border-top-color: rgba(0,229,255,0.16); }
+[data-theme="D"] #money-view .mcc-hero-ref-amount {
+  font-family: var(--mcc-mono); color: var(--c-text-bright); text-shadow: 0 0 10px rgba(212,226,234,0.25);
+}
+[data-theme="D"] #money-view .mcc-hero-side-label { font-family: var(--mcc-mono); }
+[data-theme="D"] #money-view .mcc-hero-gauge-track { background: #02050a; border-color: rgba(0,229,255,0.12); border-radius: 2px; }
+[data-theme="D"] #money-view .mcc-hero-gauge-fill {
+  background: linear-gradient(90deg, var(--c-indigo), var(--c-cyan), var(--c-emerald-bright));
+  box-shadow: 0 0 12px rgba(0,229,255,0.5);
+}
+[data-theme="D"] #money-view .mcc-hero-gauge-pct {
+  font-family: var(--mcc-mono); color: var(--c-emerald-bright); text-shadow: 0 0 10px rgba(57,255,139,0.5);
+}
+[data-theme="D"] #money-view .mcc-hero-power {
+  font-family: var(--mcc-mono); color: var(--c-emerald-bright); text-shadow: 0 0 12px rgba(57,255,139,0.5);
+}
+/* 次の一手＝旧バナーの意味色（buffer=インディゴ/core=蛍光グリーン/rebalance=ホットレッド/setup=無彩）を継承 */
+[data-theme="D"] #money-view .mcc-hero-next {
+  background: rgba(0,230,118,0.08); border-left: 3px solid var(--c-emerald-bright); border-radius: 2px;
+  box-shadow: inset 0 0 18px rgba(0,230,118,0.06); color: var(--c-emerald-pale);
+  font-family: var(--mcc-mono); letter-spacing: 0.3px;
+}
+[data-theme="D"] #money-view .mcc-hero-next strong { color: var(--c-emerald-bright); text-shadow: 0 0 10px rgba(57,255,139,0.5); }
+[data-theme="D"] #money-view .mcc-hero-next-buffer {
+  background: rgba(77,93,255,0.08); border-left-color: var(--c-indigo-bright);
+  box-shadow: inset 0 0 18px rgba(77,93,255,0.08); color: var(--c-indigo-pale);
+}
+[data-theme="D"] #money-view .mcc-hero-next-buffer strong { color: var(--c-indigo-soft); text-shadow: 0 0 10px rgba(138,160,255,0.5); }
+[data-theme="D"] #money-view .mcc-hero-next-rebalance {
+  background: rgba(255,23,68,0.08); border-left-color: var(--c-danger-soft);
+  box-shadow: inset 0 0 18px rgba(255,23,68,0.1); color: var(--c-danger-soft);
+}
+[data-theme="D"] #money-view .mcc-hero-next-rebalance strong { color: var(--c-danger-soft); text-shadow: 0 0 10px rgba(255,23,68,0.5); }
+[data-theme="D"] #money-view .mcc-hero-next-setup {
+  background: rgba(107,125,138,0.1); border-left-color: var(--c-slate); color: var(--c-text-bright); box-shadow: none;
+}
+[data-theme="D"] #money-view .mcc-hero-next-setup strong { color: var(--c-text-bright); text-shadow: none; }
+[data-theme="D"] #money-view .mcc-hero > .mcc-cf-fetchnote {
+  background: rgba(0,0,0,0.3); border-top-color: rgba(0,229,255,0.12);
+}
+
 /* ---------- 3. クラウド同期バー ---------- */
 [data-theme="D"] #money-view .mcc-sync {
   background: rgba(5,9,15,0.72); border: 1px solid rgba(0,229,255,0.3); border-radius: 3px;
@@ -769,17 +889,7 @@
 [data-theme="D"] #money-view .mcc-gauge-stat { font-family: var(--mcc-mono); }
 [data-theme="D"] #money-view .mcc-gauge-stat strong { color: var(--c-violet); text-shadow: 0 0 10px rgba(245,112,255,0.5); }
 
-/* ---------- 7. バナー（意味色＝左バー＋ネオン縁） ---------- */
-[data-theme="D"] #money-view .mcc-banner {
-  background: rgba(4,8,13,0.7); border-radius: 3px; border-left-width: 3px; font-family: var(--mcc-mono); letter-spacing: 0.3px;
-  backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
-}
-[data-theme="D"] #money-view .mcc-banner-buffer  { border-color: rgba(138,160,255,0.55); box-shadow: inset 0 0 0 1px rgba(138,160,255,0.08), 0 0 16px rgba(77,93,255,0.1); }
-[data-theme="D"] #money-view .mcc-banner-core    { border-color: rgba(0,230,118,0.55);  box-shadow: inset 0 0 0 1px rgba(0,230,118,0.08), 0 0 16px rgba(0,230,118,0.12); color: var(--c-emerald-pale); }
-[data-theme="D"] #money-view .mcc-banner-rebalance { border-color: rgba(255,92,138,0.6); box-shadow: inset 0 0 0 1px rgba(255,23,68,0.1), 0 0 18px rgba(255,23,68,0.16); color: var(--c-danger-soft); }
-[data-theme="D"] #money-view .mcc-banner-setup   { border-color: rgba(107,125,138,0.5); box-shadow: inset 0 0 0 1px rgba(107,125,138,0.08); }
-[data-theme="D"] #money-view .mcc-banner-icon { color: var(--c-cyan-bright); }
-[data-theme="D"] #money-view .mcc-banner-core .mcc-banner-icon { color: var(--c-emerald-bright); }
+/* ---------- 7. （D2: 旧バナー層は削除＝次の一手はヒーロー §2c の .mcc-hero-next へ一本化） ---------- */
 [data-theme="D"] #money-view .mcc-save-warn { background: rgba(4,8,13,0.7); border: 1px solid rgba(255,92,138,0.55); border-radius: 3px; box-shadow: 0 0 16px rgba(255,23,68,0.14); font-family: var(--mcc-mono); }
 
 /* ---------- 8. 収支カード / アンカー（基準＝cyan） ---------- */

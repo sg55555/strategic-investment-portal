@@ -731,13 +731,17 @@ window.MCC = (function () {
       '<line class="mcc-spark-axis" x1="0" y1="' + mid + '" x2="' + w + '" y2="' + mid + '"></line>' + bars + '</svg></div>';
   }
 
-  // B2: 鮮度行（id=mcc-cf-fetchnote）の生成 HTML を1本化。cashflowSection（初期/full render 時）と
+  // B2: 鮮度行（id=mcc-cf-fetchnote）の生成 HTML を1本化。D2 でヒーロー下端（heroSection・初期/full render 時）と
   // repaintStaleNotice（背景401時の部分描画）の両方から呼ぶ＝二重実装で表示が食い違う事故を構造的に防ぐ。
+  // id は文書内で常に1個（描画元がヒーロー1箇所＝repaintStaleNotice の getElementById 契約が壊れない）。
   // cv は R.cashflowViewModel(...) の戻り（staleDays/dataFresh のみ参照・業務math はここに置かない）。
+  // B1 レビュー minor: staleDays==null（＝pulled_at が無い/最新）でも「毎日 朝6時ごろ自動」の**カデンス**を
+  // 必ず出す。ここが「クラウドの最新データを表示中」だけだと、更新頻度を知る手掛かりが画面から消え、
+  // ユーザーは「当月ぶんが出ないのは壊れているのか、まだ自動更新が来ていないのか」を判別できない。
   function fetchNoteHtml(cv) {
-    var freshTxt = cv.staleDays == null ? "クラウドの最新データを表示中"
+    var freshTxt = cv.staleDays == null ? "クラウドの最新データを表示中（毎日 朝6時ごろ自動更新）"
       : ("クラウド更新: " + cv.staleDays + "日前（毎日 朝6時ごろ自動）" + (cv.dataFresh ? "" : "・更新が止まっている可能性"));
-    return '<div id="mcc-cf-fetchnote">' +
+    return '<div class="mcc-cf-fetchnote" id="mcc-cf-fetchnote">' +
         '<div class="mcc-cf-fresh' + (cv.dataFresh === false ? " stale" : "") + '">' +
           '<span class="mcc-cf-fresh-txt">' + esc(freshTxt) + '</span>' +
           '<span class="mcc-cf-fetchinfo">この端末での最終取得: ' + esc(fmtAgo(_cfFetchedAt)) + '</span>' +
@@ -746,6 +750,97 @@ window.MCC = (function () {
         '</div>' +
         (_cfFetchErr ? '<div class="mcc-cf-fetcherr">⚠ ' + esc(_cfFetchErr) + '</div>' : "") +
       '</div>';
+  }
+
+  // D2: ダッシュボード先頭のサマリーヒーロー（確定モック docs/superpowers/specs/assets/2026-08-05-mock-hybrid.html
+  // の .hero を .mcc-hero* として移植）。A層情報（いまいくら／達成率／今月いくら回せる／次に何を）を1枚に集約し、
+  // 散っていた重複3系統をここへ一本化する:
+  //   ① 次の一手  … 旧 banner（vm.next.message の単独帯）を廃止しヒーローのみに（adviceSection の決定論行は
+  //                  「AI より規律ルールが上位」を示す AI カード内の文脈表示なので残す）
+  //   ② 導出現金  … 旧 cashflowSection の anchor 自動算出ブロック（金額表示）を廃止しヒーローのみに
+  //   ③ 鮮度行    … cashflowSection 下端から移設（id=mcc-cf-fetchnote は移設先でも1個だけ）
+  // 業務 math は持たない＝vm(viewModel)/cv(cashflowViewModel)/cd(cashDerived) が出した値を描くだけ。
+  // 引数: vm=R.viewModel(eff) / cv=R.cashflowViewModel(rows, eff, now) / cd=R.cashDerived(...)（render が算出）。
+  function heroSection(vm, cv, cd) {
+    // 連動判定は _anchorLinked の1点のみ（R.effectiveState が no-op か否か＝money.js 側で条件を再実装しない）。
+    var linked = _anchorLinked;
+
+    // ---- 左: 確定貯蓄額（連動時＝導出現金／manual 時＝保存されたバッファ額）----
+    var label = linked ? "いまの貯蓄額（確定）" : "バッファ（現金）";
+    var chip = linked ? '<span class="mcc-hero-chip-live">自動算出</span>' : "";
+    var amount = linked ? cv.fmt(cd.derivedCash) : vm.fmt(vm.bufferAmount);
+
+    var basis;
+    if (linked) {
+      // 内訳の差分（確定収支ぶん）。money-rules が出した2値の引き算＝規則でも丸めでもない**表示の分解**で、
+      // 決定論ルール（配分/判定/丸め）は一切ここに無い（既存の _rmSatChip の target - saved と同種）。
+      var delta = cd.derivedCash - cd.anchorAmount;
+      basis = '基準＝<b>' + esc(fmtAnchorMonth(cd.anchorDate)) + 'のはじめ ' + cv.fmt(cd.anchorAmount) + '</b>' +
+        ' ＋ 確定' + cd.monthsCovered + 'ヶ月分 <b>' + (delta >= 0 ? "+" : "") + cv.fmtSigned(delta) + '</b>' +
+        '（毎回再計算するので手入力のズレが溜まりません）';
+    } else if (!sync.loggedIn) {
+      // 未ログイン＝この端末の保存値しか出せない層。何をすれば自動になるかを1手で示す（ログイン欄へ）。
+      basis = 'この端末に保存された値です。ログインすると自動算出・収支が反映されます → ' + jumpLink("sync", "ログイン");
+    } else if (!cd.anchorConfigured) {
+      basis = jumpLink("cashflow", "「収支と投資余力」") + 'で基準（アンカー）を設定すると、確定収支から自動算出に切り替わります。';
+    } else {
+      basis = '基準（アンカー）は設定済みですが、収支データが未連携のため保存値を表示中です。';
+    }
+
+    // 当月込みの参考値（derivedCashLive）。確定値と同額のときは出さない（同じ数字を2度置くと、どちらが
+    // 権威なのかが読み取れなくなる＝「確定」と「暫定」の格差付けが意味を失う）。
+    var ref = "";
+    if (linked && cd.derivedCashLive !== cd.derivedCash) {
+      ref = '<div class="mcc-hero-ref">' +
+        '<div class="mcc-hero-ref-label">当月込みの参考値<span class="mcc-hero-chip-prov">暫定・毎日自動更新</span></div>' +
+        '<div class="mcc-hero-ref-amount">' + cv.fmt(cd.derivedCashLive) + '</div>' +
+        '<div class="mcc-hero-ref-note">当月のこれまでの収支を反映した見込み値。月末締めで上の確定値に合流します。</div>' +
+      '</div>';
+    }
+
+    // ---- 右: バッファ達成率／投資余力／次の一手 ----
+    var autoBadge = linked ? '<span class="mcc-hero-badge-auto">収支連携から自動算出</span>' : "";
+    var doneBadge = (vm.bufferConfigured && vm.bufferRemaining === 0) ? '<span class="mcc-hero-badge-done">達成済</span>' : "";
+    var gaugePct = vm.bufferConfigured ? vm.bufferProgressPct : 0;
+    var gaugeNote = vm.bufferConfigured
+      ? (vm.fmt(vm.bufferAmount) + ' / ' + vm.fmt(vm.bufferTarget) + '（生活費 ' + vm.bufferMonths + 'ヶ月分）' +
+         (vm.bufferRemaining > 0 ? '・あと ' + vm.fmt(vm.bufferRemaining) : ''))
+      : ('未設定 — ' + jumpLink("settings", "「設定」") + 'で月の生活費を入力すると目標が決まります');
+    var power = (cv.hasData && !cv.currencyMismatch)
+      ? '<div class="mcc-hero-power">' + cv.fmt(cv.investableSurplus) + ' <small>/ 月（平滑後）</small></div>'
+      : '<div class="mcc-hero-power-none">' + (sync.loggedIn
+          ? '収支データが未連携です' : 'ログインして収支を連携すると表示されます') + '</div>';
+    var next = '<div class="mcc-hero-next mcc-hero-next-' + esc(vm.next.target) + '">' +
+        '<span class="mcc-hero-next-icon">▶</span>' +
+        '<span>次の一手：<strong>' + esc(vm.next.message) + '</strong></span></div>';
+
+    // ---- 下端: 鮮度行（B1）----
+    // 未ログインでは出さない（クラウドの鮮度も「この端末での最終取得」も意味を持たない＝取得していない）。
+    // このとき id=mcc-cf-fetchnote は文書に存在しないが、repaintStaleNotice は要素が無ければ no-op（既存挙動）。
+    var fresh = sync.loggedIn ? fetchNoteHtml(cv) : "";
+
+    return '<div class="mcc-hero">' +
+      '<div class="mcc-hero-main">' +
+        '<div class="mcc-hero-label">' + esc(label) + termHelp("バッファ") + chip + '</div>' +
+        '<div class="mcc-hero-amount">' + amount + '</div>' +
+        '<div class="mcc-hero-basis">' + basis + '</div>' +
+        ref +
+      '</div>' +
+      '<div class="mcc-hero-side">' +
+        '<div class="mcc-hero-block">' +
+          '<div class="mcc-hero-side-label">バッファ目標（生活防衛資金）' + autoBadge + '</div>' +
+          '<div class="mcc-hero-gauge-row">' +
+            '<div class="mcc-hero-gauge-track"><div class="mcc-hero-gauge-fill" style="width:' + gaugePct + '%"></div></div>' +
+            '<span class="mcc-hero-gauge-pct">' + gaugePct + '%</span>' + doneBadge +
+          '</div>' +
+          '<div class="mcc-hero-ref-note">' + gaugeNote + '</div>' +
+        '</div>' +
+        '<div class="mcc-hero-block">' +
+          '<div class="mcc-hero-side-label">今月の投資余力' + termHelp("投資余力") + '</div>' + power +
+        '</div>' +
+        next +
+      '</div>' + fresh +
+    '</div>';
   }
 
   // Slice4: 収支カード＋投資余力ゲージ＋鮮度。業務 math は持たず cv（cashflowViewModel）を描くのみ。
@@ -816,19 +911,20 @@ window.MCC = (function () {
       ? '<div class="mcc-cf-note">確定月が ' + cv.monthsCovered + 'ヶ月分のみ＝暫定値です（3ヶ月で安定します）。</div>' : "";
     var divNote = cv.expenseDivergence
       ? '<div class="mcc-cf-note">実支出の平均（' + cv.fmt(cv.avgExpense) + '/月）が設定の月の生活費と乖離しています。' + jumpLink("settings", "「設定」") + 'の見直しを検討してください。</div>' : "";
-    // 鮮度＋「今すぐ最新化」。日次自動更新（毎日 朝6時ごろ）を待たずにユーザー任意で取り直せる（Neon 再取得のみ）。
-    // ETL 由来の鮮度（staleDays＝クラウド上のデータがいつのものか）と、B1 で新設した「この端末での最終取得」
-    // （_cfFetchedAt＝このブラウザがいつ fetch に成功したか）は別概念＝両方を並記する（後続 B3 が TTL 判定に使用）。
-    var fresh = fetchNoteHtml(cv);
+    // D2: 鮮度行（旧 var fresh）はヒーロー下端へ移設（id=mcc-cf-fetchnote が文書内で1個であること＝
+    // repaintStaleNotice の契約を守るため、ここでは描かない）。
 
     // データ基盤Phase1: 定点アンカー＋確定月収支で現在現金を自動算出（手入力ドリフトの解消・投資フローはPhase2で合算）。
     // cd は render() が算出済みのものを受け取る（同一 nowMs・同一入力での再算出をやめ、表示間の不整合を構造的に消す）。
     var anchorBlock;
     if (cd.anchorConfigured) {
+      // D2 重複統合③: 自動算出された**金額**の表示はヒーローへ一本化し、ここには残さない（同じ数字が
+      // 2箇所にあると、片方だけ古い/食い違うように見える事故と、単純な縦の冗長さの両方を生む）。
+      // ただし「何を基準にしているか」と「基準を変更する」導線は入力の文脈＝ここに残す
+      // （D3 で設定・ガイドタブの「貯蓄の基準」カードへ移設予定・今回は既存位置のまま）。
       anchorBlock =
         '<div class="mcc-anchor">' +
-          '<div class="mcc-anchor-main">いまの貯蓄額（自動算出）<strong>' + cv.fmt(cd.derivedCash) + '</strong></div>' +
-          '<div class="mcc-anchor-sub">基準＝' + esc(fmtAnchorMonth(cd.anchorDate)) + 'のはじめ（' + cv.fmt(cd.anchorAmount) + '）＋ その後の確定収支 ' + cd.monthsCovered + 'ヶ月分を自動加算。当月込みの参考値 ' + cv.fmt(cd.derivedCashLive) + '。毎回再計算するので手入力のズレが溜まりません。</div>' +
+          '<div class="mcc-anchor-sub">貯蓄額の基準＝' + esc(fmtAnchorMonth(cd.anchorDate)) + 'のはじめ（' + cv.fmt(cd.anchorAmount) + '）＋ その後の確定収支 ' + cd.monthsCovered + 'ヶ月分を自動加算。算出された金額は画面上部（サマリー）に表示しています。</div>' +
           '<button class="mcc-anchor-edit" onclick="MCC.editAnchor()">基準を変更</button>' +
         '</div>';
     } else {
@@ -843,7 +939,7 @@ window.MCC = (function () {
         '</div>';
     }
 
-    return '<div class="mcc-cashflow" id="mcc-sec-cashflow">' + title + head + anchorBlock + surplus + applyBtn + sparkline(cv.history) + cats + insuf + divNote + fresh + '</div>';
+    return '<div class="mcc-cashflow" id="mcc-sec-cashflow">' + title + head + anchorBlock + surplus + applyBtn + sparkline(cv.history) + cats + insuf + divNote + '</div>';
   }
 
   // Slice4.5: 確保枠（目的別の取り置き）。cv.reserves（reserveAlloc・純関数算出）を描くのみ。
@@ -972,7 +1068,10 @@ window.MCC = (function () {
     return '<div class="mcc-rm-northstar mcc-rm-northstar-setup">' + jumpLink("settings", "「設定」") + 'で月の生活費を入力するとコア目標が決まります。</div>';
   }
 
-  // 今月の配分プラン：バッファ/確保枠/コア/(解放時)サテライトの ¥（.mcc-wf-* 再利用）。
+  // 今月の配分プラン：バッファ/確保枠/コア/(解放時)サテライトの ¥。
+  // D2 重複統合②: ここは**テキスト1行**で出す。配分ウォーターフォールの**チップ（.mcc-wf-*）は
+  // cashflowSection のみ**＝同じ配分が同一画面に2度、しかも同じ見た目のチップで並ぶのをやめる
+  // （どちらが今月の実行計画なのかが読み取れなくなるため。数値の出所 rm.thisMonth は変更しない）。
   // サテライトは表示のみの目安＝applySurplus は変更しない（コアのみ執行）。
   function _rmThisMonth(rm, loggedIn) {
     var tm = rm.thisMonth;
@@ -988,17 +1087,17 @@ window.MCC = (function () {
       return '<div class="mcc-rm-thismonth" id="mcc-rm-thismonth">' + head +
         '<div class="mcc-rm-note">今月は投資に回せる余力がありません（収支が均衡または赤字）。</div></div>';
     }
-    var chips = loggedIn
-      ? ('<span class="mcc-wf mcc-wf-buffer">バッファ ' + R.yen(tm.toBuffer) + '</span>' +
-          (tm.toReserves > 0 ? '<span class="mcc-wf mcc-wf-reserve">確保枠 ' + R.yen(tm.toReserves) + '</span>' : "") +
-          '<span class="mcc-wf mcc-wf-core">コア ' + R.yen(tm.toCore) + '</span>' +
-          (tm.satelliteUnlocked ? '<span class="mcc-wf mcc-wf-sat">サテライト ' + R.yen(tm.toSatellite) + '（手動で移す目安）</span>' : ""))
-      : ('<span class="mcc-wf mcc-wf-buffer">バッファ</span>' +
-          (tm.toReserves > 0 ? '<span class="mcc-wf mcc-wf-reserve">確保枠</span>' : "") +
-          '<span class="mcc-wf mcc-wf-core">コア</span>' +
-          (tm.satelliteUnlocked ? '<span class="mcc-wf mcc-wf-sat">サテライト（手動で移す目安）</span>' : "") +
-          '<span class="mcc-rm-note">ログインすると金額が表示されます</span>');
-    return '<div class="mcc-rm-thismonth" id="mcc-rm-thismonth">' + head + '<div class="mcc-rm-wf">' + chips + '</div></div>';
+    // ¥ は loggedIn のみ（既存ゲート・§7.5）。順序（バッファ→確保枠→コア→サテライト）は規律そのものなので
+    // 矢印で明示する。文字列はすべて esc() を通してから埋める（HTML 片を組み立てない）。
+    var flow = loggedIn
+      ? ('バッファ ' + R.yen(tm.toBuffer) +
+          (tm.toReserves > 0 ? ' → 確保枠 ' + R.yen(tm.toReserves) : "") +
+          ' → コア ' + R.yen(tm.toCore) +
+          (tm.satelliteUnlocked ? '（サテライト ' + R.yen(tm.toSatellite) + ' は手動で移す目安）' : ""))
+      : ('バッファ' + (tm.toReserves > 0 ? ' → 確保枠' : "") + ' → コア' +
+          (tm.satelliteUnlocked ? '（サテライトは手動で移す目安）' : "") + '・ログインすると金額が表示されます');
+    return '<div class="mcc-rm-thismonth" id="mcc-rm-thismonth">' + head +
+      '<div class="mcc-rm-wf-text">' + esc(flow) + '</div></div>';
   }
 
   // タイムライン：積立のみの粗い到達見込み（運用益は含めない・投機を誘発しない注記を必ず添える）。
@@ -1769,11 +1868,9 @@ window.MCC = (function () {
         '<div class="mcc-gauge-stat">' + gaugeStat + '</div>' +
       '</div>';
 
-    // setup 段はステッパー＋ゲージが既に「設定で生活費を」と促すため banner を省き、同一CTAの3連を避ける。
-    var banner = vm.next.target === "setup" ? "" :
-      '<div class="mcc-banner mcc-banner-' + vm.next.target + '">' +
-        '<span class="mcc-banner-icon">▶</span><span>' + vm.next.message + '</span>' +
-      '</div>';
+    // D2 重複統合①: 旧 banner（vm.next.message の単独帯）は廃止。次の一手はヒーロー右下に一本化した
+    // （同じ文言が banner・ヒーロー・AIカードの3箇所に出ると、どれが今の指示なのか分からなくなる）。
+    // adviceSection の決定論行だけは残す＝「AI より規律ルールが上位」を示す AI カード内の文脈表示のため。
 
     var satWarn = vm.satelliteIsOver
       ? '<div class="mcc-sat-warn">⚠ 上限超過 ' + vm.fmt(vm.satelliteOver) + '</div>' : '';
@@ -1862,7 +1959,9 @@ window.MCC = (function () {
     // 機械的に振り分けるだけ（各セクション関数の中身・見た目の再設計は D2/D3）。
     // 非アクティブ側も **DOM には残す**（hidden 属性のみ）＝details の開閉/入力値/イベント配線が
     // タブ移動で失われない。display は CSS 側（.mcc-pane[hidden]）に委ねる。
-    var dashHtml = syncBar() + saveWarn + stepperSection(ob) + gauge + banner +
+    // D2: ヒーロー（サマリー）は dash の先頭寄り＝A層情報が最初に目に入る位置へ。ログイン欄（syncBar）と
+    // ステッパーは D3 で config へ移す前提のため、今回は位置を変えずヒーローをその直後に差し込む。
+    var dashHtml = syncBar() + saveWarn + stepperSection(ob) + heroSection(vm, cv, cdMain) + gauge +
       roadmapSection(rm, sync.loggedIn) + assetClassSection(vm) +
       nisaSection(R.nisaViewModel(eff, cd, now, _investmentRows)) +
       cashflowSection(cv, cdMain) + reservesSection(cv, cdMain) + adviceSection(vm) + goalsSection(vm);

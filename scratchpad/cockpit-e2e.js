@@ -67,6 +67,23 @@ const CASHFLOW_ROWS = [{
   pulled_at: new Date().toISOString(),
 }];
 
+// D2: 当月（進行中）行を足した版。確定値 derivedCash（1,070,000）と参考値 derivedCashLive（1,040,000）が
+// **食い違う**状態を作る＝ヒーローの「当月込みの参考値」ブロックが出る条件（同額なら出さない仕様）。
+const PARTIAL_BALANCE = -30000;
+const DERIVED_CASH_LIVE = DERIVED_CASH + PARTIAL_BALANCE; // 1,040,000
+const CASHFLOW_ROWS_PARTIAL = CASHFLOW_ROWS.concat([{
+  period: "2026-08-01",
+  total_income: 500000,
+  salary_income: 500000,
+  misc_income: 0,
+  fixed_expense: 200000,
+  variable_expense: 330000,
+  total_expense: 530000,
+  balance: PARTIAL_BALANCE,
+  is_complete: false,
+  pulled_at: new Date().toISOString(),
+}]);
+
 // ---- 静的配信（python3 -m http.server・リポ直下をそのまま）----
 function startServer() {
   const proc = spawn("python3", ["-m", "http.server", String(PORT), "--bind", "127.0.0.1", "--directory", ROOT],
@@ -154,7 +171,38 @@ async function snapshot(page) {
       applyBtnExists: !!(cfEl && cfEl.querySelector(".mcc-cf-apply")),
       applyBtnText: cfEl && cfEl.querySelector(".mcc-cf-apply") ? cfEl.querySelector(".mcc-cf-apply").textContent.trim() : null,
       autoNoteText: cfEl && cfEl.querySelector(".mcc-cf-autonote") ? cfEl.querySelector(".mcc-cf-autonote").textContent.trim() : null,
+      // D2: 導出現金の**金額表示**はヒーローへ一本化＝収支カード側の .mcc-anchor-main は消えている。
+      // 「何を基準にしているか」の1行（.mcc-anchor-sub）と「基準を変更」ボタンは入力の文脈として残る。
       anchorMainText: txt(".mcc-anchor-main"),
+      anchorSubText: txt(".mcc-anchor-sub"),
+      anchorEditExists: !!q(".mcc-anchor-edit"),
+      anchorFormExists: !!q(".mcc-anchor-form"),
+      // D2: ヒーロー（サマリー）
+      heroExists: !!q(".mcc-hero"),
+      heroLabelText: txt(".mcc-hero-label"),
+      heroAmountText: txt(".mcc-hero-amount"),
+      heroBasisText: txt(".mcc-hero-basis"),
+      heroBasisJumpText: q(".mcc-hero-basis .mcc-jump") ? q(".mcc-hero-basis .mcc-jump").textContent.trim() : null,
+      heroChipLiveText: txt(".mcc-hero-chip-live"),
+      heroChipProvText: txt(".mcc-hero-chip-prov"),
+      heroRefAmountText: txt(".mcc-hero-ref-amount"),
+      heroAutoBadgeText: txt(".mcc-hero-badge-auto"),
+      heroGaugePctText: txt(".mcc-hero-gauge-pct"),
+      heroGaugeFillWidth: q(".mcc-hero-gauge-fill") ? q(".mcc-hero-gauge-fill").style.width : null,
+      heroGaugeNoteText: txt(".mcc-hero-side .mcc-hero-ref-note"),
+      heroPowerText: txt(".mcc-hero-power"),
+      heroPowerNoneText: txt(".mcc-hero-power-none"),
+      heroNextText: txt(".mcc-hero-next"),
+      heroNextClass: q(".mcc-hero-next") ? q(".mcc-hero-next").className : null,
+      heroDoneBadgeText: txt(".mcc-hero-badge-done"),
+      // D2 重複統合の観測点：banner は廃止・鮮度行は文書内に1個だけでヒーロー配下・チップは収支のみ。
+      bannerExists: !!q(".mcc-banner"),
+      fetchNoteCount: document.querySelectorAll("#mcc-cf-fetchnote").length,
+      fetchNoteInHero: !!q(".mcc-hero #mcc-cf-fetchnote"),
+      cfWfChips: document.querySelectorAll("#mcc-sec-cashflow .mcc-wf").length,
+      rmWfChips: document.querySelectorAll("#mcc-rm-thismonth .mcc-wf").length,
+      rmWfText: txt("#mcc-rm-thismonth .mcc-rm-wf-text"),
+      freshTxt: txt(".mcc-cf-fresh-txt"),
       storedBuffer: (() => {
         try { return JSON.parse(localStorage.getItem("mcc_state") || "null").buckets.buffer.amount; }
         catch (e) { return null; }
@@ -197,13 +245,44 @@ function check(name, cond, detail) {
     check("A1_gauge_pct_100", /100%/.test(a.gaugeText || ""), a.gaugeText);
     check("A1_gauge_not_stale_manual_value", !/¥111\b/.test(a.gaugeText || ""), a.gaugeText);
     check("A1_gauge_fill_100pct", a.gaugeFillWidth === "100%", a.gaugeFillWidth);
-    check("A1_anchor_block_agrees", /¥1,070,000/.test(a.anchorMainText || ""), a.anchorMainText);
+    // D2 期待変更: 導出現金の金額表示は収支カード（.mcc-anchor-main）からヒーローへ一本化した。
+    // 旧 A1_anchor_block_agrees と同じ意図（ゲージと同じ導出額が本文にも出ている）をヒーローで固定する。
+    check("A1_hero_amount_agrees", a.heroAmountText === "¥1,070,000", a.heroAmountText);
+    check("A1_anchor_main_removed_from_cashflow", a.anchorMainText === null, a.anchorMainText);
 
     // --- アサート B1: この端末での最終取得（正常時）---
     check("B1_fetchnote_id_present", a.fetchNoteId === true, a.fetchNoteId);
     check("B1_fetchinfo_shown_just_now", /この端末での最終取得: (たった今|\d+分前)/.test(a.fetchInfoText || ""), a.fetchInfoText);
     check("B1_no_fetcherr_initially", a.fetchErrText === null, a.fetchErrText);
     check("B1_cf_stats_have_yen_before_mock", a.cfStatsHaveYen === true, a.cfStatsHaveYen);
+    // D2 期待変更: 鮮度行はヒーロー下端へ移設。id は文書内に1個のまま（repaintStaleNotice の契約）。
+    check("B1_fetchnote_moved_into_hero", a.fetchNoteInHero === true, a.fetchNoteInHero);
+    check("B1_fetchnote_single_in_document", a.fetchNoteCount === 1, a.fetchNoteCount);
+
+    // --- アサート D2-A: ヒーロー（anchor 連動・当月行なし＝参考値は確定値と同額で非表示）---
+    check("A7_hero_present", a.heroExists === true, a.heroExists);
+    check("A7_hero_label_is_confirmed_savings", /いまの貯蓄額（確定）/.test(a.heroLabelText || ""), a.heroLabelText);
+    check("A7_hero_chip_live", a.heroChipLiveText === "自動算出", a.heroChipLiveText);
+    check("A7_hero_basis_shows_anchor", /基準＝2026年7月のはじめ ¥1,000,000/.test(a.heroBasisText || ""), a.heroBasisText);
+    check("A7_hero_basis_shows_delta", /確定1ヶ月分 \+¥70,000/.test(a.heroBasisText || ""), a.heroBasisText);
+    // 参考値（derivedCashLive）＝確定値と同額のときは出さない（どちらが権威か読めなくなるため）
+    check("A7_hero_ref_hidden_when_same", a.heroRefAmountText === null, a.heroRefAmountText);
+    check("A7_hero_auto_badge", a.heroAutoBadgeText === "収支連携から自動算出", a.heroAutoBadgeText);
+    check("A7_hero_gauge_pct_100", a.heroGaugePctText === "100%", a.heroGaugePctText);
+    check("A7_hero_gauge_fill_100", a.heroGaugeFillWidth === "100%", a.heroGaugeFillWidth);
+    check("A7_hero_gauge_note_shows_target", /¥1,070,000 \/ ¥900,000/.test(a.heroGaugeNoteText || ""), a.heroGaugeNoteText);
+    check("A7_hero_done_badge", a.heroDoneBadgeText === "達成済", a.heroDoneBadgeText);
+    check("A7_hero_power_is_investable_surplus", /¥70,000/.test(a.heroPowerText || ""), a.heroPowerText);
+    check("A7_hero_next_shown", /次の一手：/.test(a.heroNextText || ""), a.heroNextText);
+    check("A7_hero_next_message_is_vm_next", /バッファ達成。次の余剰はコア（長期）へ/.test(a.heroNextText || ""), a.heroNextText);
+    check("A7_hero_next_class_by_target", /mcc-hero-next-core/.test(a.heroNextClass || ""), a.heroNextClass);
+    // --- 重複統合の3点（① banner 廃止 ② チップは収支のみ ③ anchor 表示はヒーローのみ）---
+    check("A8_banner_removed", a.bannerExists === false, a.bannerExists);
+    check("A8_wf_chips_only_in_cashflow", a.cfWfChips > 0 && a.rmWfChips === 0,
+      JSON.stringify({ cf: a.cfWfChips, rm: a.rmWfChips }));
+    check("A8_roadmap_thismonth_is_text_line", /バッファ ¥0 → コア ¥70,000/.test(a.rmWfText || ""), a.rmWfText);
+    check("A8_anchor_edit_link_kept_in_cashflow", a.anchorEditExists === true, a.anchorEditExists);
+    check("A8_anchor_sub_kept_in_cashflow", /貯蓄額の基準＝2026年7月のはじめ/.test(a.anchorSubText || ""), a.anchorSubText);
 
     // --- アサート2: バケツのバッファ欄が read-only 表示＋バッジ ---
     check("A2_buffer_input_absent", a.bufferInputExists === false, a.bufferInputValue);
@@ -288,6 +367,18 @@ function check(name, cond, detail) {
     check("B4_anchor_setup_note_shown", /基準（アンカー）を設定すると/.test(b.bufferNoteText || ""), b.bufferNoteText);
     check("B4_anchor_setup_note_has_jump", b.bufferNoteHasJump === true, b.bufferNoteHasJump);
     check("B4_gauge_uses_saved_value", /¥111/.test(b.gaugeText || ""), b.gaugeText);
+    // --- D2-B: manual モードのヒーロー＝保存値表示＋設定誘導（自動算出の痕跡を出さない）---
+    check("B5_hero_present", b.heroExists === true, b.heroExists);
+    check("B5_hero_label_is_buffer_cash", /バッファ（現金）/.test(b.heroLabelText || ""), b.heroLabelText);
+    check("B5_hero_amount_is_saved_value", b.heroAmountText === "¥111", b.heroAmountText);
+    check("B5_hero_no_chip_live", b.heroChipLiveText === null, b.heroChipLiveText);
+    check("B5_hero_no_auto_badge", b.heroAutoBadgeText === null, b.heroAutoBadgeText);
+    check("B5_hero_no_ref_block", b.heroRefAmountText === null, b.heroRefAmountText);
+    check("B5_hero_basis_guides_to_anchor_setup", /基準（アンカー）を設定すると/.test(b.heroBasisText || ""), b.heroBasisText);
+    check("B5_hero_basis_has_jump", b.heroBasisJumpText === "「収支と投資余力」", b.heroBasisJumpText);
+    check("B5_hero_fresh_row_present_when_logged_in", b.fetchNoteInHero === true, b.fetchNoteInHero);
+    check("B5_banner_removed_in_manual_too", b.bannerExists === false, b.bannerExists);
+    check("B5_anchor_form_kept_in_cashflow", b.anchorFormExists === true, b.anchorFormExists);
     // 反映が実際に効く（従来どおり buffer に toBuffer=70,000 が積まれる）
     await pageB.click("#mcc-sec-cashflow .mcc-cf-apply");
     await pageB.waitForTimeout(250);
@@ -313,6 +404,12 @@ function check(name, cond, detail) {
     check("C6_rows_missing_note_shown", /収支データが未連携のため自動算出できません/.test(c.bufferNoteText || ""), c.bufferNoteText);
     check("C6_rows_missing_note_states_anchor_is_set", /基準（アンカー）は設定済み/.test(c.bufferNoteText || ""), c.bufferNoteText);
     check("C6_gauge_uses_saved_value_when_degraded", /¥111/.test(c.gaugeText || ""), c.gaugeText);
+    // --- D2-C: degrade 経路のヒーロー（基準あり・rows 無し）＝保存値＋「なぜ自動にならないか」を明示 ---
+    check("C7_hero_amount_is_saved_value", c.heroAmountText === "¥111", c.heroAmountText);
+    check("C7_hero_basis_states_rows_missing", /収支データが未連携のため保存値を表示中/.test(c.heroBasisText || ""), c.heroBasisText);
+    check("C7_hero_power_none_note", /収支データが未連携です/.test(c.heroPowerNoneText || ""), c.heroPowerNoneText);
+    // B1 レビュー minor: staleDays==null（pulled_at 無し＝rows 空）でもカデンス文言を必ず出す
+    check("C7_fresh_cadence_shown_when_staleDays_null", /毎日 朝6時ごろ/.test(c.freshTxt || ""), c.freshTxt);
     await ctxC.close();
 
     // ============ シナリオD（Task B2 ①）: 背景401（cloudFlush の PUT）→ 鮮度行に警告＋フル再描画無し ============
@@ -384,10 +481,20 @@ function check(name, cond, detail) {
     });
     await ctxE.route("**/api/market/**", (route) =>
       route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ stocks: {}, updated_at: "" }) }));
+    // D2: 未ログインのヒーロー（保存値ベース＋ログイン誘導）も同じシナリオで見る。money.js は
+    // DOMContentLoaded の init() で1回だけ localStorage を読むため、seed は addInitScript（ページ
+    // スクリプトより前に走る）で入れる＝goto 後に setItem しても既に load() 済みで反映されない。
+    const LOCAL_STATE_E = {
+      version: 3, currency: "JPY", monthlyExpense: 100000, bufferMonths: 3,
+      buckets: { buffer: { amount: 250000 }, core: { amount: 0 }, satellite: { amount: 0 } },
+      satelliteCapPct: 10, goals: [], reserves: [], lastAppliedCashflowPeriod: "", updatedAt: 1,
+    };
+    await ctxE.addInitScript((s) => {
+      try { localStorage.setItem("mcc_state", s); localStorage.removeItem("mcc_tab"); } catch (e) {}
+    }, JSON.stringify(LOCAL_STATE_E));
     const pageE = await ctxE.newPage();
     pageE.on("pageerror", (e) => pageErrors.push("E:" + String((e && e.message) || e)));
     await pageE.goto(BASE + "/?diag=off", { waitUntil: "domcontentloaded" });
-    await pageE.evaluate(() => { try { localStorage.removeItem("mcc_state"); } catch (e) {} });
     await pageE.evaluate(() => MCC.show());
     await pageE.waitForTimeout(500); // 収支セクションは出現しない（未ログイン）ので固定 wait でセッション確認の完了を待つ
     const eBefore = await pageE.evaluate(() => ({
@@ -396,7 +503,49 @@ function check(name, cond, detail) {
     }));
     check("E2_precondition_logged_out_no_cashflow_section", eBefore.cfSection === false, eBefore.cfSection);
     check("E2_precondition_sync_not_yet_flashed", !/mcc-jump-flash/.test(eBefore.syncFlashed), eBefore.syncFlashed);
+
+    // --- D2-E: 未ログインのヒーロー＝ローカル保存値＋ログイン誘導・鮮度行は出さない ---
+    const eHero = await pageE.evaluate(() => {
+      const q = (sel) => document.querySelector(sel);
+      const txt = (sel) => { const e = q(sel); return e ? e.textContent.trim() : null; };
+      return {
+        exists: !!q(".mcc-hero"),
+        label: txt(".mcc-hero-label"),
+        amount: txt(".mcc-hero-amount"),
+        basis: txt(".mcc-hero-basis"),
+        basisJump: txt(".mcc-hero-basis .mcc-jump"),
+        gaugePct: txt(".mcc-hero-gauge-pct"),
+        powerNone: txt(".mcc-hero-power-none"),
+        next: txt(".mcc-hero-next"),
+        fetchNoteCount: document.querySelectorAll("#mcc-cf-fetchnote").length,
+        banner: !!q(".mcc-banner"),
+      };
+    });
+    check("E3_hero_present_when_logged_out", eHero.exists === true, eHero.exists);
+    check("E3_hero_shows_local_saved_value", eHero.amount === "¥250,000", eHero.amount);
+    check("E3_hero_label_is_buffer_cash", /バッファ（現金）/.test(eHero.label || ""), eHero.label);
+    check("E3_hero_gauge_from_local_state", eHero.gaugePct === "83%", eHero.gaugePct);
+    check("E3_hero_login_cta_text", /ログインすると自動算出・収支が反映されます/.test(eHero.basis || ""), eHero.basis);
+    check("E3_hero_login_cta_jump", eHero.basisJump === "ログイン", eHero.basisJump);
+    check("E3_hero_power_needs_login", /ログインして収支を連携すると表示されます/.test(eHero.powerNone || ""), eHero.powerNone);
+    check("E3_hero_next_from_local_state", /次の余剰はバッファへ/.test(eHero.next || ""), eHero.next);
+    // 鮮度行は未ログインでは出さない（＝id 不在。repaintStaleNotice は no-op で例外にならない＝下で実測）
+    check("E3_no_fetchnote_when_logged_out", eHero.fetchNoteCount === 0, eHero.fetchNoteCount);
+    check("E3_banner_removed_when_logged_out", eHero.banner === false, eHero.banner);
+    // ヒーローのログイン導線を**実クリック**（inline onclick＝公開 API 到達点）してログイン欄へ飛ぶ
+    await pageE.evaluate(() => {
+      document.querySelectorAll(".mcc-jump-flash").forEach((n) => n.classList.remove("mcc-jump-flash"));
+    });
+    await pageE.click(".mcc-hero-basis .mcc-jump");
+    await pageE.waitForTimeout(120);
+    const eJump = await pageE.evaluate(() => (document.getElementById("mcc-sec-sync") || {}).className || "");
+    check("E3_hero_login_cta_reaches_sync", /mcc-jump-flash/.test(eJump), eJump);
     netCallsE.length = 0;
+    // 直前の E3 クリックで付いた flash を必ず消してから測る（refreshData の render で作り直されるが、
+    // 「前の操作の残り香で通ってしまう」形の弱いアサートにしないため明示的に落とす）。
+    await pageE.evaluate(() => {
+      document.querySelectorAll(".mcc-jump-flash").forEach((n) => n.classList.remove("mcc-jump-flash"));
+    });
     await pageE.evaluate(() => MCC.refreshData());
     await pageE.waitForTimeout(300);
     const eAfter = await pageE.evaluate(() => ({
@@ -706,6 +855,45 @@ function check(name, cond, detail) {
     check("G10_save_warn_in_both_panes", g10.dashWarn === true && g10.configWarn === true, JSON.stringify(g10));
     check("G10_save_warn_text_in_config", /保存できませんでした/.test(g10.configWarnText || ""), g10.configWarnText);
     await ctxG.close();
+
+    // ============ シナリオH（Task D2）: 当月（進行中）行あり＝ヒーローの「当月込みの参考値」 ============
+    // 確定値（derivedCash＝確定月のみ）と参考値（derivedCashLive＝当月部分を含む）が食い違う唯一の条件。
+    // シナリオA（当月行なし＝両者同額）の「参考値を出さない」と対になる検証。
+    const ctxH = await browser.newContext({ viewport: { width: 1280, height: 2400 } });
+    await mockApi(ctxH, STATE_ANCHOR, CASHFLOW_ROWS_PARTIAL);
+    const pageH = await ctxH.newPage();
+    pageH.on("pageerror", (e) => pageErrors.push("H:" + String((e && e.message) || e)));
+    await openCockpit(pageH);
+    const h = await snapshot(pageH);
+
+    check("H1_hero_confirmed_amount_excludes_partial_month", h.heroAmountText === "¥1,070,000", h.heroAmountText);
+    check("H1_hero_ref_amount_includes_partial_month", h.heroRefAmountText === "¥1,040,000", h.heroRefAmountText);
+    check("H1_hero_ref_chip_is_provisional", h.heroChipProvText === "暫定・毎日自動更新", h.heroChipProvText);
+    check("H1_hero_basis_delta_is_confirmed_only", /確定1ヶ月分 \+¥70,000/.test(h.heroBasisText || ""), h.heroBasisText);
+    check("H1_hero_amount_and_gauge_agree", /¥1,070,000/.test(h.gaugeText || ""), h.gaugeText);
+    // 重複統合の再確認（当月行があっても増殖しない）
+    check("H2_single_fetchnote_in_hero", h.fetchNoteCount === 1 && h.fetchNoteInHero === true,
+      JSON.stringify({ n: h.fetchNoteCount, inHero: h.fetchNoteInHero }));
+    check("H2_banner_absent", h.bannerExists === false, h.bannerExists);
+    check("H2_wf_chips_only_in_cashflow", h.cfWfChips > 0 && h.rmWfChips === 0,
+      JSON.stringify({ cf: h.cfWfChips, rm: h.rmWfChips }));
+    check("H2_anchor_amount_not_duplicated_in_cashflow", h.anchorMainText === null, h.anchorMainText);
+    // 部分描画（repaintStaleNotice）はヒーローへ移設後も同じ id を掴んで差し替わる（契約維持の直接検証）
+    const hRepaint = await pageH.evaluate(() => {
+      const before = document.getElementById("mcc-cf-fetchnote");
+      before.setAttribute("data-d2-marker", "old");
+      MCC.refreshData();   // ログイン中＝再取得 → 完了後に full render ではなく通常 render が走る
+      return !!before;
+    });
+    await pageH.waitForTimeout(400);
+    const hAfter = await pageH.evaluate(() => ({
+      count: document.querySelectorAll("#mcc-cf-fetchnote").length,
+      inHero: !!document.querySelector(".mcc-hero #mcc-cf-fetchnote"),
+    }));
+    check("H3_refresh_precondition", hRepaint === true, hRepaint);
+    check("H3_fetchnote_still_single_and_in_hero_after_refresh",
+      hAfter.count === 1 && hAfter.inHero === true, JSON.stringify(hAfter));
+    await ctxH.close();
 
     // --- アサート5: pageerror 0 ---
     check("C5_no_page_errors", pageErrors.length === 0, JSON.stringify(pageErrors));
