@@ -295,6 +295,9 @@
 .mcc-cf-refresh { flex-shrink: 0; background: rgba(56,189,248,0.14); border: 1px solid rgba(56,189,248,0.38); color: var(--c-cyan-pale); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 0.66rem; font-weight: 700; }
 .mcc-cf-refresh:hover { background: rgba(56,189,248,0.24); }
 .mcc-cf-refresh:disabled { opacity: 0.6; cursor: default; }
+/* B1: この端末での最終取得時刻／取得失敗の可視化（クラウド側の staleDays とは別概念で併記） */
+.mcc-cf-fetchinfo { color: var(--c-text-faint); font-size: 0.6rem; }
+.mcc-cf-fetcherr { color: var(--c-danger-soft); font-size: 0.7rem; margin-top: 6px; }
 
 /* --- データ基盤Phase1: 定点アンカー（現在現金の自動算出） --- */
 .mcc-anchor {
@@ -763,6 +766,7 @@
 [data-theme="D"] #money-view .mcc-spark-pos { fill: var(--c-emerald-bright); filter: drop-shadow(0 0 3px rgba(57,255,139,0.4)); }
 [data-theme="D"] #money-view .mcc-spark-neg { fill: var(--c-danger-soft); filter: drop-shadow(0 0 3px rgba(255,23,68,0.4)); }
 [data-theme="D"] #money-view .mcc-cf-fresh { font-family: var(--mcc-mono); }
+[data-theme="D"] #money-view .mcc-cf-fetcherr { font-family: var(--mcc-mono); }
 /* アンカー（基準＝cyan） */
 [data-theme="D"] #money-view .mcc-anchor {
   background: rgba(0,229,255,0.06); border-left: 3px solid var(--c-cyan); border-radius: 2px;

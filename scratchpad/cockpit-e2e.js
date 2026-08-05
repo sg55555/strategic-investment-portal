@@ -138,6 +138,13 @@ async function snapshot(page) {
       autoJumpText: bufferBucket ? ((bufferBucket.querySelector(".mcc-jump") || {}).textContent || null) : null,
       bufferNoteText: txt(".mcc-bucket-note"),
       bufferNoteHasJump: !!q(".mcc-bucket-note .mcc-jump"),
+      // B1: この端末での最終取得（fetchinfo）／取得失敗（fetcherr）の可視化。
+      fetchNoteId: !!q("#mcc-cf-fetchnote"),
+      fetchInfoText: txt(".mcc-cf-fetchinfo"),
+      fetchErrText: txt(".mcc-cf-fetcherr"),
+      cfStatsHaveYen: cfEl
+        ? Array.from(cfEl.querySelectorAll(".mcc-cf-stat strong")).some((el) => /¥/.test(el.textContent))
+        : false,
       // コア/サテライトの入力欄は連動中も従来どおり（連動対象は buffer だけ）
       otherBucketInputs: bucketsEl
         ? bucketsEl.querySelectorAll('input[data-mcc-focus="buckets.core.amount"], input[data-mcc-focus="buckets.satellite.amount"]').length
@@ -190,6 +197,12 @@ function check(name, cond, detail) {
     check("A1_gauge_fill_100pct", a.gaugeFillWidth === "100%", a.gaugeFillWidth);
     check("A1_anchor_block_agrees", /¥1,070,000/.test(a.anchorMainText || ""), a.anchorMainText);
 
+    // --- アサート B1: この端末での最終取得（正常時）---
+    check("B1_fetchnote_id_present", a.fetchNoteId === true, a.fetchNoteId);
+    check("B1_fetchinfo_shown_just_now", /この端末での最終取得: (たった今|\d+分前)/.test(a.fetchInfoText || ""), a.fetchInfoText);
+    check("B1_no_fetcherr_initially", a.fetchErrText === null, a.fetchErrText);
+    check("B1_cf_stats_have_yen_before_mock", a.cfStatsHaveYen === true, a.cfStatsHaveYen);
+
     // --- アサート2: バケツのバッファ欄が read-only 表示＋バッジ ---
     check("A2_buffer_input_absent", a.bufferInputExists === false, a.bufferInputValue);
     check("A2_auto_badge", a.autoBadgeText === "自動連動中", a.autoBadgeText);
@@ -227,6 +240,22 @@ function check(name, cond, detail) {
     const aFill = await snapshot(pageA);
     check("A6_acFillCashOnly_writes_effective_total", aFill.storedCash === DERIVED_CASH, aFill.storedCash);
     check("A6_acFillCashOnly_not_stale_total", aFill.storedCash !== STALE_BUFFER, aFill.storedCash);
+
+    // --- アサート B1続き: /api/me/cashflow を 500 でモックした再取得後に fetcherr 表示＋rows 温存 ---
+    // 500 route に意図的な遅延を入れ、無遅延の /api/me/investment（成功＝_cfFetchErr を ""へ）より必ず後に
+    // 解決させる。loadCashflow/loadInvestment は _cfFetchedAt/_cfFetchErr を共有する設計（brief B1 で明示許容）
+    // のため、順序を固定しないとどちらが最後に勝つか不定＝flaky になる。
+    await ctxA.route("**/api/me/cashflow", (route) =>
+      new Promise((resolve) => setTimeout(resolve, 80)).then(() =>
+        route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "boom" }) })
+      ));
+    await pageA.evaluate(() => MCC.refreshData());
+    await pageA.waitForTimeout(500);
+    const aErr = await snapshot(pageA);
+    check("B1_fetcherr_shown_after_500",
+      /更新に失敗しました（HTTP 500）・直前のデータを表示中/.test(aErr.fetchErrText || ""), aErr.fetchErrText);
+    check("B1_rows_preserved_yen_still_shown_after_500", aErr.cfStatsHaveYen === true, aErr.cfStatsHaveYen);
+    check("B1_gauge_unaffected_by_fetch_error", /¥1,070,000/.test(aErr.gaugeText || ""), aErr.gaugeText);
     await ctxA.close();
 
     // ============ シナリオB: anchor 無し＝manual 無回帰 ============

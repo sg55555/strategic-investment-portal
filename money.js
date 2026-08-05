@@ -38,6 +38,12 @@ window.MCC = (function () {
   var _cashflowRows = [];
   // データ基盤Phase2: 投資台帳。/api/me/investment の生行を保持（read-only・保有ゼロ/未配線でも空配列で degrade）。
   var _investmentRows = [];
+  // B1: この端末での最終取得時刻/直近の取得エラー（cashflow/investment 共有＝ユーザー向けには「データ取得」1概念）。
+  // ms・0=未取得。loadCashflow/loadInvestment の成功で更新・失敗では動かさない（直前値を保持）。
+  var _cfFetchedAt = 0;
+  // ""=正常。成功時に必ずクリア・失敗時はユーザー向け短文（表示は esc() を通す）。後続 loadCashflow/loadInvestment
+  // の成功が「最後に解決した方」勝ちで上書きする＝厳密な per-endpoint 状態ではない設計（brief B1 で明示許容）。
+  var _cfFetchErr = "";
   var _refreshing = false; // 「最新に更新」ボタンの多重起動ガード（in-session 再取得）
   // 実効値方式（spec §2.1）: 直近 render() 時点で「基準（アンカー）連動が実際に効いているか」。
   // R.effectiveState(...) !== state（＝no-op でない）が唯一の判定源で、money.js 側では条件を再実装しない
@@ -57,6 +63,19 @@ window.MCC = (function () {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
     });
+  }
+
+  // B1: 「この端末での最終取得」表示ヘルパ（表示専用・業務math ではないため money.js に置く）。
+  // ms=0（未取得）は「未取得」。以降は経過時間に応じ たった今/N分前/N時間前/N日前。
+  function fmtAgo(ms) {
+    if (!ms) return "未取得";
+    var diff = Date.now() - ms;
+    if (diff < 60000) return "たった今";
+    var min = Math.floor(diff / 60000);
+    if (min < 60) return min + "分前";
+    var hr = Math.floor(min / 60);
+    if (hr < 24) return hr + "時間前";
+    return Math.floor(hr / 24) + "日前";
   }
 
   // ---- 永続化（local 即時 ＋ logged-in 時のみ cloud へ debounced PUT）----
@@ -193,16 +212,21 @@ window.MCC = (function () {
   // logout が明示クリアするのでアカウント跨ぎの残留は無い。
   function loadCashflow() {
     return apiJSON("GET", "/api/me/cashflow").then(function (res) {
-      if (res.ok && res.data && Array.isArray(res.data.cashflow)) _cashflowRows = res.data.cashflow;
-      else if (res.status === 401) sync.loggedIn = false;
-    }).catch(function () { /* ネットワーク断は直前データを温存 */ });
+      if (res.ok && res.data && Array.isArray(res.data.cashflow)) {
+        _cashflowRows = res.data.cashflow; _cfFetchedAt = Date.now(); _cfFetchErr = "";
+      } else if (res.status === 401) { sync.loggedIn = false; _cfFetchErr = "セッションが切れています"; }
+      else { _cfFetchErr = "更新に失敗しました（HTTP " + res.status + "）・直前のデータを表示中"; }
+    }).catch(function () { _cfFetchErr = "通信エラー・直前のデータを表示中"; });
   }
   // データ基盤Phase2: 投資台帳の生行を取得（cashflow と別 endpoint＝故障隔離・保有ゼロは空配列で degrade）。
+  // B1: 取得時刻/エラーは loadCashflow と同じ module 変数を共有（ユーザー向けには「データ取得」1概念・同型実装）。
   function loadInvestment() {
     return apiJSON("GET", "/api/me/investment").then(function (res) {
-      if (res.ok && res.data && Array.isArray(res.data.investment)) _investmentRows = res.data.investment;
-      else if (res.status === 401) sync.loggedIn = false;
-    }).catch(function () { /* 直前データを温存 */ });
+      if (res.ok && res.data && Array.isArray(res.data.investment)) {
+        _investmentRows = res.data.investment; _cfFetchedAt = Date.now(); _cfFetchErr = "";
+      } else if (res.status === 401) { sync.loggedIn = false; _cfFetchErr = "セッションが切れています"; }
+      else { _cfFetchErr = "更新に失敗しました（HTTP " + res.status + "）・直前のデータを表示中"; }
+    }).catch(function () { _cfFetchErr = "通信エラー・直前のデータを表示中"; });
   }
 
   // ユーザー任意の「今すぐ最新化」：Neon の最新スナップショットを取り直して再描画（月次自動更新を待たない）。
@@ -750,14 +774,20 @@ window.MCC = (function () {
       ? '<div class="mcc-cf-note">確定月が ' + cv.monthsCovered + 'ヶ月分のみ＝暫定値です（3ヶ月で安定します）。</div>' : "";
     var divNote = cv.expenseDivergence
       ? '<div class="mcc-cf-note">実支出の平均（' + cv.fmt(cv.avgExpense) + '/月）が設定の月の生活費と乖離しています。' + jumpLink("settings", "「設定」") + 'の見直しを検討してください。</div>' : "";
-    // 鮮度＋「今すぐ最新化」。月次自動更新（毎月2日）を待たずにユーザー任意で取り直せる（Neon 再取得のみ）。
+    // 鮮度＋「今すぐ最新化」。日次自動更新（毎日 朝6時ごろ）を待たずにユーザー任意で取り直せる（Neon 再取得のみ）。
+    // ETL 由来の鮮度（staleDays＝クラウド上のデータがいつのものか）と、B1 で新設した「この端末での最終取得」
+    // （_cfFetchedAt＝このブラウザがいつ fetch に成功したか）は別概念＝両方を並記する（後続 B3 が TTL 判定に使用）。
     var freshTxt = cv.staleDays == null ? "クラウドの最新データを表示中"
-      : ("最終取得 " + cv.staleDays + "日前" + (cv.dataFresh ? "" : "・更新が止まっている可能性"));
+      : ("クラウド更新: " + cv.staleDays + "日前（毎日 朝6時ごろ自動）" + (cv.dataFresh ? "" : "・更新が止まっている可能性"));
     var fresh =
-      '<div class="mcc-cf-fresh' + (cv.dataFresh === false ? " stale" : "") + '">' +
-        '<span class="mcc-cf-fresh-txt">' + esc(freshTxt) + ' ｜ 自動更新 毎月2日ごろ</span>' +
-        '<button class="mcc-cf-refresh" title="クラウド（保存済みデータ）を再取得します。新しい月は毎月の自動更新で増えます。" onclick="MCC.refreshData()"' + (_refreshing ? " disabled" : "") + '>' +
-          (_refreshing ? "更新中…" : "↻ 最新に更新") + '</button>' +
+      '<div id="mcc-cf-fetchnote">' +
+        '<div class="mcc-cf-fresh' + (cv.dataFresh === false ? " stale" : "") + '">' +
+          '<span class="mcc-cf-fresh-txt">' + esc(freshTxt) + '</span>' +
+          '<span class="mcc-cf-fetchinfo">この端末での最終取得: ' + esc(fmtAgo(_cfFetchedAt)) + '</span>' +
+          '<button class="mcc-cf-refresh" title="クラウド（保存済みデータ）を再取得します。新しい月は毎日の自動更新で増えます。" onclick="MCC.refreshData()"' + (_refreshing ? " disabled" : "") + '>' +
+            (_refreshing ? "更新中…" : "↻ 最新に更新") + '</button>' +
+        '</div>' +
+        (_cfFetchErr ? '<div class="mcc-cf-fetcherr">⚠ ' + esc(_cfFetchErr) + '</div>' : "") +
       '</div>';
 
     // データ基盤Phase1: 定点アンカー＋確定月収支で現在現金を自動算出（手入力ドリフトの解消・投資フローはPhase2で合算）。
