@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="D">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>お金の司令室 — H1: 2タブハイブリッド（モック）</title>
+<style>
+/* =====================================================================
+   H1: 2タブハイブリッド モック — THEME D "NEON TERMINAL" 踏襲
+   タブバー＋ヒーロー＝案B流用 ／ 1行ダイジェスト付き折りたたみ＝案A流用
+   [ダッシュボード]＝毎日見る面（入力欄ゼロ・縦に短い）
+   [設定・ガイド]＝いじる・読む面（入力/基準変更/ガイドを集約）
+   ===================================================================== */
+:root {
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --c-indigo: #4d5dff; --c-indigo-bright: #8aa0ff; --c-indigo-soft: #aebcff; --c-indigo-pale: #d2dbff;
+  --c-violet: #f570ff; --c-violet-bright: #ff9dff;
+  --c-emerald: #00e676; --c-emerald-bright: #39ff8b; --c-emerald-soft: #79ffae; --c-emerald-pale: #b6ffd2;
+  --c-amber: #ffb300; --c-amber-bright: #ffca3a; --c-amber-pale: #ffe49a;
+  --c-cyan: #00e5ff; --c-cyan-bright: #62f0ff; --c-cyan-pale: #a8f7ff; --c-cyan-tint: #d6fbff;
+  --c-text: #d4e2ea; --c-text-bright: #ecf4f8; --c-text-dim: #8ba2af; --c-text-faint: #6e8492; --c-text-mute: #54636f;
+  --c-danger: #ff1744; --c-danger-soft: #ff5c8a;
+  --card-bg: rgba(5,9,15,0.72);
+  --panel-deep: #02050a;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { background: #03060b; }
+body {
+  min-height: 100vh;
+  background-color: #03060b;
+  background-image:
+    radial-gradient(125% 80% at 50% -12%, rgba(0,229,255,0.10), transparent 60%),
+    radial-gradient(90% 60% at 100% 102%, rgba(0,230,118,0.06), transparent 55%),
+    linear-gradient(rgba(120,205,225,0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(120,205,225,0.035) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px;
+  background-attachment: fixed;
+  color: var(--c-text);
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.2px;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+/* ---------- 固定タブバー（案B流用・2タブ） ---------- */
+.tabbar-outer {
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(3,6,11,0.88);
+  border-bottom: 1px solid rgba(0,229,255,0.22);
+  box-shadow: 0 6px 26px rgba(0,0,0,0.55), 0 1px 0 rgba(0,229,255,0.06);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+.tabbar { max-width: 1280px; margin: 0 auto; padding: 0 18px; display: flex; align-items: stretch; gap: 14px; }
+.app-title {
+  display: flex; align-items: center; gap: 8px; padding: 12px 0;
+  font-size: 0.98rem; font-weight: 700; letter-spacing: 3px; white-space: nowrap;
+  background: linear-gradient(90deg, var(--c-cyan), var(--c-emerald-bright), var(--c-violet));
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 6px rgba(0,229,255,0.45));
+}
+.app-title::before { content: "▮"; -webkit-text-fill-color: var(--c-cyan); color: var(--c-cyan); }
+.tabs { display: flex; align-items: stretch; gap: 2px; margin-left: auto; }
+.tab {
+  position: relative; appearance: none; background: none; border: none; cursor: pointer;
+  font-family: var(--mono); font-size: 0.82rem; font-weight: 700; letter-spacing: 2px;
+  color: var(--c-text-dim); padding: 0 18px; transition: color .15s, text-shadow .15s;
+}
+.tab:hover { color: var(--c-cyan-pale); }
+.tab::after {
+  content: ""; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 2px;
+  background: transparent; transition: background .15s, box-shadow .15s;
+}
+.tab[aria-selected="true"] {
+  color: var(--c-cyan-bright); text-shadow: 0 0 10px rgba(0,229,255,0.55);
+}
+.tab[aria-selected="true"]::after {
+  background: linear-gradient(90deg, var(--c-cyan), var(--c-emerald-bright));
+  box-shadow: 0 0 12px rgba(0,229,255,0.75), 0 0 4px rgba(0,229,255,0.9);
+}
+.tab .tab-num { color: var(--c-text-mute); font-size: 0.62rem; margin-right: 4px; }
+.tab[aria-selected="true"] .tab-num { color: var(--c-emerald-bright); }
+
+/* ---------- レイアウト ---------- */
+.wrap { max-width: 1280px; margin: 0 auto; padding: 18px 18px 70px; }
+.panel { display: none; }
+.panel.active { display: block; animation: fadein .18s ease; }
+@keyframes fadein { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+.card {
+  background: var(--card-bg); border: 1px solid rgba(0,229,255,0.28); border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgba(0,229,255,0.05), 0 0 18px rgba(0,229,255,0.07);
+  backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+  padding: 16px 18px; margin-bottom: 14px;
+}
+.card.indigo { border-color: rgba(138,160,255,0.32); box-shadow: inset 0 0 0 1px rgba(138,160,255,0.05), 0 0 18px rgba(77,93,255,0.08); }
+.card.amber  { border-color: rgba(255,179,0,0.34);  box-shadow: inset 0 0 0 1px rgba(255,179,0,0.05), 0 0 18px rgba(255,179,0,0.08); background: rgba(12,9,4,0.72); }
+.card.violet { border-color: rgba(245,112,255,0.34); box-shadow: inset 0 0 0 1px rgba(245,112,255,0.06), 0 0 20px rgba(245,112,255,0.08); }
+
+.sec-title {
+  color: var(--c-cyan-bright); font-size: 0.8rem; letter-spacing: 2px; font-weight: 700;
+  text-shadow: 0 0 8px rgba(0,229,255,0.35); margin-bottom: 8px;
+}
+.sec-title::before { content: "> "; color: var(--c-emerald-bright); }
+.sec-desc { color: var(--c-text-faint); font-size: 0.68rem; line-height: 1.5; margin: -2px 0 12px; }
+
+/* ---------- ヒーロー（案Bそのまま） ---------- */
+.hero {
+  display: grid; grid-template-columns: 1.5fr 1fr; gap: 0;
+  background: var(--card-bg); border: 1px solid rgba(0,229,255,0.32); border-radius: 3px;
+  box-shadow: inset 0 0 30px rgba(0,229,255,0.05), 0 0 26px rgba(0,229,255,0.09);
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  margin-bottom: 14px; overflow: hidden;
+}
+.hero-main { padding: 22px 26px 18px; border-right: 1px solid rgba(0,229,255,0.14); }
+.hero-side { padding: 18px 22px; display: flex; flex-direction: column; gap: 12px; justify-content: center; }
+.hero-label { color: var(--c-text-dim); font-size: 0.74rem; letter-spacing: 2px; }
+.hero-label .chip-live {
+  display: inline-block; margin-left: 8px; padding: 0 7px; border: 1px solid rgba(0,230,118,0.5); border-radius: 2px;
+  color: var(--c-emerald-soft); font-size: 0.6rem; letter-spacing: 1px; vertical-align: 1px;
+  box-shadow: 0 0 8px rgba(0,230,118,0.18);
+}
+.hero-amount {
+  font-size: 3.1rem; font-weight: 700; line-height: 1.15; letter-spacing: 1px;
+  color: var(--c-cyan-bright); text-shadow: 0 0 18px rgba(0,229,255,0.55), 0 0 4px rgba(0,229,255,0.4);
+}
+.hero-basis { color: var(--c-text-faint); font-size: 0.68rem; margin-top: 4px; }
+.hero-basis b { color: var(--c-cyan-pale); font-weight: 400; }
+.hero-ref { margin-top: 14px; padding-top: 12px; border-top: 1px dashed rgba(0,229,255,0.16); }
+.hero-ref-label { color: var(--c-text-dim); font-size: 0.7rem; letter-spacing: 1px; }
+.hero-ref-amount { font-size: 1.5rem; font-weight: 700; color: var(--c-text-bright); text-shadow: 0 0 10px rgba(212,226,234,0.25); }
+.chip-prov {
+  display: inline-block; margin-left: 8px; padding: 0 7px; border: 1px solid rgba(255,179,0,0.5); border-radius: 2px;
+  color: var(--c-amber-pale); font-size: 0.6rem; letter-spacing: 1px; vertical-align: 2px;
+  box-shadow: 0 0 8px rgba(255,179,0,0.18);
+}
+.hero-ref-note { color: var(--c-text-faint); font-size: 0.64rem; margin-top: 2px; }
+
+.side-label { color: var(--c-text-dim); font-size: 0.68rem; letter-spacing: 1.5px; margin-bottom: 5px; }
+.gauge-row { display: flex; align-items: center; gap: 10px; }
+.gauge-track { flex: 1; height: 10px; background: var(--panel-deep); border: 1px solid rgba(0,229,255,0.12); border-radius: 2px; overflow: hidden; }
+.gauge-fill {
+  height: 100%; width: 100%;
+  background: linear-gradient(90deg, var(--c-indigo), var(--c-cyan), var(--c-emerald-bright));
+  box-shadow: 0 0 12px rgba(0,229,255,0.5);
+}
+.gauge-pct { color: var(--c-emerald-bright); font-size: 1.05rem; font-weight: 700; text-shadow: 0 0 10px rgba(57,255,139,0.5); white-space: nowrap; }
+.badge-done {
+  display: inline-block; padding: 0 6px; border: 1px solid rgba(0,230,118,0.5); border-radius: 2px;
+  color: var(--c-emerald-soft); font-size: 0.6rem; letter-spacing: 1px;
+}
+.badge-auto {
+  display: inline-block; margin-left: 6px; padding: 0 6px; border: 1px dashed rgba(0,229,255,0.45); border-radius: 2px;
+  color: var(--c-cyan-pale); font-size: 0.6rem; letter-spacing: 0.5px;
+}
+.side-power { font-size: 1.6rem; font-weight: 700; color: var(--c-emerald-bright); text-shadow: 0 0 12px rgba(57,255,139,0.5); line-height: 1.2; }
+.side-power small { color: var(--c-text-dim); font-size: 0.66rem; font-weight: 400; letter-spacing: 1px; }
+.next-banner {
+  display: flex; align-items: center; gap: 8px; padding: 9px 12px;
+  background: rgba(0,230,118,0.08); border-left: 3px solid var(--c-emerald-bright); border-radius: 2px;
+  box-shadow: inset 0 0 18px rgba(0,230,118,0.06);
+  color: var(--c-emerald-pale); font-size: 0.82rem; font-weight: 700;
+}
+.next-banner .ic { color: var(--c-emerald-bright); }
+.next-banner strong { color: var(--c-emerald-bright); text-shadow: 0 0 10px rgba(57,255,139,0.5); }
+
+.hero-fresh {
+  grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px;
+  padding: 8px 18px; border-top: 1px solid rgba(0,229,255,0.12);
+  background: rgba(0,0,0,0.3); color: var(--c-text-faint); font-size: 0.66rem; letter-spacing: 0.4px;
+}
+.hero-fresh .dot { color: var(--c-emerald-bright); text-shadow: 0 0 6px rgba(57,255,139,0.6); }
+.btn-refresh {
+  appearance: none; cursor: pointer; font-family: var(--mono); font-size: 0.64rem; letter-spacing: 0.4px;
+  background: rgba(0,229,255,0.08); border: 1px solid rgba(0,229,255,0.45); color: var(--c-cyan-pale);
+  border-radius: 3px; padding: 2px 9px; transition: box-shadow .15s, background .15s;
+}
+.btn-refresh:hover { background: rgba(0,229,255,0.18); box-shadow: 0 0 14px rgba(0,229,255,0.3); }
+.btn-refresh:disabled { opacity: 0.5; cursor: default; }
+
+/* ---------- 折りたたみセクション（案A流用・1行ダイジェスト付き） ---------- */
+details.sec {
+  background: var(--card-bg); border: 1px solid rgba(0,229,255,0.18); border-radius: 3px;
+  margin-bottom: 10px; backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+}
+details.sec > summary {
+  list-style: none; cursor: pointer; padding: 11px 14px;
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  transition: background .15s;
+}
+details.sec > summary::-webkit-details-marker { display: none; }
+details.sec > summary:hover { background: rgba(0,229,255,0.04); }
+details.sec > summary:focus-visible { outline: 1px solid var(--c-cyan); outline-offset: -1px; }
+details.sec > summary .mk { color: var(--c-cyan-bright); font-size: 0.8rem; width: 1em; flex: none; }
+details.sec[open] > summary .mk::before { content: "▾"; }
+details.sec:not([open]) > summary .mk::before { content: "▸"; }
+details.sec > summary .nm { font-size: 0.8rem; font-weight: 700; letter-spacing: 2px; white-space: nowrap; }
+details.sec > summary .dg {
+  color: var(--c-text-faint); font-size: 0.7rem; letter-spacing: 0.3px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 200px; min-width: 0;
+}
+details.sec > summary .dg b { color: var(--c-text-dim); font-weight: 700; }
+details.sec > summary .dg .pos { color: var(--c-emerald-soft); }
+.sec-body { border-top: 1px solid rgba(0,229,255,0.12); padding: 14px; }
+
+/* セクション別アクセント（意味色マップ） */
+.sec-cf   { border-color: rgba(0,229,255,0.32); }   .sec-cf   > summary .nm { color: var(--c-cyan-bright); text-shadow: 0 0 8px rgba(0,229,255,0.35); }
+.sec-rm   { border-color: rgba(138,160,255,0.34); } .sec-rm   > summary .nm { color: var(--c-indigo-bright); text-shadow: 0 0 8px rgba(138,160,255,0.35); }
+.sec-nisa { border-color: rgba(245,112,255,0.34); } .sec-nisa > summary .nm { color: var(--c-violet); text-shadow: 0 0 8px rgba(245,112,255,0.4); }
+.sec-ac   { border-color: rgba(0,229,255,0.2); }    .sec-ac   > summary .nm { color: var(--c-cyan-bright); text-shadow: 0 0 8px rgba(0,229,255,0.35); }
+.sec-rg   { border-color: rgba(255,179,0,0.34); }   .sec-rg   > summary .nm { color: var(--c-amber-bright); text-shadow: 0 0 8px rgba(255,179,0,0.35); }
+.sec-ai   { border-color: rgba(138,160,255,0.34); } .sec-ai   > summary .nm { color: var(--c-indigo-bright); text-shadow: 0 0 8px rgba(138,160,255,0.35); }
+.sec-gd   { border-style: dashed; border-color: rgba(138,160,255,0.4); } .sec-gd > summary .nm { color: var(--c-indigo-pale); }
+
+/* ---------- 収支の詳細 ---------- */
+.cf-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.cf-period { color: var(--c-cyan-pale); font-size: 0.8rem; letter-spacing: 0.5px; font-weight: 700; }
+.cf-latest { color: var(--c-text-faint); font-size: 0.66rem; }
+.cf-stats { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; margin-bottom: 12px; }
+.cf-stat { background: rgba(0,0,0,0.3); border: 1px solid rgba(0,229,255,0.1); border-radius: 2px; padding: 8px 10px; }
+.cf-stat span { display: block; color: var(--c-text-dim); font-size: 0.64rem; letter-spacing: 1px; }
+.cf-stat strong { font-size: 1.02rem; color: var(--c-text-bright); white-space: nowrap; }
+.cf-stat strong.pos { color: var(--c-emerald-bright); text-shadow: 0 0 10px rgba(57,255,139,0.45); }
+.cf-surplus {
+  background: rgba(0,230,118,0.08); border-left: 3px solid var(--c-emerald-bright); border-radius: 2px;
+  box-shadow: inset 0 0 18px rgba(0,230,118,0.06); padding: 10px 12px; margin-bottom: 12px;
+}
+.cf-surplus-main { font-size: 0.78rem; color: var(--c-text); }
+.cf-surplus-main strong { color: var(--c-emerald-bright); font-size: 1.05rem; text-shadow: 0 0 12px rgba(57,255,139,0.5); }
+.cf-waterfall { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.wf { font-size: 0.68rem; padding: 3px 9px; border: 1px solid; border-radius: 2px; background: rgba(0,0,0,0.35); white-space: nowrap; }
+.wf-buffer { border-color: rgba(0,229,255,0.55); color: var(--c-cyan-pale); box-shadow: 0 0 8px rgba(0,229,255,0.18); }
+.wf-core   { border-color: rgba(138,160,255,0.55); color: var(--c-indigo-pale); box-shadow: 0 0 8px rgba(138,160,255,0.18); }
+.spark-wrap { margin: 4px 0 10px; }
+.spark-cap { color: var(--c-text-faint); font-size: 0.64rem; letter-spacing: 1px; margin-bottom: 4px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  padding: 3px 9px; background: rgba(0,229,255,0.05); border: 1px solid rgba(0,229,255,0.14);
+  border-radius: 2px; color: var(--c-text); font-size: 0.7rem;
+}
+.chip b { color: var(--c-cyan-pale); font-weight: 700; }
+.cf-note { color: var(--c-text-faint); font-size: 0.64rem; line-height: 1.6; margin-top: 10px; }
+
+/* ---------- ロードマップ ---------- */
+.rm-rail { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 4px 0 12px; }
+.rm-phase { display: flex; align-items: center; gap: 7px; padding: 6px 10px; border: 1px solid rgba(255,255,255,0.08); border-radius: 2px; background: rgba(0,0,0,0.3); }
+.rm-dot {
+  width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid; border-radius: 2px; font-size: 0.66rem; font-weight: 700; flex-shrink: 0;
+}
+.rm-done .rm-dot { background: rgba(0,230,118,0.16); border-color: var(--c-emerald-bright); color: var(--c-emerald-soft); box-shadow: 0 0 10px rgba(0,230,118,0.35); }
+.rm-cur .rm-dot { background: rgba(0,230,118,0.16); border-color: var(--c-emerald-bright); color: var(--c-emerald-soft); box-shadow: 0 0 14px rgba(0,230,118,0.5); }
+.rm-lock .rm-dot { background: rgba(255,179,0,0.1); border-color: rgba(255,179,0,0.4); color: var(--c-amber); }
+.rm-label { font-size: 0.7rem; color: var(--c-text-dim); white-space: nowrap; }
+.rm-done .rm-label { color: var(--c-emerald-pale); }
+.rm-cur .rm-label { color: var(--c-cyan-pale); font-weight: 700; }
+.rm-cur { border-color: rgba(0,230,118,0.4); box-shadow: 0 0 12px rgba(0,230,118,0.12); }
+.rm-pct { font-size: 0.64rem; color: var(--c-text-faint); }
+.rm-sep { flex: 1 1 14px; min-width: 14px; height: 1px; background: rgba(0,229,255,0.25); }
+.rm-north {
+  padding: 8px 11px; background: rgba(0,0,0,0.4); border-left: 3px solid var(--c-indigo-bright);
+  border-radius: 2px; color: var(--c-indigo-pale); font-size: 0.72rem;
+}
+.rm-north b { color: var(--c-emerald-bright); }
+
+/* ---------- NISA ---------- */
+.nisa-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.nisa-hero-num { font-size: 1.9rem; font-weight: 700; color: var(--c-violet); text-shadow: 0 0 14px rgba(245,112,255,0.55); line-height: 1.2; }
+.nisa-sub { color: var(--c-text-faint); font-size: 0.66rem; margin-top: 2px; }
+.nisa-kv { display: flex; justify-content: space-between; color: var(--c-text-dim); font-size: 0.7rem; margin-bottom: 5px; }
+.nisa-kv b { color: var(--c-cyan-pale); }
+.bar-track { height: 10px; background: var(--panel-deep); border: 1px solid rgba(0,229,255,0.12); border-radius: 2px; overflow: hidden; }
+.bar-fill-indigo { height: 100%; background: linear-gradient(90deg, var(--c-indigo), var(--c-indigo-bright), var(--c-violet)); box-shadow: 0 0 10px rgba(138,160,255,0.45); }
+.bar-fill-amber { height: 100%; background: linear-gradient(90deg, #cc7600, #ff9e00, var(--c-amber-bright)); box-shadow: 0 0 10px rgba(255,179,0,0.45); }
+.bar-fill-cyan { height: 100%; background: linear-gradient(90deg, var(--c-indigo), var(--c-cyan), var(--c-emerald-bright)); box-shadow: 0 0 12px rgba(0,229,255,0.5); }
+
+/* ---------- 資産クラス ---------- */
+.ac-bar { display: flex; height: 20px; border: 1px solid rgba(0,229,255,0.16); border-radius: 2px; overflow: hidden; background: var(--panel-deep); box-shadow: 0 0 12px rgba(0,229,255,0.06); margin: 6px 0 10px; }
+.ac-seg { height: 100%; filter: saturate(1.4) brightness(1.25); }
+.ac-seg.cash  { background: rgba(0,229,255,0.42); box-shadow: inset 0 0 12px rgba(0,229,255,0.5); }
+.ac-seg.stock { background: rgba(0,230,118,0.38); box-shadow: inset 0 0 12px rgba(0,230,118,0.5); }
+.ac-seg.bond  { background: rgba(245,112,255,0.38); box-shadow: inset 0 0 12px rgba(245,112,255,0.5); }
+.ac-leg { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.7rem; color: var(--c-text-dim); }
+.ac-leg i { display: inline-block; width: 9px; height: 9px; border-radius: 1px; margin-right: 6px; vertical-align: -1px; }
+.ac-leg .sw-cash  { background: var(--c-cyan); box-shadow: 0 0 7px rgba(0,229,255,0.6); }
+.ac-leg .sw-stock { background: var(--c-emerald); box-shadow: 0 0 7px rgba(0,230,118,0.6); }
+.ac-leg .sw-bond  { background: var(--c-violet); box-shadow: 0 0 7px rgba(245,112,255,0.6); }
+.ac-leg b { color: var(--c-text-bright); }
+
+/* ---------- 確保枠・資産目標（統合カード） ---------- */
+.rg-item { margin-bottom: 14px; }
+.rg-item:last-child { margin-bottom: 0; }
+.rg-row { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 7px; }
+.rg-row .nm3 { color: var(--c-text-bright); font-size: 0.8rem; font-weight: 700; }
+.rg-row .st { color: var(--c-text-dim); font-size: 0.7rem; margin-left: auto; }
+.rg-row .st b.amb { color: var(--c-amber-bright); }
+.rg-row .st b.ind { color: var(--c-indigo-soft); }
+.rsv-badge { display: inline-block; padding: 0 6px; border: 1px solid rgba(255,179,0,0.5); border-radius: 2px; color: var(--c-amber-pale); font-size: 0.6rem; letter-spacing: 1px; }
+.rg-note { color: var(--c-text-faint); font-size: 0.64rem; margin-top: 6px; }
+.rg-note b { color: var(--c-amber-pale); }
+
+/* ---------- AIコーチ ---------- */
+.coach {
+  display: flex; gap: 10px; align-items: baseline; padding: 11px 14px;
+  background: rgba(77,93,255,0.12); border-left: 3px solid var(--c-indigo-bright); border-radius: 2px;
+  box-shadow: inset 0 0 16px rgba(77,93,255,0.08); color: var(--c-indigo-pale); font-size: 0.8rem;
+}
+.coach .tag { color: var(--c-cyan-bright); font-size: 0.64rem; font-weight: 700; letter-spacing: 1.5px; white-space: nowrap; }
+.coach small { color: var(--c-text-mute); font-size: 0.6rem; display: block; margin-top: 2px; }
+.btn-coach {
+  appearance: none; cursor: pointer; font-family: var(--mono); font-size: 0.74rem; letter-spacing: 1px; font-weight: 700;
+  background: rgba(77,93,255,0.12); border: 1px solid rgba(138,160,255,0.55); color: var(--c-indigo-pale);
+  border-radius: 3px; padding: 8px 16px; margin-top: 10px; transition: box-shadow .15s, background .15s;
+}
+.btn-coach:hover { background: rgba(77,93,255,0.22); box-shadow: 0 0 14px rgba(138,160,255,0.4); }
+
+/* ---------- 設定・ガイドタブ ---------- */
+.anchor {
+  padding: 12px 14px;
+  background: rgba(0,229,255,0.06); border-left: 3px solid var(--c-cyan); border-radius: 2px;
+  box-shadow: inset 0 0 16px rgba(0,229,255,0.05);
+}
+.anchor-main { color: var(--c-cyan-tint); font-size: 0.86rem; }
+.anchor-main strong { color: var(--c-cyan-bright); font-size: 1.15rem; text-shadow: 0 0 12px rgba(0,229,255,0.55); margin-left: 6px; }
+.anchor-sub { color: var(--c-text-dim); font-size: 0.68rem; line-height: 1.7; margin-top: 5px; }
+.anchor-sub b { color: var(--c-cyan-pale); font-weight: 400; }
+.btn-ghost-cyan {
+  appearance: none; cursor: pointer; font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.3px;
+  background: rgba(0,229,255,0.08); border: 1px solid rgba(0,229,255,0.45); color: var(--c-cyan-pale);
+  border-radius: 3px; padding: 5px 12px; margin-top: 9px; transition: box-shadow .15s, background .15s;
+}
+.btn-ghost-cyan:hover { background: rgba(0,229,255,0.18); box-shadow: 0 0 14px rgba(0,229,255,0.3); }
+
+.set-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; }
+.field { display: flex; flex-direction: column; gap: 4px; color: var(--c-text-dim); font-size: 0.7rem; }
+.field input {
+  background: var(--panel-deep); border: 1px solid rgba(0,229,255,0.3); color: var(--c-cyan-pale);
+  border-radius: 2px; padding: 7px 9px; font-size: 0.9rem; font-family: var(--mono);
+  font-variant-numeric: tabular-nums; transition: border-color .15s, box-shadow .15s; width: 100%;
+}
+.field input:focus { border-color: var(--c-cyan); outline: none; box-shadow: 0 0 0 1px rgba(0,229,255,0.35), 0 0 14px rgba(0,229,255,0.3); }
+.field .note { color: var(--c-text-mute); font-size: 0.62rem; }
+.suggest {
+  grid-column: 1 / -1; background: rgba(0,229,255,0.05); border-left: 3px solid var(--c-cyan); border-radius: 2px;
+  padding: 8px 10px; font-size: 0.7rem; color: var(--c-text);
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.suggest b { color: var(--c-cyan-bright); }
+.btn-adopt {
+  appearance: none; cursor: pointer; font-family: var(--mono); font-size: 0.64rem; letter-spacing: 0.4px;
+  background: rgba(0,230,118,0.08); border: 1px solid rgba(0,230,118,0.5); color: var(--c-emerald-pale);
+  border-radius: 3px; padding: 3px 10px; transition: box-shadow .15s, background .15s;
+}
+.btn-adopt:hover { background: rgba(0,230,118,0.16); box-shadow: 0 0 14px rgba(0,230,118,0.3); }
+
+/* バッファ read-only 表示（自動連動） */
+.ro-field { display: flex; flex-direction: column; gap: 4px; color: var(--c-text-dim); font-size: 0.7rem; }
+.ro-val {
+  background: rgba(0,230,118,0.05); border: 1px dashed rgba(0,230,118,0.45); color: var(--c-emerald-bright);
+  border-radius: 2px; padding: 7px 9px; font-size: 0.9rem; font-weight: 700;
+  text-shadow: 0 0 10px rgba(57,255,139,0.35); cursor: default;
+}
+.badge-linked {
+  display: inline-block; margin-left: 6px; padding: 0 6px; border: 1px dashed rgba(0,229,255,0.45); border-radius: 2px;
+  color: var(--c-cyan-pale); font-size: 0.6rem; letter-spacing: 0.5px; font-weight: 400;
+}
+
+.btn-tool {
+  appearance: none; cursor: pointer; font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.5px;
+  background: rgba(0,229,255,0.04); border: 1px solid rgba(0,229,255,0.3); color: var(--c-cyan-pale);
+  border-radius: 3px; padding: 7px 13px; transition: box-shadow .15s, background .15s;
+}
+.btn-tool:hover { background: rgba(0,229,255,0.12); box-shadow: 0 0 14px rgba(0,229,255,0.25); }
+.btn-amber {
+  appearance: none; cursor: pointer; font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.3px;
+  background: rgba(255,179,0,0.1); border: 1px solid rgba(255,179,0,0.5); color: var(--c-amber-pale);
+  border-radius: 3px; padding: 7px 13px; transition: box-shadow .15s, background .15s;
+}
+.btn-amber:hover { background: rgba(255,179,0,0.2); box-shadow: 0 0 14px rgba(255,179,0,0.3); }
+.glo-item { background: rgba(0,229,255,0.035); border: 1px solid rgba(0,229,255,0.1); border-radius: 2px; padding: 8px 11px; margin-bottom: 6px; }
+.glo-term { color: var(--c-cyan-bright); font-size: 0.76rem; font-weight: 700; }
+.glo-def { display: block; color: var(--c-text-dim); font-size: 0.68rem; line-height: 1.5; margin-top: 3px; }
+.guide-link { color: var(--c-cyan); font-size: 0.74rem; text-decoration: underline; text-decoration-color: rgba(0,229,255,0.5); text-underline-offset: 2px; cursor: pointer; }
+.link-jump {
+  appearance: none; background: none; border: none; cursor: pointer; font-family: var(--mono);
+  color: var(--c-cyan); font-size: 0.72rem; text-decoration: underline;
+  text-decoration-color: rgba(0,229,255,0.5); text-underline-offset: 2px;
+}
+.link-jump:hover { color: var(--c-cyan-bright); }
+
+/* ---------- フッター / トースト ---------- */
+.mock-note {
+  max-width: 1280px; margin: 30px auto 0; padding: 0 18px;
+  color: var(--c-text-mute); font-size: 0.64rem; letter-spacing: 1px; text-align: center;
+}
+.mock-note b { color: var(--c-amber); }
+#toast {
+  position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(20px);
+  background: var(--panel-deep); border: 1px solid rgba(0,229,255,0.5); border-radius: 3px;
+  color: var(--c-cyan-pale); font-size: 0.72rem; font-family: var(--mono);
+  padding: 8px 16px; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s;
+  box-shadow: 0 0 0 1px rgba(0,229,255,0.15), 0 8px 24px rgba(0,0,0,0.75); z-index: 99;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ---------- レスポンシブ ---------- */
+@media (max-width: 860px) {
+  .hero { grid-template-columns: 1fr; }
+  .hero-main { border-right: none; border-bottom: 1px solid rgba(0,229,255,0.14); }
+  .hero-amount { font-size: 2.4rem; }
+  .nisa-grid { grid-template-columns: 1fr; }
+  .set-grid { grid-template-columns: 1fr; }
+  .cf-stats { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .tab { padding: 0 10px; letter-spacing: 1px; }
+  .app-title { letter-spacing: 1.5px; font-size: 0.86rem; }
+}
+@media (max-width: 560px) {
+  .tabs { margin-left: 0; }
+  .tabbar { flex-wrap: wrap; padding-bottom: 2px; }
+  details.sec > summary .dg { flex-basis: 100%; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============ 固定タブバー（2タブ） ============ -->
+<div class="tabbar-outer">
+  <nav class="tabbar">
+    <div class="app-title">お金の司令室</div>
+    <div class="tabs" role="tablist" aria-label="主要セクション">
+      <button class="tab" role="tab" aria-selected="true"  data-tab="dash"   id="tab-dash"><span class="tab-num">01</span>ダッシュボード</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="config" id="tab-config"><span class="tab-num">02</span>設定・ガイド</button>
+    </div>
+  </nav>
+</div>
+
+<main class="wrap">
+
+  <!-- ============ 01 ダッシュボード（毎日見る面・入力欄ゼロ） ============ -->
+  <section class="panel active" id="panel-dash" role="tabpanel" aria-labelledby="tab-dash">
+
+    <!-- サマリーヒーロー（案Bそのまま） -->
+    <div class="hero">
+      <div class="hero-main">
+        <div class="hero-label">いまの貯蓄額（確定）<span class="chip-live">SYNC OK</span></div>
+        <div class="hero-amount">&yen;1,712,450</div>
+        <div class="hero-basis">基準＝<b>2026年7月のはじめ &yen;1,642,450</b> ＋ 確定1ヶ月分 <b>+&yen;70,000</b>（自動算出・手入力のズレが溜まりません）</div>
+        <div class="hero-ref">
+          <div class="hero-ref-label">当月込みの参考値<span class="chip-prov">暫定・毎日自動更新</span></div>
+          <div class="hero-ref-amount">&yen;1,663,200</div>
+          <div class="hero-ref-note">8月のこれまでの支出を反映した見込み値。月末締めで上の確定値に合流します。</div>
+        </div>
+      </div>
+      <div class="hero-side">
+        <div class="side-block">
+          <div class="side-label">バッファ目標（生活防衛資金）<span class="badge-auto">収支連携から自動算出</span></div>
+          <div class="gauge-row">
+            <div class="gauge-track"><div class="gauge-fill"></div></div>
+            <span class="gauge-pct">100%</span>
+            <span class="badge-done">達成済</span>
+          </div>
+          <div class="hero-ref-note" style="margin-top:3px;">&yen;1,320,000 / &yen;1,320,000（生活費 6ヶ月分）</div>
+        </div>
+        <div class="side-block">
+          <div class="side-label">今月の投資余力</div>
+          <div class="side-power">&yen;86,000 <small>/ 月（平滑後）</small></div>
+        </div>
+        <div class="next-banner"><span class="ic">▶</span><span>次の一手：<strong>コアへ &yen;86,000</strong></span></div>
+      </div>
+      <div class="hero-fresh">
+        <span><span class="dot">●</span> この端末での最終取得: <b id="fresh-txt" style="color:var(--c-cyan-pale);font-weight:400;">3分前</b></span>
+        <button class="btn-refresh" id="btn-refresh">↻ 最新に更新</button>
+        <span>クラウド更新: 毎日 朝6時ごろ自動</span>
+      </div>
+    </div>
+
+    <!-- ============ 1行ダイジェスト付き折りたたみ×6（案A流用） ============ -->
+
+    <!-- 1. 収支の詳細（既定で開いた状態） -->
+    <details class="sec sec-cf" open>
+      <summary><span class="mk"></span><span class="nm">収支の詳細</span>
+        <span class="dg">2026年7月 <b class="pos">+&yen;86,000</b>・貯蓄率 <b>21%</b></span></summary>
+      <div class="sec-body">
+        <div class="cf-head"><span class="cf-period">2026年7月の収支</span><span class="cf-latest">（最新の確定月）</span></div>
+        <div class="cf-stats">
+          <div class="cf-stat"><span>収入</span><strong>&yen;412,000</strong></div>
+          <div class="cf-stat"><span>支出</span><strong>&yen;326,000</strong></div>
+          <div class="cf-stat"><span>収支</span><strong class="pos">+&yen;86,000</strong></div>
+          <div class="cf-stat"><span>貯蓄率</span><strong>21%</strong></div>
+        </div>
+
+        <div class="cf-surplus">
+          <div class="cf-surplus-main">毎月の投資余力（平滑後） <strong>&yen;86,000 / 月</strong></div>
+          <div class="cf-waterfall">
+            <span class="wf wf-buffer">バッファ &yen;0（達成済）</span>
+            <span class="wf wf-core">コア &yen;86,000</span>
+          </div>
+        </div>
+
+        <div class="spark-wrap">
+          <div class="spark-cap">月次収支（直近6ヶ月）</div>
+          <svg viewBox="0 0 320 84" width="100%" style="max-width:520px;display:block;" role="img" aria-label="月次収支の推移">
+            <line x1="8" y1="54" x2="312" y2="54" stroke="rgba(0,229,255,0.18)" stroke-width="1"/>
+            <!-- 2月 +58,000 -->
+            <rect x="16"  y="27" width="26" height="27" fill="#39ff8b" opacity="0.75" style="filter:drop-shadow(0 0 3px rgba(57,255,139,0.4));"/>
+            <!-- 3月 +41,000 -->
+            <rect x="66"  y="35" width="26" height="19" fill="#39ff8b" opacity="0.75" style="filter:drop-shadow(0 0 3px rgba(57,255,139,0.4));"/>
+            <!-- 4月 -12,000 -->
+            <rect x="116" y="54" width="26" height="6"  fill="#ff5c8a" opacity="0.85" style="filter:drop-shadow(0 0 3px rgba(255,23,68,0.4));"/>
+            <!-- 5月 +66,000 -->
+            <rect x="166" y="23" width="26" height="31" fill="#39ff8b" opacity="0.75" style="filter:drop-shadow(0 0 3px rgba(57,255,139,0.4));"/>
+            <!-- 6月 +72,000 -->
+            <rect x="216" y="20" width="26" height="34" fill="#39ff8b" opacity="0.75" style="filter:drop-shadow(0 0 3px rgba(57,255,139,0.4));"/>
+            <!-- 7月 +86,000 -->
+            <rect x="266" y="14" width="26" height="40" fill="#39ff8b" style="filter:drop-shadow(0 0 5px rgba(57,255,139,0.6));"/>
+            <text x="279" y="10" text-anchor="middle" fill="#79ffae" font-size="8" font-family="ui-monospace,monospace">+86,000</text>
+            <text x="29"  y="66" text-anchor="middle" fill="#6e8492" font-size="8" font-family="ui-monospace,monospace">2月</text>
+            <text x="79"  y="66" text-anchor="middle" fill="#6e8492" font-size="8" font-family="ui-monospace,monospace">3月</text>
+            <text x="129" y="66" text-anchor="middle" fill="#6e8492" font-size="8" font-family="ui-monospace,monospace">4月</text>
+            <text x="179" y="66" text-anchor="middle" fill="#6e8492" font-size="8" font-family="ui-monospace,monospace">5月</text>
+            <text x="229" y="66" text-anchor="middle" fill="#6e8492" font-size="8" font-family="ui-monospace,monospace">6月</text>
+            <text x="279" y="66" text-anchor="middle" fill="#a8f7ff" font-size="8" font-family="ui-monospace,monospace">7月</text>
+          </svg>
+        </div>
+
+        <div class="sec-desc" style="margin-bottom:6px;">カテゴリ上位（7月）</div>
+        <div class="chips">
+          <span class="chip">住居 <b>&yen;98,000</b></span>
+          <span class="chip">食費 <b>&yen;62,000</b></span>
+          <span class="chip">光熱 <b>&yen;18,400</b></span>
+          <span class="chip">通信 <b>&yen;9,800</b></span>
+        </div>
+        <div class="cf-note">今月（8月）の収支は月末締め後・翌月初の自動更新で確定します。貯蓄額の基準（アンカー）の変更は <button class="link-jump" data-jump="config">設定・ガイドタブへ →</button></div>
+      </div>
+    </details>
+
+    <!-- 2. ロードマップ -->
+    <details class="sec sec-rm">
+      <summary><span class="mk"></span><span class="nm">ロードマップ</span>
+        <span class="dg"><b>コア形成期</b>・いまここ</span></summary>
+      <div class="sec-body">
+        <div class="sec-desc">規律の順路：バッファ（防衛）→ コア（長期）→ 余剰のみ上限内でサテライト。</div>
+        <div class="rm-rail">
+          <div class="rm-phase rm-done"><span class="rm-dot">✓</span><span class="rm-label">バッファ</span><span class="rm-pct">100%</span></div>
+          <div class="rm-sep"></div>
+          <div class="rm-phase rm-cur"><span class="rm-dot">●</span><span class="rm-label">コア形成期（いまここ）</span><span class="rm-pct">積立中</span></div>
+          <div class="rm-sep"></div>
+          <div class="rm-phase rm-lock"><span class="rm-dot">◇</span><span class="rm-label">サテライト</span><span class="rm-pct">上限10%内</span></div>
+        </div>
+        <div class="rm-north">今月の配分 ▸ バッファ &yen;0 ／ <b>コア &yen;86,000</b> ／ サテライト &yen;0（規律配分・自動提案）</div>
+      </div>
+    </details>
+
+    <!-- 3. NISA -->
+    <details class="sec sec-nisa">
+      <summary><span class="mk"></span><span class="nm">NISA</span>
+        <span class="dg">生涯残 <b>&yen;16,340,000</b>・つみたて <b>33%</b></span></summary>
+      <div class="sec-body">
+        <div class="sec-desc">生涯投資枠と、今年のつみたて投資枠の消化状況。入力は設定・ガイドタブから。</div>
+        <div class="nisa-grid">
+          <div>
+            <div class="side-label">生涯投資枠 のこり</div>
+            <div class="nisa-hero-num">&yen;16,340,000</div>
+            <div class="nisa-sub">総枠 &yen;18,000,000 のうち 使用 &yen;1,660,000（9.2%）</div>
+          </div>
+          <div>
+            <div class="nisa-kv"><span>つみたて投資枠（今年）</span><b>&yen;400,000 / &yen;1,200,000</b></div>
+            <div class="bar-track"><div class="bar-fill-cyan" style="width:33%"></div></div>
+            <div class="nisa-sub" style="margin-top:5px;">消化 33% ・ このペースなら年内 &yen;1,032,000 前後の見込み</div>
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <!-- 4. 資産クラス -->
+    <details class="sec sec-ac">
+      <summary><span class="mk"></span><span class="nm">資産クラス</span>
+        <span class="dg">現金 <b>77</b> / 株式 <b>18</b> / 債券 <b>5%</b></span></summary>
+      <div class="sec-body">
+        <div class="sec-desc">総資産 &yen;1,712,450 の商品タイプ別内訳（バケツとは別軸の見方）。入力は設定・ガイドタブから。</div>
+        <div class="ac-bar">
+          <div class="ac-seg cash"  style="width:77%"></div>
+          <div class="ac-seg stock" style="width:18%"></div>
+          <div class="ac-seg bond"  style="width:5%"></div>
+        </div>
+        <div class="ac-leg">
+          <span><i class="sw-cash"></i>現金 <b>77%</b> &yen;1,320,000</span>
+          <span><i class="sw-stock"></i>株式（投信含む）<b>18%</b> &yen;312,450</span>
+          <span><i class="sw-bond"></i>債券 <b>5%</b> &yen;80,000</span>
+        </div>
+      </div>
+    </details>
+
+    <!-- 5. 確保枠・資産目標（1カードに統合） -->
+    <details class="sec sec-rg">
+      <summary><span class="mk"></span><span class="nm">確保枠・資産目標</span>
+        <span class="dg">登記 <b>60%</b> 確保・新居頭金 <b>32%</b></span></summary>
+      <div class="sec-body">
+        <div class="sec-desc">確保枠＝投資より先に取り置く分（コアより優先）／資産目標＝貯める目的の見える化（総資産と連動）。</div>
+        <div class="rg-item">
+          <div class="rg-row">
+            <span class="nm3">登記費用</span>
+            <span class="rsv-badge">確保中</span>
+            <span class="st"><b class="amb">60%</b> ・ &yen;180,000 / &yen;300,000</span>
+          </div>
+          <div class="bar-track"><div class="bar-fill-amber" style="width:60%"></div></div>
+        </div>
+        <div class="rg-item">
+          <div class="rg-row">
+            <span class="nm3">新居頭金</span>
+            <span class="st"><b class="ind">32%</b> ・ &yen;960,000 / &yen;3,000,000</span>
+          </div>
+          <div class="bar-track"><div class="bar-fill-indigo" style="width:32%"></div></div>
+        </div>
+        <div class="rg-note">確保枠の追加は <button class="link-jump" data-jump="config">設定・ガイドタブへ →</button></div>
+      </div>
+    </details>
+
+    <!-- 6. AIコーチ -->
+    <details class="sec sec-ai">
+      <summary><span class="mk"></span><span class="nm">AIコーチ</span>
+        <span class="dg">相談はここから</span></summary>
+      <div class="sec-body">
+        <div class="coach">
+          <span class="tag">AI COACH ▸</span>
+          <span>バッファは達成済み。今月の余力 &yen;86,000 は規律どおりコア（長期）へ。サテライトは上限10%の範囲で。
+            <small>※教育目的の一般的な情報です（個別の投資助言ではありません）。決定論ルールが常に優先されます。</small>
+          </span>
+        </div>
+        <button class="btn-coach" data-toast="モック: AIコーチとの相談画面を開きます（ダミー）">▸ AIコーチに相談する</button>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ 02 設定・ガイド（いじる・読む面） ============ -->
+  <section class="panel" id="panel-config" role="tabpanel" aria-labelledby="tab-config" hidden>
+
+    <!-- 貯蓄の基準（アンカー） -->
+    <div class="card">
+      <div class="sec-title">貯蓄の基準（アンカー）</div>
+      <div class="sec-desc">基準の月初残高に、それ以降の確定収支を毎回自動加算します。月単位の扱いなので二重計上は起きません。</div>
+      <div class="anchor">
+        <div class="anchor-main">いまの貯蓄額（自動算出）<strong>&yen;1,712,450</strong></div>
+        <div class="anchor-sub">
+          基準＝<b>2026年7月のはじめ（&yen;1,642,450）</b> ＋ その後の確定収支 <b>1ヶ月分（+&yen;70,000）</b>を自動加算。<br>
+          当月込みの参考値 <b>&yen;1,663,200</b>（8月のこれまでの支出を反映・毎日自動更新・暫定）。
+        </div>
+        <button class="btn-ghost-cyan" data-toast="モック: 基準変更フォームを開きます">基準を変更</button>
+      </div>
+    </div>
+
+    <!-- 月の生活費と規律のルール -->
+    <div class="card">
+      <div class="sec-title">月の生活費と規律のルール</div>
+      <div class="sec-desc">バッファ目標や上限はここから決まります（バッファ目標＝生活費 × ヶ月数）。</div>
+      <div class="set-grid">
+        <label class="field">月の生活費
+          <input type="text" value="220,000" inputmode="numeric">
+        </label>
+        <label class="field">バッファ目標（ヶ月）
+          <input type="text" value="6" inputmode="numeric">
+          <span class="note">→ 目標 &yen;1,320,000（達成済）</span>
+        </label>
+        <label class="field">サテライト上限（%）
+          <input type="text" value="10" inputmode="numeric">
+          <span class="note">→ 上限 &yen;171,245（総資産比 10%）</span>
+        </label>
+        <div class="suggest">
+          <span>実支出の平均は <b>&yen;218,700 / 月</b>（直近3ヶ月の確定平均）。設定と概ね一致しています。</span>
+          <button class="btn-adopt" data-toast="モック: 実支出平均 ¥218,700 を生活費に採用しました（ダミー）">この平均を採用</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- バケツ保有額（バッファ＝自動連動 read-only） -->
+    <div class="card">
+      <div class="sec-title">バケツ保有額</div>
+      <div class="sec-desc">コア・サテライトは<b>現在の残高</b>を入力します。バッファは収支連携から自動で連動するため入力不要です。3つの合計が総資産 &yen;1,712,450 になります。</div>
+      <div class="set-grid">
+        <div class="ro-field">バッファ（現金）<span class="badge-linked">自動連動中（収支連携から自動算出）</span>
+          <div class="ro-val" role="status" aria-label="バッファ保有額 自動連動">&yen;1,320,000</div>
+          <span class="note">貯蓄の基準＋確定収支から自動算出。手入力はできません。</span>
+        </div>
+        <label class="field">コア（長期）
+          <input type="text" value="312,450" inputmode="numeric">
+        </label>
+        <label class="field">サテライト（個別株/短期）
+          <input type="text" value="80,000" inputmode="numeric">
+          <span class="note">上限 &yen;171,245（総資産比 10%）内 ✓</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- 資産クラス入力（簡易） -->
+    <div class="card">
+      <div class="sec-title">資産クラス入力（簡易）</div>
+      <div class="sec-desc">商品タイプ別の保有額（バケツとは別軸）。ダッシュボードの比率バーに反映されます。合計 &yen;1,712,450。</div>
+      <div class="set-grid">
+        <label class="field">現金
+          <input type="text" value="1,320,000" inputmode="numeric">
+          <span class="note">→ 77%</span>
+        </label>
+        <label class="field">株式（投信含む）
+          <input type="text" value="312,450" inputmode="numeric">
+          <span class="note">→ 18%</span>
+        </label>
+        <label class="field">債券
+          <input type="text" value="80,000" inputmode="numeric">
+          <span class="note">→ 5%</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- NISA入力（簡易） -->
+    <div class="card violet">
+      <div class="sec-title">NISA入力（簡易）</div>
+      <div class="sec-desc">使用額を入れるだけで、残り枠と消化率はダッシュボードに自動反映されます。</div>
+      <div class="set-grid">
+        <label class="field">生涯投資枠の使用済額
+          <input type="text" value="1,660,000" inputmode="numeric">
+          <span class="note">→ のこり &yen;16,340,000 / 総枠 &yen;18,000,000（使用 9.2%）</span>
+        </label>
+        <label class="field">つみたて投資枠（今年）の使用額
+          <input type="text" value="400,000" inputmode="numeric">
+          <span class="note">→ 消化 33%（年間枠 &yen;1,200,000）</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- 確保枠の追加 -->
+    <div class="card amber">
+      <div class="sec-title">確保枠を追加</div>
+      <div class="sec-desc">目的・金額・期日を決めて取り置きます。期日から月額を逆算します。登録済み：登記費用 &yen;300,000（60% 確保中）。</div>
+      <div class="set-grid">
+        <label class="field">ラベル<input type="text" placeholder="例: 引越し費用"></label>
+        <label class="field">金額（円）<input type="text" placeholder="300,000" inputmode="numeric"></label>
+        <label class="field">期日<input type="text" placeholder="2027-03"></label>
+      </div>
+      <div style="margin-top:12px;"><button class="btn-amber" data-toast="モック: 確保枠を追加しました（ダミー）">＋ 確保枠を追加</button></div>
+    </div>
+
+    <!-- データとツール -->
+    <div class="card">
+      <div class="sec-title">データとツール</div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:4px;">
+        <button class="btn-tool" data-toast="モック: JSON をエクスポートします（ダミー）">↓ エクスポート(JSON)</button>
+        <button class="btn-tool" data-toast="モック: JSON をインポートします（ダミー）">↑ インポート</button>
+      </div>
+      <div class="sec-desc" style="margin-top:10px;">クラウド更新: 毎日 朝6時ごろ自動 ／ この端末での最終取得: 3分前</div>
+    </div>
+
+    <!-- ガイド・用語集（折りたたみ） -->
+    <details class="sec sec-gd">
+      <summary><span class="mk"></span><span class="nm">ガイド・用語集</span>
+        <span class="dg">はじめに / 使い方・用語 <b>4件</b></span></summary>
+      <div class="sec-body">
+        <div class="sec-desc"><span class="guide-link" data-toast="モック: ガイドを開きます">▸ はじめに / 使い方（規律の順路：バッファ → 確保枠 → コア → サテライト）</span></div>
+        <div class="glo-item"><span class="glo-term">バッファ</span><span class="glo-def">生活防衛資金。生活費の数ヶ月分を現金で確保する守りの土台。</span></div>
+        <div class="glo-item"><span class="glo-term">コア</span><span class="glo-def">長期のインデックス積立など、資産形成の中心。</span></div>
+        <div class="glo-item"><span class="glo-term">サテライト</span><span class="glo-def">個別株・短期の攻め枠。余剰のみ・上限内で。</span></div>
+        <div class="glo-item"><span class="glo-term">投資余力</span><span class="glo-def">毎月の収支から無理なく投資に回せる額（平滑後の経常余剰）。</span></div>
+      </div>
+    </details>
+  </section>
+
+</main>
+
+<div class="mock-note"><b>モック（ダミーデータ）</b> — H1: 2タブハイブリッド（ダッシュボード＝ヒーロー＋折りたたみ／設定・ガイド＝入力とガイド集約）。金額・日付はすべて架空です。実データ・実口座とは関係ありません。</div>
+<div id="toast"></div>
+
+<script>
+(function () {
+  "use strict";
+  var tabs = document.querySelectorAll(".tab");
+  var panels = {
+    dash:   document.getElementById("panel-dash"),
+    config: document.getElementById("panel-config")
+  };
+
+  function switchTab(name) {
+    for (var i = 0; i < tabs.length; i++) {
+      var on = tabs[i].getAttribute("data-tab") === name;
+      tabs[i].setAttribute("aria-selected", on ? "true" : "false");
+    }
+    for (var k in panels) {
+      if (!panels.hasOwnProperty(k)) continue;
+      var active = (k === name);
+      panels[k].classList.toggle("active", active);
+      if (active) panels[k].removeAttribute("hidden");
+      else panels[k].setAttribute("hidden", "");
+    }
+    window.scrollTo(0, 0);
+  }
+
+  for (var i = 0; i < tabs.length; i++) {
+    tabs[i].addEventListener("click", function () {
+      switchTab(this.getAttribute("data-tab"));
+    });
+  }
+
+  // ダッシュボード内リンクからのタブジャンプ
+  var jumps = document.querySelectorAll("[data-jump]");
+  for (var j = 0; j < jumps.length; j++) {
+    jumps[j].addEventListener("click", function (e) {
+      e.preventDefault();
+      switchTab(this.getAttribute("data-jump"));
+    });
+  }
+
+  // トースト（モックのダミー動作）
+  var toastEl = document.getElementById("toast");
+  var toastTimer = null;
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove("show"); }, 2200);
+  }
+  var toasters = document.querySelectorAll("[data-toast]");
+  for (var t = 0; t < toasters.length; t++) {
+    toasters[t].addEventListener("click", function () {
+      toast(this.getAttribute("data-toast"));
+    });
+  }
+
+  // 鮮度行の「最新に更新」
+  var btnRefresh = document.getElementById("btn-refresh");
+  var freshTxt = document.getElementById("fresh-txt");
+  if (btnRefresh) {
+    btnRefresh.addEventListener("click", function () {
+      var self = this;
+      self.disabled = true;
+      self.textContent = "更新中…";
+      setTimeout(function () {
+        freshTxt.textContent = "たった今";
+        self.disabled = false;
+        self.textContent = "↻ 最新に更新";
+        toast("モック: クラウドから再取得しました（ダミー）");
+      }, 600);
+    });
+  }
+})();
+</script>
+</body>
+</html>
