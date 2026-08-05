@@ -94,7 +94,8 @@ function waitForServer(timeoutMs) {
 }
 
 // ---- ルート差し替え（fetch/route レベル・実ファイルは無改造）----
-async function mockApi(context, stateFixture) {
+async function mockApi(context, stateFixture, cashflowRows) {
+  const rows = cashflowRows === undefined ? CASHFLOW_ROWS : cashflowRows;
   const json = (route, body, status) => route.fulfill({
     status: status || 200, contentType: "application/json", body: JSON.stringify(body),
   });
@@ -102,7 +103,7 @@ async function mockApi(context, stateFixture) {
     json(route, { ok: true, insightEnabled: false, nisaAdviceEnabled: false }));
   await context.route("**/api/me/state", (route) =>
     route.request().method() === "PUT" ? json(route, { ok: true }) : json(route, { state: stateFixture }));
-  await context.route("**/api/me/cashflow", (route) => json(route, { cashflow: CASHFLOW_ROWS }));
+  await context.route("**/api/me/cashflow", (route) => json(route, { cashflow: rows }));
   await context.route("**/api/me/investment", (route) => json(route, { investment: [] }));
   // 市場データは本タスクの対象外。空で返すと index.html が dataLoadState="error" で早期 return し、
   // ポータル grid を描かない＝司令室の検証にノイズ（無関係な例外）を持ち込まない。
@@ -136,6 +137,7 @@ async function snapshot(page) {
       autoValText: txt(".mcc-bucket-auto-val"),
       autoJumpText: bufferBucket ? ((bufferBucket.querySelector(".mcc-jump") || {}).textContent || null) : null,
       bufferNoteText: txt(".mcc-bucket-note"),
+      bufferNoteHasJump: !!q(".mcc-bucket-note .mcc-jump"),
       // コア/サテライトの入力欄は連動中も従来どおり（連動対象は buffer だけ）
       otherBucketInputs: bucketsEl
         ? bucketsEl.querySelectorAll('input[data-mcc-focus="buckets.core.amount"], input[data-mcc-focus="buckets.satellite.amount"]').length
@@ -150,6 +152,10 @@ async function snapshot(page) {
       })(),
       storedApplied: (() => {
         try { return JSON.parse(localStorage.getItem("mcc_state") || "null").lastAppliedCashflowPeriod; }
+        catch (e) { return null; }
+      })(),
+      storedCash: (() => {
+        try { return JSON.parse(localStorage.getItem("mcc_state") || "null").assetHoldings.buffer.cash; }
         catch (e) { return null; }
       })(),
     };
@@ -212,6 +218,15 @@ function check(name, cond, detail) {
     check("A3_applySurplus_gated_buffer", aAfter.storedBuffer === STALE_BUFFER, aAfter.storedBuffer);
     check("A3_applySurplus_gated_period", aAfter.storedApplied === "", aAfter.storedApplied);
     check("A3_display_still_derived", aAfter.autoValText === "¥1,070,000", aAfter.autoValText);
+
+    // --- fix1: 「現状は現金のみ」クイックフィルが実効値を書く（画面の合計と一致する）---
+    // 旧実装は保存 state（buffer=111）を合計していたため、画面に ¥1,070,000 と出ている状態で
+    // 111 を無言で書き込んでいた。実効 state を渡すよう修正した点の実測。
+    await pageA.evaluate(() => MCC.acFillCashOnly());
+    await pageA.waitForTimeout(200);
+    const aFill = await snapshot(pageA);
+    check("A6_acFillCashOnly_writes_effective_total", aFill.storedCash === DERIVED_CASH, aFill.storedCash);
+    check("A6_acFillCashOnly_not_stale_total", aFill.storedCash !== STALE_BUFFER, aFill.storedCash);
     await ctxA.close();
 
     // ============ シナリオB: anchor 無し＝manual 無回帰 ============
@@ -229,7 +244,10 @@ function check(name, cond, detail) {
     check("B4_no_autonote", b.autoNoteText === null, b.autoNoteText);
     check("B4_apply_button_present", b.applyBtnExists === true, b.applyBtnText);
     check("B4_apply_button_enabled_label", /規律配分/.test(b.applyBtnText || ""), b.applyBtnText);
-    check("B4_no_fallback_note_when_logged_in_with_rows", b.bufferNoteText === null, b.bufferNoteText);
+    // fix2: ログイン済み＋rowsあり＋基準未設定＝「あと1手で自動化できる」唯一の層。
+    // 誘導注記が出る側の分岐を正のアサートで固定する（旧版はここを「注記なし」で固定していた）。
+    check("B4_anchor_setup_note_shown", /基準（アンカー）を設定すると/.test(b.bufferNoteText || ""), b.bufferNoteText);
+    check("B4_anchor_setup_note_has_jump", b.bufferNoteHasJump === true, b.bufferNoteHasJump);
     check("B4_gauge_uses_saved_value", /¥111/.test(b.gaugeText || ""), b.gaugeText);
     // 反映が実際に効く（従来どおり buffer に toBuffer=70,000 が積まれる）
     await pageB.click("#mcc-sec-cashflow .mcc-cf-apply");
@@ -239,6 +257,24 @@ function check(name, cond, detail) {
     check("B4_applied_period_recorded", bAfter.storedApplied === "2026-07-01", bAfter.storedApplied);
     check("B4_apply_button_becomes_disabled", /反映済み/.test(bAfter.applyBtnText || ""), bAfter.applyBtnText);
     await ctxB.close();
+
+    // ============ シナリオC: 基準あり・収支rows空（未連携）＝degrade 経路 ============
+    // effectiveState は「配列だが長さ0」で no-op に倒れる＝anchor 設定済みでも連動しない層。
+    // 注記が出る側のもう1分岐（収支未連携）を正のアサートで固定する。
+    const ctxC = await browser.newContext({ viewport: { width: 1280, height: 2400 } });
+    await mockApi(ctxC, STATE_ANCHOR, []); // anchor 設定済み・rows は空配列
+    const pageC = await ctxC.newPage();
+    pageC.on("pageerror", (e) => pageErrors.push("C:" + String((e && e.message) || e)));
+    await openCockpit(pageC);
+    const c = await snapshot(pageC);
+
+    check("C6_not_linked_without_rows", c.bufferInputExists === true, c.bufferInputValue);
+    check("C6_no_auto_badge_without_rows", c.autoBadgeText === null, c.autoBadgeText);
+    check("C6_input_keeps_saved_value", Number(c.bufferInputValue) === STALE_BUFFER, c.bufferInputValue);
+    check("C6_rows_missing_note_shown", /収支データが未連携のため自動算出できません/.test(c.bufferNoteText || ""), c.bufferNoteText);
+    check("C6_rows_missing_note_states_anchor_is_set", /基準（アンカー）は設定済み/.test(c.bufferNoteText || ""), c.bufferNoteText);
+    check("C6_gauge_uses_saved_value_when_degraded", /¥111/.test(c.gaugeText || ""), c.gaugeText);
+    await ctxC.close();
 
     // --- アサート5: pageerror 0 ---
     check("C5_no_page_errors", pageErrors.length === 0, JSON.stringify(pageErrors));

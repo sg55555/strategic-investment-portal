@@ -992,9 +992,12 @@ window.MCC = (function () {
 
   // 「現状は現金のみ」クイックフィル：既存 buckets.amount 合計（R.totalAssets・純関数）を assetHoldings.buffer.cash へ一括投入
   // （現金のみ・投資未開始でも盤面が空にならない・spec §3.4）。
+  // 実効値方式（spec §2.1）: 合計の元は保存 state ではなく**実効 state**（連動中は buffer が導出現金）。
+  // 保存 state を渡すと、画面に出ている実効値（例 ¥1,070,000）と書き込む値（保存の手入力値）が
+  // 無言で食い違う＝ユーザーには「見えている合計が入る」としか読めない操作なので、表示と一致させる。
   function acFillCashOnly() {
     if (!state) load();
-    setField("assetHoldings.buffer.cash", R.totalAssets(state)); // save() 込み・描画は focusout 経路が無いため setField 内の次tickフォールバックで確実に反映
+    setField("assetHoldings.buffer.cash", R.totalAssets(R.effectiveState(state, _cashflowRows, _investmentRows, Date.now()))); // save() 込み・描画は focusout 経路が無いため setField 内の次tickフォールバックで確実に反映
   }
 
   // spec §6.1: 7hue色相環＋未分類の単一トークン（太田さん実機確認済 2026-07-14＝alpha0.4/glow100%で確定・実装値ロック）。
@@ -1647,18 +1650,29 @@ window.MCC = (function () {
       ? '<div class="mcc-sat-warn">⚠ 上限超過 ' + vm.fmt(vm.satelliteOver) + '</div>' : '';
     // 実効値方式（spec §2.1）: 連動中の buffer は「基準＋確定収支」から毎回導出される＝手入力させない
     // （入力欄を残すと保存 state だけが書き換わり、画面には反映されない“無音の齟齬”が生まれる）。
-    // 未連動時は現行 input のまま。連動できない fallback（未ログイン／収支rows無し）には理由を1行添える。
+    // 未連動時は現行 input のまま。連動には「ログイン＋収支rows＋基準（アンカー）」の3つが揃う必要があり、
+    // 何が足りないかで文言を出し分ける（"ログインすれば自動" のような過小記述にすると、ログイン済みの
+    // ユーザーが次に何をすべきか分からないまま手入力を続けてしまう）。anchor の有無は money.js で
+    // 判定し直さず cdMain.anchorConfigured（normalizeAnchor 経由の純関数判定）を使う。
     var bufferField = _anchorLinked
       ? '<div class="mcc-bucket-auto"><span class="mcc-auto-badge">自動連動中</span>' +
           '<strong class="mcc-bucket-auto-val">' + vm.fmt(vm.bufferAmount) + '</strong>' +
           '<button type="button" class="mcc-jump" onclick="MCC.jumpTo(\'cashflow\')">基準を変更</button></div>'
       : moneyInput("保有額", "buckets.buffer.amount", vm.bufferAmount);
-    var bufferNote = _anchorLinked ? ''
-      : (!sync.loggedIn
-          ? '<div class="mcc-bucket-note">ログインして収支を連携すると、この金額は自動算出に切り替わります。</div>'
-          : (!_cashflowRows.length
-              ? '<div class="mcc-bucket-note">収支データが連携されると、この金額は自動算出に切り替わります。</div>'
-              : ''));
+    var bufferNote = "";
+    if (!_anchorLinked) {
+      if (!sync.loggedIn) {
+        bufferNote = '<div class="mcc-bucket-note">ログインして収支を連携し、基準（アンカー）を設定すると、この金額は自動算出に切り替わります。</div>';
+      } else if (!_cashflowRows.length) {
+        bufferNote = '<div class="mcc-bucket-note">' + (cdMain.anchorConfigured
+          ? "基準（アンカー）は設定済みですが、収支データが未連携のため自動算出できません（連携されると自動算出に切り替わります）。"
+          : "収支データを連携し、基準（アンカー）を設定すると、この金額は自動算出に切り替わります。") + '</div>';
+      } else if (!cdMain.anchorConfigured) {
+        // ログイン済み＋収支あり＝あと1手（基準の設定）で自動化できる唯一の層。該当セクションへ導線を張る。
+        bufferNote = '<div class="mcc-bucket-note">' + jumpLink("cashflow", "「収支と投資余力」") +
+          'で基準（アンカー）を設定すると、この金額は自動算出に切り替わります。</div>';
+      }
+    }
     var buckets =
       '<div class="mcc-section-title mcc-section-title-gap">いま持っている資産の内訳（保有額）</div>' +
       '<div class="mcc-section-desc">いま各バケツに入っている<b>現在の残高</b>を入力します（これから振り分ける予定額ではありません）。3つの合計が総資産になります。</div>' +
