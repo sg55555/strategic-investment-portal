@@ -45,6 +45,14 @@
 .mcc-bucket { background: rgba(15,20,34,0.5); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 14px; }
 .mcc-bucket-over { border-color: rgba(255,0,61,0.6); box-shadow: 0 0 18px rgba(255,0,61,0.15); }
 .mcc-bucket-name { color: var(--c-text-bright); font-size: 0.78rem; letter-spacing: 1px; margin-bottom: 8px; }
+/* 実効値方式（spec §2.1）: 基準連動中の buffer は read-only 表示（入力欄の代替＝同じ高さ帯を占める） */
+.mcc-bucket-auto { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin-top: 8px; }
+.mcc-auto-badge {
+  flex: 0 0 auto; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.5px; padding: 2px 7px; border-radius: 5px;
+  background: rgba(56,189,248,0.14); border: 1px solid rgba(56,189,248,0.45); color: var(--c-cyan-pale);
+}
+.mcc-bucket-auto-val { color: var(--c-cyan-bright); font-size: 1.0rem; }
+.mcc-bucket-note { color: var(--c-text-mute); font-size: 0.64rem; line-height: 1.5; margin-top: 6px; }
 .mcc-field { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; color: var(--c-text-dim); font-size: 0.72rem; }
 .mcc-field input { background: rgba(0,0,0,0.3); border: 1px solid rgba(129,140,248,0.3); color: #fff; border-radius: 6px; padding: 7px 9px; font-size: 0.9rem; }
 .mcc-sat-bar { height: 8px; background: rgba(255,255,255,0.06); border-radius: 6px; overflow: hidden; margin-top: 10px; }
@@ -269,6 +277,11 @@
   padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 0.76rem; font-weight: 700; width: 100%;
 }
 .mcc-cf-apply:hover { background: rgba(16,185,129,0.26); }
+/* 実効値方式（spec §2.1）: 連動中は反映ボタンの代わりに理由を出す（ボタンと同じ位置＝動線の空白を作らない） */
+.mcc-cf-autonote {
+  background: rgba(56,189,248,0.07); border: 1px dashed rgba(56,189,248,0.35); color: var(--c-cyan-pale);
+  padding: 8px 12px; border-radius: 8px; font-size: 0.72rem; line-height: 1.5;
+}
 .mcc-cf-spark { margin-top: 12px; }
 .mcc-cf-spark svg { display: block; }
 .mcc-spark-pos { fill: var(--c-emerald-bright); }

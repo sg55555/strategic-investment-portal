@@ -39,6 +39,10 @@ window.MCC = (function () {
   // データ基盤Phase2: 投資台帳。/api/me/investment の生行を保持（read-only・保有ゼロ/未配線でも空配列で degrade）。
   var _investmentRows = [];
   var _refreshing = false; // 「最新に更新」ボタンの多重起動ガード（in-session 再取得）
+  // 実効値方式（spec §2.1）: 直近 render() 時点で「基準（アンカー）連動が実際に効いているか」。
+  // R.effectiveState(...) !== state（＝no-op でない）が唯一の判定源で、money.js 側では条件を再実装しない
+  // （anchor 設定済みでも rows 無し等では no-op＝連動していない。この差を UI 側で二重定義すると divergent になる）。
+  var _anchorLinked = false;
 
   // Task6b (backlog B#2): 資産クラス比率のスコープ表示切替（永続 state でない・モジュール view 変数）。
   var _acScope = "core"; // "core"=コアの設計図（心臓部）/ "total"=総資産で俯瞰。既定=core。
@@ -217,6 +221,13 @@ window.MCC = (function () {
   // 規律＝バッファ→確保枠（優先順位配分）→コア。保存則 toBuffer+Σallocated+toCore==monthlySurplus（純関数で担保）。
   function applySurplus() {
     if (!state) load();
+    // 実効値方式（spec §2.1）の防衛ゲート: anchor連動中は buffer/core への加算が二重計上になる
+    // （derivedCash が当該月 balance を既に含むため、確定月の余剰は自動で貯蓄額に反映済み）。
+    // 判定は R.effectiveState が no-op か否かの1点のみ（UI 側の _anchorLinked は描画用で、
+    // ここでは render を経ずに呼ばれる経路でも安全なよう毎回問い直す）。
+    // ※保存則 toBuffer+Σallocated+toCore==monthlySurplus は manual モード（このゲートを通過する場合）のみが
+    //   対象＝連動中は「そもそも加算しない」ので保存則テストの射程外（テスト側の前提を変えない）。
+    if (R.effectiveState(state, _cashflowRows, _investmentRows, Date.now()) !== state) return;
     var cv = R.cashflowViewModel(_cashflowRows, state, Date.now());
     if (!cv.available || cv.monthlySurplus <= 0 || !cv.applyPeriod) return;
     if (cv.alreadyApplied) return;  // 同一確定月の二重計上を防ぐ（クラウド同期される恒久水増し回避）
@@ -672,7 +683,8 @@ window.MCC = (function () {
   }
 
   // Slice4: 収支カード＋投資余力ゲージ＋鮮度。業務 math は持たず cv（cashflowViewModel）を描くのみ。
-  function cashflowSection(cv) {
+  // cd = R.cashDerived(...) の戻り。render() が1回だけ算出して渡す（reservesSection と共有＝2重算出の解消）。
+  function cashflowSection(cv, cd) {
     if (!sync.loggedIn) return "";  // 認証データ＝未ログインでは出さない
     var title = '<div class="mcc-section-title">収支と投資余力' + termHelp("投資余力") + '</div><div class="mcc-section-desc">毎月の収支から、無理なく投資に回せる額を出します。</div>';
     if (!cv.hasData) {
@@ -713,9 +725,13 @@ window.MCC = (function () {
           '<div class="mcc-cf-waterfall">' + wf + '</div>' +
           '<div class="mcc-cf-dest">' + esc(toMsg) + '</div>' +
         '</div>';
-      applyBtn = cv.alreadyApplied
-        ? '<button class="mcc-cf-apply" disabled>' + fmtAnchorMonth(cv.latestPeriod) + 'の余剰は反映済み</button>'
-        : '<button class="mcc-cf-apply" onclick="MCC.applySurplus()">今月の余剰 ' + cv.fmt(cv.monthlySurplus) + ' を規律配分（バッファ→確保枠→コア）で反映</button>';
+      // 実効値方式（spec §2.1）: 連動中は貯蓄額が確定収支に自動追従するため、手動反映は二重計上になる
+      // （applySurplus 側も同じ判定でゲート済み＝ボタンを消すのは UI 表現、実行禁止は関数側が担保）。
+      applyBtn = _anchorLinked
+        ? '<div class="mcc-cf-autonote">基準連動中は貯蓄額が自動追従するため反映操作は不要です</div>'
+        : (cv.alreadyApplied
+          ? '<button class="mcc-cf-apply" disabled>' + fmtAnchorMonth(cv.latestPeriod) + 'の余剰は反映済み</button>'
+          : '<button class="mcc-cf-apply" onclick="MCC.applySurplus()">今月の余剰 ' + cv.fmt(cv.monthlySurplus) + ' を規律配分（バッファ→確保枠→コア）で反映</button>');
     } else {
       var defMsg = cv.deficitMonths > 0
         ? "直近で赤字の月があります（" + cv.deficitMonths + "回/6ヶ月）。投資より家計の見直し・バッファ防衛を優先しましょう。"
@@ -745,7 +761,7 @@ window.MCC = (function () {
       '</div>';
 
     // データ基盤Phase1: 定点アンカー＋確定月収支で現在現金を自動算出（手入力ドリフトの解消・投資フローはPhase2で合算）。
-    var cd = R.cashDerived(_cashflowRows, _investmentRows, (state && state.anchor) || {}, Date.now());
+    // cd は render() が算出済みのものを受け取る（同一 nowMs・同一入力での再算出をやめ、表示間の不整合を構造的に消す）。
     var anchorBlock;
     if (cd.anchorConfigured) {
       anchorBlock =
@@ -771,7 +787,8 @@ window.MCC = (function () {
 
   // Slice4.5: 確保枠（目的別の取り置き）。cv.reserves（reserveAlloc・純関数算出）を描くのみ。
   // 規律＝投資余力（コア）より先に確保。期日逆算で月額提案、満額確保で手元分を一括。未ログインでもローカル state で表示。
-  function reservesSection(cv) {
+  // cd = R.cashDerived(...) の戻り（render() が1回だけ算出して渡す＝cashflowSection と同一値を共有）。
+  function reservesSection(cv, cd) {
     var rs = cv.reserves || [];
     var cards = rs.map(function (rv) {
       var pct = Math.round((rv.progress || 0) * 100);
@@ -817,7 +834,6 @@ window.MCC = (function () {
 
     // 取り分けサマリ＋自由に使える現金（アンカー導出 cash − 確保枠合計）。
     var freeLine = "";
-    var cd = R.cashDerived(_cashflowRows, _investmentRows, (state && state.anchor) || {}, Date.now());
     if (cd.anchorConfigured && cv.reservesTotalSaved > 0) {
       var free = cd.derivedCash - cv.reservesTotalSaved;
       freeLine = '・確保枠を除く自由な現金 約 ' + cv.fmtSigned(free);
@@ -1590,13 +1606,24 @@ window.MCC = (function () {
     var root = document.getElementById("mcc-root");
     if (!root) return;
     _renderDirty = false;
-    var vm = R.viewModel(state);
-    var cv = R.cashflowViewModel(_cashflowRows, state, Date.now());
-    var ob = R.onboardingSteps(state, sync.loggedIn, cv.hasData);
+    // 実効値方式（spec §2.1）: 描画は「保存 state」でなく「実効 state」で行う。基準（アンカー）設定済み＋
+    // 確定rowsありなら buffer が導出現金に差し替わったコピーが返り、適用不能なら同一参照がそのまま返る
+    // （eff === state ＝完全 no-op＝manual モードは1バイトも挙動が変わらない）。保存 state は不変（LWW 安全）。
+    // nowMs は render 内で1回だけ取り、全 VM で共有する（同一描画内で時刻がずれない）。
+    var now = Date.now();
+    var eff = R.effectiveState(state, _cashflowRows, _investmentRows, now);
+    _anchorLinked = (eff !== state);
+    var vm = R.viewModel(eff);
+    var cv = R.cashflowViewModel(_cashflowRows, eff, now);
+    var ob = R.onboardingSteps(eff, sync.loggedIn, cv.hasData);
     // Task6: フェーズ型ロードマップ VM。cd は cashflowViewModel と同じ cashflowDerived(rows,state,now) の生の戻り
     // （reserveAlloc 等のキー名が cv とは異なるため、cv を渡さず別途算出＝R.roadmap の想定形状に一致させる）。
-    var cd = R.cashflowDerived(_cashflowRows, state, Date.now());
-    var rm = R.roadmap(state, cd, Date.now());
+    var cd = R.cashflowDerived(_cashflowRows, eff, now);
+    var rm = R.roadmap(eff, cd, now);
+    // データ基盤Phase1: 導出現金は render で1回だけ算出し、cashflowSection / reservesSection へ引数で配る
+    // （旧: 各セクションが個別に R.cashDerived を呼んでいた＝同一入力の2重算出）。anchor は eff.anchor
+    // （effectiveState は buckets のみ差し替えるため eff.anchor === state.anchor だが、参照元を eff に統一する）。
+    var cdMain = R.cashDerived(_cashflowRows, _investmentRows, (eff && eff.anchor) || {}, now);
 
     var gaugeStat = vm.bufferConfigured
       ? ('<strong>' + vm.bufferProgressPct + '%</strong> ' +
@@ -1618,12 +1645,26 @@ window.MCC = (function () {
 
     var satWarn = vm.satelliteIsOver
       ? '<div class="mcc-sat-warn">⚠ 上限超過 ' + vm.fmt(vm.satelliteOver) + '</div>' : '';
+    // 実効値方式（spec §2.1）: 連動中の buffer は「基準＋確定収支」から毎回導出される＝手入力させない
+    // （入力欄を残すと保存 state だけが書き換わり、画面には反映されない“無音の齟齬”が生まれる）。
+    // 未連動時は現行 input のまま。連動できない fallback（未ログイン／収支rows無し）には理由を1行添える。
+    var bufferField = _anchorLinked
+      ? '<div class="mcc-bucket-auto"><span class="mcc-auto-badge">自動連動中</span>' +
+          '<strong class="mcc-bucket-auto-val">' + vm.fmt(vm.bufferAmount) + '</strong>' +
+          '<button type="button" class="mcc-jump" onclick="MCC.jumpTo(\'cashflow\')">基準を変更</button></div>'
+      : moneyInput("保有額", "buckets.buffer.amount", vm.bufferAmount);
+    var bufferNote = _anchorLinked ? ''
+      : (!sync.loggedIn
+          ? '<div class="mcc-bucket-note">ログインして収支を連携すると、この金額は自動算出に切り替わります。</div>'
+          : (!_cashflowRows.length
+              ? '<div class="mcc-bucket-note">収支データが連携されると、この金額は自動算出に切り替わります。</div>'
+              : ''));
     var buckets =
       '<div class="mcc-section-title mcc-section-title-gap">いま持っている資産の内訳（保有額）</div>' +
       '<div class="mcc-section-desc">いま各バケツに入っている<b>現在の残高</b>を入力します（これから振り分ける予定額ではありません）。3つの合計が総資産になります。</div>' +
       '<div class="mcc-buckets" id="mcc-sec-buckets">' +
         '<div class="mcc-bucket"><div class="mcc-bucket-name">バッファ（現金）' + termHelp("バッファ") + '</div>' +
-          moneyInput("保有額", "buckets.buffer.amount", vm.bufferAmount) + '</div>' +
+          bufferField + bufferNote + '</div>' +
         '<div class="mcc-bucket"><div class="mcc-bucket-name">コア（長期）' + termHelp("コア") + '</div>' +
           moneyInput("保有額", "buckets.core.amount", vm.coreAmount) + '</div>' +
         '<div class="mcc-bucket' + (vm.satelliteIsOver ? ' mcc-bucket-over' : '') + '">' +
@@ -1674,7 +1715,7 @@ window.MCC = (function () {
     var dets = root.querySelectorAll("details[id]");
     for (var di = 0; di < dets.length; di++) if (dets[di].open) openIds.push(dets[di].id);
 
-    root.innerHTML = syncBar() + saveWarn + guideSection() + stepperSection(ob) + gauge + banner + roadmapSection(rm, sync.loggedIn) + assetClassSection(vm) + nisaSection(R.nisaViewModel(state, cd, Date.now(), _investmentRows)) + cashflowSection(cv) + reservesSection(cv) + adviceSection(vm) + buckets + goalsSection(vm) + settings + tools;
+    root.innerHTML = syncBar() + saveWarn + guideSection() + stepperSection(ob) + gauge + banner + roadmapSection(rm, sync.loggedIn) + assetClassSection(vm) + nisaSection(R.nisaViewModel(eff, cd, now, _investmentRows)) + cashflowSection(cv, cdMain) + reservesSection(cv, cdMain) + adviceSection(vm) + buckets + goalsSection(vm) + settings + tools;
 
     for (var oi = 0; oi < openIds.length; oi++) {
       var d = document.getElementById(openIds[oi]);
