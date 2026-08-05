@@ -1616,6 +1616,12 @@ window.MCC = (function () {
     }
   }
 
+  // review fix 1（実測 CONFIRMED）: onmousedown も併記する。入力欄で値を確定した直後にタブボタンを
+  // 押すと、mousedown の既定動作（フォーカス移動）→ 入力の blur → change → setField → render() で
+  // #mcc-root.innerHTML が作り直され、押していたボタンが mouseup の前に detach される＝click が
+  // 発火せず1回目が無反応になる。mousedown ハンドラは blur/change より先に走るので確実に切替わる。
+  // onclick も残す（キーボード Enter/Space・支援技術は click しか出さない）。switchTab は冪等ゆえ
+  // マウス操作で2回走っても無害（同じ値を代入し直すだけ）。
   function tabBar() {
     var btns = "";
     for (var i = 0; i < _TABS.length; i++) {
@@ -1623,7 +1629,7 @@ window.MCC = (function () {
       btns +=
         '<button type="button" class="mcc-tab" id="mcc-tab-btn-' + t + '" data-tab="' + t + '" role="tab"' +
           ' aria-selected="' + (_activeTab === t ? "true" : "false") + '" aria-controls="mcc-tab-' + t + '"' +
-          ' onclick="MCC.switchTab(\'' + t + '\')">' +
+          ' onmousedown="MCC.switchTab(\'' + t + '\')" onclick="MCC.switchTab(\'' + t + '\')">' +
           '<span class="mcc-tab-num">' + _TAB_LABELS[t].num + '</span>' + esc(_TAB_LABELS[t].label) +
         '</button>';
     }
@@ -1860,7 +1866,10 @@ window.MCC = (function () {
       roadmapSection(rm, sync.loggedIn) + assetClassSection(vm) +
       nisaSection(R.nisaViewModel(eff, cd, now, _investmentRows)) +
       cashflowSection(cv, cdMain) + reservesSection(cv, cdMain) + adviceSection(vm) + goalsSection(vm);
-    var configHtml = guideSection() + buckets + settings + tools;
+    // review fix 2: saveWarn は**両ペインの先頭**に出す。設定タブは入力の面（保存が最も走る場所）で、
+    // dash 限定にすると「編集しているタブでは保存失敗の警告が見えない」＝最悪の位置になる。
+    // id を持たない純警告 HTML ゆえ二重描画しても DOM 上の衝突は無い（同一文言・同一クラス）。
+    var configHtml = saveWarn + guideSection() + buckets + settings + tools;
     root.innerHTML = tabBar() +
       '<div class="mcc-pane" id="mcc-tab-dash" role="tabpanel" aria-labelledby="mcc-tab-btn-dash"' +
         (_activeTab === "dash" ? "" : " hidden") + '>' + dashHtml + '</div>' +

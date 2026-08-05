@@ -113,7 +113,9 @@ async function mockApi(context, stateFixture, cashflowRows) {
 // 司令室を開き、セッション確認→reconcile→収支/投資ロード→再描画までを待つ。
 async function openCockpit(page) {
   await page.goto(BASE + "/?diag=off", { waitUntil: "domcontentloaded" });
-  await page.evaluate(() => { try { localStorage.removeItem("mcc_state"); } catch (e) {} });
+  // D1: mcc_tab（表示中タブ）も消す。config が残ったコンテキストだと収支セクションが hidden のままで、
+  // 下の waitForSelector（既定 state:"visible"）が 8 秒ハングして無関係な失敗になる。
+  await page.evaluate(() => { try { localStorage.removeItem("mcc_state"); localStorage.removeItem("mcc_tab"); } catch (e) {} });
   await page.evaluate(() => MCC.show());
   // cashflowSection は loggedIn かつ rows 到着後にしか出ない＝両方の完了シグナルになる。
   await page.waitForSelector("#mcc-sec-cashflow", { timeout: 8000 });
@@ -660,6 +662,49 @@ function check(name, cond, detail) {
       check("G8_guide_link_" + g.idx + "_reaches_" + g.id, gr.flashed === true && gr.visible === true, JSON.stringify(gr));
       check("G8_guide_link_" + g.idx + "_lands_on_" + g.tab, gr.activeTab === g.tab, JSON.stringify(gr));
     }
+
+    // --- G9（review fix 1）: 入力の確定直後にタブボタンを押しても1回で切替わる ---
+    // 実キーボードで打ってからタブボタンを実クリックする＝本番と同じ順序を踏む必要がある。
+    // mousedown → (既定動作でフォーカス移動) → 入力の blur → change → setField → render() で
+    // #mcc-root.innerHTML が作り直され、押していたボタンが mouseup の前に detach される＝click が
+    // 発火しない（onclick だけだと1回目が無反応）。値を直接代入する G3/G4 では change が出ず通らない経路。
+    await pageG.evaluate(() => MCC.switchTab("config"));
+    const coreSel = '#mcc-sec-buckets input[data-mcc-focus="buckets.core.amount"]';
+    await pageG.click(coreSel);
+    await pageG.keyboard.press("Control+a");
+    await pageG.keyboard.type("777000");   // ここではまだ change 未発火（blur していない）
+    await pageG.click("#mcc-tab-btn-dash");  // クリックは1回だけ（2回押せば動く、では回帰検出にならない）
+    await pageG.waitForTimeout(300);
+    const g9 = await pageG.evaluate(() => ({
+      activeTab: document.getElementById("mcc-tab-config").hidden ? "dash" : "config",
+      storedCore: (() => {
+        try { return JSON.parse(localStorage.getItem("mcc_state") || "null").buckets.core.amount; }
+        catch (e) { return null; }
+      })(),
+    }));
+    check("G9_tab_click_after_input_commit_switches_once", g9.activeTab === "dash", JSON.stringify(g9));
+    check("G9_input_change_still_committed", g9.storedCore === 777000, JSON.stringify(g9));
+
+    // --- G10（review fix 2）: 保存失敗の警告は両ペインに出る（設定タブで編集中でも見える）---
+    // localStorage.setItem を投げるようにして saveLocal() を失敗させる＝lastSaveOk=false の実経路。
+    await pageG.evaluate(() => {
+      const origSetItem = Storage.prototype.setItem;
+      window.__restoreLs = () => { Storage.prototype.setItem = origSetItem; };
+      Storage.prototype.setItem = function () { throw new Error("quota exceeded (test)"); };
+      MCC.setField("buckets.satellite.amount", "12345");   // save() 失敗 → lastSaveOk=false → 再描画
+    });
+    await pageG.waitForTimeout(300);
+    const g10 = await pageG.evaluate(() => ({
+      dashWarn: !!document.querySelector("#mcc-tab-dash .mcc-save-warn"),
+      configWarn: !!document.querySelector("#mcc-tab-config .mcc-save-warn"),
+      configWarnText: (() => {
+        const el = document.querySelector("#mcc-tab-config .mcc-save-warn");
+        return el ? el.textContent.trim() : null;
+      })(),
+    }));
+    await pageG.evaluate(() => { if (window.__restoreLs) window.__restoreLs(); });
+    check("G10_save_warn_in_both_panes", g10.dashWarn === true && g10.configWarn === true, JSON.stringify(g10));
+    check("G10_save_warn_text_in_config", /保存できませんでした/.test(g10.configWarnText || ""), g10.configWarnText);
     await ctxG.close();
 
     // --- アサート5: pageerror 0 ---
