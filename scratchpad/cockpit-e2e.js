@@ -397,6 +397,113 @@ function check(name, cond, detail) {
     check("E2_no_cashflow_investment_calls_attempted_while_logged_out", netCallsE.length === 0, JSON.stringify(netCallsE));
     await ctxE.close();
 
+    // ============ シナリオF（Task B3）: タブ復帰時の自動再取得（TTL 10分）============
+    // _cfFetchedAt は money.js IIFE 内部のモジュール変数で外部から直接書けない（brief 指示どおり
+    // テスト専用フックは追加しない）。代わりに context.addInitScript で window.Date を差し替え、
+    // 「10分以上古い」を Date.now() の進行そのもので決定論的に作る（sinon 風フェイクタイマーの手法）。
+    const ctxF = await browser.newContext({ viewport: { width: 1280, height: 2400 } });
+    await ctxF.addInitScript(() => {
+      var RealDate = Date;
+      window.__mockNow = RealDate.now();
+      window.__setMockNow = function (ms) { window.__mockNow = ms; };
+      window.Date = class extends RealDate {
+        constructor(...args) {
+          if (args.length === 0) { super(window.__mockNow); }
+          else { super(...args); }
+        }
+        static now() { return window.__mockNow; }
+      };
+    });
+    await mockApi(ctxF, STATE_ANCHOR);
+    let cashflowCallsF = 0;
+    let sessionCallsF = 0;
+    let statePutCallsF = 0;
+    let sessionExpiredF = false; // F4 で checkSession を ok:false に切り替える
+    await ctxF.route("**/api/me/cashflow", (route) => {
+      cashflowCallsF++;
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ cashflow: CASHFLOW_ROWS }) });
+    });
+    await ctxF.route("**/api/auth/session", (route) => {
+      sessionCallsF++;
+      route.fulfill({
+        status: 200, contentType: "application/json",
+        body: JSON.stringify(sessionExpiredF ? { ok: false } : { ok: true, insightEnabled: false, nisaAdviceEnabled: false }),
+      });
+    });
+    await ctxF.route("**/api/me/state", (route) => {
+      if (route.request().method() === "PUT") {
+        statePutCallsF++;
+        return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) });
+      }
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ state: STATE_ANCHOR }) });
+    });
+    const pageF = await ctxF.newPage();
+    pageF.on("pageerror", (e) => pageErrors.push("F:" + String((e && e.message) || e)));
+    await openCockpit(pageF);
+    check("F0_precondition_cashflow_fetched_once", cashflowCallsF === 1, cashflowCallsF);
+    // show() は checkSession() と probeNisaCap() の両方が /api/auth/session を叩く（既存仕様・本タスクの対象外）
+    // ＝初回で 2 回が正しい前提。以降 F1/F4 の「増分」判定はこの絶対値でなく差分で見る。
+    check("F0_precondition_session_checked_twice_by_show", sessionCallsF === 2, sessionCallsF);
+
+    // --- F0続き: hidden 経路は無破壊（cloudFlushBeacon が従来どおり効く・新分岐は return 後で通らない）---
+    await pageF.evaluate(() => { MCC.setField("buckets.core.amount", "9999"); }); // _cloudDirty を立てる
+    await pageF.evaluate(() => {
+      Object.defineProperty(document, "visibilityState", { get: () => "hidden", configurable: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await pageF.waitForTimeout(150);
+    check("F0_hidden_still_flushes_via_beacon", statePutCallsF >= 1, statePutCallsF);
+    check("F0_hidden_does_not_trigger_refetch", cashflowCallsF === 1, cashflowCallsF);
+
+    // --- F1: 10分超過＋money-view active＋ログイン中 → visible 復帰で checkSession→refreshData ---
+    await pageF.evaluate(() => { window.__setMockNow(window.__mockNow + 700000); }); // +11分40秒
+    const cashflowBeforeF1 = cashflowCallsF, sessionBeforeF1 = sessionCallsF;
+    await pageF.evaluate(() => {
+      Object.defineProperty(document, "visibilityState", { get: () => "visible", configurable: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await pageF.waitForTimeout(400);
+    check("F1_cashflow_refetched_on_stale_visible_return", cashflowCallsF > cashflowBeforeF1, cashflowCallsF);
+    check("F1_session_rechecked_on_stale_visible_return", sessionCallsF > sessionBeforeF1, sessionCallsF);
+
+    // --- F2: 直後の再ディスパッチ（時刻を進めない）→ 多重発火しない（_cfFetchedAt 更新済み・TTL未超過）---
+    const cashflowBeforeF2 = cashflowCallsF;
+    await pageF.evaluate(() => { document.dispatchEvent(new Event("visibilitychange")); });
+    await pageF.waitForTimeout(300);
+    check("F2_no_duplicate_fetch_within_ttl", cashflowCallsF === cashflowBeforeF2, cashflowCallsF);
+
+    // --- F2b: 再び TTL 超過にした上で visible 連打（同tick内で2回 dispatch）→ refreshData の
+    //     _refreshing ガードにより fetch は1回だけ（checkSession 解決の順序に依らず単一化される）。
+    await pageF.evaluate(() => { window.__setMockNow(window.__mockNow + 700000); });
+    const cashflowBeforeF2b = cashflowCallsF;
+    await pageF.evaluate(() => {
+      document.dispatchEvent(new Event("visibilitychange"));
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await pageF.waitForTimeout(400);
+    check("F2b_rapid_double_dispatch_fetches_once", cashflowCallsF === cashflowBeforeF2b + 1, cashflowCallsF);
+
+    // --- F3: portal 表示中（money-view 非 active）は TTL 超過でも発火しない ---
+    await pageF.evaluate(() => { MCC.backToPortal(); });
+    await pageF.evaluate(() => { window.__setMockNow(window.__mockNow + 700000); });
+    const cashflowBeforeF3 = cashflowCallsF;
+    await pageF.evaluate(() => { document.dispatchEvent(new Event("visibilitychange")); });
+    await pageF.waitForTimeout(300);
+    check("F3_no_fetch_while_portal_active", cashflowCallsF === cashflowBeforeF3, cashflowCallsF);
+    await pageF.evaluate(() => { MCC.show(); });
+    await pageF.waitForSelector("#mcc-sec-cashflow", { timeout: 8000 });
+
+    // --- F4: セッション切れ（checkSession が ok:false）→ refreshData は呼ばれず render のみ（cashflow 再取得なし）---
+    sessionExpiredF = true;
+    await pageF.evaluate(() => { window.__setMockNow(window.__mockNow + 700000); });
+    const cashflowBeforeF4 = cashflowCallsF;
+    await pageF.evaluate(() => { document.dispatchEvent(new Event("visibilitychange")); });
+    await pageF.waitForTimeout(400);
+    check("F4_no_cashflow_refetch_when_session_expired", cashflowCallsF === cashflowBeforeF4, cashflowCallsF);
+    const fAfterExpire = await pageF.evaluate(() => !!document.getElementById("mcc-sec-cashflow"));
+    check("F4_cashflow_section_hidden_after_session_expiry_render", fAfterExpire === false, fAfterExpire);
+    await ctxF.close();
+
     // --- アサート5: pageerror 0 ---
     check("C5_no_page_errors", pageErrors.length === 0, JSON.stringify(pageErrors));
   } catch (e) {

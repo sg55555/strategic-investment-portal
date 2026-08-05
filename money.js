@@ -1862,7 +1862,13 @@ window.MCC = (function () {
   document.addEventListener("DOMContentLoaded", init);
   // 離脱時に未送信の編集を keepalive でフラッシュ（debounce 内クローズでの消失を防ぐ）。
   document.addEventListener("visibilitychange", function () {
-    if (document.visibilityState === "hidden") cloudFlushBeacon();
+    if (document.visibilityState === "hidden") { cloudFlushBeacon(); return; }
+    // B3: visible 復帰時、司令室表示中＋ログイン中＋前回取得から10分超なら再確認→再取得
+    // （開きっぱなしタブの古データ対策。_refreshing で多重発火は refreshData 側が守る）。
+    if (document.getElementById("money-view") && document.getElementById("money-view").classList.contains("active")
+        && sync.loggedIn && _cfFetchedAt && Date.now() - _cfFetchedAt > 600000) {
+      checkSession().then(function () { if (sync.loggedIn) refreshData(); else render(); });
+    }
   });
   window.addEventListener("pagehide", cloudFlushBeacon);
 
