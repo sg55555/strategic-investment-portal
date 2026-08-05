@@ -12,7 +12,7 @@
 
   // Slice3: AI規律コーチ。正準 next ターゲット（Python テンプレ map と test 網羅の単一源）。
   var NEXT_TARGETS = ["setup", "buffer", "rebalance", "core"];
-  var FACTS_SCHEMA_VERSION = 5; // v5: NISA枠（backlog B #3）nisa 集約を facts に追加
+  var FACTS_SCHEMA_VERSION = 6; // v6: facts 実効化配線（effectiveState 適用）＋cashSource enum追加
   // B#3 NISA枠（非課税枠）法定枠定数（2024新NISA・facts非出力＝公開既知値。年度改定時はここを更新）。
   var NISA_ANNUAL_TSUMITATE = 1200000;   // つみたて投資枠 年間上限
   var NISA_ANNUAL_GROWTH = 2400000;      // 成長投資枠 年間上限
@@ -1152,6 +1152,9 @@
     // B#3 Stage3: 投資台帳の月次行（state の外＝API 由来）。cashflow と同型で opts から受ける。
     var investmentRows = Array.isArray(opts.investmentRows) ? opts.investmentRows : [];
     var s = migrate(rawState);
+    // Task A3: 実効値方式（spec §2.1）を facts 経路へ配線。anchor未設定/確定rows無しは同一参照の no-op
+    // （effectiveState 側の後方互換保証）＝既存 manual フィクスチャは完全不変（cashSource/schemaVersion 以外）。
+    s = effectiveState(s, opts.cashflow, investmentRows, nowMs);
     var cur = s.currency === "USD" ? "USD" : "JPY"; // 自由文字列 currency を閉集合へ
     var total = totalAssets(s);
     var inv = investable(s);
@@ -1188,6 +1191,7 @@
       }),
       rulesVersion: CURRENT_VERSION,
       schemaVersion: FACTS_SCHEMA_VERSION,
+      cashSource: s.cashSource, // Task A3: "anchor"|"manual"（enum・production 許可・生¥ではない）
     };
 
     // 投資枠配分ロードマップ（backlog B #1）。state由来の集約は常時・生¥なし。

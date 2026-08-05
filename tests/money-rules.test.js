@@ -215,6 +215,7 @@ const PROD_TOP_KEYS = new Set([
   "growthCapRoomRemaining", "overContribution", "hasRestorationPending", "staleAnchorYear",
   "lifetimeFillEtaBucket", // B#3 NISA（source は既存キー名と衝突しないため別途: 下行）
   "source",
+  "cashSource", // Task A3: "anchor"|"manual"（enum・生¥ではない）
 ]);
 // production facts のツリーに現れてはならない生額・PII・注入面のキー（再帰深掘りで検査）。
 const DENYLIST_KEYS = [
@@ -230,6 +231,21 @@ test("modeAFacts: 全フィクスチャで production/personal が期待値と�
     const pers = R.modeAFacts(c.state, { includeRawAmounts: true, nowMs: caseNow(c), cashflow: c.cashflow, investmentRows: c.investment || [] });
     assert.deepEqual(pers, c.personal, "personal mismatch: " + c.name);
   });
+});
+
+// Task A3: facts 実効化の両側配線＋cashSource enum（既存65ケースは manual 既定 no-op のまま不変）。
+test("modeAFacts: anchorモードで bufferProgressPct が実効値由来・cashSource=anchor", () => {
+  const s = R.migrate({ anchor: { date: "2026-07-01", amount: 600000 },
+    monthlyExpense: 100000, bufferMonths: 6,           // 目標 600000
+    buckets: { buffer: { amount: 0 }, core: { amount: 0 }, satellite: { amount: 0 } } });
+  const rows = [{ period: "2026-07-01", balance: 0, is_complete: true }];
+  const f = R.modeAFacts(s, { cashflow: rows, investmentRows: [], nowMs: 0 });
+  assert.equal(f.cashSource, "anchor");
+  assert.equal(f.bufferProgressPct, 100);              // 実効 600000/600000（保存値0のままなら0になるはず）
+});
+test("modeAFacts: manual（anchor無し）は cashSource=manual・従来値", () => {
+  const f = R.modeAFacts(R.migrate({}), {});
+  assert.equal(f.cashSource, "manual");
 });
 
 test("modeAFacts(production): denylist キー・生額が一切現れない（再帰深掘り）", () => {
@@ -349,8 +365,8 @@ const CASHFLOW_FACT_KEYS = new Set([
 ]);
 const CF_RESERVES_KEYS = new Set(["active", "fundedPct", "shortfall"]);
 
-test("FACTS_SCHEMA_VERSION は 5（NISA枠 nisa 集約追加で bump）", () => {
-  assert.equal(R.FACTS_SCHEMA_VERSION, 5);
+test("FACTS_SCHEMA_VERSION は 6（Task A3: facts 実効化配線＋cashSource追加で bump）", () => {
+  assert.equal(R.FACTS_SCHEMA_VERSION, 6);
 });
 
 test("modeAFacts(production, cashflow): facts.cashflow は allowlist のみ・生額(yen)を漏らさない", () => {
@@ -1144,9 +1160,9 @@ test("assetClassesFacts: 域外nowMs（glidePath非configured）も undefined", 
   const s = R.migrate({birthYear:1986});
   assert.equal(R.assetClassesFacts(s, 1e300), undefined);
 });
-test("modeAFacts: schemaVersion=5・未設定 birthYear で assetClasses キー不在", () => {
+test("modeAFacts: schemaVersion=6・未設定 birthYear で assetClasses キー不在", () => {
   const f = R.modeAFacts(R.migrate({birthYear:0}), {nowMs: Date.UTC(2026,6,15)});
-  assert.equal(f.schemaVersion, 5);
+  assert.equal(f.schemaVersion, 6);
   assert.equal("assetClasses" in f, false);
 });
 test("modeAFacts: birthYear設定時は production/personal 両方に assetClasses が同値で載る（age は raw 隔離不要）", () => {
@@ -1555,8 +1571,8 @@ test("nisaEffective: manual は素通し／history は5スカラーだけ差替�
 });
 
 // Task6: Stage2 の中心的主張（facts 形状不変）の機械的証明。
-test("Stage2: facts 形状不変（schemaVersion 5 据置・manual と history でキー集合同一・history 非出力）", () => {
-  assert.equal(R.FACTS_SCHEMA_VERSION, 5);   // Stage2 は bump しない＝facts 形状不変
+test("Stage2: facts 形状不変（manual と history でキー集合同一・history 非出力・後続Task A3の bump とは独立）", () => {
+  assert.equal(R.FACTS_SCHEMA_VERSION, 6);   // Stage2 自体は bump しなかった（後続 Task A3 で 5→6・本テストは形状不変のみ検証）
 
   // 署名は modeAFacts(rawState, opts)。opts = {includeRawAmounts, nowMs, cashflow}（money-rules.js:1075 以下）
   const now = Date.UTC(2026, 5, 10);

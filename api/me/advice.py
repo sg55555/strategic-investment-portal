@@ -28,7 +28,7 @@ COOKIE = "wc_session"
 MODEL = "claude-sonnet-4-6"
 PROMPT_VERSION = "advice-sys-v1"
 DISCLAIMER_VERSION = "disc-v1"
-SCHEMA_VERSION = 5  # v5: NISA枠（backlog B #3）nisa 集約を facts に追加
+SCHEMA_VERSION = 6  # v6: facts 実効化配線（_effective_state 適用）＋cashSource enum追加
 RULES_VERSION = 2  # money-rules.js CURRENT_VERSION（版ずれ監査）
 NEXT_TARGETS = ["setup", "buffer", "rebalance", "core"]
 CORE_FALLBACK_MONTHS = 24
@@ -1154,6 +1154,10 @@ def mode_a_facts(raw_state, include_raw, now_ms, cashflow=None, investment=None)
     必ず _migrate で全フィールドを coerce してから allowlist キーのみで dict を構築する。"""
     inv_rows = investment if isinstance(investment, list) else []
     s = _migrate(raw_state)
+    # Task A3: 実効値方式（spec §2.1）を facts 経路へ配線（money-rules.js modeAFacts の鏡像）。anchor未設定/
+    # 確定rows無しは同一参照の no-op（_effective_state 側の後方互換保証）＝既存 manual フィクスチャは完全不変
+    # （cashSource/schemaVersion 以外）。
+    s = _effective_state(s, cashflow, inv_rows, now_ms)
     cur = "USD" if s["currency"] == "USD" else "JPY"
     total = _total_assets(s)
     inv = _investable(s)
@@ -1186,6 +1190,7 @@ def mode_a_facts(raw_state, include_raw, now_ms, cashflow=None, investment=None)
         "goals": [],
         "rulesVersion": RULES_VERSION,
         "schemaVersion": SCHEMA_VERSION,
+        "cashSource": s["cashSource"],  # Task A3: "anchor"|"manual"（enum・production 許可・生¥ではない）
     }
 
     # 投資枠配分ロードマップ（backlog B #1）。state由来の集約は常時・生¥なし（money-rules.js modeAFacts の鏡像）。

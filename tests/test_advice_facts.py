@@ -43,6 +43,7 @@ ALLOW = {
     "lifetimeUsedPct", "growthCapUsedPct", "annualRoomRemaining", "lifetimeRoomRemaining",
     "growthCapRoomRemaining", "overContribution", "hasRestorationPending", "staleAnchorYear",
     "lifetimeFillEtaBucket", "source",  # B#3 NISA
+    "cashSource",  # Task A3: "anchor"|"manual"（enum・生¥ではない）
 }
 DENY = {
     "raw", "monthlyExpense", "bufferAmount", "bufferTarget", "bufferRemaining", "coreAmount",
@@ -221,8 +222,8 @@ CF_ALLOW = {
 CF_RESERVES_ALLOW = {"active", "fundedPct", "shortfall"}
 
 
-def test_schema_version_5():
-    assert advice.SCHEMA_VERSION == 5
+def test_schema_version_6():
+    assert advice.SCHEMA_VERSION == 6
 
 
 def test_production_roadmap_no_raw_yen():
@@ -828,9 +829,9 @@ def test_asset_classes_facts_out_of_range_now_ms_is_none_mirror():
     assert advice._asset_classes_facts(s, 1e300) is None
 
 
-def test_mode_a_facts_schema_version_5_and_asset_classes_key_absent_when_unset():
+def test_mode_a_facts_schema_version_6_and_asset_classes_key_absent_when_unset():
     f = advice.mode_a_facts(advice._migrate({"birthYear": 0}), False, _MS_2026_UTC0715)
-    assert f["schemaVersion"] == 5
+    assert f["schemaVersion"] == 6
     assert "assetClasses" not in f
 
 
@@ -1105,8 +1106,9 @@ def test_nisa_derive_history_mode_mirrors_js():
 
 # Task6: Stage2 の中心的主張（facts 形状不変）の機械的証明。
 def test_stage2_facts_shape_unchanged():
-    """Stage2: SCHEMA_VERSION 5 据置・manual と history でキー集合同一・history 非出力。"""
-    assert advice.SCHEMA_VERSION == 5
+    """Stage2: manual と history でキー集合同一・history 非出力（Stage2 自体は bump しなかった。
+    後続 Task A3 で SCHEMA_VERSION 5→6・本テストは形状不変のみ検証）。"""
+    assert advice.SCHEMA_VERSION == 6
 
     # 署名は mode_a_facts(raw_state, include_raw, now_ms, cashflow=None)（api/me/advice.py:1031）
     now = 1780963200000  # 2026-06-10T00:00:00Z
