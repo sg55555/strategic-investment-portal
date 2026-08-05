@@ -12,9 +12,10 @@ name: cashflow-pull
 
 on:
   workflow_dispatch:
-  # 毎月 2 日 21:00 UTC = JST 翌 06:00 頃（前月確定後）。dispatch サニティ済で有効化（2026-06-29）。
+  # 毎日 21:00 UTC = JST 翌 06:00 頃。日次＝当月参考値（derivedCashLive）の鮮度用・確定は月次で従来どおり。
+  # 冪等 skip 実測済み（直後再実行 upsert=0）なので日次実行は安全。
   schedule:
-    - cron: "0 21 2 * *"
+    - cron: "0 21 * * *"
 
 permissions:
   contents: read
