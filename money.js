@@ -374,6 +374,7 @@ window.MCC = (function () {
     advice = null; adviceErr = ""; adviceBusy = false;  // 個人化助言ブロックを残さない（fe-1）
     _cashflowRows = [];  // 認証データ＝ログアウトで破棄（次のログインで再取得）
     _investmentRows = [];
+    _cfFetchedAt = 0; _cfFetchErr = "";  // B1: 上記と同じ認証データの付随メタ＝共有端末での前ユーザー残留を防ぐ
     apiJSON("POST", "/api/auth/logout").catch(function () {});
     sync.loggedIn = false; sync.lastError = ""; render();  // ローカル state はそのまま残す
   }
