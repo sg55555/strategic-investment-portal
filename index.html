@@ -115,13 +115,19 @@
   }
 
       /* T2: 横スクロール安全網。document.documentElement.scrollWidth を実際に縮めるには
-         html と body の両方に overflow-x:hidden が必要（実測確認済み：片方だけでは無効化されず
+         html と body の両方に overflow-x:clip が必要（実測確認済み：片方だけでは無効化されず
          454px のまま／両方指定で 390px に収束）。個別要因(search-input/term-help/mcc-help/
          比較モーダル幅/装飾グロー等)の是正が本筋・これは取りこぼし防止の最終防波堤（縦スクロールは
-         overflow-y 不指定のため無影響）。 */
-      html { overflow-x: hidden; }
+         overflow-y 不指定のため無影響）。
+         Fix Wave 1: whole-branch レビューで overflow-x:hidden が回帰を実測（body が独立スクロール
+         コンテナ化し money.css .mcc-tabbar-outer の position:sticky; top:0 が全ビューポートで無効化）。
+         clip は hidden 同様に scrollWidth を縮めつつ overflow-y の computed 値を auto へカップリング
+         しない（hidden は overflow-y:visible を auto へ昇格させ、body が独自スクロールコンテナになる
+         副作用を持つ。clip にはその副作用が無い）ため、sticky を壊さずに横スクロール安全網の効果は
+         そのまま維持できる。 */
+      html { overflow-x: clip; }
       body {
-        overflow-x: hidden;
+        overflow-x: clip;
         /* ③ Phase 3 D「ネオン・ターミナル」: 漆黒地＋縁グロー＋微細グリッド＋等幅基盤。 */
         background-color: var(--ix-bg);
         background-image:

@@ -9,6 +9,8 @@
 //   3. 余剰反映ボタンが無く autonote が出る（＋ applySurplus() を直接叩いても保存 state が動かない＝防衛ゲート）
 //   4. anchor 無し state では従来 UI（input・反映ボタン）＝manual 無回帰（実際に反映が効くところまで）
 //   5. pageerror 0
+//   6. Fix Wave 1: overflow-x hidden→clip 回帰（.mcc-tabbar-outer の position:sticky; top:0 が
+//      1440px/390px の両ビューポートで、実際に縦スクロールした状態でも top≈0 に張り付くこと）
 //
 // 方針: 実 index.html ＋ 実 money.js / money-rules.js / money.css を **無改造で** 配信し、
 //       差し替えるのは fetch/route レベル（/api/auth/session・/api/me/state・/api/me/cashflow・
@@ -1205,6 +1207,45 @@ function check(name, cond, detail) {
     const iJump = await pageI.evaluate(() => (document.getElementById("mcc-sec-sync") || {}).className || "");
     check("I3_anchor_jump_falls_back_to_sync_when_logged_out", /mcc-jump-flash/.test(iJump), iJump);
     await ctxI.close();
+
+    // ============ シナリオJ（Fix Wave 1）: overflow-x hidden→clip 回帰の実DOM検証 ============
+    // T2 で追加した html/body の overflow-x:hidden が body を独立スクロールコンテナ化し、
+    // money.css .mcc-tabbar-outer（position:sticky; top:0）が全ビューポートで無効化される回帰を
+    // レビューが指摘（clip へ置換で復活を実測済み）。ここでは「本当に縦スクロールが起きた状態で
+    // タブバーが top≈0 に張り付くか」を実DOMで固定する（既存シナリオの viewport 高さ2400px は
+    // 全コンテンツが収まりスクロールが発生しない可能性があるため、現実的な高さを別途使う）。
+    for (const vp of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+      const ctxJ = await browser.newContext({ viewport: vp });
+      await mockApi(ctxJ, STATE_ANCHOR);
+      const pageJ = await ctxJ.newPage();
+      pageJ.on("pageerror", (e) => pageErrors.push("J" + vp.width + ":" + String((e && e.message) || e)));
+      await openCockpit(pageJ);
+      // どちらが実スクロールコンテナになっていても拾えるよう window/documentElement/body の
+      // 3経路すべてに書き込む（overflow-x:hidden 時代は body 側が独立スクロールコンテナ化していた）。
+      await pageJ.evaluate(() => {
+        window.scrollTo(0, 999999);
+        document.documentElement.scrollTop = 999999;
+        document.body.scrollTop = 999999;
+      });
+      await pageJ.waitForTimeout(150);
+      const snapJ = await pageJ.evaluate(() => {
+        const el = document.querySelector(".mcc-tabbar-outer");
+        const scrolledAmount = Math.max(
+          window.scrollY || 0, document.documentElement.scrollTop || 0, document.body.scrollTop || 0
+        );
+        return {
+          exists: !!el,
+          top: el ? el.getBoundingClientRect().top : null,
+          scrolledAmount: scrolledAmount,
+          bodyOverflowY: el ? getComputedStyle(document.body).overflowY : null,
+        };
+      });
+      check("J_tabbar_present_" + vp.width, snapJ.exists === true, snapJ.exists);
+      check("J_actually_scrolled_" + vp.width, snapJ.scrolledAmount > 100, snapJ.scrolledAmount);
+      check("J_sticky_tabbar_top_near_zero_" + vp.width,
+        snapJ.top !== null && snapJ.top >= 0 && snapJ.top < 2, snapJ.top);
+      await ctxJ.close();
+    }
 
     // --- アサート5: pageerror 0 ---
     check("C5_no_page_errors", pageErrors.length === 0, JSON.stringify(pageErrors));
