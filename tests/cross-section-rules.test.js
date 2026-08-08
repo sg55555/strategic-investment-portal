@@ -142,6 +142,30 @@ test("sectorMedians: N<minNはその他集約", () => {
   assert.strictEqual(fin.median, 12);
   assert.strictEqual(other.n, 2); // 小売+食品
 });
+// T1: marketCap は raw が「生の円」（yfinance info.marketCap 準拠・index.html fmtMarketCap の
+//  val/1e12 前提と一致）。FR.fmtMagnitude は「百万単位」入力前提（finance-rules.js:80）なので、
+//  生円をそのまま渡すと100万倍の桁で誤表示する（監査実測: 482046.71 兆円）。
+//  トヨタ級 時価総額 ≈ 48兆円 = 4.8e13円 で固定し、正しく「48.xx 兆円」になることを固定する。
+test("T1: marketCap は生円→FR.fmtMagnitude(百万単位前提)の単位不整合を吸収し正しい兆円表示になる", () => {
+  const TOYOTA_LIKE = 4.8e13; // 約48兆円（生の円）
+  const data = { "TM.T": jpStock({ marketCap: TOYOTA_LIKE }) };
+
+  // ① relativePosition（詳細ページ「相対ポジション」）
+  const rp = CS.relativePosition("TM.T", data);
+  const mc = rp.groups.find(g => g.title === "規模").metrics.find(m => m.key === "marketCap");
+  assert.strictEqual(mc.value, TOYOTA_LIKE); // 生値は変えない（percentile計算等は raw のままでよい）
+  assert.match(mc.format, /^48\.\d\d 兆円$/, `expected ~48.xx 兆円, got "${mc.format}"`); // 誤表示なら "48000000.00 兆円" 級になりFAIL
+
+  // ② ランキング（同一 _fmtMetric 経路）
+  const u = CS.buildUniverse(data);
+  const ranked = CS.rankByMetric(u, "JP", "marketCap");
+  assert.match(ranked[0].format, /^48\.\d\d 兆円$/, `expected ~48.xx 兆円, got "${ranked[0].format}"`);
+
+  // ④ 比較モーダル指標表（同一 _fmtMetric 経路）
+  const rows = CS.compareMetricsRows(["TM.T"], data);
+  assert.match(rows[0].cells.marketCap.format, /^48\.\d\d 兆円$/, `expected ~48.xx 兆円, got "${rows[0].cells.marketCap.format}"`);
+});
+
 test("METRIC_REGISTRY termKeys all resolve in INDICATOR_GLOSSARY", () => {
   const DR = require("../detail-rules.js");
   const gloss = new Set(DR.INDICATOR_GLOSSARY.map(g => g.term));

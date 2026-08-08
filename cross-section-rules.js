@@ -131,9 +131,14 @@
     if (pctile >= 20) return { label: "やや下位", tone: "midlow" };
     return { label: "下位", tone: "low" };
   }
+  // T1: 指標ごとの単位前提。marketCap の raw は「生の円/ドル」（_rawPositive(raw,"marketCap")
+  //  = yfinance info.marketCap 準拠・index.html fmtMarketCap の val/1e12 前提と同じ）。
+  //  一方 FR.fmtMagnitude は「百万単位」入力前提（finance-rules.js:80、financials_trend 由来の
+  //  他指標はDB準拠で元々百万単位＝そのまま渡してよい）。marketCap だけは /1e6 して百万単位に
+  //  揃えてから渡す（監査実測バグ: 生円を直渡しし100万倍の桁で誤表示=「482046.71兆円」）。
   function _fmtMetric(m, value, currency) {
     if (value == null) return "—";
-    if (m.key === "marketCap") return FR && FR.fmtMagnitude ? FR.fmtMagnitude(value, currency) : String(value);
+    if (m.key === "marketCap") return FR && FR.fmtMagnitude ? FR.fmtMagnitude(value / 1e6, currency) : String(value);
     if (m.unit === "%") return value.toFixed(1) + "%";
     if (m.unit === "倍") return value.toFixed(1) + "倍";
     return String(value);
