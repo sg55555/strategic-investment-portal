@@ -260,18 +260,23 @@
 /* ホバーに加えタップ/キーボード(:focus)でも定義を表示する小ポップオーバー（title 依存をやめる） */
 .mcc-help::after {
   content: attr(data-def);
-  position: absolute; left: 50%; top: calc(100% + 6px); transform: translateX(-50%);
-  width: max-content; max-width: 240px; z-index: 30;
+  position: absolute; left: 50%; top: calc(100% + 6px);
+  /* T2 review fix1: 中央寄せ(-50%)のままだと画面端付近のアイコンでポップオーバーが画面外へ
+     張り出す。--mh-shift は index.html の delegated listener が hover/focus 時に実位置を
+     計測して書き込む横シフト量（未計測時は 0px=従来どおり中央寄せ）。 */
+  transform: translateX(calc(-50% + var(--mh-shift, 0px)));
+  /* T2 review fix1: 240px 固定だと極小ビューポートでそれ自体が画面よりはみ出しうるため
+     viewport相対の上限も併用する。 */
+  width: max-content; max-width: min(240px, calc(100vw - 24px)); z-index: 30;
   background: var(--c-surface-solid); border: 1px solid rgba(129,140,248,0.5); border-radius: 8px;
   padding: 8px 10px; color: var(--c-tint-cyan); font-size: 0.66rem; font-weight: 400; line-height: 1.5;
   letter-spacing: 0; text-align: left; white-space: normal;
   box-shadow: 0 8px 24px rgba(0,0,0,0.5); opacity: 0; pointer-events: none; transition: opacity 0.12s;
 }
 .mcc-help:hover::after, .mcc-help:focus::after { opacity: 1; }
-/* T2(portal投資ポータル横断バグ修正): opacity:0 でも position:absolute の箱として
-   scrollWidth に計上され続け横スクロールの原因になる（390px実測でmax-right≈456px）。
-   タッチでは hover が機能せず実用性が低いため、モバイルでは無効化する（"?"アイコン自体は残り視覚は不変）。 */
-@media (max-width: 768px) { .mcc-help::after { display: none; } }
+/* T2 review fix1: display:none 全廃(review Important指摘=用語解説がモバイルで完全に
+   失われる機能撤去だった)。画面内クランプ方式（上の base ルールの --mh-shift・index.html の
+   delegated listener）へ置き換え済み。 */
 
 /* --- ① 常駐「はじめに / 使い方」--- */
 .mcc-guide {

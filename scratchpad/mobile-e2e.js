@@ -10,6 +10,10 @@
 //   4. ウォッチ(☆)実クリックでトグル（watched クラスが切り替わる）
 //   5. portal/detail/money の3ビューとも document.documentElement.scrollWidth ≤ 390（横スクロール無し）
 //   6. pageerror 0件
+//   7. review fix1: term-help(detail)/mcc-help(money) の「?」ヘルプを実タップ→ポップオーバーが
+//      visible(opacity=1) かつ右端≤390・タップ解除で消える（opacity=0に戻る）。
+//      旧実装は display:none で用語解説自体を消していた(review Important指摘=機能撤去)ため、
+//      「消さずに画面内へ収める」方式(--th-shift/--mh-shift による位置クランプ)に変更した効果を固定。
 //
 // mock_prod_server.py（scratchpad/mock_prod_server.py）を自前起動（PLAN2_PORT=8232）。
 // index.html/detail.css/detail.js/money.css 等は毎リクエストでディスクから配信されるため無改造。
@@ -101,6 +105,30 @@ async function main() {
     }));
     assert("3_detail_no_horizontal_overflow", detailScroll.scrollWidth <= detailScroll.clientWidth, detailScroll);
 
+    // ---- ③b review fix1: term-helpの「?」を実タップ→ポップオーバーが画面内・タップ解除で消える ----
+    await page.evaluate(() => {
+      const el = Array.from(document.querySelectorAll(".term-help")).find((e) => e.offsetParent !== null);
+      if (el) el.setAttribute("data-t2-th-probe", "1");
+    });
+    await page.click('[data-t2-th-probe="1"]');
+    await page.waitForTimeout(200);
+    const thOpen = await page.evaluate(() => {
+      const el = document.querySelector('[data-t2-th-probe="1"]');
+      const r = el.getBoundingClientRect();
+      const cs = getComputedStyle(el, "::after");
+      const shift = parseFloat(getComputedStyle(el).getPropertyValue("--th-shift")) || 0;
+      const w = parseFloat(cs.width) || 0;
+      const centerX = r.left + r.width / 2 + shift;
+      return { opacity: parseFloat(cs.opacity), right: centerX + w / 2, vw: document.documentElement.clientWidth };
+    });
+    assert("3b_term_help_popover_visible_on_tap", thOpen.opacity >= 0.99, thOpen);
+    assert("3b_term_help_popover_within_viewport", thOpen.right <= thOpen.vw, thOpen);
+    await page.click(".company-title-main"); // タップ解除（他要素へフォーカス移動）
+    await page.waitForTimeout(200);
+    const thClosed = await page.evaluate(() =>
+      parseFloat(getComputedStyle(document.querySelector('[data-t2-th-probe="1"]'), "::after").opacity));
+    assert("3b_term_help_popover_hidden_after_dismiss", thClosed <= 0.01, thClosed);
+
     // ---- ④「⊕比較」実クリック→モーダルvisible・右端が390px以内（✕到達可能）----
     await page.click(".open-compare-btn");
     await page.waitForTimeout(300);
@@ -147,6 +175,30 @@ async function main() {
       clientWidth: document.documentElement.clientWidth,
     }));
     assert("7_money_no_horizontal_overflow", moneyScroll.scrollWidth <= moneyScroll.clientWidth, moneyScroll);
+
+    // ---- ⑦b review fix1: mcc-helpの「?」を実タップ→ポップオーバーが画面内・タップ解除で消える ----
+    await page.evaluate(() => {
+      const el = Array.from(document.querySelectorAll(".mcc-help")).find((e) => e.offsetParent !== null);
+      if (el) el.setAttribute("data-t2-mh-probe", "1");
+    });
+    await page.click('[data-t2-mh-probe="1"]');
+    await page.waitForTimeout(200);
+    const mhOpen = await page.evaluate(() => {
+      const el = document.querySelector('[data-t2-mh-probe="1"]');
+      const r = el.getBoundingClientRect();
+      const cs = getComputedStyle(el, "::after");
+      const shift = parseFloat(getComputedStyle(el).getPropertyValue("--mh-shift")) || 0;
+      const w = parseFloat(cs.width) || 0;
+      const centerX = r.left + r.width / 2 + shift;
+      return { opacity: parseFloat(cs.opacity), right: centerX + w / 2, vw: document.documentElement.clientWidth };
+    });
+    assert("7b_mcc_help_popover_visible_on_tap", mhOpen.opacity >= 0.99, mhOpen);
+    assert("7b_mcc_help_popover_within_viewport", mhOpen.right <= mhOpen.vw, mhOpen);
+    await page.click("body", { position: { x: 5, y: 5 } }); // タップ解除
+    await page.waitForTimeout(200);
+    const mhClosed = await page.evaluate(() =>
+      parseFloat(getComputedStyle(document.querySelector('[data-t2-mh-probe="1"]'), "::after").opacity));
+    assert("7b_mcc_help_popover_hidden_after_dismiss", mhClosed <= 0.01, mhClosed);
 
     // ---- pageerror 0件 ----
     await page.waitForTimeout(300);

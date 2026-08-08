@@ -442,10 +442,9 @@
         /* T2: 比較モーダルの箱を必ず画面内に収める（従来 width:95%/max-width:1100px は
            内包要素の自動最小幅フロアに押されて画面幅を超えることがあった＝min-width:0 で解除）。 */
         .compare-modal-box { width: min(429px, calc(100vw - 24px)); min-width: 0; }
-        /* T2: term-help ツールチップ(::after)は opacity:0 でも position:absolute の箱として
-           scrollWidth に計上され続け横スクロールの原因になる。タッチでは hover が機能せず
-           実用性が低いため、モバイルでは無効化する（"?"アイコン自体は残り視覚は不変）。 */
-        .term-help::after { display: none; }
+        /* T2 review fix1: term-help ツールチップは display:none 全廃(review Important指摘=
+           PER/PBR等の用語解説がモバイルで完全に失われる機能撤去だった)。画面内クランプ方式
+           （上の base ルールの --th-shift・index.html の delegated listener）へ置き換え済み。 */
       }
 
       @media (max-width: 480px) {
@@ -948,8 +947,14 @@
       .term-help:focus { outline: none; box-shadow: 0 0 0 2px color-mix(in srgb, var(--ix-cyan, #62f0ff) 45%, transparent); }
       .term-help::after {
         content: attr(data-def);
-        position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%);
-        width: max-content; max-width: 240px; padding: 8px 10px; border-radius: 6px;
+        position: absolute; left: 50%; bottom: calc(100% + 8px);
+        /* T2 review fix1: 中央寄せ(-50%)のままだと画面端付近のアイコンでポップオーバーが
+           画面外へ張り出す。--th-shift は index.html の delegated listener が hover/focus 時に
+           実位置を計測して書き込む横シフト量（未計測時は 0px=従来どおり中央寄せ）。 */
+        transform: translateX(calc(-50% + var(--th-shift, 0px)));
+        /* T2 review fix1: 240px 固定だと極小ビューポートでそれ自体が画面よりはみ出しうるため
+           viewport相対の上限も併用する。 */
+        width: max-content; max-width: min(240px, calc(100vw - 24px)); padding: 8px 10px; border-radius: 6px;
         font-size: 11px; line-height: 1.5; text-align: left; white-space: normal;
         color: var(--ix-text, #e8eefc);
         background: var(--ix-surface-2, rgba(10,16,32,.96));

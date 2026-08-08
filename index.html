@@ -2554,5 +2554,41 @@
     <script src="detail.js"></script>
     <script src="money-rules.js"></script>
     <script src="money.js"></script>
+    <script>
+      // T2 review fix1: term-help(detail.css)/mcc-help(money.css) の ::after ポップオーバーは
+      // CSS の left:50%+translateX(-50%) だけだと画面端付近のアイコンで画面外へ張り出す
+      // （横スクロールの原因＝以前は display:none で全廃していたが用語解説の機能撤去になるため
+      // review Important指摘でクランプ方式に変更）。hover/focus 時に実位置を計測し、はみ出す分だけ
+      // --th-shift/--mh-shift（各要素の CSS custom property・::after へ継承される）へ書き込む。
+      // 全ビュー(portal/detail/money)を横断する委譲イベントのため index.html 側に置く
+      // （term-help は detail.js、mcc-help は money.js のドメインだが、位置計測ロジック自体は
+      // 両者で同一のため共有・公開APIとしての export はしない=内部限定の副作用のみ）。
+      (function () {
+        "use strict";
+        var MARGIN = 12; // 画面端からの最小マージン（.compare-modal-box の calc(100vw - 24px) と同じ12px/辺）
+        function clampShift(el, cssVar) {
+          var r = el.getBoundingClientRect();
+          var w = parseFloat(getComputedStyle(el, "::after").width) || 0;
+          if (!w) { el.style.removeProperty(cssVar); return; }
+          var centerX = r.left + r.width / 2;
+          var half = w / 2;
+          var vw = window.innerWidth;
+          var shift = 0;
+          if (centerX - half < MARGIN) shift = MARGIN - (centerX - half);
+          else if (centerX + half > vw - MARGIN) shift = (vw - MARGIN) - (centerX + half);
+          el.style.setProperty(cssVar, shift.toFixed(1) + "px");
+        }
+        function onActivate(e) {
+          var t = e.target;
+          if (!t || !t.closest) return;
+          var th = t.closest(".term-help");
+          if (th) clampShift(th, "--th-shift");
+          var mh = t.closest(".mcc-help");
+          if (mh) clampShift(mh, "--mh-shift");
+        }
+        document.addEventListener("focusin", onActivate, true);
+        document.addEventListener("mouseover", onActivate, true);
+      })();
+    </script>
   </body>
 </html>
