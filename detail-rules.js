@@ -747,7 +747,7 @@
       var state = 'データ不足', readout = '';
       if (end && endBar) {
         state = (endBar.close >= endBar.open) ? '陽線(終値≥始値)' : '陰線';
-        readout = '出来高 ' + (end.value || 0);
+        readout = '出来高 ' + (end.value || 0).toLocaleString();
       }
       out.push({ key: 'volume', label: '出来高', term: 'volume', state: state, readout: readout });
     })();

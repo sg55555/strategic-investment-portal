@@ -455,8 +455,6 @@
   margin: 12px 0; padding: 10px 12px; border-radius: 8px;
   background: rgba(56,189,248,0.08); border-left: 3px solid var(--c-cyan);
 }
-.mcc-anchor-main { color: var(--c-cyan-tint); font-size: 0.82rem; display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
-.mcc-anchor-main strong { color: var(--c-cyan-bright); font-size: 1.0rem; }
 .mcc-anchor-sub { color: var(--c-text-dim); font-size: 0.66rem; line-height: 1.5; margin-top: 6px; }
 .mcc-anchor-edit { margin-top: 8px; background: rgba(56,189,248,0.16); border: 1px solid rgba(56,189,248,0.4); color: var(--c-cyan-pale); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 0.68rem; font-weight: 700; }
 .mcc-anchor-edit:hover { background: rgba(56,189,248,0.26); }
@@ -1021,8 +1019,6 @@
   background: rgba(0,229,255,0.06); border-left: 3px solid var(--c-cyan); border-radius: 2px;
   box-shadow: inset 0 0 16px rgba(0,229,255,0.05);
 }
-[data-theme="D"] #money-view .mcc-anchor-main { font-family: var(--mcc-mono); color: var(--c-cyan-tint); }
-[data-theme="D"] #money-view .mcc-anchor-main strong { color: var(--c-cyan-bright); text-shadow: 0 0 12px rgba(0,229,255,0.55); }
 [data-theme="D"] #money-view .mcc-anchor-setup { border-left-color: var(--c-slate); background: rgba(255,255,255,0.025); }
 
 /* ---------- 9. 確保枠 reserves（amber＝取り置き） ---------- */

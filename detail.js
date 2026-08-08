@@ -20,6 +20,8 @@
   //  currentTicker は portal/watchlist が読むため index.html global 維持（双方 free-var 参照）。
   let selectedYear = 2025;
   let pageUnit = null;   // Batch C: 会社規模で選定した「ページ統一単位」（pickUnit の結果）。
+  // T3: navigateToDetail の多重起動ガード（await getStock 中の再クリックを no-op 化）。
+  let navBusy = false;
 
   // 比較チャート（index.html から verbatim relocate）
   let compareSet = new Set();
@@ -577,46 +579,60 @@
     });
   }
 
-  async function navigateToDetail(ticker) {
-    trackEvent("view_detail", { ticker, company: STOCK_DATA[ticker]?.company_name });
-    currentTicker = ticker;
-    // v2 Slice1: 詳細を描く前に prices/全財務をその場ハイドレート（remote時のみ実フェッチ）
-    if (typeof getStock === "function") { try { await getStock(ticker); } catch (e) { console.error("getStock failed", e); } }
-    const data = STOCK_DATA[ticker];
-    if (!data) return;
+  // T3: rowEl は省略可（ticker のみの旧来呼出=各種検証スクリプト/page.evaluate 経由と後方互換）。
+  //  クリック行が分かる場合（portal 行 onclick / ランキング委譲リスナー）だけ .row-busy を併せて付与する。
+  async function navigateToDetail(ticker, rowEl) {
+    // await getStock 中の再クリックは no-op（多重ハイドレート/多重 showView/多重 setTimeout の防止）。
+    if (navBusy) return;
+    navBusy = true;
+    document.body.classList.add("nav-busy");
+    if (rowEl) rowEl.classList.add("row-busy");
+    try {
+      trackEvent("view_detail", { ticker, company: STOCK_DATA[ticker]?.company_name });
+      currentTicker = ticker;
+      // v2 Slice1: 詳細を描く前に prices/全財務をその場ハイドレート（remote時のみ実フェッチ）
+      if (typeof getStock === "function") { try { await getStock(ticker); } catch (e) { console.error("getStock failed", e); } }
+      const data = STOCK_DATA[ticker];
+      if (!data) return;
 
-    const availableYears = Object.keys(data.financials_trend).sort(
-      (a, b) => b - a,
-    );
-    selectedYear = availableYears[0] || 2025;
+      const availableYears = Object.keys(data.financials_trend).sort(
+        (a, b) => b - a,
+      );
+      selectedYear = availableYears[0] || 2025;
 
-    const ctrlBox = document.getElementById("year-controller-box");
-    ctrlBox.innerHTML = "";
-    availableYears.reverse().forEach((yr) => {
-      const btn = document.createElement("button");
-      btn.className = `time-btn ${yr == selectedYear ? "active" : ""}`;
-      btn.innerText = yr + " FY";
-      btn.onclick = (e) => switchYear(yr, e);
-      ctrlBox.appendChild(btn);
-    });
+      const ctrlBox = document.getElementById("year-controller-box");
+      ctrlBox.innerHTML = "";
+      availableYears.reverse().forEach((yr) => {
+        const btn = document.createElement("button");
+        btn.className = `time-btn ${yr == selectedYear ? "active" : ""}`;
+        btn.innerText = yr + " FY";
+        btn.onclick = (e) => switchYear(yr, e);
+        ctrlBox.appendChild(btn);
+      });
 
-    showView("detail");
+      showView("detail");
 
-    // カードフェードインアニメーション起動
-    const stack = document.querySelector(".dashboard-stack");
-    stack.classList.remove("animate-cards");
-    void stack.offsetWidth; // reflow
-    stack.classList.add("animate-cards");
+      // カードフェードインアニメーション起動
+      const stack = document.querySelector(".dashboard-stack");
+      stack.classList.remove("animate-cards");
+      void stack.offsetWidth; // reflow
+      stack.classList.add("animate-cards");
 
-    {
-      const container = document.getElementById("chart-container");
-      DetailCharts.resizePrice(container.clientWidth, 450);
+      {
+        const container = document.getElementById("chart-container");
+        DetailCharts.resizePrice(container.clientWidth, 450);
+      }
+
+      // 【詳細グラフ・アニメーション完全復活】150ms待機でブラウザのレイアウト計算完了後に着火
+      setTimeout(() => {
+        updateFinancialViews();
+      }, 150);
+    } finally {
+      // 表示完了/失敗（!data の早期 return・getStock 以外の例外）いずれの経路でも必ず解除する。
+      document.body.classList.remove("nav-busy");
+      if (rowEl) rowEl.classList.remove("row-busy");
+      navBusy = false;
     }
-
-    // 【詳細グラフ・アニメーション完全復活】150ms待機でブラウザのレイアウト計算完了後に着火
-    setTimeout(() => {
-      updateFinancialViews();
-    }, 150);
   }
 
   function switchYear(year, event) {

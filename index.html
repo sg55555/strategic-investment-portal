@@ -455,6 +455,30 @@
         transition: all 0.2s;
       }
 
+      /* T3: 詳細遷移のローディングフィードバック（navigateToDetail の await getStock 待機中）。
+         body.nav-busy=全体カーソル、.row-busy=クリック行の背景ハイライト＋行末ミニスピナー（末尾セル::after）。
+         portal-spin は既存 @keyframes（.portal-spinner）を再利用。 */
+      body.nav-busy { cursor: progress; }
+      .row-busy {
+        background: linear-gradient(90deg, rgba(0,229,255,0.16) 0%, rgba(0,229,255,0.04) 100%) !important;
+        box-shadow: inset 3px 0 0 var(--ix-cyan);
+      }
+      .row-busy td:last-child {
+        position: relative;
+      }
+      .row-busy td:last-child::after {
+        content: "";
+        position: absolute;
+        top: 50%; right: 10px;
+        width: 13px; height: 13px;
+        margin-top: -7px;
+        border: 2px solid rgba(0,229,255,0.25);
+        border-top-color: var(--ix-cyan);
+        border-radius: 50%;
+        animation: portal-spin 0.7s linear infinite;
+        pointer-events: none;
+      }
+
       .ticker-code {
         font-family: var(--ix-mono);
         color: var(--ix-cyan-bright);
@@ -2108,7 +2132,8 @@
       // Plan 2: 1行（銘柄カード）の <tr> を生成。§1 の tr 構築を move-not-rewrite で切り出し（挙動不変）。
       function _makePortalRow(item) {
         const tr = document.createElement("tr");
-        tr.onclick = () => navigateToDetail(item.ticker);
+        // T3: 行クリック直後の待機フィードバック用にクリック行(tr)を rowEl として渡す（.row-busy 付与元）。
+        tr.onclick = (ev) => navigateToDetail(item.ticker, ev.currentTarget);
 
         let perStyle = "color: #6b7d8a;";
         let perText = item.per > 0 ? item.per.toFixed(1) + "x" : "--";
@@ -2527,7 +2552,7 @@
         // #rk-table に1つだけ委譲リスナーを付ける＝data-ticker は属性値として読むのみでJSソースに混ぜない。
         host.onclick = function (e) {
           var tr = e.target.closest("tr[data-ticker]");
-          if (tr && tr.dataset.ticker) navigateToDetail(tr.dataset.ticker);
+          if (tr && tr.dataset.ticker) navigateToDetail(tr.dataset.ticker, tr); // T3: rowEl=tr で .row-busy 付与
         };
         document.getElementById("rk-disclaimer").textContent = disc; // FIX5: 上で算出済(非空保証)の disc を再利用
         renderRankScatterAndStrip(u); // Task 12
