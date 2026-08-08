@@ -114,7 +114,14 @@
   --ix-lime: #9be600;
   }
 
+      /* T2: 横スクロール安全網。document.documentElement.scrollWidth を実際に縮めるには
+         html と body の両方に overflow-x:hidden が必要（実測確認済み：片方だけでは無効化されず
+         454px のまま／両方指定で 390px に収束）。個別要因(search-input/term-help/mcc-help/
+         比較モーダル幅/装飾グロー等)の是正が本筋・これは取りこぼし防止の最終防波堤（縦スクロールは
+         overflow-y 不指定のため無影響）。 */
+      html { overflow-x: hidden; }
       body {
+        overflow-x: hidden;
         /* ③ Phase 3 D「ネオン・ターミナル」: 漆黒地＋縁グロー＋微細グリッド＋等幅基盤。 */
         background-color: var(--ix-bg);
         background-image:
@@ -263,6 +270,9 @@
       }
       .search-input {
         width: 100%;
+        /* T2: box-sizing 未指定だと content-box のため width:100% + padding(45+20)+border(2) が
+           親幅を超え横スクロールを誘発する（390px実測で+65px）。border-box化して幅を親内に収める。 */
+        box-sizing: border-box;
         background-color: var(--ix-surface-panel);
         color: var(--ix-text-max);
         border: 1px solid var(--ix-border-strong);

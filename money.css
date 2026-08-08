@@ -268,6 +268,10 @@
   box-shadow: 0 8px 24px rgba(0,0,0,0.5); opacity: 0; pointer-events: none; transition: opacity 0.12s;
 }
 .mcc-help:hover::after, .mcc-help:focus::after { opacity: 1; }
+/* T2(portal投資ポータル横断バグ修正): opacity:0 でも position:absolute の箱として
+   scrollWidth に計上され続け横スクロールの原因になる（390px実測でmax-right≈456px）。
+   タッチでは hover が機能せず実用性が低いため、モバイルでは無効化する（"?"アイコン自体は残り視覚は不変）。 */
+@media (max-width: 768px) { .mcc-help::after { display: none; } }
 
 /* --- ① 常駐「はじめに / 使い方」--- */
 .mcc-guide {

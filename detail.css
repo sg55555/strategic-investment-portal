@@ -424,11 +424,28 @@
         .dashboard-stack { gap: 14px; }
         .panel-sign-value-large { font-size: 2.2rem; }
         .back-bar { grid-template-columns: auto 1fr; }
-        .active-company-title { padding: 8px 12px; flex-wrap: nowrap; overflow: hidden; gap: 4px; }
+        /* T2: 比較/ウォッチ入口を復旧するため nowrap+overflow:hidden を撤廃。収まらなければ
+           wrap で二段目へ逃がし横スクロールを作らない（min-width:0 は back-bar 1fr トラックが
+           子の自動最小幅で押し広げられて横はみ出しするのを防ぐ防御）。 */
+        .active-company-title { padding: 8px 12px; flex-wrap: wrap; gap: 4px; min-width: 0; }
         .company-title-main { font-size: 0.95rem; }
         .sector-badge { display: none; }  /* スマホではセクターバッジを非表示 */
-        .detail-star-btn, .open-compare-btn { display: none; }  /* スマホではボタン非表示 */
+        /* T2: 比較/ウォッチの唯一の入口だった display:none を撤廃しコンパクト表示に変更
+           （タップ目標高さ44px・アイコン＋短縮ラベル。テキスト自体の変更は detail.js 側でこの
+           タスクの対象外＝CSSのみで幅を切り詰める）。 */
+        .detail-star-btn, .open-compare-btn {
+          display: inline-flex; align-items: center; justify-content: center;
+          min-height: 44px; padding: 6px 10px; margin-left: 4px;
+          font-size: 0.68rem; white-space: nowrap;
+        }
         .company-title-year { display: none; }
+        /* T2: 比較モーダルの箱を必ず画面内に収める（従来 width:95%/max-width:1100px は
+           内包要素の自動最小幅フロアに押されて画面幅を超えることがあった＝min-width:0 で解除）。 */
+        .compare-modal-box { width: min(429px, calc(100vw - 24px)); min-width: 0; }
+        /* T2: term-help ツールチップ(::after)は opacity:0 でも position:absolute の箱として
+           scrollWidth に計上され続け横スクロールの原因になる。タッチでは hover が機能せず
+           実用性が低いため、モバイルでは無効化する（"?"アイコン自体は残り視覚は不変）。 */
+        .term-help::after { display: none; }
       }
 
       @media (max-width: 480px) {
