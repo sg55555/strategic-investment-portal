@@ -1,0 +1,168 @@
+/* ============================================================================
+   案A: 現行D（ネオン・ターミナル）の可読性チューニング — override CSS
+   適用: theme-proxy.py が index.html </head> 直前に <style> 注入＋money.css 末尾に連結
+   （＝全既存シートより後勝ち。同一特異性なら本ファイルが勝つ）。
+   スコープ: catalog 柱1 案A の8項目のみ。色相・背景・レイアウトは不変。
+   !important は「インラインstyle上書きが必須の箇所」（セクター見出し/表セルのJS直書き色）だけ。
+   ---------------------------------------------------------------------------
+   ① 文字床12px（免責6種を含む）      ② 免責/注記色 → #8ba2af級(4.5:1以上)
+   ③ .time-label/.detail-star-btn の境界線色文字 → #8ba2af
+   ④ セクター見出し文字の不透明化(#d4e2ea)  ⑤ muted表セル#6b7d8a→#7f95a3・「標準」淡色化
+   ⑥ 14px未満のtext-shadowグロー廃止（ヒーロー級は維持）
+   ⑦ 日本語長文をsystem-uiサンセリフ＋letter-spacing:0
+   ⑧ 12px未満の主要クラスの12px化（①と同じ床の全量適用）
+   ========================================================================== */
+
+/* ---------- トークン再宣言（②⑤の土台） ---------- */
+:root {
+  /* ⑤ muted表セル・ミュート文字の土台: #6b7d8a(4.3:1) → #7f95a3(6.3:1) */
+  --ix-slate: #7f95a3;
+  /* ⑦ 日本語長文用サンセリフ（本ファイル専用の補助変数） */
+  --ix-sans: system-ui, -apple-system, "Segoe UI", "Hiragino Sans",
+             "Noto Sans JP", "Yu Gothic UI", "Meiryo", sans-serif;
+  /* 非D保険（実運用は常に data-theme="D"） */
+  --c-text-mute: #7b859b;
+}
+:root[data-theme="D"] {
+  /* ② 免責/注記のミュート色: #54636f(3.1:1) → #7f95a3(6.3:1) 「#8ba2af級」 */
+  --c-text-mute: #7f95a3;
+  /* ② faint注記(.mcc-section-desc/.mcc-nisa-gate 等): #6e8492(4.8:1) → #8299a7(6.6:1) */
+  --c-text-faint: #8299a7;
+  /* ⑤ money側 slate も同床へ */
+  --c-slate: #7f95a3;
+}
+
+/* ---------- ③ 境界線色(--ix-border-mid #2a3a44=1.7:1)を文字に使っていた2クラス ---------- */
+.time-label { color: var(--ix-text-dim, #8ba2af); }
+.detail-star-btn { color: var(--ix-text-dim, #8ba2af); }
+
+/* ---------- ④ セクター見出し: 文字は不透明#d4e2ea・色はアクセント(左罫/グラデ/枠)に残す ----------
+   ラベルは JS が style="color:${sectorColor}88"(α0.533=2.1-3.3:1) を直書き → !important が必須 */
+.sector-title > span[style]:first-child { color: var(--ix-text, #d4e2ea) !important; }
+.sector-title .sector-count-badge { color: var(--ix-text-dim, #8ba2af) !important; }
+
+/* ---------- ⑤ muted表セル(JS直書き color:#6b7d8a)→#7f95a3・「標準」val-badge淡色化 ---------- */
+td[style*="6b7d8a"] { color: #7f95a3 !important; }
+/* 「標準」バッジは情報量ゼロに近い割に4/5行を占有 → 淡色化（非表示はJS変更要のためモックはopacity） */
+.val-badge.fair { opacity: 0.35; }
+
+/* ---------- ⑥ グロー: 14px未満の text-shadow を廃止（ヒーロー級=modal-title/panel-sign/
+   hero-amount/gauge-pct/power/donut % 等 14px以上は維持） ---------- */
+/* portal/detail (index.html + detail.css) */
+.card-title { text-shadow: none; }              /* 12.8px。子(sig-asof等)への継承グローも同時に消える */
+.safety-score-num { text-shadow: none; }        /* 12px */
+.compare-title { text-shadow: none; }           /* 13.6px */
+.disc-chip .v.hot, .disc-chip .v.warm, .disc-chip .v.calm { text-shadow: none; } /* 12.48px */
+.ai-ins-headline { text-shadow: none; }         /* カード本文サイズ(<14px)の見出し行 */
+/* money (theme D 層と同一セレクタで後勝ち) */
+[data-theme="D"] #money-view .mcc-tab[aria-selected="true"] { text-shadow: none; }  /* 13.1px */
+[data-theme="D"] #money-view .mcc-section-title { text-shadow: none; }              /* 12.8px */
+[data-theme="D"] #money-view .mcc-sync-status,
+[data-theme="D"] #money-view .mcc-sync-on .mcc-sync-status { text-shadow: none; }   /* 12.5px */
+[data-theme="D"] #money-view .mcc-fold-cf > summary .mcc-fold-nm,
+[data-theme="D"] #money-view .mcc-fold-rm > summary .mcc-fold-nm,
+[data-theme="D"] #money-view .mcc-fold-nisa > summary .mcc-fold-nm,
+[data-theme="D"] #money-view .mcc-fold-ac > summary .mcc-fold-nm,
+[data-theme="D"] #money-view .mcc-fold-rg > summary .mcc-fold-nm,
+[data-theme="D"] #money-view .mcc-fold-ai > summary .mcc-fold-nm { text-shadow: none; } /* 12.8px */
+[data-theme="D"] #money-view .mcc-cf-stat strong.pos,
+[data-theme="D"] #money-view .mcc-cf-stat strong.neg { text-shadow: none; }         /* 12.8px */
+[data-theme="D"] #money-view .mcc-hero-next strong,
+[data-theme="D"] #money-view .mcc-hero-next-buffer strong,
+[data-theme="D"] #money-view .mcc-hero-next-rebalance strong { text-shadow: none; } /* 12.8px */
+[data-theme="D"] #money-view .mcc-sat-warn { text-shadow: none; }                   /* 11.8px */
+[data-theme="D"] #money-view .mcc-ac-yen strong { text-shadow: none; }              /* 12.8px */
+[data-theme="D"] #money-view .mcc-ac-card.neonb .mcc-ac-leg .pc { text-shadow: none; }      /* 12.2px */
+[data-theme="D"] #money-view .mcc-ac-card.neonb .mcc-ac-center .big { text-shadow: none; }  /* 12.5px */
+[data-theme="D"] #money-view .mcc-ac-card.neonb .mcc-ac-driftrow.over .dv,
+[data-theme="D"] #money-view .mcc-ac-card.neonb .mcc-ac-driftrow.under .dv,
+[data-theme="D"] #money-view .mcc-ac-card.neonb .mcc-ac-driftrow.match .dv { text-shadow: none; } /* 12.8px */
+/* 維持したヒーロー級(.mcc-hero-power 24px)の小さな子には継承させない */
+[data-theme="D"] #money-view .mcc-hero-power small { text-shadow: none; }
+
+/* ---------- ⑦ 日本語長文: system-uiサンセリフ＋letter-spacing:0（mono/字間はラテン・数値へ分離） ---------- */
+/* 免責6種 */
+.sig-disclaimer, .panel-disclaimer, .ht-disclaimer,
+.mcc-advice-disclaimer, .mcc-ac-disc, .mcc-nisa-gate,
+/* 説明文・注記（日本語文章） */
+.modal-text, .disc-note, .acc-desc, .acc-body .acc-full-desc,
+.sig-note, .ht-note, .subpanel-hint, .screening-note, .panel-desc-text-below,
+.mcc-expense-note, .mcc-bucket-note, .mcc-hero-ref-note,
+.mcc-cf-monthnote, .mcc-nisa-srcnote, .mcc-rm-note,
+.mcc-guide-rule, .mcc-guide-privacy,
+/* 用語集・用語ツールチップの定義文 */
+.mcc-glo-def, .mcc-glo-read, .term-help::after, .mcc-help::after {
+  font-family: var(--ix-sans);
+  letter-spacing: 0;
+  line-height: 1.65;
+}
+/* theme D 側で font-family:var(--mcc-mono) を直指定している3クラスは同一セレクタで奪回 */
+[data-theme="D"] #money-view .mcc-section-desc,
+[data-theme="D"] #money-view .mcc-cf-note,
+[data-theme="D"] #money-view .mcc-nisa-gate {
+  font-family: var(--ix-sans);
+  letter-spacing: 0;
+  line-height: 1.65;
+}
+
+/* ---------- ①⑧ 文字床12px: 12px未満の主要クラスを一括で12px化 ----------
+   除外＝純装飾グリフ(.c-sep/.acc-caret/.mcc-rm-phase-dot/.mcc-step-dot)。
+   後勝ちのため媒体クエリ内の縮小(0.58-0.72rem)にも同時に効く。 */
+/* portal (index.html) */
+.portal-header-date, .portal-stat-badge, .sector-count-badge,
+.val-badge, .growth-badge, .currency-badge,
+.screening-label, .screening-reset-btn, .screening-result-count,
+.screening-group, .screening-note,
+.site-footer, .footer-link, .copyright-bar, .sector-btn,
+/* detail (detail.css) */
+.compare-chip-remove, .compare-period-btn, .open-compare-btn,
+.panel-desc-text-below, .ma-label, .vol-label,
+.subpanel-links a, .subpanel-hint,
+.disc-title, .disc-chip .k, .disc-note,
+.acc-sub, .acc-desc, .acc-body .acc-full-desc,
+.sector-badge, .time-label, .ai-analysis-title, .ai-analysis-year-label,
+.kpi-active-badge, .kpi-yoy,
+.sig-note, .sig-asof, .sig-disclaimer, .ht-note, .ht-disclaimer,
+.dp-flabel, .relpos-na, .relpos-cap, .cmp-etf, .panel-disclaimer,
+/* money (money.css) */
+.mcc-nav-btn, .mcc-tab-num,
+.mcc-hero-label, .mcc-hero-chip-live, .mcc-hero-chip-prov,
+.mcc-hero-badge-done, .mcc-hero-badge-auto,
+.mcc-hero-basis, .mcc-hero-ref-label, .mcc-hero-ref-note,
+.mcc-hero-side-label, .mcc-hero-power small, .mcc-hero-power-none,
+.mcc-fold-dg, .mcc-cfg-sub, .mcc-auto-badge, .mcc-bucket-note, .mcc-field,
+.mcc-sat-cap, .mcc-sat-warn,
+.mcc-expense-adopt, .mcc-expense-applied, .mcc-expense-note,
+.mcc-tool-btn, .mcc-sync-btn, .mcc-sync-err,
+.mcc-section-desc, .mcc-guide-rule, .mcc-guide-privacy,
+.mcc-glo-title, .mcc-glo-read, .mcc-glo-def,
+.mcc-step-label, .mcc-step-opt, .mcc-goal-done, .mcc-goal-stat, .mcc-goal-addbtn,
+.mcc-advice-rulehead, .mcc-advice-mode, .mcc-advice-stale, .mcc-advice-err,
+.mcc-advice-disclaimer,
+.mcc-cf-partial, .mcc-cf-latest, .mcc-cf-monthnote, .mcc-cf-stat span,
+.mcc-wf, .mcc-cf-dest, .mcc-cf-autonote, .mcc-cf-cat, .mcc-cf-note,
+.mcc-cf-fresh, .mcc-cf-refresh, .mcc-cf-fetchinfo, .mcc-cf-fetcherr,
+.mcc-anchor-sub, .mcc-anchor-edit, .mcc-anchor-cta, .mcc-anchor-set,
+.mcc-anchor-form input[type="month"], .mcc-anchor-form input[type="number"],
+.mcc-rsv-badge, .mcc-rsv-stat, .mcc-rsv-monthly, .mcc-rsv-alloc, .mcc-rsv-fund,
+.mcc-rsv-editbox summary, .mcc-rsv-summary, .mcc-rsv-addbtn,
+.mcc-rm-phase-pct, .mcc-rm-phase-label, .mcc-rm-seam-chip, .mcc-rm-note, .mcc-rm-satchip,
+.mcc-ac-agerow label, .mcc-ac-tbtn, .mcc-ac-input-bktitle,
+.mcc-ac-center .sub, .mcc-ac-barlab, .mcc-ac-driftrow .tr,
+.mcc-ac-bands .cap, .mcc-ac-bk, .mcc-ac-band .yl, .mcc-ac-disc,
+.mcc-nisa-hud .k, .mcc-nisa-donut-center .l, .mcc-nisa-qlabel, .mcc-nisa-stat,
+.mcc-nisa-legend, .mcc-nisa-subbar-label, .mcc-nisa-chip, .mcc-nisa-gate,
+.mcc-nisa-srcbtn, .mcc-nisa-srcnote, .mcc-nisa-recon,
+.mcc-nisa-table, .mcc-nisa-table thead th, .mcc-nisa-addrow.muted,
+.mcc-nisa-rowdel, .mcc-nisa-table td::before {
+  font-size: 12px;
+}
+/* インラインstyleでfont-sizeを直書きしている2箇所（CSVボタン/チャート単位注記）は !important で床 */
+#csv-export-btn { font-size: 12px !important; }
+.active-company-title span[style*="font-size"] { font-size: 12px !important; }
+/* ヘルプバッジ(?): 文字12px化に合わせ円を14→17pxへ（クリップ回避＋タップ目標微増） */
+.term-help, .mcc-help { width: 17px; height: 17px; font-size: 12px; }
+/* 用語定義ツールチップの本文も床12px */
+.term-help::after, .mcc-help::after { font-size: 12px; }
+/* ベース12.8pxのまま媒体クエリ(≤375px)だけ11.5pxに落ちる.card-titleは同条件で床のみ当てる */
+@media (max-width: 375px) { .card-title { font-size: 12px; } }

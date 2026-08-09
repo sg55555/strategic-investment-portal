@@ -1,0 +1,780 @@
+/* ============================================================================
+   案C: ライトテーマ「FT流オフホワイト」override CSS（theme-proxy 注入専用・リポ無改変）
+   - :root の --ix-*（index/detail）と --c-*（money）を全面ライト体系へ再宣言
+   - グロー全廃（text-shadow/ネオンbox-shadow）→ 薄い標高影へ
+   - チャート canvas 内部色は JS 定数のため不変＝チャート領域は意図的な
+     「ダークスクリーン（計器面）」として枠側で馴染ませる（既知の制約）
+   - 文字床 12px・免責 12px/コントラスト是正を同梱
+   パレット:
+     bg #f6f4f0 / surface #ffffff / border #d8dee5
+     text #20303d / dim #54646f / mute #5f6e7a
+     sem-up(赤) #c22f45 / down(青) #1f5fc0 / warn文字 #946200 / ok #0f7a4d
+     accent teal-ink #0c7792 / indigo-ink #3947ae
+     淡tint: 赤#fbe9ec 青#e8effc 金#f7edd8 緑#e6f4ec 藍#e9ebfb シアン#e2f1f5
+     ダーク計器面: #0d1420 / 縁 #26374a
+   ========================================================================== */
+
+/* ---------- 1. トークン再宣言: --ix-* ---------- */
+:root {
+  color-scheme: light;
+
+  --ix-bg-void: #efece6;
+  --ix-bg: #f6f4f0;
+  --ix-surface-solid: #ffffff;
+  --ix-surface-0: #fcfbf8;
+  --ix-surface-chart: #e7e3da;
+  --ix-surface-1: #ffffff;
+  --ix-surface-2: #f3f1ec;
+  --ix-surface-panel: #ffffff;
+  --ix-surface-3: #edeae3;
+  --ix-surface-blue: #dde6ee;
+  --ix-border: #d8dee5;
+  --ix-border-mid: #c3ccd5;
+  --ix-border-strong: #c9d1da;
+  --ix-slate-line: #5f6e7a;
+  --ix-slate-muted: #5f6e7a;
+  --ix-slate-light: #47555f;
+  --ix-slate: #5a6873;
+  --ix-text-dim: #54646f;
+  --ix-text: #20303d;
+  --ix-text-bright: #1a2934;
+  --ix-text-hi: #14212c;
+  --ix-text-max: #0d1a24;
+  --ix-white: #ffffff;
+
+  --ix-indigo: #3f4cc0;
+  --ix-indigo-bright: #3947ae;
+  --ix-indigo-accent: #3d50c3;
+  --ix-blue: #1a63c4;
+  --ix-blue-bright: #1f5fc0;
+  --ix-blue-deep: #174a99;
+  --ix-cyan: #0c7792;
+  --ix-cyan-bright: #0a6a83;   /* 原本未定義の参照救済 */
+  --ix-sky: #0a7d99;
+  --ix-cyan-deep: #0b6d86;
+  --ix-cyan-bright2: #0c7792;
+  --ix-cyan-light: #0e5f74;
+  --ix-teal: #0c7d68;
+  --ix-teal-bright: #0a6f5c;
+  --ix-teal-deep: #095e50;
+  --ix-emerald: #0f7a4d;
+  --ix-emerald-bright: #0e6b45;
+  --ix-green: #0f7a4d;
+  --ix-green-bright: #0e6b45;
+  --ix-emerald-deep: #0a5c3a;
+  --ix-amber: #946200;
+  --ix-amber-deep: #8a5600;
+  --ix-gold: #8a6000;
+  --ix-amber-deeper2: #7a4e00;
+  --ix-yellow: #8a6000;
+  --ix-red: #c22f45;
+  --ix-red-soft: #b62b40;
+  --ix-rose: #b62b40;
+  --ix-red-deep: #a1253a;
+  --ix-red-deeper: #8c2033;
+  --ix-violet: #7c36b5;
+  --ix-purple: #7c36b5;
+  --ix-purple-deep: #6a2d9e;
+  --ix-violet-bright: #7c36b5;
+  --ix-pink: #b12569;
+  --ix-orange: #a4530a;
+  --ix-orange-deep: #964a08;
+  --ix-lime: #5a7a00;
+}
+
+/* ---------- 2. トークン再宣言: --c-*（money・data-theme 有無の両方） ---------- */
+:root,
+:root[data-theme="D"] {
+  --mcc-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  --c-indigo: #3f4cc0; --c-indigo-bright: #3947ae; --c-indigo-soft: #303c92; --c-indigo-pale: #273381;
+  --c-violet: #7c36b5; --c-violet-bright: #6a2d9e; --c-blue: #1a63c4;
+  --c-emerald: #0f7a4d; --c-emerald-bright: #0e6b45; --c-emerald-soft: #0a5c3a; --c-emerald-pale: #084d31;
+  --c-amber: #946200; --c-amber-bright: #8a5600; --c-amber-pale: #7a4e00; --c-amber-deep: #8a5600; --c-amber-deeper: #6b4400;
+  --c-cyan: #0c7792; --c-cyan-bright: #0a6a83; --c-cyan-pale: #095c72; --c-cyan-tint: #084f63;
+  --c-text: #20303d; --c-text-bright: #16242e; --c-text-dim: #54646f; --c-text-faint: #5f6e7a; --c-text-mute: #5f6e7a;
+  --c-slate: #5a6873; --c-gray: #5f6b76; --c-surface-solid: #ffffff;
+  --c-danger: #c22f45; --c-danger-soft: #b62b40;
+  --c-tint-emerald: #084d31; --c-tint-indigo: #273381; --c-tint-danger: #8c2033; --c-tint-cyan: #084f63;
+}
+
+/* ---------- 3. グロー全廃（テキスト発光の一括停止） ---------- */
+#portal-view *, #detail-view *, #ranking-view *, #money-view *,
+.modal-overlay *, .compare-modal-box *,
+#portal-view *::before, #detail-view *::before, #money-view *::before,
+#portal-view *::after, #detail-view *::after, #money-view *::after {
+  text-shadow: none !important;
+}
+
+/* ---------- 4. ページ地・背景演出 ---------- */
+body {
+  background-color: var(--ix-bg);
+  background-image: none;
+}
+.grid-bg { display: none; }
+.portal-header::before, .portal-header::after { display: none; }
+
+/* ---------- 5. ポータルヘッダー ---------- */
+.portal-title {
+  background: none;
+  -webkit-text-fill-color: var(--ix-text-hi);
+  color: var(--ix-text-hi);
+  filter: none;
+}
+.portal-title::before { -webkit-text-fill-color: #0c7792; color: #0c7792; }
+.portal-header-date { border-color: #cfd8e0; }
+.portal-stat-badge {
+  background: #e8effc;
+  border-color: #bccdea;
+  color: #1f5fc0;
+}
+#data-updated-at { border-color: #cfd8e0 !important; color: #54646f !important; }
+.portal-divider { background: linear-gradient(90deg, transparent, #d8dee5 40%, #d8dee5 60%, transparent); }
+.live-dot { box-shadow: none; animation: none; background: #0f7a4d; }
+
+/* ---------- 6. 検索・状態表示 ---------- */
+.search-input {
+  background-color: #ffffff;
+  box-shadow: 0 1px 2px rgba(28,41,53,0.06);
+}
+.search-input:focus {
+  border-color: #0c7792;
+  box-shadow: 0 0 0 3px rgba(12,119,146,0.15);
+}
+.retry-btn:hover { background: rgba(12,119,146,0.08); box-shadow: none; }
+.portal-spinner { border-color: #d8dee5; border-top-color: #0c7792; }
+
+/* ---------- 7. 凡例バー（インライン色を淡地+濃字へ） ---------- */
+.legend-bar {
+  background-color: #ffffff;
+  border-color: #d8dee5;
+}
+.legend-item:nth-child(1) > span { color: #0f7a4d !important; }
+.legend-item:nth-child(2) > span { color: #946200 !important; }
+.legend-item:nth-child(3) > span { color: #c22f45 !important; }
+
+/* ---------- 8. セクター見出し（インライン α0.533 の是正: 濃字強制） ---------- */
+.sector-title { background: linear-gradient(90deg, rgba(32,48,61,0.05), transparent) !important; }
+.sector-title > span:first-child { color: var(--ix-text) !important; }
+.sector-title .sector-count-badge {
+  background: #f3f1ec !important;
+  border-color: #d8dee5 !important;
+  color: #54646f !important;
+}
+
+/* ---------- 9. 一覧テーブル ---------- */
+.portal-table {
+  box-shadow: 0 1px 2px rgba(28,41,53,0.06), 0 4px 14px rgba(28,41,53,0.07);
+}
+.portal-table th { border-bottom-color: #c9d1da; }
+.portal-table th:hover { background-color: #e9e6df; color: var(--ix-text-hi); }
+.portal-table td { border-bottom-color: #eceae4; }
+.portal-table tbody tr:nth-child(even) { background-color: #f9f8f4; }
+.portal-table tr:hover {
+  background: #eef4fb;
+  box-shadow: inset 3px 0 0 #1f5fc0;
+}
+.ticker-code { background: #e2f1f5; color: #0b6d86; }
+.val-badge.cheap { background: #e6f4ec; color: #0f7a4d; border-color: #bfe0cf; }
+.val-badge.fair  { background: #eef0f2; color: #54646f; border-color: #d3d9de; }
+.val-badge.exp   { background: #fbe9ec; color: #c22f45; border-color: #efc4cc; }
+.val-badge.gold  { background: #f7edd8; color: #946200; border-color: #e3cfa1; }
+.currency-badge { background: #f7edd8; border-color: #e3cfa1; color: #946200; }
+.growth-badge.muted { opacity: 0.75; }
+.safety-bar-track { background: #e4e1da; }
+.safety-score-num { color: var(--ix-text) !important; }  /* 色相はバー側が保持 */
+.star-btn { color: #9aa7b2; }
+.flag-tag { color: #0b6d86; }
+
+/* スパークライン: 線色は JS ネオン＝ダーク計器チップの上に載せて判読を保つ */
+.sparkline-wrapper {
+  background: #0d1420;
+  border-radius: 4px;
+  padding: 2px 4px;
+  box-sizing: border-box;
+}
+.sparkline-svg { filter: none; }
+
+/* ---------- 10. カード（白面+標高影・ネオン縁廃止） ---------- */
+.card {
+  background: #ffffff;
+  border: 1px solid #d8dee5;
+  box-shadow: 0 1px 2px rgba(28,41,53,0.05), 0 6px 18px rgba(28,41,53,0.07);
+}
+.card:hover {
+  background: #ffffff;
+  border-color: #c3ccd5;
+  box-shadow: 0 2px 4px rgba(28,41,53,0.06), 0 10px 24px rgba(28,41,53,0.10);
+}
+.card-title {
+  color: #0e5f74;
+  border-left-color: #0c7792;
+}
+
+/* ---------- 11. スクリーニング・お問い合わせ・モーダル ---------- */
+.screening-panel { border-color: #d8dee5; }
+.screening-result-count { color: #54646f; }
+.screening-sep { color: #8a97a3; }
+.screening-group { border-bottom-color: #d8dee5; }
+.contact-submit { background: linear-gradient(135deg, #0b6d86, #0c7d68); color: #ffffff; }
+.contact-submit:hover { background: linear-gradient(135deg, #095c72, #0a6b59); }
+.modal-overlay { background: rgba(28,36,44,0.45); }
+.modal-box, .compare-modal-box {
+  background: #ffffff;
+  border: 1px solid #d8dee5;
+  box-shadow: 0 24px 60px rgba(28,41,53,0.28);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.tech-badge { background: #e9ebfb; border-color: #c6cdf3; color: #3947ae; }
+.about-github-btn { background: #e9ebfb; border-color: #c6cdf3; color: #3947ae; }
+.about-github-btn:hover { background: #dde1f8; color: #6a2d9e; }
+
+/* ---------- 12. セクターボタン・コピーライト ---------- */
+.sector-btn.active {
+  background-color: #0c7792;
+  color: #ffffff;
+  border-color: #0c7792;
+  box-shadow: none;
+}
+.copyright-bar .c-sep { color: #8a97a3; }
+
+/* ---------- 13. 詳細: 戻るバー/タイムバー/会社見出し ---------- */
+.back-bar { box-shadow: 0 1px 2px rgba(28,41,53,0.05), 0 4px 14px rgba(28,41,53,0.06); }
+.back-btn:hover { background-color: #e2f1f5; color: #0b6d86; }
+.time-control-bar { background: #fcfbf8; }
+.time-label { color: #54646f; font-size: 12px; }               /* 監査: 1.72:1 是正 */
+.company-title-year { color: #54646f; }
+.time-btn.active { box-shadow: none; }
+.time-selected-year { background: linear-gradient(90deg, #1a63c4, #3947ae); -webkit-background-clip: text; background-clip: text; }
+.detail-star-btn { color: #8a97a3; }
+.detail-star-btn.watched { background: #f7edd8; }
+.open-compare-btn { background: #e2f1f5; border-color: #b5d4dd; color: #0a5b70; }
+.open-compare-btn:hover { background: #d3e8ee; }
+#csv-export-btn {
+  background: #e6f4ec !important;
+  border: 1px solid #bfe0cf !important;
+  color: #0f7a4d !important;
+}
+
+/* ---------- 14. 詳細: インジケーターチップ（ネオン→濃色インク） ---------- */
+#ma-btn-5.active  { border-color: #b81d67; color: #b81d67; background: rgba(184,29,103,0.08); }
+#ma-btn-25.active { border-color: #155fae; color: #155fae; background: rgba(21,95,174,0.08); }
+#ma-btn-75.active { border-color: #6d2fbf; color: #6d2fbf; background: rgba(109,47,191,0.08); }
+#ind-btn-bb.active   { border-color: #0b6d86; color: #0b6d86; background: rgba(11,109,134,0.08); }
+#ind-btn-sr.active   { border-color: #bb2456; color: #bb2456; background: rgba(187,36,86,0.08); }
+#ind-btn-tr.active   { background: rgba(148,98,0,0.08); }
+#sp-chip-rsi.active  { border-color: #8a6000; color: #8a6000; background: rgba(138,96,0,0.08); }
+#sp-chip-macd.active { border-color: #b81d67; color: #b81d67; background: rgba(184,29,103,0.08); }
+#sp-chip-adx.active  { border-color: #0b6d86; color: #0b6d86; background: rgba(11,109,134,0.08); }
+#sp-chip-atr.active  { border-color: #96530a; color: #96530a; background: rgba(150,83,10,0.08); }
+.subpanel-links a:hover { color: #084f63; }
+
+/* ---------- 15. チャート領域＝ダーク計器面（JS色は不変・枠側で馴染ませる） ---------- */
+#chart-container, .chart-main-area, .full-width-area, .ht-chart,
+#compare-chart-container, #rk-scatter-wrap {
+  background: #0d1420;
+  border: 1px solid #26374a;
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+}
+#dupont-body svg { background: #0d1420; border-radius: 3px; }
+
+/* ---------- 16. 詳細: ステータス読出しパネル＝ダーク計器面（JSインラインのネオン数値を保全）
+   card 内のダーク島にだけ暗色トークンを局所再宣言する ---------- */
+.status-card {
+  background: linear-gradient(135deg, #111b28, #0c1520);
+  border-color: #26374a;
+  --ix-text-dim: #a3b4c2;
+  --ix-text: #dbe6ee;
+  --ix-text-hi: #eef5f9;
+  --ix-slate: #8ea1af;
+}
+.status-card.gold::before, .status-card.blue::before, .status-card.green::before,
+.status-card.red::before, .status-card.purple::before, .status-card.cyan::before {
+  box-shadow: none;
+}
+/* 計器面のアクセントバー/数値は元のネオン系を局所復元（ダーク地では旧配色が正） */
+.status-card.gold::before   { background-color: #ffd60a; }
+.status-card.blue::before   { background-color: #2f9dff; }
+.status-card.green::before  { background-color: #00e676; }
+.status-card.red::before    { background-color: #ff1744; }
+.status-card.purple::before { background-color: #cf4dff; }
+.status-card.cyan::before   { background-color: #00b8d4; }
+
+/* CF 企業タイプバッジ: 背景グラデは JS インライン（タイプ別色相は温存）＝
+   ライトでは白地に淡パステル化するため、文字だけ濃色インクへ強制（インライン白字に勝つには !important 必須） */
+.type-badge {
+  color: #14212c !important;
+  box-shadow: 0 2px 10px rgba(28,41,53,0.18) !important;
+}
+
+/* ---------- 17. 詳細: シグナル/健全性/DuPont/相対ポジション ---------- */
+.ai-analysis-card { border-color: #d8dee5; }
+.dp-roe .dp-fval { color: #946200; }
+.dp-driver { color: #54646f; }  /* 原本は未定義トークン fallback #bcd＝ライトで淡すぎ */
+.relpos-label { color: #42525e; }
+.relpos-val { color: #20303d; }
+.relpos-cap { color: #54646f; }
+.relpos-na { color: #5f6e7a; }
+.relpos-bar { background: linear-gradient(90deg, #e0eaee, #c8dde5); }
+.relpos-median { background: rgba(32,48,61,0.45); }
+.relpos-dot, .relpos-marker { box-shadow: none; }
+.discipline-card { background: #fcfbf8; box-shadow: none; }
+.disc-chip .v { color: var(--ix-text); }
+
+/* ---------- 18. 詳細: 比較モーダル/比較テーブル ---------- */
+.compare-chip { background: #10151d !important; }   /* チップ色は JS インラインのネオン＝暗地で判読（inline bg に勝つ !important） */
+.cmp-tab { color: #54646f; border-color: #c9d1da; }
+.cmp-tab.active { box-shadow: none; }
+.cmp-table th, .cmp-table td { border-bottom-color: #e4e8ec; }
+.cmp-table td.na { color: #5f6e7a; }
+.cmp-etf { color: #946200; }
+.cmp-cur { color: #54646f; }
+.cmp-note { color: #54646f; }
+.compare-period-btn.active { box-shadow: none; }
+
+/* ---------- 19. ランキング ---------- */
+.rk-mkt, .rk-back, #ranking-entry { color: #54646f; border-color: #c9d1da; }
+.rk-mkt.active { box-shadow: none; }
+#rk-metric { background: #ffffff; color: #20303d; border-color: #c9d1da; }
+.rk-tbl th, .rk-tbl td { border-bottom-color: #e4e1da; }
+.rk-tbl tbody tr:hover { background: #eef4fb; }
+.rk-sec { color: #54646f; }
+.rk-val { color: #20303d; }
+.rk-cell { color: #42525e; border-color: #d3dade; }
+.rk-cell-sec { color: #42525e; }
+.rk-cell-n { color: #5f6e7a; }
+.rk-cell-med { color: #20303d; }
+
+/* ---------- 20. 詳細: AI・用語ヘルプ・KPI ---------- */
+.ai-insight-btn:hover { box-shadow: none; }
+.term-pop, .term-help + [role="tooltip"] { box-shadow: 0 8px 24px rgba(28,41,53,0.18); }
+.kpi-year-col.active-year { box-shadow: 0 0 0 2px rgba(31,95,192,0.18); }
+
+/* ---------- 21. money: ビュー地・トップバー ---------- */
+[data-theme="D"] #money-view {
+  background-color: #f6f4f0;
+  background-image: none;
+  color: var(--c-text);
+}
+[data-theme="D"] #money-view .mcc-title {
+  background: none;
+  -webkit-text-fill-color: var(--c-text-bright);
+  color: var(--c-text-bright);
+  filter: none;
+}
+[data-theme="D"] #money-view .mcc-title::before { -webkit-text-fill-color: #0c7792; color: #0c7792; }
+[data-theme="D"] #money-view .mcc-nav-btn {
+  background: #e9ebfb; border-color: #c6cdf3; color: #3140a6;
+}
+[data-theme="D"] #money-view .mcc-nav-btn:hover { background: #dde1f8; box-shadow: none; }
+[data-theme="D"] #money-view .mcc-tabbar-outer {
+  background: rgba(246,244,240,0.96);
+  border-bottom: 1px solid #d8dee5;
+  box-shadow: 0 2px 8px rgba(28,41,53,0.07);
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+[data-theme="D"] #money-view .mcc-tab:hover { color: #0a5b70; }
+[data-theme="D"] #money-view .mcc-tab[aria-selected="true"] { color: #0c7792; }
+[data-theme="D"] #money-view .mcc-tab[aria-selected="true"]::after {
+  background: #0c7792;
+  box-shadow: none;
+}
+
+/* ---------- 22. money: ヒーロー ---------- */
+[data-theme="D"] #money-view .mcc-hero {
+  background: #ffffff; border-color: #d8dee5;
+  box-shadow: 0 1px 2px rgba(28,41,53,0.05), 0 6px 18px rgba(28,41,53,0.07);
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+[data-theme="D"] #money-view .mcc-hero-main { border-right-color: #e6e9ed; }
+[data-theme="D"] #money-view .mcc-hero-amount { color: #14212c; }
+[data-theme="D"] #money-view .mcc-hero-chip-live { border-color: #b7dcc8; color: #0f7a4d; box-shadow: none; }
+[data-theme="D"] #money-view .mcc-hero-chip-prov { border-color: #e3cfa1; color: #946200; box-shadow: none; }
+[data-theme="D"] #money-view .mcc-hero-badge-done { border-color: #b7dcc8; color: #0f7a4d; }
+[data-theme="D"] #money-view .mcc-hero-badge-auto { border-color: #b5d4dd; color: #0a5b70; }
+[data-theme="D"] #money-view .mcc-hero-ref { border-top-color: #e2e6ea; }
+[data-theme="D"] #money-view .mcc-hero-ref-amount { color: #20303d; }
+[data-theme="D"] #money-view .mcc-hero-gauge-track { background: #eef0f2; border-color: #d8dee5; }
+[data-theme="D"] #money-view .mcc-hero-gauge-fill {
+  background: linear-gradient(90deg, #1f5fc0, #0c7792, #0f7a4d);
+  box-shadow: none;
+}
+[data-theme="D"] #money-view .mcc-hero-gauge-pct { color: #0e6b45; }
+[data-theme="D"] #money-view .mcc-hero-power { color: #0e6b45; }
+[data-theme="D"] #money-view .mcc-hero-next {
+  background: #e6f4ec; border-left-color: #0f7a4d; color: #0b5936; box-shadow: none;
+}
+[data-theme="D"] #money-view .mcc-hero-next strong { color: #0a4d30; }
+[data-theme="D"] #money-view .mcc-hero-next-icon { color: #0f7a4d; }
+[data-theme="D"] #money-view .mcc-hero-next-buffer {
+  background: #e9ebfb; border-left-color: #3947ae; color: #273381; box-shadow: none;
+}
+[data-theme="D"] #money-view .mcc-hero-next-buffer strong { color: #202b70; }
+[data-theme="D"] #money-view .mcc-hero-next-buffer .mcc-hero-next-icon { color: #3947ae; }
+[data-theme="D"] #money-view .mcc-hero-next-rebalance {
+  background: #fbe9ec; border-left-color: #c22f45; color: #8c2033; box-shadow: none;
+}
+[data-theme="D"] #money-view .mcc-hero-next-rebalance strong { color: #8c2033; }
+[data-theme="D"] #money-view .mcc-hero-next-rebalance .mcc-hero-next-icon { color: #c22f45; }
+[data-theme="D"] #money-view .mcc-hero > .mcc-cf-fetchnote {
+  background: #fbfaf7; border-top-color: #e2e6ea;
+}
+@media (max-width: 860px) {
+  [data-theme="D"] #money-view .mcc-hero-main { border-bottom-color: #e6e9ed; }
+}
+
+/* ---------- 23. money: 同期バー/ガイド/ステッパー ---------- */
+[data-theme="D"] #money-view .mcc-sync {
+  background: #ffffff; border-color: #d8dee5;
+  box-shadow: 0 1px 2px rgba(28,41,53,0.05);
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+[data-theme="D"] #money-view .mcc-sync-on { border-color: #b7dcc8; box-shadow: 0 1px 2px rgba(28,41,53,0.05); }
+[data-theme="D"] #money-view .mcc-sync-status { color: #3140a6; }
+[data-theme="D"] #money-view .mcc-sync-on .mcc-sync-status { color: #0b5936; }
+[data-theme="D"] #money-view .mcc-sync-form input {
+  background: #ffffff; border-color: #c3ccd5; color: #20303d;
+}
+[data-theme="D"] #money-view .mcc-guide {
+  background: #fbfaf7; border-color: #c6cdf3;
+}
+[data-theme="D"] #money-view .mcc-guide > summary { color: #3140a6; }
+[data-theme="D"] #money-view .mcc-guide > summary::before { color: #0c7792; }
+[data-theme="D"] #money-view .mcc-guide-body { border-top-color: #e2e6ea; }
+[data-theme="D"] #money-view .mcc-guide-rule {
+  background: #f3f4fb; border-left-color: #3947ae; color: #273381;
+}
+[data-theme="D"] #money-view .mcc-guide-rule b { color: #6a2d9e; }
+[data-theme="D"] #money-view .mcc-glo-item { background: #f6f8f9; border-color: #e2e6ea; }
+[data-theme="D"] #money-view .mcc-guide-privacy { border-top-color: #e2e6ea; }
+[data-theme="D"] #money-view .mcc-onboard {
+  background: #f3f4fb; border-color: #c6cdf3; color: #273381;
+}
+[data-theme="D"] #money-view .mcc-stepper {
+  background: #ffffff; border-color: #d8dee5;
+  box-shadow: 0 1px 2px rgba(28,41,53,0.05), 0 4px 14px rgba(28,41,53,0.06);
+}
+[data-theme="D"] #money-view .mcc-step-sep { background: #d3d9de; }
+[data-theme="D"] #money-view .mcc-step-todo .mcc-step-dot { background: #f1f3f5; border-color: #d3d9de; color: #5f6e7a; }
+[data-theme="D"] #money-view .mcc-step-done .mcc-step-dot { background: #e6f4ec; border-color: #0f7a4d; color: #0b5936; box-shadow: none; }
+[data-theme="D"] #money-view .mcc-step-done .mcc-step-label { color: #0b5936; }
+[data-theme="D"] #money-view .mcc-step-current .mcc-step-dot { background: #e2f1f5; border-color: #0c7792; color: #0a5b70; box-shadow: none; }
+[data-theme="D"] #money-view .mcc-step-current .mcc-step-label { color: #0a5b70; }
+[data-theme="D"] #money-view .mcc-stepper-next { background: #f6f8f9; border-color: #e2e6ea; color: #0a5b70; }
+
+/* ---------- 24. money: 折りたたみ/設定カード ---------- */
+[data-theme="D"] #money-view .mcc-fold {
+  background: #ffffff; border-color: #d8dee5;
+  box-shadow: 0 1px 2px rgba(28,41,53,0.05), 0 4px 14px rgba(28,41,53,0.06);
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+[data-theme="D"] #money-view .mcc-fold > summary:hover { background: #f4f6f8; }
+[data-theme="D"] #money-view .mcc-fold-body { border-top-color: #e6e9ed; }
+[data-theme="D"] #money-view .mcc-fold-cf { border-color: #9ec6d3; }
+[data-theme="D"] #money-view .mcc-fold-cf > summary .mcc-fold-nm { color: #0c7792; }
+[data-theme="D"] #money-view .mcc-fold-rm { border-color: #c0c7ee; }
+[data-theme="D"] #money-view .mcc-fold-rm > summary .mcc-fold-nm { color: #3947ae; }
+[data-theme="D"] #money-view .mcc-fold-nisa { border-color: #d6b8ea; }
+[data-theme="D"] #money-view .mcc-fold-nisa > summary .mcc-fold-nm { color: #6a2d9e; }
+[data-theme="D"] #money-view .mcc-fold-ac { border-color: #9ec6d3; }
+[data-theme="D"] #money-view .mcc-fold-ac > summary .mcc-fold-nm { color: #0c7792; }
+[data-theme="D"] #money-view .mcc-fold-rg { border-color: #e3cfa1; }
+[data-theme="D"] #money-view .mcc-fold-rg > summary .mcc-fold-nm { color: #946200; }
+[data-theme="D"] #money-view .mcc-fold-ai { border-color: #c0c7ee; }
+[data-theme="D"] #money-view .mcc-fold-ai > summary .mcc-fold-nm { color: #3947ae; }
+[data-theme="D"] #money-view .mcc-cfg-card {
+  background: #ffffff; border-color: #d8dee5;
+  box-shadow: 0 1px 2px rgba(28,41,53,0.05), 0 4px 14px rgba(28,41,53,0.06);
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+[data-theme="D"] #money-view .mcc-cfg-sub { color: #0a5b70; }
+[data-theme="D"] #money-view .mcc-save-warn {
+  background: #fbe9ec; border-color: #e5aab5; color: #8c2033; box-shadow: none;
+}
+
+/* ---------- 25. money: 収支/アンカー ---------- */
+[data-theme="D"] #money-view .mcc-cashflow {
+  background: transparent; border: none; box-shadow: none;
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+[data-theme="D"] #money-view .mcc-cf-period { color: #16242e; }
+[data-theme="D"] #money-view .mcc-cf-surplus { background: #e6f4ec; border-left-color: #0f7a4d; box-shadow: none; }
+[data-theme="D"] #money-view .mcc-cf-surplus-neg { background: #fbe9ec; border-left-color: #c22f45; box-shadow: none; }
+[data-theme="D"] #money-view .mcc-wf { background: #f6f8f9; }
+[data-theme="D"] #money-view .mcc-wf-buffer  { border-color: #9ec6d3; color: #0a5b70; box-shadow: none; }
+[data-theme="D"] #money-view .mcc-wf-core    { border-color: #c0c7ee; color: #3140a6; box-shadow: none; }
+[data-theme="D"] #money-view .mcc-wf-sat,
+[data-theme="D"] #money-view .mcc-wf-reserve { border-color: #e3cfa1; color: #7a4e00; box-shadow: none; }
+[data-theme="D"] #money-view .mcc-cf-cat { background: #f1f5f7; border-color: #dde5e9; }
+[data-theme="D"] #money-view .mcc-cf-autonote { background: #e8f3f7; border-color: #9ec6d3; color: #0a5b70; }
+[data-theme="D"] #money-view .mcc-spark-axis { stroke: rgba(32,48,61,0.3); }
+[data-theme="D"] #money-view .mcc-spark-pos { fill: #0f7a4d; filter: none; }
+[data-theme="D"] #money-view .mcc-spark-neg { fill: #c22f45; filter: none; }
+[data-theme="D"] #money-view .mcc-anchor {
+  background: #e8f3f7; border-left-color: #0c7792; box-shadow: none;
+}
+[data-theme="D"] #money-view .mcc-anchor-setup { background: #f4f6f8; border-left-color: #5a6873; }
+[data-theme="D"] #money-view .mcc-anchor-form input[type="month"],
+[data-theme="D"] #money-view .mcc-anchor-form input[type="number"] { color-scheme: light; }
+
+/* ---------- 26. money: 確保枠/規律コーチ/バケツ/目標 ---------- */
+[data-theme="D"] #money-view .mcc-reserves {
+  background: transparent; border: none; box-shadow: none;
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+[data-theme="D"] #money-view .mcc-rsv { background: #fdfbf5; border-color: #e7e0d0; }
+[data-theme="D"] #money-view .mcc-rsv:hover { border-color: #d9c48d; box-shadow: none; }
+[data-theme="D"] #money-view .mcc-rsv.short { border-color: #cfa73f; box-shadow: none; }
+[data-theme="D"] #money-view .mcc-rsv.done  { border-color: #9fd4b8; box-shadow: none; }
+[data-theme="D"] #money-view .mcc-rsv-fill { background: linear-gradient(90deg, #c99012, #946200); box-shadow: none; }
+[data-theme="D"] #money-view .mcc-rsv-fill.done { background: linear-gradient(90deg, #0f7a4d, #0e6b45); box-shadow: none; }
+[data-theme="D"] #money-view .mcc-rsv-badge { border-color: #b7dcc8; }
+[data-theme="D"] #money-view .mcc-rsv-monthly { background: #fbfaf7; }
+[data-theme="D"] #money-view .mcc-rsv-monthly.muted { border-color: #d3d9de; }
+[data-theme="D"] #money-view .mcc-rsv-alloc { background: #e6f4ec; box-shadow: none; }
+[data-theme="D"] #money-view .mcc-rsv-summary { background: #f7edd8; border-color: #e3cfa1; }
+[data-theme="D"] #money-view .mcc-rsv-editbox .mcc-field input[type="date"] { color-scheme: light; }
+[data-theme="D"] #money-view .mcc-advice {
+  background: transparent; border: none; box-shadow: none;
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+[data-theme="D"] #money-view .mcc-advice-rulehead { color: #0a5b70; }
+[data-theme="D"] #money-view .mcc-advice-rule {
+  background: #eef0fa; border-left-color: #3947ae; color: #273381; box-shadow: none;
+}
+[data-theme="D"] #money-view .mcc-advice-rule-icon { color: #3947ae; }
+[data-theme="D"] #money-view .mcc-advice-ai { background: #f6f8f9; border-color: #e2e6ea; }
+[data-theme="D"] #money-view .mcc-advice-mode { border-color: #e3cfa1; }
+[data-theme="D"] #money-view .mcc-advice-disclaimer { border-top-color: #e6e9ed; }
+[data-theme="D"] #money-view .mcc-bucket { background: #fbfaf7; border-color: #dbe3e8; }
+[data-theme="D"] #money-view .mcc-bucket:hover { border-color: #9ec6d3; box-shadow: none; }
+[data-theme="D"] #money-view .mcc-bucket-over { border-color: #d98a9a; box-shadow: none; }
+[data-theme="D"] #money-view .mcc-bucket-name { color: #0a5b70; }
+[data-theme="D"] #money-view .mcc-sat-bar,
+[data-theme="D"] #money-view .mcc-goal-bar,
+[data-theme="D"] #money-view .mcc-rsv-bar {
+  background: #eceff1; border: 1px solid #dde3e7;
+}
+[data-theme="D"] #money-view .mcc-sat-fill { background: #3947ae; box-shadow: none; }
+[data-theme="D"] #money-view .mcc-sat-fill.over { background: #c22f45; box-shadow: none; }
+[data-theme="D"] #money-view .mcc-goal { background: #fbfaf7; border-color: #dfe3ea; }
+[data-theme="D"] #money-view .mcc-goal:hover { border-color: #c0c7ee; box-shadow: none; }
+[data-theme="D"] #money-view .mcc-goal-fill { background: linear-gradient(90deg, #3f4cc0, #7c36b5); box-shadow: none; }
+[data-theme="D"] #money-view .mcc-goal-fill.done { background: linear-gradient(90deg, #0f7a4d, #0e6b45); box-shadow: none; }
+[data-theme="D"] #money-view .mcc-goal-done { border-color: #b7dcc8; }
+
+/* ---------- 27. money: 設定/ツール/入力/見出し/ヘルプ ---------- */
+[data-theme="D"] #money-view .mcc-settings {
+  background: #ffffff; border-color: #d8dee5;
+  box-shadow: 0 1px 2px rgba(28,41,53,0.05);
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+[data-theme="D"] #money-view .mcc-settings summary { color: #0a5b70; }
+[data-theme="D"] #money-view .mcc-settings > summary::before { color: #0c7792; }
+[data-theme="D"] #money-view .mcc-tool-btn {
+  background: #f1f5f7; border-color: #cfdde3; color: #0a5b70;
+}
+[data-theme="D"] #money-view .mcc-tool-btn:hover { background: #e2edf2; box-shadow: none; }
+[data-theme="D"] #money-view .mcc-field input,
+[data-theme="D"] #money-view .mcc-sync-form input,
+[data-theme="D"] #money-view .mcc-goal-add input,
+[data-theme="D"] #money-view .mcc-rsv-add input,
+[data-theme="D"] #money-view .mcc-anchor-form input[type="month"],
+[data-theme="D"] #money-view .mcc-anchor-form input[type="number"] {
+  background: #ffffff; border-color: #c3ccd5; color: #20303d;
+}
+[data-theme="D"] #money-view .mcc-field input:focus,
+[data-theme="D"] #money-view .mcc-sync-form input:focus,
+[data-theme="D"] #money-view .mcc-goal-add input:focus,
+[data-theme="D"] #money-view .mcc-rsv-add input:focus,
+[data-theme="D"] #money-view .mcc-anchor-form input:focus {
+  border-color: #0c7792;
+  box-shadow: 0 0 0 3px rgba(12,119,146,0.15);
+}
+[data-theme="D"] #money-view .mcc-section-title { color: #0a5b70; }
+[data-theme="D"] #money-view .mcc-section-title::before { color: #0f7a4d; }
+[data-theme="D"] #money-view .mcc-help {
+  background: #e2f1f5; border-color: #9ec6d3; color: #0a5b70;
+}
+[data-theme="D"] #money-view .mcc-help:hover, [data-theme="D"] #money-view .mcc-help:focus { background: #d3e8ee; box-shadow: none; }
+[data-theme="D"] #money-view .mcc-help::after {
+  background: #ffffff; border-color: #9ec6d3; color: #084f63;
+  box-shadow: 0 8px 24px rgba(28,41,53,0.18);
+}
+[data-theme="D"] #money-view .mcc-jump { color: #0c7792; text-decoration-color: rgba(12,119,146,0.5); }
+[data-theme="D"] #money-view .mcc-jump:hover, [data-theme="D"] #money-view .mcc-jump:focus-visible { color: #084f63; text-decoration-color: #084f63; }
+
+/* ---------- 28. money: ボタン共通 ---------- */
+[data-theme="D"] #money-view .mcc-sync-btn,
+[data-theme="D"] #money-view .mcc-goal-addbtn,
+[data-theme="D"] #money-view .mcc-advice-btn {
+  background: #e9ebfb; border-color: #c6cdf3; color: #3140a6;
+}
+[data-theme="D"] #money-view .mcc-sync-btn:hover,
+[data-theme="D"] #money-view .mcc-goal-addbtn:hover,
+[data-theme="D"] #money-view .mcc-advice-btn:hover { background: #dde1f8; box-shadow: none; }
+[data-theme="D"] #money-view .mcc-cf-apply {
+  background: #e6f4ec; border-color: #b7dcc8; color: #0b5936;
+}
+[data-theme="D"] #money-view .mcc-cf-apply:hover { background: #d8ecdf; box-shadow: none; }
+[data-theme="D"] #money-view .mcc-cf-refresh,
+[data-theme="D"] #money-view .mcc-anchor-edit,
+[data-theme="D"] #money-view .mcc-anchor-set {
+  background: #e2f1f5; border-color: #b5d4dd; color: #0a5b70;
+}
+[data-theme="D"] #money-view .mcc-cf-refresh:hover,
+[data-theme="D"] #money-view .mcc-anchor-edit:hover,
+[data-theme="D"] #money-view .mcc-anchor-set:hover { background: #d3e8ee; box-shadow: none; }
+[data-theme="D"] #money-view .mcc-rsv-fund,
+[data-theme="D"] #money-view .mcc-rsv-addbtn {
+  background: #f7edd8; border-color: #e3cfa1; color: #7a4e00;
+}
+[data-theme="D"] #money-view .mcc-rsv-fund:hover,
+[data-theme="D"] #money-view .mcc-rsv-addbtn:hover { background: #f0e2c2; box-shadow: none; }
+[data-theme="D"] #money-view .mcc-expense-suggest { background: #e8f3f7; border-left-color: #0c7792; }
+[data-theme="D"] #money-view .mcc-expense-adopt { background: #e2f1f5; border-color: #b5d4dd; color: #0a5b70; }
+[data-theme="D"] #money-view .mcc-expense-adopt:hover { background: #d3e8ee; }
+
+/* ---------- 29. money: ロードマップ ---------- */
+[data-theme="D"] #money-view .mcc-roadmap {
+  background: transparent; border: none; box-shadow: none;
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+[data-theme="D"] #money-view .mcc-rm-phase { border-color: #e2e6ea; }
+[data-theme="D"] #money-view .mcc-rm-sep { background: #d3d9de; }
+[data-theme="D"] #money-view .mcc-rm-phase-todo .mcc-rm-phase-dot { background: #f1f3f5; border-color: #d3d9de; }
+[data-theme="D"] #money-view .mcc-rm-phase-done .mcc-rm-phase-dot { background: #e6f4ec; border-color: #0f7a4d; color: #0b5936; box-shadow: none; }
+[data-theme="D"] #money-view .mcc-rm-phase-done .mcc-rm-phase-label { color: #0b5936; }
+[data-theme="D"] #money-view .mcc-rm-phase-locked .mcc-rm-phase-dot { background: #f7edd8; border-color: #e3cfa1; }
+[data-theme="D"] #money-view .mcc-rm-phase-current .mcc-rm-phase-dot { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-rm-phase-current[data-key="buffer"] .mcc-rm-phase-dot { background: #e9ebfb; border-color: #3947ae; color: #273381; box-shadow: none; }
+[data-theme="D"] #money-view .mcc-rm-phase-current[data-key="buffer"] .mcc-rm-phase-label { color: #273381; }
+[data-theme="D"] #money-view .mcc-rm-phase-current[data-key="core"] .mcc-rm-phase-dot { background: #e6f4ec; border-color: #0f7a4d; color: #0b5936; box-shadow: none; }
+[data-theme="D"] #money-view .mcc-rm-phase-current[data-key="core"] .mcc-rm-phase-label { color: #0b5936; }
+[data-theme="D"] #money-view .mcc-rm-phase-current[data-key="satellite"] .mcc-rm-phase-dot { background: #f7edd8; border-color: #946200; color: #7a4e00; box-shadow: none; }
+[data-theme="D"] #money-view .mcc-rm-phase-current[data-key="satellite"] .mcc-rm-phase-label { color: #7a4e00; }
+[data-theme="D"] #money-view .mcc-rm-seam-chip { color: #7a4e00; border-color: #e3cfa1; box-shadow: none; }
+[data-theme="D"] #money-view .mcc-rm-northstar {
+  background: #f3f4fb; border-left-color: #3947ae; color: #273381;
+}
+[data-theme="D"] #money-view .mcc-rm-northstar-fallback,
+[data-theme="D"] #money-view .mcc-rm-northstar-setup { background: #f4f6f8; border-left-color: #5a6873; color: #54646f; }
+[data-theme="D"] #money-view .mcc-rm-thismonth-head { color: #0a5b70; }
+[data-theme="D"] #money-view .mcc-rm-satchip { background: #fbfaf7; }
+[data-theme="D"] #money-view .mcc-rm-satchip-locked { background: #f7edd8; color: #7a4e00; border-color: #e3cfa1; box-shadow: none; }
+[data-theme="D"] #money-view .mcc-rm-satchip-unlocked { background: #e6f4ec; color: #0b5936; border-color: #b7dcc8; box-shadow: none; }
+
+/* ---------- 30. money: 資産クラス比率（neonb/blend の無効化＝淡tint化） ---------- */
+[data-theme="D"] #money-view .mcc-ac-card,
+[data-theme="D"] #money-view .mcc-ac-card.neonb {
+  background: #ffffff;
+  border: 1px solid #d8dee5;
+  box-shadow: 0 1px 2px rgba(28,41,53,0.05), 0 4px 14px rgba(28,41,53,0.06);
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+[data-theme="D"] #money-view .mcc-fold-body > .mcc-assets .mcc-ac-card,
+[data-theme="D"] #money-view .mcc-fold-body > .mcc-assets .mcc-ac-card.neonb {
+  background: none; border: none; box-shadow: none; border-radius: 0; padding: 0;
+}
+[data-theme="D"] #money-view .mcc-ac-age {
+  background: #ffffff; border-color: #c3ccd5; color: #20303d;
+}
+[data-theme="D"] #money-view .mcc-ac-tbtn { background: #f1f5f7; border-color: #cfdde3; color: #20303d; }
+[data-theme="D"] #money-view .mcc-ac-tbtn:hover { background: #e2edf2; }
+[data-theme="D"] #money-view .mcc-ac-tbtn.on { background: #0c7792; color: #ffffff; box-shadow: none; }
+[data-theme="D"] #money-view .mcc-ac-seg,
+[data-theme="D"] #money-view .mcc-ac-donut2 { mix-blend-mode: normal; filter: none; }
+/* neonb 変種は原本の詳細度が高い（.mcc-ac-card.neonb …）ため同詳細度で screen 合成を解除
+   （screen×白背景＝完全不可視になるバー/ドーナツの救済） */
+[data-theme="D"] #money-view .mcc-ac-card.neonb .mcc-ac-seg,
+[data-theme="D"] #money-view .mcc-ac-card.neonb .mcc-ac-donut2 { mix-blend-mode: normal; filter: none; }
+[data-theme="D"] #money-view .mcc-ac-card.neonb .mcc-ac-donut2.glowlayer,
+[data-theme="D"] #money-view .mcc-ac-donut2.glowlayer,
+[data-theme="D"] #money-view .mcc-nisa-donut.glowlayer { display: none; }
+[data-theme="D"] #money-view .mcc-ac-card.neonb .mcc-ac-driftrow { background: #fbfaf7; }
+[data-theme="D"] #money-view .mcc-ac-card.neonb .mcc-ac-stack { border-color: #d3d9de; box-shadow: none; overflow: hidden; }
+#money-view .mcc-ac-seg + .mcc-ac-seg { border-left-color: rgba(255,255,255,0.9); }
+[data-theme="D"] #money-view .mcc-ac-card.neonb .mcc-ac-swatch { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-ac-driftrow { background: #fbfaf7; border-color: #e6e9ed; }
+[data-theme="D"] #money-view .mcc-ac-driftrow.over { border-color: #e3cfa1; }
+[data-theme="D"] #money-view .mcc-ac-driftrow.under { border-color: #b5d4dd; }
+[data-theme="D"] #money-view .mcc-ac-driftrow.match { border-color: #b7dcc8; }
+#money-view .mcc-ac-bands { border-top-color: #e2e6ea; }
+#money-view .mcc-ac-bk i.grow { background: linear-gradient(90deg, #c22f45, #a4530a); }
+#money-view .mcc-ac-bk i.def { background: #0f7a4d; }
+#money-view .mcc-ac-disc { border-top-color: #e6e9ed; }
+
+/* ---------- 31. money: NISA枠（blend/glow の無効化＝淡tint化） ---------- */
+[data-theme="D"] #money-view .mcc-nisa-hud { background: #fbfaf7; border-color: #e2e6ea; }
+[data-theme="D"] #money-view .mcc-nisa-card,
+[data-theme="D"] #money-view .mcc-nisa-card.neonb {
+  background: #ffffff; border: 1px solid #dfe3ea; box-shadow: none;
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+[data-theme="D"] #money-view .mcc-nisa-hero { border-color: #d6b8ea; box-shadow: none; }
+[data-theme="D"] #money-view .mcc-nisa-donut { mix-blend-mode: normal; filter: none; }
+[data-theme="D"] #money-view .mcc-nisa-donut-center .p { color: #6a2d9e; }
+[data-theme="D"] #money-view .mcc-nisa-bar { background: #eceff1; border-color: #dde3e7; }
+[data-theme="D"] #money-view .mcc-nisa-seg.tsum, [data-theme="D"] #money-view .mcc-nisa-fill.tsum {
+  mix-blend-mode: normal; filter: none; box-shadow: none; background: #0c7792;
+}
+[data-theme="D"] #money-view .mcc-nisa-seg.grow, [data-theme="D"] #money-view .mcc-nisa-fill.grow {
+  mix-blend-mode: normal; filter: none; box-shadow: none; background: #0f7a4d;
+}
+#money-view .mcc-nisa-legend i.tsum { background: #0c7792; }
+#money-view .mcc-nisa-legend i.grow { background: #0f7a4d; }
+[data-theme="D"] #money-view .mcc-nisa-chip.feed { background: #f7edd8; border-color: #e3cfa1; box-shadow: none; }
+[data-theme="D"] #money-view .mcc-nisa-chip.restore { background: #e6f4ec; border-color: #b7dcc8; box-shadow: none; }
+[data-theme="D"] #money-view .mcc-nisa-chip.warn { background: #fbe9ec; border-color: #efc4cc; box-shadow: none; }
+[data-theme="D"] #money-view .mcc-nisa-input { border-top-color: #d8dee5; }
+[data-theme="D"] #money-view .mcc-nisa-srcbtn { background: #f6f8f9; border-color: #c6cdf3; color: #54646f; }
+[data-theme="D"] #money-view .mcc-nisa-srcbtn.on { color: #20303d; border-color: #6a2d9e; box-shadow: none; }
+[data-theme="D"] #money-view .mcc-nisa-table input { background: #ffffff; border-color: #c3ccd5; color: #20303d; }
+@media (max-width: 600px) {
+  [data-theme="D"] #money-view .mcc-nisa-table tr { border-color: #dfe3ea; }
+}
+
+/* ---------- 32. 文字床 12px（監査: 12px未満の主要クラス群）＋免責是正 ---------- */
+/* 免責: 9.6-10px/3.2:1 → 12px/濃色（--ix-text-dim #54646f＝白面で6.1:1） */
+.panel-disclaimer, .sig-disclaimer, .ht-disclaimer {
+  font-size: 12px;
+  color: #54646f;
+}
+[data-theme="D"] #money-view .mcc-advice-disclaimer,
+.mcc-advice-disclaimer { font-size: 12px; color: #5f6e7a; }
+#money-view .mcc-ac-disc, #money-view .mcc-nisa-gate { font-size: 12px; }
+
+/* index/portal 系の小サイズ底上げ */
+.val-badge, .growth-badge, .currency-badge, .sector-count-badge,
+.portal-header-date, .portal-stat-badge, .screening-note,
+.kpi-active-badge, .copyright-bar { font-size: 12px; }
+
+/* detail 系 */
+.sig-note, .sig-asof, .ht-note, .dp-flabel, .relpos-cap, .relpos-na,
+.cmp-etf, .cmp-note, .rk-cell, .acc-body .acc-full-desc,
+.subpanel-links a, .subpanel-hint, .ma-label, .vol-label,
+.ai-analysis-title, .ai-analysis-year-label, .kpi-yoy, .sector-badge { font-size: 12px; }
+
+/* money 系（0.58-0.72rem の主要クラス） */
+#money-view .mcc-tab-num, #money-view .mcc-hero-label, #money-view .mcc-hero-basis,
+#money-view .mcc-hero-ref-label, #money-view .mcc-hero-ref-note, #money-view .mcc-hero-side-label,
+#money-view .mcc-hero-power small, #money-view .mcc-fold-dg, #money-view .mcc-bucket-note,
+#money-view .mcc-field, #money-view .mcc-sat-cap, #money-view .mcc-cfg-sub,
+#money-view .mcc-expense-note, #money-view .mcc-glo-read, #money-view .mcc-glo-def,
+#money-view .mcc-guide-privacy, #money-view .mcc-step-label, #money-view .mcc-step-opt,
+#money-view .mcc-section-desc, #money-view .mcc-advice-mode, #money-view .mcc-cf-partial,
+#money-view .mcc-cf-latest, #money-view .mcc-cf-monthnote, #money-view .mcc-cf-stat span,
+#money-view .mcc-wf, #money-view .mcc-cf-dest, #money-view .mcc-cf-autonote,
+#money-view .mcc-cf-cat, #money-view .mcc-cf-note, #money-view .mcc-cf-fresh,
+#money-view .mcc-cf-fetchinfo, #money-view .mcc-anchor-sub, #money-view .mcc-rsv-monthly,
+#money-view .mcc-rsv-alloc, #money-view .mcc-rsv-editbox summary, #money-view .mcc-rm-phase-pct,
+#money-view .mcc-rm-seam-chip, #money-view .mcc-rm-note, #money-view .mcc-ac-agerow label,
+#money-view .mcc-ac-barlab, #money-view .mcc-ac-center .sub, #money-view .mcc-ac-bk,
+#money-view .mcc-ac-band .yl, #money-view .mcc-ac-tbtn, #money-view .mcc-nisa-hud .k,
+#money-view .mcc-nisa-qlabel, #money-view .mcc-nisa-legend, #money-view .mcc-nisa-subbar-label,
+#money-view .mcc-nisa-chip, #money-view .mcc-nisa-srcbtn, #money-view .mcc-nisa-table,
+#money-view .mcc-nisa-table thead th, #money-view .mcc-nisa-addrow.muted,
+#money-view .mcc-nisa-rowdel, #money-view .mcc-nisa-recon, #money-view .mcc-help-tip,
+#money-view .mcc-glo-title, #money-view .mcc-hero-basis b { font-size: 12px; }

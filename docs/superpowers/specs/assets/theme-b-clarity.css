@@ -1,0 +1,342 @@
+/* ============================================================================
+   案B: D-Clarity — investment-portal override CSS（theme-proxy 注入専用・リポ無改変）
+   研究レポートの D-Clarity トークン設計をそのまま適用:
+     背景 #0b1017 / surface #121a24 / border #2a3644
+     text #dce6ee / dim #9fb2c0 / mute #7c8ea0
+     意味色4: up #ff6b81(赤=上昇・日本式) / down #6b9dff(青=下落) /
+              warn #e8b93e / ok #41d392  ＋ アクセント1: #4fc3e8
+   グロー全廃（text-shadow はヒーロー金額1箇所のみ 0 0 12px rgba(79,195,232,.15)）。
+   box-shadow 発光系 → 標高影 0 2px 8px rgba(0,0,0,.35)。背景グリッド α0.02。
+   文字床 12px・免責 12px 化。等幅・矩形 2-3px・レイアウトは既存のまま（骨格維持）。
+   ローソク足の赤/青は JS 内配色＝不可侵で維持。
+   ========================================================================== */
+
+/* ---------- 1. --ix-* トークン再宣言（index.html :root を D-Clarity 体系へ） ---------- */
+:root {
+  /* 背景/サーフェス（#0b1017 を基準にした静かなランプ） */
+  --ix-bg-void: #080d13;
+  --ix-bg: #0b1017;
+  --ix-surface-solid: #0e141d;
+  --ix-surface-0: #0f1620;
+  --ix-surface-chart: #0f1620;
+  --ix-surface-1: #101822;
+  --ix-surface-2: #121a24;
+  --ix-surface-panel: #121a24;
+  --ix-surface-3: #16202c;
+  --ix-surface-blue: #16283b;
+  /* 罫線（#2a3644 基準） */
+  --ix-border: #2a3644;
+  --ix-border-mid: #3b4a5c;
+  --ix-border-strong: #435468;
+  /* テキスト階調（text #dce6ee / dim #9fb2c0 / mute #7c8ea0） */
+  --ix-slate-line: #8496a6;
+  --ix-slate-muted: #8ea0b0;
+  --ix-slate-light: #b7c5d1;
+  --ix-slate: #7c8ea0;
+  --ix-text-dim: #9fb2c0;
+  --ix-text: #dce6ee;
+  --ix-text-bright: #e7eef5;
+  --ix-text-hi: #eff5f9;
+  --ix-text-max: #f6fafc;
+  --ix-white: #ffffff;
+  /* アクセント1本化: cyan/sky/indigo/violet 系 → accent #4fc3e8 ファミリ */
+  --ix-indigo: #3aa2c8;
+  --ix-indigo-bright: #7dd2ee;
+  --ix-indigo-accent: #4fc3e8;
+  --ix-blue: #6b9dff;            /* down（下落=青・日本式） */
+  --ix-blue-bright: #4fc3e8;     /* 旧アクセント用途 → accent へ吸収 */
+  --ix-blue-deep: #2e8fb3;
+  --ix-cyan: #4fc3e8;
+  --ix-cyan-bright: #79d2ee;     /* 参照のみ存在（旧未定義）を明示定義 */
+  --ix-sky: #45b1d6;
+  --ix-cyan-deep: #3aa2c8;
+  --ix-cyan-bright2: #79d2ee;
+  --ix-cyan-light: #a8e2f4;
+  /* ok #41d392 ファミリ（emerald/teal/green/lime を集約） */
+  --ix-teal: #41d392;
+  --ix-teal-bright: #63dfa8;
+  --ix-teal-deep: #2fb87c;
+  --ix-emerald: #41d392;
+  --ix-emerald-bright: #63dfa8;
+  --ix-green: #41d392;
+  --ix-green-bright: #7ce7b4;
+  --ix-emerald-deep: #2fb87c;
+  --ix-lime: #63dfa8;
+  /* warn #e8b93e ファミリ（amber/gold/yellow/orange を集約） */
+  --ix-amber: #e8b93e;
+  --ix-amber-deep: #d19f2a;
+  --ix-gold: #eec865;
+  --ix-amber-deeper2: #a37a1c;
+  --ix-yellow: #f0d072;
+  --ix-orange: #de9a3c;
+  --ix-orange-deep: #cf8a2e;
+  /* up #ff6b81 ファミリ（red/rose/pink を集約・日本式=上昇/警告の赤） */
+  --ix-red: #ff6b81;
+  --ix-red-soft: #ff8fa0;
+  --ix-rose: #ff7a8e;
+  --ix-red-deep: #e85670;
+  --ix-red-deeper: #cc4a60;
+  --ix-pink: #ff6b81;
+  /* violet/purple はアクセント淡色へ集約（色相数削減） */
+  --ix-violet: #9fd8ef;
+  --ix-purple: #7dd2ee;
+  --ix-purple-deep: #3aa2c8;
+  --ix-violet-bright: #a8e2f4;
+  /* 標高影（発光の代替） */
+  --dc-elev: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+/* ---------- 2. --c-* トークン再宣言（money.css 基底 + [data-theme="D"] 両方） ---------- */
+:root,
+:root[data-theme="D"] {
+  --c-indigo: #6b9dff; --c-indigo-bright: #8fb3ff; --c-indigo-soft: #b0c7ff; --c-indigo-pale: #d2e0ff;
+  --c-violet: #b39df0; --c-violet-bright: #cbbcf6; --c-blue: #6b9dff;
+  --c-emerald: #41d392; --c-emerald-bright: #63dfa8; --c-emerald-soft: #8ce8c0; --c-emerald-pale: #bff2da;
+  --c-amber: #e8b93e; --c-amber-bright: #eec865; --c-amber-pale: #f4dc9b; --c-amber-deep: #d19f2a; --c-amber-deeper: #a37a1c;
+  --c-cyan: #4fc3e8; --c-cyan-bright: #79d2ee; --c-cyan-pale: #a8e2f4; --c-cyan-tint: #d3f1fa;
+  --c-text: #dce6ee; --c-text-bright: #e7eef5; --c-text-dim: #9fb2c0; --c-text-faint: #8b9dac; --c-text-mute: #7c8ea0;
+  --c-slate: #7c8ea0; --c-gray: #7a8b9d; --c-surface-solid: #0e141d;
+  --c-danger: #ff6b81; --c-danger-soft: #ff8fa0;
+  --c-tint-emerald: #dcf5ea; --c-tint-indigo: #e4ecff; --c-tint-danger: #ffe2e7; --c-tint-cyan: #ddf2fa;
+}
+
+/* ---------- 3. 背景（グリッド α0.02 へ減灰・環境光はアクセント系で微弱に） ---------- */
+body {
+  background-color: var(--ix-bg);
+  background-image:
+    radial-gradient(120% 80% at 50% -10%, rgba(79, 195, 232, 0.05), transparent 60%),
+    radial-gradient(90% 60% at 100% 102%, rgba(65, 211, 146, 0.03), transparent 55%),
+    linear-gradient(rgba(159, 178, 192, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(159, 178, 192, 0.02) 1px, transparent 1px);
+}
+[data-theme="D"] #money-view {
+  background-color: #0b1017;
+  background-image:
+    radial-gradient(125% 80% at 50% -12%, rgba(79, 195, 232, 0.05), transparent 60%),
+    radial-gradient(90% 60% at 100% 102%, rgba(65, 211, 146, 0.03), transparent 55%),
+    linear-gradient(rgba(159, 178, 192, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(159, 178, 192, 0.02) 1px, transparent 1px);
+}
+/* ヘッダー背後のオーロラ滲みは環境光レベルまで減光 */
+.portal-header::before { background: rgba(79, 195, 232, 0.07); }
+.portal-header::after  { background: rgba(65, 211, 146, 0.05); }
+
+/* ---------- 4. text-shadow グロー全廃（唯一の例外 = ヒーロー金額） ---------- */
+/* 対象43箇所を確実に落とすための最小 !important（例外側も !important で勝たせる） */
+*, *::before, *::after { text-shadow: none !important; }
+[data-theme="D"] #money-view .mcc-hero-amount {
+  text-shadow: 0 0 12px rgba(79, 195, 232, 0.15) !important;
+}
+
+/* drop-shadow 発光フィルタも全廃 */
+.portal-title { filter: none; }
+.sparkline-svg { filter: none; }
+[data-theme="D"] #money-view .mcc-title { filter: none; }
+[data-theme="D"] #money-view .mcc-spark-pos { filter: none; }
+[data-theme="D"] #money-view .mcc-spark-neg { filter: none; }
+
+/* 発光アニメーションは不透明度のみへ再定義（後定義の @keyframes が勝つ） */
+@keyframes livePulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.45; }
+}
+.live-dot { box-shadow: none; }
+@keyframes mcc-jump-flash {
+  0%, 100%     { box-shadow: 0 0 0 0 rgba(79, 195, 232, 0); }
+  8%, 33%, 58% { box-shadow: 0 0 0 2px var(--c-cyan); }
+  20%, 45%, 70%{ box-shadow: 0 0 0 1px rgba(79, 195, 232, 0.25); }
+  85%          { box-shadow: 0 0 0 0 rgba(79, 195, 232, 0); }
+}
+
+/* ---------- 5. box-shadow 発光系 → 標高影（index.html 分） ---------- */
+.search-input:focus { border-color: var(--ix-cyan); box-shadow: 0 0 0 1px rgba(79, 195, 232, 0.45); } /* フォーカスはリングで明示（発光でなく輪郭） */
+.retry-btn:hover { box-shadow: var(--dc-elev); }
+.sector-btn.active { box-shadow: var(--dc-elev); }
+.card {
+  background: linear-gradient(160deg, #141d28 0%, #101822 100%);
+  border: 1px solid var(--ix-border);
+  box-shadow: var(--dc-elev), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+.card:hover {
+  border-color: var(--ix-border-mid);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* ---------- 6. box-shadow 発光系 → 標高影（detail.css 分） ---------- */
+.time-btn.active { box-shadow: var(--dc-elev); }
+.status-card.gold::before,
+.status-card.blue::before,
+.status-card.green::before,
+.status-card.red::before,
+.status-card.purple::before,
+.status-card.cyan::before { box-shadow: none; }
+.type-badge { box-shadow: var(--dc-elev); }
+.discipline-card { border-color: var(--ix-border-mid); box-shadow: var(--dc-elev); }
+.kpi-year-col.active-year { box-shadow: var(--dc-elev); }
+.relpos-marker { box-shadow: none; }
+.term-help:focus { box-shadow: 0 0 0 2px rgba(79, 195, 232, 0.5); }
+[data-theme="D"] .term-help::after { box-shadow: var(--dc-elev); }
+.cmp-tab.active { box-shadow: none; }
+.rk-mkt.active { box-shadow: none; }
+.ai-insight-btn:hover { box-shadow: var(--dc-elev); }
+
+/* ---------- 7. box-shadow 発光系 → 標高影（money.css 分） ---------- */
+.mcc-bucket-over { box-shadow: var(--dc-elev); }
+.mcc-sync-on { box-shadow: none; }
+.mcc-step-current .mcc-step-dot { box-shadow: none; }
+.mcc-rm-phase-current .mcc-rm-phase-dot,
+.mcc-rm-phase-current[data-key="core"] .mcc-rm-phase-dot,
+.mcc-rm-phase-current[data-key="satellite"] .mcc-rm-phase-dot { box-shadow: none; }
+.mcc-rm-seam-chip { box-shadow: none; }
+
+[data-theme="D"] #money-view .mcc-nav-btn:hover { box-shadow: var(--dc-elev); background: rgba(107, 157, 255, 0.12); }
+[data-theme="D"] #money-view .mcc-tabbar-outer {
+  background: rgba(11, 16, 23, 0.92);
+  border-bottom: 1px solid var(--ix-border);
+  box-shadow: 0 6px 26px rgba(0, 0, 0, 0.55);
+}
+[data-theme="D"] #money-view .mcc-tab[aria-selected="true"]::after {
+  background: var(--c-cyan);
+  box-shadow: none;
+}
+[data-theme="D"] #money-view .mcc-hero {
+  background: #121a24; border: 1px solid var(--ix-border);
+  box-shadow: var(--dc-elev);
+}
+[data-theme="D"] #money-view .mcc-hero-chip-live { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-hero-chip-prov { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-hero-gauge-fill { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-hero-next { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-hero-next-buffer { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-hero-next-rebalance { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-sync { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03), var(--dc-elev); }
+[data-theme="D"] #money-view .mcc-sync-on { box-shadow: inset 0 0 0 1px rgba(65, 211, 146, 0.15), var(--dc-elev); }
+[data-theme="D"] #money-view .mcc-stepper { box-shadow: var(--dc-elev); }
+[data-theme="D"] #money-view .mcc-step-done .mcc-step-dot { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-step-current .mcc-step-dot { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-save-warn { box-shadow: var(--dc-elev); }
+[data-theme="D"] #money-view .mcc-cashflow { box-shadow: var(--dc-elev); }
+[data-theme="D"] #money-view .mcc-cf-surplus { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-cf-surplus-neg { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-wf-buffer { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-wf-core { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-wf-sat,
+[data-theme="D"] #money-view .mcc-wf-reserve { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-anchor { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-reserves { box-shadow: var(--dc-elev); }
+[data-theme="D"] #money-view .mcc-rsv:hover { box-shadow: var(--dc-elev); }
+[data-theme="D"] #money-view .mcc-rsv.short { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-rsv.done { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-rsv-fill { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-rsv-fill.done { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-rsv-alloc { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-advice { box-shadow: var(--dc-elev); }
+[data-theme="D"] #money-view .mcc-advice-rule { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-bucket:hover { box-shadow: var(--dc-elev); }
+[data-theme="D"] #money-view .mcc-bucket-over { box-shadow: var(--dc-elev); }
+[data-theme="D"] #money-view .mcc-sat-fill { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-sat-fill.over { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-goal:hover { box-shadow: var(--dc-elev); }
+[data-theme="D"] #money-view .mcc-goal-fill { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-goal-fill.done { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-tool-btn:hover { box-shadow: var(--dc-elev); }
+[data-theme="D"] #money-view .mcc-field input:focus,
+[data-theme="D"] #money-view .mcc-sync-form input:focus,
+[data-theme="D"] #money-view .mcc-goal-add input:focus,
+[data-theme="D"] #money-view .mcc-rsv-add input:focus,
+[data-theme="D"] #money-view .mcc-anchor-form input:focus { box-shadow: 0 0 0 1px rgba(79, 195, 232, 0.5); }
+[data-theme="D"] #money-view .mcc-help:hover, [data-theme="D"] #money-view .mcc-help:focus { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-sync-btn:hover,
+[data-theme="D"] #money-view .mcc-goal-addbtn:hover,
+[data-theme="D"] #money-view .mcc-advice-btn:hover { box-shadow: var(--dc-elev); }
+[data-theme="D"] #money-view .mcc-cf-apply:hover { box-shadow: var(--dc-elev); }
+[data-theme="D"] #money-view .mcc-cf-refresh:hover,
+[data-theme="D"] #money-view .mcc-anchor-edit:hover,
+[data-theme="D"] #money-view .mcc-anchor-set:hover { box-shadow: var(--dc-elev); }
+[data-theme="D"] #money-view .mcc-rsv-fund:hover,
+[data-theme="D"] #money-view .mcc-rsv-addbtn:hover { box-shadow: var(--dc-elev); }
+[data-theme="D"] #money-view .mcc-roadmap { box-shadow: var(--dc-elev); }
+[data-theme="D"] #money-view .mcc-rm-seam-chip { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-rm-phase-done .mcc-rm-phase-dot { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-rm-phase-current[data-key="buffer"] .mcc-rm-phase-dot { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-rm-phase-current[data-key="core"] .mcc-rm-phase-dot { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-rm-phase-current[data-key="satellite"] .mcc-rm-phase-dot { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-rm-satchip-locked { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-rm-satchip-unlocked { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-ac-card { box-shadow: var(--dc-elev); }
+[data-theme="D"] #money-view .mcc-ac-tbtn.on { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-ac-bk i.grow { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-ac-bk i.def { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-ac-card.neonb .mcc-ac-swatch { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-ac-card.neonb .mcc-ac-stack { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-nisa-card { box-shadow: var(--dc-elev); }
+[data-theme="D"] #money-view .mcc-nisa-hero { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-nisa-seg.tsum, [data-theme="D"] #money-view .mcc-nisa-fill.tsum { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-nisa-seg.grow, [data-theme="D"] #money-view .mcc-nisa-fill.grow { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-nisa-chip.feed { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-nisa-chip.restore { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-nisa-chip.warn { box-shadow: none; }
+[data-theme="D"] #money-view .mcc-nisa-srcbtn.on { box-shadow: none; }
+
+/* ---------- 8. 文字床 12px（基底が12px未満の全クラスを 0.75rem へ） ---------- */
+/* index.html 分 */
+.portal-header-date, .portal-stat-badge, .sector-count-badge, .val-badge,
+.growth-badge, .currency-badge, .screening-label, .screening-reset-btn,
+.screening-result-count, .screening-group, .screening-note, .site-footer,
+.copyright-bar { font-size: 0.75rem; }
+/* 基底≥12px でメディアクエリ内のみ12px未満に落ちるものは同じ breakpoint で床を張る */
+@media (max-width: 768px) { .sector-btn { font-size: 0.75rem; } }
+@media (max-width: 375px) { .sector-btn, .card-title { font-size: 0.75rem; } }
+/* detail.css 分 */
+.compare-chip-remove, .compare-period-btn, .open-compare-btn, .panel-desc-text-below,
+.ma-label, .vol-label, .subpanel-links a, .subpanel-hint, .disc-title, .disc-chip .k,
+.disc-note, .acc-caret, .acc-sub, .acc-desc, .acc-body .acc-full-desc, .sector-badge,
+.time-label, .ai-analysis-title, .ai-analysis-year-label, .kpi-active-badge, .kpi-yoy,
+.sig-note, .sig-asof, .ht-note, .dp-flabel, .relpos-na, .term-help, .term-help::after,
+.cmp-etf { font-size: 0.75rem; }
+/* money.css 分 */
+.mcc-nav-btn, .mcc-tab-num, .mcc-hero-label,
+.mcc-hero-chip-live, .mcc-hero-chip-prov, .mcc-hero-badge-done, .mcc-hero-badge-auto,
+.mcc-hero-basis, .mcc-hero-ref-label, .mcc-hero-ref-note, .mcc-hero-side-label,
+.mcc-hero-power small, .mcc-hero-power-none, .mcc-fold-dg, .mcc-cfg-sub,
+.mcc-auto-badge, .mcc-bucket-note, .mcc-field, .mcc-sat-cap, .mcc-sat-warn,
+.mcc-expense-adopt, .mcc-expense-applied, .mcc-expense-note, .mcc-tool-btn,
+.mcc-sync-btn, .mcc-sync-err, .mcc-section-desc, .mcc-help, .mcc-help::after,
+.mcc-guide-rule, .mcc-glo-title, .mcc-glo-read, .mcc-glo-def, .mcc-guide-privacy,
+.mcc-step-dot, .mcc-step-label, .mcc-step-opt, .mcc-goal-done, .mcc-goal-stat,
+.mcc-goal-addbtn, .mcc-advice-rulehead, .mcc-advice-mode, .mcc-advice-stale,
+.mcc-advice-err, .mcc-cf-partial, .mcc-cf-latest, .mcc-cf-monthnote,
+.mcc-cf-stat span, .mcc-wf, .mcc-cf-dest, .mcc-cf-autonote, .mcc-cf-cat,
+.mcc-cf-note, .mcc-cf-fresh, .mcc-cf-refresh, .mcc-cf-fetchinfo, .mcc-cf-fetcherr,
+.mcc-anchor-sub, .mcc-anchor-edit, .mcc-anchor-cta,
+.mcc-anchor-form input[type="month"], .mcc-anchor-form input[type="number"],
+.mcc-anchor-set, .mcc-rsv-badge, .mcc-rsv-stat, .mcc-rsv-monthly, .mcc-rsv-alloc,
+.mcc-rsv-fund, .mcc-rsv-editbox summary, .mcc-rsv-summary, .mcc-rsv-addbtn,
+.mcc-rm-phase-dot, .mcc-rm-phase-pct, .mcc-rm-phase-label, .mcc-rm-seam-chip,
+.mcc-rm-note, .mcc-rm-satchip, .mcc-ac-agerow label, .mcc-ac-tbtn,
+.mcc-ac-input-bktitle, .mcc-ac-center .sub, .mcc-ac-barlab, .mcc-ac-driftrow .tr,
+.mcc-ac-bands .cap, .mcc-ac-bk, .mcc-ac-band .yl, .mcc-ac-disc,
+.mcc-nisa-hud .k, .mcc-nisa-donut-center .l, .mcc-nisa-qlabel, .mcc-nisa-stat,
+.mcc-nisa-legend, .mcc-nisa-subbar-label, .mcc-nisa-chip, .mcc-nisa-gate,
+.mcc-nisa-srcbtn, .mcc-nisa-srcnote, .mcc-nisa-table, .mcc-nisa-table thead th,
+.mcc-nisa-addrow.muted, .mcc-nisa-rowdel, .mcc-nisa-recon,
+.mcc-nisa-table td::before { font-size: 0.75rem; }
+
+/* ---------- 9. 免責の是正（12px＋高コントラスト） ---------- */
+.sig-disclaimer, .ht-disclaimer, .panel-disclaimer {
+  font-size: 12px;
+  color: var(--ix-text-dim); /* #9fb2c0 ≒ 8:1 on #0b1017 */
+}
+.mcc-advice-disclaimer { font-size: 0.75rem; color: var(--c-text-dim); }
+[data-theme="D"] #money-view .mcc-advice-disclaimer { color: var(--c-text-dim); }
+
+/* ---------- 10. 個別コントラスト是正（監査実測 AA 不合格箇所） ---------- */
+/* FISCAL YEAR ラベル（旧 --ix-border-mid ＝1.72:1）→ dim テキストへ */
+.time-label { color: var(--ix-text-dim); }
+/* セクター見出し（2.1-3.3:1）→ dim、罫線色バッジもテキスト階調へ */
+.sector-title { color: var(--ix-text-dim); }
+.sector-count-badge { color: var(--ix-text-dim); border-color: var(--ix-border-mid); background: rgba(42, 54, 68, 0.5); }
+/* 成長バッジ muted（不透明度0.45で実効2:1台）→ 0.72 で 4.5:1 以上を確保しつつ弱調は維持 */
+.growth-badge.muted { opacity: 0.72; }
+/* 一覧ホバー時の社名は down-青でなくアクセントで示す（意味色のドメイン分離） */
+.portal-table tr:hover .company-clickable { color: var(--ix-cyan); }
