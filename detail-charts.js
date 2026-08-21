@@ -126,6 +126,25 @@
         afterDatasetsDraw(chart) { if (chart.$lineGlow) chart.ctx.restore(); },
       };
       Chart.register(neonGlowPlugin);
+      // BS 低棒吹き出しのリード線（spec §8.3）。chart.$bsLeaders 設定時のみ動作（neonGlow と同じ gate 方式）。
+      //  ⚠ $datalabels/$layout._box._rect は datalabels 非公開内部 API＝SRI pin v2.2.0 固定の間のみ安定。
+      //   プラグイン更新時は本プラグインの動作再確認必須（壊れても gate no-op でリード線が無言で消えるだけ）。
+      const bsLeaderPlugin = { id: "bsLeader", afterDatasetsDraw(chart) {
+        const specs = chart.$bsLeaders; if (!specs) return;
+        const c = chart.ctx; c.save();
+        specs.forEach(({ di, bi }) => {
+          const el = chart.getDatasetMeta(di).data[bi]; if (!el) return;
+          const lab = (el.$datalabels || [])[0]; if (!lab || !lab.$layout || !lab.$layout._visible) return;
+          const r = lab.$layout._box._rect;                 // 絶対座標 frame
+          const p = el.getProps(["x", "y", "base"]);        // live 値（final=true 不可＝アニメ中ラベルは live el 追従）
+          const segY = (p.y + p.base) / 2;
+          const fromX = r.x + r.w / 2 < p.x ? r.x + r.w : r.x;   // チップのセグメント側縁
+          c.strokeStyle = "rgba(0,229,255,0.55)"; c.lineWidth = 1;
+          c.beginPath(); c.moveTo(fromX, r.y + r.h / 2); c.lineTo(p.x, segY); c.stroke();
+        });
+        c.restore();
+      } };
+      Chart.register(bsLeaderPlugin);
       // 数値ラベルのネオン・テキストグロー（各 datalabels に展開）
       const NEON_TEXT_GLOW = { textShadowBlur: 6, textShadowColor: "rgba(120,210,255,0.6)" };
 
@@ -742,6 +761,30 @@
         const lowRight = totalAssets > 0 && [fin.current_liabilities, fin.non_current_liabilities, displayNetAssets].some(v => v > 0 && v / totalAssets < LOW);
         const hostW = document.getElementById("bsChart").parentElement.clientWidth || 880;
         const CALLOUT_PAD = Math.min(140, Math.max(126, Math.round(hostW * 0.16)));   // frame実測max112.6+gap12+余裕
+        // spec §8.3: リード線対象（低棒のみ）。bi は datasets data 配列の実バー位置＝
+        //  負債/純資産系 data=[0,v]→bi=1・資産系 data=[v,0]→bi=0（取り違えると value=0 バーを引き
+        //  formatter null→_visible=false で gate が黙って skip＝リード線が無言で欠ける）。
+        const lowIndices = [
+          [0, displayNetAssets, 1],            // 純資産→調達源泉列
+          [1, fin.non_current_liabilities, 1], // 固定負債→調達源泉列
+          [2, fin.current_liabilities, 1],     // 流動負債→調達源泉列
+          [3, fin.non_current_assets, 0],      // 固定資産→運用形態列
+          [4, fin.current_assets, 0],          // 流動資産→運用形態列
+        ].filter(([, v]) => totalAssets > 0 && v > 0 && v / totalAssets < LOW)
+         .map(([di, , bi]) => ({ di, bi }));
+        // spec §8.4: 同側低棒2つ以上は2本目以降を角度 align で分離（θ<45°・offset は /cosθ 補正で
+        //  「バー端+12px」の水平クリアランスを保存）。※縦距離<50px 条件は render 前に画素距離が
+        //  取れないため「同側2本目以降は常に stagger」の保守的上位集合で運用（受入は rect 交差 0 で判定）。
+        const STAGGER_DEG = 18;
+        const staggerByKey = {};   // "di:bi" -> { deg, factor }
+        [0, 1].forEach((bi) => {
+          lowIndices.filter((s) => s.bi === bi).forEach((s, k) => {
+            if (k === 0) return;
+            const dev = STAGGER_DEG * k;                       // 水平からの偏角（<45°）
+            const deg = bi === 0 ? 180 - dev : dev;            // 左列=180°基準/右列=0°基準から下向き成分
+            staggerByKey[s.di + ":" + s.bi] = { deg: deg, factor: 1 / Math.cos(dev * Math.PI / 180) };
+          });
+        });
         const equityRatio = FinanceRules.equityRatio(fin);   // F1: 純関数へ集約
         const currentRatio = FinanceRules.currentRatio(fin);
 
@@ -874,7 +917,8 @@
                   const val = context.dataset.data[context.dataIndex];
                   if (val === 0) return "center";
                   if (totalAssets > 0 && val / totalAssets < LOW) {
-                    // 低棒は全科目 横逃がし（左列=left/右列=right・旧 'top'/'bottom' 廃止＝上空浮遊も解消）
+                    const st = staggerByKey[context.datasetIndex + ":" + context.dataIndex];
+                    if (st) return st.deg;                     // 角度 align（datalabels は数値=時計回り度を受ける）
                     return context.dataIndex === 0 ? "left" : "right";
                   }
                   return "center";
@@ -883,9 +927,10 @@
                   const val = context.dataset.data[context.dataIndex];
                   if (totalAssets > 0 && val > 0 && val / totalAssets < LOW) {
                     const ca = context.chart.chartArea;
-                    let horiz = (ca ? ca.width / 4 : 132) + 12;   // frame縁=バー端+12px（幾何恒等・spec §8.2）
-                    if (context.dataIndex === 0) horiz += (context.chart.scales.y?.width || 72);  // 左列: 軸目盛を覆わない
-                    return horiz;
+                    let horiz = (ca ? ca.width / 4 : 132) + 12;
+                    if (context.dataIndex === 0) horiz += (context.chart.scales.y?.width || 72);
+                    const st = staggerByKey[context.datasetIndex + ":" + context.dataIndex];
+                    return st ? horiz * st.factor : horiz;     // 角度時は /cosθ 補正（spec §8.4・食い込み防止）
                   }
                   return 0;
                 },
@@ -919,6 +964,7 @@
           },
         });
         bsChartInstance.$neonSpecs = [FIN_COLORS.bs.eq, FIN_COLORS.bs.ncl, FIN_COLORS.bs.cl, FIN_COLORS.bs.nca, FIN_COLORS.bs.ca].map((s) => [s, s]);
+        bsChartInstance.$bsLeaders = lowIndices;
       }
       // 🕸️ 2. レーダー
       function renderRadarChart(fin) {
