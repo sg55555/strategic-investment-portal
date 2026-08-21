@@ -67,9 +67,12 @@
   --ix-slate-line: #6e8492;
   --ix-slate-muted: #7d93a0;
   --ix-slate-light: #a8bcc6;
-  --ix-slate: #6b7d8a;
+  --ix-slate: #7f95a3;
   --ix-text-dim: #8ba2af;
   --ix-text: #d4e2ea;
+  /* テーマA⑦: 日本語長文用サンセリフ（mono/字間はラテン・数値へ分離） */
+  --ix-sans: system-ui, -apple-system, "Segoe UI", "Hiragino Sans",
+             "Noto Sans JP", "Yu Gothic UI", "Meiryo", sans-serif;
   --ix-text-bright: #c2d2dc;
   --ix-text-hi: #ecf4f8;
   --ix-text-max: #f4fafe;
@@ -444,7 +447,7 @@
         white-space: nowrap;
       }
       .val-badge.cheap { background: rgba(0,230,118,0.15); color: var(--ix-emerald-bright); border: 1px solid rgba(0,230,118,0.35); }
-      .val-badge.fair  { background: rgba(107,125,138,0.14); color: var(--ix-slate-light); border: 1px solid rgba(107,125,138,0.28); }
+      .val-badge.fair  { background: rgba(107,125,138,0.14); color: var(--ix-slate-light); border: 1px solid rgba(107,125,138,0.28); opacity: 0.35; }
       .val-badge.exp   { background: rgba(255,23,68,0.14); color: var(--ix-red-soft); border: 1px solid rgba(255,23,68,0.32); }
       .val-badge.gold  { background: rgba(255,158,0,0.14); color: var(--ix-amber); border: 1px solid rgba(255,158,0,0.35); }
       .safety-bar-wrap { display: flex; flex-direction: column; gap: 2px; }
@@ -1203,7 +1206,7 @@
         <div class="kpi-compare-card" id="kpi-compare-card">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
             <div class="kpi-compare-title" style="margin-bottom:0;">Annual KPI Comparison — 3 Fiscal Years</div>
-            <button id="csv-export-btn" onclick="exportCSV()" style="background:rgba(0,230,118,0.1);border:1px solid rgba(0,230,118,0.3);color:#39ff8b;padding:4px 12px;border-radius:3px;cursor:pointer;font-size:0.72rem;font-weight:bold;letter-spacing:1px;transition:all 0.2s;">↓ CSV</button>
+            <button id="csv-export-btn" onclick="exportCSV()" style="background:rgba(0,230,118,0.1);border:1px solid rgba(0,230,118,0.3);color:#39ff8b;padding:4px 12px;border-radius:3px;cursor:pointer;font-size:12px;font-weight:bold;letter-spacing:1px;transition:all 0.2s;">↓ CSV</button>
           </div>
           <div class="kpi-compare-grid" id="kpi-compare-grid"></div>
         </div>
@@ -2064,7 +2067,7 @@
           const marketOn = screeningMarkets.length > 0;
           const sectorOn = (activeSectorFilter !== "all" && activeSectorFilter !== "stock_only");
           const hint = (marketOn && sectorOn) ? "<br><span style='font-size:0.8rem;color:#5a6c78'>セクター条件と市場条件が重複している可能性があります</span>" : "";
-          container.innerHTML = `<div style="text-align:center; color:#6b7d8a; padding:40px;">該当する企業が見つかりません${hint}</div>`;
+          container.innerHTML = `<div style="text-align:center; color:var(--ix-slate); padding:40px;">該当する企業が見つかりません${hint}</div>`;
           return;
         }
 
@@ -2104,8 +2107,8 @@
         title.style.borderLeftColor = sectorColor;
         title.style.background = `linear-gradient(90deg, ${sectorColor}08, transparent)`;
         title.innerHTML = `
-            <span style="color:${sectorColor}88;">${esc(ind.replace("US - ", "US ").replace("国内ETF", "JP ETF"))}</span>
-            <span class="sector-count-badge" style="border-color:${sectorColor}33;color:${sectorColor}99;">${count}社</span>
+            <span style="color:var(--ix-text);">${esc(ind.replace("US - ", "US ").replace("国内ETF", "JP ETF"))}</span>
+            <span class="sector-count-badge" style="border-color:${sectorColor}33;color:var(--ix-text-dim);">${count}社</span>
             <span class="sector-title-line" style="background:linear-gradient(90deg,${sectorColor}22,transparent)"></span>
           `;
         sectorDiv.appendChild(title);
@@ -2147,7 +2150,7 @@
         // T3: 行クリック直後の待機フィードバック用にクリック行(tr)を rowEl として渡す（.row-busy 付与元）。
         tr.onclick = (ev) => navigateToDetail(item.ticker, ev.currentTarget);
 
-        let perStyle = "color: #6b7d8a;";
+        let perStyle = "color: var(--ix-slate);";
         let perText = item.per > 0 ? item.per.toFixed(1) + "x" : "--";
         let perBadge = "";
         if (item.per > 0) {
@@ -2156,7 +2159,7 @@
           else { perStyle = "color: #ff5c7a;"; perBadge = '<span class="val-badge exp">割高</span>'; }
         }
 
-        let pbrStyle = "color: #6b7d8a;";
+        let pbrStyle = "color: var(--ix-slate);";
         let pbrText = item.pbr > 0 ? item.pbr.toFixed(2) + "x" : "--";
         let pbrBadge = "";
         if (item.pbr > 0) {
@@ -2173,7 +2176,7 @@
         )) : null;
         const safetyColor = safetyScore === null ? "#2a3a44" : safetyScore >= 70 ? "#00e676" : safetyScore >= 40 ? "#ffd84d" : "#ff5c7a";
 
-        let opStyle = "color: #6b7d8a;";
+        let opStyle = "color: var(--ix-slate);";
         let opText = item.opMargin !== null ? item.opMargin.toFixed(1) + "%" : "--";
         if (item.opMargin > 0) {
           if (item.opMargin >= 25) { opStyle = "color: #ffd84d; font-weight: bold;"; opText += " " + ICO.sparkle; }
@@ -2181,7 +2184,7 @@
           else if (item.opMargin >= 5) { opStyle = "color: #8ba2af;"; }
         }
 
-        let roeStyle = "color: #6b7d8a;";
+        let roeStyle = "color: var(--ix-slate);";
         let roeText = item.roe !== null ? item.roe.toFixed(1) + "%" : "--";
         if (item.roe < 0) { roeStyle = "color: #ff1744;"; }
         else if (item.roe >= 15) { roeStyle = "color: #ffd60a; font-weight: bold;"; roeText += " " + ICO.sparkle; }

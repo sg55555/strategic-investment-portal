@@ -664,9 +664,9 @@
 
     const headerEl = document.getElementById("active-company-header");
     headerEl.innerHTML = `
-      <span class="company-title-main">${esc(data.company_name)} <span style="color:#475569;font-size:0.9rem;">(${currentTicker})</span></span>
+      <span class="company-title-main">${esc(data.company_name)} <span style="color:#475569;font-size:12px;">(${currentTicker})</span></span>
       <span class="sector-badge">${esc(data.industry)}</span>${currBadgeHtml}
-      <span style="font-size:0.7rem;color:#8ba2af;margin-left:4px;">単位: ${unitLabel}</span>
+      <span style="font-size:12px;color:#8ba2af;margin-left:4px;">単位: ${unitLabel}</span>
       <button class="detail-star-btn${isWatched(currentTicker) ? " watched" : ""}" id="detail-star-btn"
         onclick="toggleWatchlist('${currentTicker}')">${isWatched(currentTicker) ? ICO.starFill + " ウォッチ中" : ICO.starOutline + " ウォッチ"}</button>
       <button class="open-compare-btn" onclick="openCompareModal()">⊕ 比較チャート</button>

@@ -9,7 +9,7 @@
   --c-emerald: #10b981; --c-emerald-bright: #34d399; --c-emerald-soft: #6ee7b7; --c-emerald-pale: #a7f3d0;
   --c-amber: #fbbf24; --c-amber-bright: #fcd34d; --c-amber-pale: #fde68a; --c-amber-deep: #f59e0b; --c-amber-deeper: #b45309;
   --c-cyan: #38bdf8; --c-cyan-bright: #7dd3fc; --c-cyan-pale: #bae6fd; --c-cyan-tint: #e0f2fe;
-  --c-text: #e2e8f0; --c-text-bright: #cbd5e1; --c-text-dim: #94a3b8; --c-text-faint: #8b94a8; --c-text-mute: #5b6478;
+  --c-text: #e2e8f0; --c-text-bright: #cbd5e1; --c-text-dim: #94a3b8; --c-text-faint: #8b94a8; --c-text-mute: #7b859b;
   --c-slate: #64748b; --c-gray: #6b7280; --c-surface-solid: #0e1422;
   --c-danger: #ff003d; --c-danger-soft: #ff7a9d;
   --c-tint-emerald: #e8f8f1; --c-tint-indigo: #e8edff; --c-tint-danger: #ffe2ea; --c-tint-cyan: #dbeafe;
@@ -771,8 +771,8 @@
   /* cyan＝基準(アンカー)/データ → エレクトリック・シアン */
   --c-cyan: #00e5ff; --c-cyan-bright: #62f0ff; --c-cyan-pale: #a8f7ff; --c-cyan-tint: #d6fbff;
   /* テキスト: わずかに寒色寄りの端末グレー */
-  --c-text: #d4e2ea; --c-text-bright: #ecf4f8; --c-text-dim: #8ba2af; --c-text-faint: #6e8492; --c-text-mute: #54636f;
-  --c-slate: #6b7d8a; --c-gray: #5d6b76; --c-surface-solid: #04070c;
+  --c-text: #d4e2ea; --c-text-bright: #ecf4f8; --c-text-dim: #8ba2af; --c-text-faint: #8299a7; --c-text-mute: #7f95a3;
+  --c-slate: #7f95a3; --c-gray: #5d6b76; --c-surface-solid: #04070c;
   /* danger＝警告/超過/赤字 → ホットレッド & マゼンタピンク */
   --c-danger: #ff1744; --c-danger-soft: #ff5c8a;
   /* tints（淡色テキスト）: 近白のままネオン寄りに */
