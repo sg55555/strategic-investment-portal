@@ -66,6 +66,14 @@
     return fin != null && fin[key] != null;
   }
 
+  // 「実質値のある財務行か」の判定（全ゼロFY行=ETL未確定行の防御・spec §5 全消費者の単一源）。
+  //  主要3軸（売上/総資産/純資産）のいずれかに実質値があれば true。現DBでは
+  //  「n(net_sales)===0 && totalAssets===0」の否定と等価（12銘柄FY2026行に過不足なく一致をSELECTで実証済）。
+  function hasFinSubstance(fin) {
+    if (!fin) return false;
+    return n(fin.net_sales) > 0 || totalAssets(fin) > 0 || n(fin.net_assets) !== 0;
+  }
+
   function unitWord(currency) {
     return currency === "USD" ? "ドル" : "円";
   }
@@ -246,6 +254,7 @@
     roa: roa,
     clampScore: clampScore,
     hasValue: hasValue,
+    hasFinSubstance: hasFinSubstance,
     unitWord: unitWord,
     fmtUnit: fmtUnit,
     fmtMagnitude: fmtMagnitude,

@@ -256,3 +256,16 @@ test("cashConversion = 営業CF/純利益*100（純利益≤0/欠測は null）"
   assert.equal(F.cashConversion({ operating_cf: 100, net_income: -50 }), null); // 赤字年
   assert.equal(F.cashConversion({ net_income: 100 }), null);                    // 営業CF欠測（n()の0化に頼らない）
 });
+
+test("hasFinSubstance: 全ゼロFY行（ETL未確定）を欠測扱いにする単一源述語", () => {
+  const allZero = { net_sales: 0, current_assets: 0, non_current_assets: 0, net_assets: 0, net_income: 0, operating_cf: 0 };
+  assert.equal(F.hasFinSubstance(allZero), false);       // 全ゼロ行（18列すべて0）
+  assert.equal(F.hasFinSubstance(null), false);          // 行なし
+  assert.equal(F.hasFinSubstance(undefined), false);
+  const bank = { net_sales: 6838439, current_assets: 0, non_current_assets: 413113501, net_assets: 18000000 };
+  assert.equal(F.hasFinSubstance(bank), true);           // 銀行: current_assets=0 でも総資産>0（誤除外なし）
+  const normal = { net_sales: 48036704, current_assets: 100, non_current_assets: 200, net_assets: 150 };
+  assert.equal(F.hasFinSubstance(normal), true);
+  const negEquityOnly = { net_sales: 0, current_assets: 0, non_current_assets: 0, net_assets: -500 };
+  assert.equal(F.hasFinSubstance(negEquityOnly), true);  // 純資産のみ負値＝実質データあり
+});
