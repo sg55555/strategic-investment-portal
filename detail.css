@@ -287,7 +287,6 @@
         text-transform: uppercase;
         border-left: 3px solid var(--ix-cyan);
         padding-left: 10px;
-        text-shadow: 0 0 10px rgba(0, 229, 255, 0.35);
       }
       .compare-controls {
         display: flex;
@@ -586,9 +585,9 @@
       .disc-chip { display: inline-flex; align-items: baseline; gap: 6px; font-family: var(--ix-mono); font-size: 0.78rem; }
       .disc-chip .k { color: var(--ix-text-dim); font-size: 12px; }
       .disc-chip .v { color: var(--ix-text, #eafcff); font-weight: bold; }
-      .disc-chip .v.hot  { color: var(--ix-pink, #ff4db8); text-shadow: 0 0 8px color-mix(in srgb, var(--ix-pink, #ff4db8) 50%, transparent); }
-      .disc-chip .v.warm { color: var(--ix-amber, #ffca3a); text-shadow: 0 0 8px color-mix(in srgb, var(--ix-amber, #ffca3a) 45%, transparent); }
-      .disc-chip .v.calm { color: var(--ix-teal-bright, #2fe6c4); text-shadow: 0 0 8px color-mix(in srgb, var(--ix-teal-bright, #2fe6c4) 40%, transparent); }
+      .disc-chip .v.hot  { color: var(--ix-pink, #ff4db8); }
+      .disc-chip .v.warm { color: var(--ix-amber, #ffca3a); }
+      .disc-chip .v.calm { color: var(--ix-teal-bright, #2fe6c4); }
       .disc-note { flex-basis: 100%; font-size: 12px; color: var(--ix-text-dim); line-height: 1.5; }
       /* discipline-card は flex-wrap レイアウトゆえ .panel-disclaimer（共通免責スタイル）に
          flex-basis:100% だけを局所付与（他カードでの .panel-disclaimer 定義は無改変）。 */
@@ -1014,10 +1013,20 @@
       .ai-insight-btn:hover { box-shadow: 0 0 10px rgba(98,240,255,.4); }
       .ai-insight-btn:disabled { opacity: .5; cursor: default; box-shadow: none; }
       .ai-insight-body { display: grid; gap: 12px; }
-      .ai-ins-headline { font-weight: 700; color: var(--c-cyan, #62f0ff); text-shadow: 0 0 8px currentColor; }
+      .ai-ins-headline { font-weight: 700; color: var(--c-cyan, #62f0ff); }
       .ai-ins-sec-label { font-size: .82rem; letter-spacing: .06em; opacity: .8; margin-bottom: 2px; }
       .ai-ins-sec-body { line-height: 1.6; }
       .ai-ins-note { opacity: .7; font-size: .85rem; }
 
       /* 修正① 全ゼロFY: 決算未確定プレースホルダ（spec §5.3） */
       .fin-pending-note { color: var(--ix-text-dim); font-size: 13px; padding: 18px 0 6px; letter-spacing: 1px; }
+
+      /* テーマA⑦: 日本語長文の sans 化（免責・説明文・用語定義） */
+      .sig-disclaimer, .panel-disclaimer, .ht-disclaimer,
+      .modal-text, .disc-note, .acc-desc, .acc-body .acc-full-desc,
+      .sig-note, .ht-note, .subpanel-hint, .panel-desc-text-below,
+      .term-help::after {
+        font-family: var(--ix-sans);
+        letter-spacing: 0;
+        line-height: 1.65;
+      }

@@ -453,7 +453,7 @@
       .safety-bar-wrap { display: flex; flex-direction: column; gap: 2px; }
       .safety-bar-track { height: 3px; background: var(--ix-border); border-radius: 2px; width: 100%; }
       .safety-bar-fill  { height: 3px; border-radius: 2px; transition: width 0.4s; }
-      .safety-score-num { font-size: 0.75rem; font-weight: bold; text-shadow: 0 0 5px currentColor; }  /* リデザイン: 健全性スコアにネオン発光（詳細ヒーロー数値と統一） */
+      .safety-score-num { font-size: 0.75rem; font-weight: bold; }  /* リデザイン: 健全性スコアにネオン発光（詳細ヒーロー数値と統一）／テーマA⑥: 12px未満のためグロー廃止 */
       .portal-table tbody tr:nth-child(even) {
         background-color: rgba(0, 229, 255, 0.03);
       }
@@ -604,7 +604,6 @@
         padding-left: 10px;
         text-transform: uppercase;
         letter-spacing: 2px;
-        text-shadow: 0 0 10px rgba(0, 229, 255, 0.35);
       }
 
 
@@ -1013,6 +1012,9 @@
         from { opacity: 0; transform: translateY(-6px); }
         to   { opacity: 1; transform: translateY(0); }
       }
+
+      /* テーマA⑦: portal 側の日本語注記 sans 化 */
+      .screening-note { font-family: var(--ix-sans); letter-spacing: 0; line-height: 1.65; }
 
     </style>
     <link rel="stylesheet" href="detail.css">

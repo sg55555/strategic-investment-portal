@@ -34,6 +34,26 @@ const selectors = m[1].split(",").map((s) => s.replace(/\/\*[\s\S]*?\*\//g, "").
   console.log(`width=${width} checked=${found}/${selectors.length} circle=${circle}`);
   fails.forEach((f) => console.log("  ❌ " + f));
   if (circle && parseFloat(circle) < 17) { fails.push("?円<17px"); console.log("  ❌ ?円 " + circle); }
+  // ⑥グロー廃止: theme-a L49-81 の text-shadow:none 対象を実 DOM で確認
+  const glowSels = [...css.matchAll(/^([^\/@{}]+?)\{\s*text-shadow:\s*none;/gm)]
+    .flatMap((g) => g[1].split(",").map((s) => s.trim())).filter(Boolean)
+    .filter((s) => !/\.mcc-hero-power small/.test(s));   // 遮断ルールは別検証
+  for (const sel of glowSels) {
+    const ts = await page.evaluate((s) => { const el = document.querySelector(s); return el ? getComputedStyle(el).textShadow : null; }, sel).catch(() => null);
+    if (ts !== null && ts !== "none") fails.push(`${sel}: text-shadow=${ts}`);
+  }
+  // 維持組の過剰廃止検出（.mcc-hero-power は shadow を保持していること）
+  const heroTs = await page.evaluate(() => { const el = document.querySelector(".mcc-hero-power"); return el ? getComputedStyle(el).textShadow : null; });
+  if (heroTs === "none") fails.push(".mcc-hero-power: 維持すべき shadow が消えている（過剰廃止）");
+  // ⑦sans 化: theme-a L85-106 のセレクタ群が system-ui を含むこと
+  // 注: 「⑦ 日本語長文」は冒頭サマリ(L12)/トークン注記(L20)にも出現し曖昧なため、
+  // セクション見出し本体に一意な「日本語長文:」（コロン付き, L83）へ絞って誤爆(fold-nm等の巻き込み)を回避。
+  const sansM = css.match(/日本語長文:[\s\S]*?\*\/([\s\S]*?)\{\s*font-family:\s*var\(--ix-sans\)/);
+  const sansSels = sansM[1].split(",").map((s) => s.replace(/\/\*[\s\S]*?\*\//g, "").trim()).filter(Boolean);
+  for (const sel of sansSels) {
+    const ff = await page.evaluate((s) => { const el = document.querySelector(s); return el ? getComputedStyle(el).fontFamily : null; }, sel).catch(() => null);
+    if (ff !== null && !/system-ui/.test(ff)) fails.push(`${sel}: fontFamily=${ff.slice(0, 40)}`);
+  }
   await browser.close();
   console.log(fails.length === 0 ? "ALL PASS" : `${fails.length} FAILED`);
   process.exit(fails.length === 0 ? 0 : 1);

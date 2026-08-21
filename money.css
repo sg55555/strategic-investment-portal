@@ -819,7 +819,7 @@
 }
 [data-theme="D"] #money-view .mcc-tab { font-family: var(--mcc-mono); }
 [data-theme="D"] #money-view .mcc-tab[aria-selected="true"] {
-  color: var(--c-cyan-bright); text-shadow: 0 0 10px rgba(0,229,255,0.55);
+  color: var(--c-cyan-bright);
 }
 [data-theme="D"] #money-view .mcc-tab[aria-selected="true"]::after {
   background: linear-gradient(90deg, var(--c-cyan), var(--c-emerald-bright));
@@ -864,23 +864,25 @@
 [data-theme="D"] #money-view .mcc-hero-power {
   font-family: var(--mcc-mono); color: var(--c-emerald-bright); text-shadow: 0 0 12px rgba(57,255,139,0.5);
 }
+/* テーマA⑥: 維持ヒーロー(.mcc-hero-power)の小さな子(small=12px)へ継承させない継承遮断 */
+[data-theme="D"] #money-view .mcc-hero-power small { text-shadow: none; }
 /* 次の一手＝旧バナーの意味色（buffer=インディゴ/core=蛍光グリーン/rebalance=ホットレッド/setup=無彩）を継承 */
 [data-theme="D"] #money-view .mcc-hero-next {
   background: rgba(0,230,118,0.08); border-left: 3px solid var(--c-emerald-bright); border-radius: 2px;
   box-shadow: inset 0 0 18px rgba(0,230,118,0.06); color: var(--c-emerald-pale);
   font-family: var(--mcc-mono); letter-spacing: 0.3px;
 }
-[data-theme="D"] #money-view .mcc-hero-next strong { color: var(--c-emerald-bright); text-shadow: 0 0 10px rgba(57,255,139,0.5); }
+[data-theme="D"] #money-view .mcc-hero-next strong { color: var(--c-emerald-bright); }
 [data-theme="D"] #money-view .mcc-hero-next-buffer {
   background: rgba(77,93,255,0.08); border-left-color: var(--c-indigo-bright);
   box-shadow: inset 0 0 18px rgba(77,93,255,0.08); color: var(--c-indigo-pale);
 }
-[data-theme="D"] #money-view .mcc-hero-next-buffer strong { color: var(--c-indigo-soft); text-shadow: 0 0 10px rgba(138,160,255,0.5); }
+[data-theme="D"] #money-view .mcc-hero-next-buffer strong { color: var(--c-indigo-soft); }
 [data-theme="D"] #money-view .mcc-hero-next-rebalance {
   background: rgba(255,23,68,0.08); border-left-color: var(--c-danger-soft);
   box-shadow: inset 0 0 18px rgba(255,23,68,0.1); color: var(--c-danger-soft);
 }
-[data-theme="D"] #money-view .mcc-hero-next-rebalance strong { color: var(--c-danger-soft); text-shadow: 0 0 10px rgba(255,23,68,0.5); }
+[data-theme="D"] #money-view .mcc-hero-next-rebalance strong { color: var(--c-danger-soft); }
 [data-theme="D"] #money-view .mcc-hero > .mcc-cf-fetchnote {
   background: rgba(0,0,0,0.3); border-top-color: rgba(0,229,255,0.12);
 }
@@ -895,8 +897,8 @@
   border-color: rgba(0,230,118,0.5);
   box-shadow: inset 0 0 0 1px rgba(0,230,118,0.08), 0 0 18px rgba(0,230,118,0.12);
 }
-[data-theme="D"] #money-view .mcc-sync-status { color: var(--c-cyan-pale); letter-spacing: 0.5px; text-shadow: 0 0 8px rgba(0,229,255,0.3); }
-[data-theme="D"] #money-view .mcc-sync-on .mcc-sync-status { color: var(--c-emerald-pale); text-shadow: 0 0 8px rgba(0,230,118,0.3); }
+[data-theme="D"] #money-view .mcc-sync-status { color: var(--c-cyan-pale); letter-spacing: 0.5px; }
+[data-theme="D"] #money-view .mcc-sync-on .mcc-sync-status { color: var(--c-emerald-pale); }
 
 /* ---------- 4. ガイド / 用語集 ---------- */
 [data-theme="D"] #money-view .mcc-guide {
@@ -949,17 +951,17 @@
 [data-theme="D"] #money-view .mcc-fold-body { border-top: 1px solid rgba(0,229,255,0.12); }
 /* セクション別アクセント（意味色マップ・モック逐語）＝畳んだ状態でも「どの話題か」が色で分かる */
 [data-theme="D"] #money-view .mcc-fold-cf { border-color: rgba(0,229,255,0.32); }
-[data-theme="D"] #money-view .mcc-fold-cf > summary .mcc-fold-nm { color: var(--c-cyan-bright); text-shadow: 0 0 8px rgba(0,229,255,0.35); }
+[data-theme="D"] #money-view .mcc-fold-cf > summary .mcc-fold-nm { color: var(--c-cyan-bright); }
 [data-theme="D"] #money-view .mcc-fold-rm { border-color: rgba(138,160,255,0.34); }
-[data-theme="D"] #money-view .mcc-fold-rm > summary .mcc-fold-nm { color: var(--c-indigo-bright); text-shadow: 0 0 8px rgba(138,160,255,0.35); }
+[data-theme="D"] #money-view .mcc-fold-rm > summary .mcc-fold-nm { color: var(--c-indigo-bright); }
 [data-theme="D"] #money-view .mcc-fold-nisa { border-color: rgba(245,112,255,0.34); }
-[data-theme="D"] #money-view .mcc-fold-nisa > summary .mcc-fold-nm { color: var(--c-violet); text-shadow: 0 0 8px rgba(245,112,255,0.4); }
+[data-theme="D"] #money-view .mcc-fold-nisa > summary .mcc-fold-nm { color: var(--c-violet); }
 [data-theme="D"] #money-view .mcc-fold-ac { border-color: rgba(0,229,255,0.2); }
-[data-theme="D"] #money-view .mcc-fold-ac > summary .mcc-fold-nm { color: var(--c-cyan-bright); text-shadow: 0 0 8px rgba(0,229,255,0.35); }
+[data-theme="D"] #money-view .mcc-fold-ac > summary .mcc-fold-nm { color: var(--c-cyan-bright); }
 [data-theme="D"] #money-view .mcc-fold-rg { border-color: rgba(255,179,0,0.34); }
-[data-theme="D"] #money-view .mcc-fold-rg > summary .mcc-fold-nm { color: var(--c-amber-bright); text-shadow: 0 0 8px rgba(255,179,0,0.35); }
+[data-theme="D"] #money-view .mcc-fold-rg > summary .mcc-fold-nm { color: var(--c-amber-bright); }
 [data-theme="D"] #money-view .mcc-fold-ai { border-color: rgba(138,160,255,0.34); }
-[data-theme="D"] #money-view .mcc-fold-ai > summary .mcc-fold-nm { color: var(--c-indigo-bright); text-shadow: 0 0 8px rgba(138,160,255,0.35); }
+[data-theme="D"] #money-view .mcc-fold-ai > summary .mcc-fold-nm { color: var(--c-indigo-bright); }
 /* 二重枠の解除（baseline と同じ列挙を theme D の詳細度で上書きする＝§8/§9/§10/§17/§18 のカード装飾を無効化） */
 [data-theme="D"] #money-view .mcc-fold-body > .mcc-cashflow,
 [data-theme="D"] #money-view .mcc-fold-body > .mcc-roadmap,
@@ -991,8 +993,6 @@
 [data-theme="D"] #money-view .mcc-cf-period { font-family: var(--mcc-mono); color: var(--c-cyan-pale); letter-spacing: 0.5px; }
 [data-theme="D"] #money-view .mcc-cf-stat span { font-family: var(--mcc-mono); letter-spacing: 0.5px; }
 [data-theme="D"] #money-view .mcc-cf-stat strong { font-family: var(--mcc-mono); }
-[data-theme="D"] #money-view .mcc-cf-stat strong.pos { text-shadow: 0 0 10px rgba(57,255,139,0.45); }
-[data-theme="D"] #money-view .mcc-cf-stat strong.neg { text-shadow: 0 0 10px rgba(255,23,68,0.45); }
 [data-theme="D"] #money-view .mcc-cf-surplus {
   background: rgba(0,230,118,0.08); border-left: 3px solid var(--c-emerald-bright); border-radius: 2px;
   box-shadow: inset 0 0 18px rgba(0,230,118,0.06);
@@ -1008,7 +1008,7 @@
 [data-theme="D"] #money-view .mcc-wf-sat,
 [data-theme="D"] #money-view .mcc-wf-reserve { border-color: rgba(255,179,0,0.6); color: var(--c-amber-pale); box-shadow: 0 0 8px rgba(255,179,0,0.18); }
 [data-theme="D"] #money-view .mcc-cf-cat { background: rgba(0,229,255,0.05); border: 1px solid rgba(0,229,255,0.12); border-radius: 2px; font-family: var(--mcc-mono); }
-[data-theme="D"] #money-view .mcc-cf-note { font-family: var(--mcc-mono); }
+[data-theme="D"] #money-view .mcc-cf-note { font-family: var(--ix-sans); letter-spacing: 0; line-height: 1.65; }
 [data-theme="D"] #money-view .mcc-spark-axis { stroke: rgba(0,229,255,0.18); }
 [data-theme="D"] #money-view .mcc-spark-pos { fill: var(--c-emerald-bright); filter: drop-shadow(0 0 3px rgba(57,255,139,0.4)); }
 [data-theme="D"] #money-view .mcc-spark-neg { fill: var(--c-danger-soft); filter: drop-shadow(0 0 3px rgba(255,23,68,0.4)); }
@@ -1068,7 +1068,7 @@
 [data-theme="D"] #money-view .mcc-sat-fill { background: var(--c-indigo-bright); box-shadow: 0 0 10px rgba(138,160,255,0.45); }
 [data-theme="D"] #money-view .mcc-sat-fill.over { background: var(--c-danger); box-shadow: 0 0 12px rgba(255,23,68,0.55); }
 [data-theme="D"] #money-view .mcc-sat-cap { font-family: var(--mcc-mono); }
-[data-theme="D"] #money-view .mcc-sat-warn { color: var(--c-danger-soft); font-family: var(--mcc-mono); text-shadow: 0 0 8px rgba(255,23,68,0.4); }
+[data-theme="D"] #money-view .mcc-sat-warn { color: var(--c-danger-soft); font-family: var(--mcc-mono); }
 
 /* ---------- 12. 資産目標 goals ---------- */
 [data-theme="D"] #money-view .mcc-goal {
@@ -1122,10 +1122,10 @@
 /* ---------- 15. 見出し / 一行説明 / 用語ヘルプ ---------- */
 [data-theme="D"] #money-view .mcc-section-title {
   color: var(--c-cyan-bright); font-family: var(--mcc-mono); letter-spacing: 2px;
-  text-shadow: 0 0 8px rgba(0,229,255,0.35);
 }
 [data-theme="D"] #money-view .mcc-section-title::before { content: "> "; color: var(--c-emerald-bright); }
-[data-theme="D"] #money-view .mcc-section-desc { color: var(--c-text-faint); font-family: var(--mcc-mono); letter-spacing: 0.2px; }
+/* テーマA⑦: mono奪回（D層高特異性のため in-place）＝日本語長文は sans へ */
+[data-theme="D"] #money-view .mcc-section-desc { color: var(--c-text-faint); font-family: var(--ix-sans); letter-spacing: 0; line-height: 1.65; }
 [data-theme="D"] #money-view .mcc-help {
   border-radius: 2px; background: rgba(0,229,255,0.12); border: 1px solid rgba(0,229,255,0.5);
   color: var(--c-cyan-bright); font-family: var(--mcc-mono);
@@ -1197,7 +1197,6 @@
 [data-theme="D"] #money-view .mcc-rm-northstar-fallback,
 [data-theme="D"] #money-view .mcc-rm-northstar-setup { border-left-color: var(--c-slate); color: var(--c-text-dim); }
 [data-theme="D"] #money-view .mcc-rm-thismonth-head { color: var(--c-cyan); font-family: var(--mcc-mono); letter-spacing: 1px; }
-[data-theme="D"] #money-view .mcc-rm-note,
 [data-theme="D"] #money-view .mcc-rm-timeline { font-family: var(--mcc-mono); }
 [data-theme="D"] #money-view .mcc-rm-satchip { border-radius: 2px; font-family: var(--mcc-mono); background: rgba(0,0,0,0.3); }
 [data-theme="D"] #money-view .mcc-rm-satchip-locked { color: var(--c-amber-pale); border-color: rgba(255,179,0,0.45); box-shadow: 0 0 8px rgba(255,179,0,0.15); }
@@ -1233,22 +1232,16 @@
 [data-theme="D"] #money-view .mcc-ac-tbtn.on { background: rgba(0,229,255,0.22); color: #fff; box-shadow: 0 0 12px rgba(0,229,255,0.35); }
 [data-theme="D"] #money-view .mcc-ac-input summary { color: var(--c-cyan-pale); font-family: var(--mcc-mono); letter-spacing: 1px; }
 [data-theme="D"] #money-view .mcc-ac-input-bktitle { color: var(--c-cyan-pale); font-family: var(--mcc-mono); letter-spacing: 0.5px; }
-[data-theme="D"] #money-view .mcc-ac-yen strong { text-shadow: 0 0 10px rgba(0,229,255,0.5); }
 [data-theme="D"] #money-view .mcc-ac-bk i.grow { box-shadow: 0 0 7px rgba(255,42,77,0.65), 0 0 2px rgba(255,122,0,0.6); }
 [data-theme="D"] #money-view .mcc-ac-bk i.def { box-shadow: 0 0 7px rgba(31,219,94,0.6); }
 
 /* neonb: 加算合成(screen)＝暗背景でも発光しつつ下地グリッドが透ける（透明度は0.4のまま・発光のみUP＝spec §6.2確定） */
 [data-theme="D"] #money-view .mcc-ac-card.neonb .mcc-ac-swatch { box-shadow: 0 0 7px currentColor, 0 0 2px currentColor; }
-[data-theme="D"] #money-view .mcc-ac-card.neonb .mcc-ac-leg .pc { text-shadow: 0 0 6px rgba(0,229,255,0.3); }
 [data-theme="D"] #money-view .mcc-ac-card.neonb .mcc-ac-readout b { text-shadow: 0 0 9px currentColor; }
-[data-theme="D"] #money-view .mcc-ac-card.neonb .mcc-ac-center .big { text-shadow: 0 0 9px currentColor; }
 [data-theme="D"] #money-view .mcc-ac-card.neonb .mcc-ac-stack { border-color: rgba(0,229,255,0.16); box-shadow: 0 0 12px rgba(0,229,255,0.06); background: transparent; overflow: visible; }
 [data-theme="D"] #money-view .mcc-ac-card.neonb .mcc-ac-seg { mix-blend-mode: screen; filter: saturate(1.55) brightness(1.5); }
 [data-theme="D"] #money-view .mcc-ac-card.neonb .mcc-ac-donut2 { mix-blend-mode: screen; filter: saturate(1.55) brightness(1.5); }
 [data-theme="D"] #money-view .mcc-ac-card.neonb .mcc-ac-donut2.glowlayer { filter: blur(13px) saturate(1.55) brightness(1.5); opacity: 0.42; }
-[data-theme="D"] #money-view .mcc-ac-card.neonb .mcc-ac-driftrow.over .dv { text-shadow: 0 0 9px var(--c-amber); }
-[data-theme="D"] #money-view .mcc-ac-card.neonb .mcc-ac-driftrow.under .dv { text-shadow: 0 0 9px var(--c-cyan-bright); }
-[data-theme="D"] #money-view .mcc-ac-card.neonb .mcc-ac-driftrow.match .dv { text-shadow: 0 0 9px var(--c-emerald-soft); }
 [data-theme="D"] #money-view .mcc-ac-card.neonb .mcc-ac-driftrow { background: rgba(0,20,32,0.28); }
 
 /* ---------- 19. NISA枠（backlog B#3, Task9）。§18(資産クラス比率)と同じ neon glow 手法（baseline+D 二層）。---------- */
@@ -1276,7 +1269,6 @@
 [data-theme="D"] #money-view .mcc-nisa-legend,
 [data-theme="D"] #money-view .mcc-nisa-subbar-label,
 [data-theme="D"] #money-view .mcc-nisa-readout,
-[data-theme="D"] #money-view .mcc-nisa-gate,
 [data-theme="D"] #money-view .mcc-nisa-input summary { font-family: var(--mcc-mono); }
 [data-theme="D"] #money-view .mcc-nisa-input summary { color: var(--c-cyan-pale); letter-spacing: 1px; }
 [data-theme="D"] #money-view .mcc-nisa-seg.tsum, [data-theme="D"] #money-view .mcc-nisa-fill.tsum {
@@ -1294,3 +1286,14 @@
 [data-theme="D"] #money-view .mcc-nisa-srcbtn.on { box-shadow: 0 0 10px -2px var(--c-violet); }
 [data-theme="D"] #money-view .mcc-nisa-recon.warn { color: var(--c-amber-bright); }
 [data-theme="D"] #money-view .mcc-nisa-recon.ok { color: var(--c-emerald-bright); }
+
+/* テーマA⑦: 日本語長文の sans 化（money 系免責・注記・用語定義） */
+.mcc-advice-disclaimer, .mcc-ac-disc, .mcc-nisa-gate,
+.mcc-expense-note, .mcc-bucket-note, .mcc-hero-ref-note,
+.mcc-cf-monthnote, .mcc-nisa-srcnote, .mcc-rm-note,
+.mcc-guide-rule, .mcc-guide-privacy,
+.mcc-glo-def, .mcc-glo-read, .mcc-help::after {
+  font-family: var(--ix-sans);
+  letter-spacing: 0;
+  line-height: 1.65;
+}
