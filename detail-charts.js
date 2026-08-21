@@ -736,6 +736,12 @@
         );
         const unit = FinanceRules.pickUnit(bsAxisMax, currency);
         setUnitBadge("bs-title", unit);
+        // spec §8.1: 低棒判定と side-aware パディング（totalAssets>0 ガード＝P1 全ゼロ年の NaN 防御の二重化）
+        const LOW = 0.12;
+        const lowLeft  = totalAssets > 0 && [fin.current_assets, fin.non_current_assets].some(v => v > 0 && v / totalAssets < LOW);
+        const lowRight = totalAssets > 0 && [fin.current_liabilities, fin.non_current_liabilities, displayNetAssets].some(v => v > 0 && v / totalAssets < LOW);
+        const hostW = document.getElementById("bsChart").parentElement.clientWidth || 880;
+        const CALLOUT_PAD = Math.min(140, Math.max(126, Math.round(hostW * 0.16)));   // frame実測max112.6+gap12+余裕
         const equityRatio = FinanceRules.equityRatio(fin);   // F1: 純関数へ集約
         const currentRatio = FinanceRules.currentRatio(fin);
 
@@ -820,8 +826,8 @@
           options: {
             responsive: true,
             maintainAspectRatio: false,
-            // 吹き出しが右の宇宙へ飛んでいくため、右側のパディングのみを「180px」へ大拡張し、見切れを完全ブロック！
-            layout: { padding: isMobile ? { left: 4, right: 4, top: 10, bottom: 4 } : { left: 100, right: 180, top: 65, bottom: 20 } },
+            // spec §8.1: 低棒が出る側だけ CALLOUT_PAD を動的付与（side-aware・モバイル arm は不変）。
+            layout: { padding: isMobile ? { left: 4, right: 4, top: 10, bottom: 4 } : { left: lowLeft ? CALLOUT_PAD : 8, right: lowRight ? CALLOUT_PAD : 16, top: 65, bottom: 20 } },
             animation: {
               duration: 1500,
               easing: "easeOutQuart",
@@ -861,42 +867,25 @@
                     ? { top: 6, bottom: 6, left: 10, right: 10 }
                     : 0;
                 },
-                anchor: function (context) {
-                  const val = context.dataset.data[context.dataIndex];
-                  const label = context.dataset.label;
-                  if (val === 0) return "center";
-
-                  // 【真・衝突回避：十字セパレートシステム】
-                  if (val / totalAssets < 0.12) {
-                    if (label === "流動資産" || label === "流動負債")
-                      return "end"; // てっぺんの科目は「上」をアンカーに
-                    if (label === "純資産") return "start"; // 一番下は「下」をアンカーに
-                    return context.dataIndex === 0 ? "left" : "right"; // 挟まれた固定科目は「横」をアンカーに
-                  }
-                  return "center";
-                },
+                // spec §8.2: 旧 :849 'end'/:850 'start'/:851 不正値('left'/'right'→center fallback) を全廃。
+                //  :849/:850 の center 化は横逃がし(align/offset)とセットの意図変更＝anchor 単独の先行コミット不可。
+                anchor: "center",
                 align: function (context) {
                   const val = context.dataset.data[context.dataIndex];
-                  const label = context.dataset.label;
                   if (val === 0) return "center";
-
-                  // 流動負債は「上空」へ、固定負債は「右の宇宙」へと、役割ごとに完全に異なる方向へ吹き出しを逃がす！
-                  if (val / totalAssets < 0.12) {
-                    if (label === "流動資産" || label === "流動負債")
-                      return "top";
-                    if (label === "純資産") return "bottom";
-                    if (label === "固定負債") return "right";
-                    if (label === "固定資産") return "left";
+                  if (totalAssets > 0 && val / totalAssets < LOW) {
+                    // 低棒は全科目 横逃がし（左列=left/右列=right・旧 'top'/'bottom' 廃止＝上空浮遊も解消）
+                    return context.dataIndex === 0 ? "left" : "right";
                   }
                   return "center";
                 },
                 offset: function (context) {
                   const val = context.dataset.data[context.dataIndex];
-                  const label = context.dataset.label;
-                  if (val / totalAssets < 0.12) {
-                    // バーが極太になったため、右の宇宙へ逃げる固定負債は「75px」の超強力推力で完全に外側へ飛ばす！
-                    if (label === "固定資産" || label === "固定負債") return 75;
-                    return 15; // 上下へ逃げる科目は15pxでスマートに浮かす
+                  if (totalAssets > 0 && val > 0 && val / totalAssets < LOW) {
+                    const ca = context.chart.chartArea;
+                    let horiz = (ca ? ca.width / 4 : 132) + 12;   // frame縁=バー端+12px（幾何恒等・spec §8.2）
+                    if (context.dataIndex === 0) horiz += (context.chart.scales.y?.width || 72);  // 左列: 軸目盛を覆わない
+                    return horiz;
                   }
                   return 0;
                 },
