@@ -691,8 +691,8 @@
       out.push({ key: 'percent-b', label: 'ボリンジャー%B', term: 'percent-b', state: state, readout: readout });
     })();
 
-    // 5) S/R 最寄り（表示期間 dp から算出＝チャート描画のS/R線・as-ofキャプションと整合／全クラスタを
-    //    close で上下分割し価格差最小を選ぶ＝count 降順 top-3 の外の近い水準も対象[M7]・count は強度表示のみ）
+    // 5) S/R 最寄り（表示期間 dp から算出。チャート側 S/R 線も displayPrices 基準＝入力同一で数値整合
+    //    〔spec §6.1 窓統一済〕／全クラスタを close で上下分割し価格差最小を選ぶ＝top-3 外も対象[M7]）
     (function () {
       var sr = detectSR(dp, Infinity) || { resistance: [], support: [] };
       var all = (sr.resistance || []).concat(sr.support || []);

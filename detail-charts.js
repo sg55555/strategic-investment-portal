@@ -224,16 +224,16 @@
         srLines = [];
         if (!srState || !prices?.length) return;
         const { resistance, support } = detectSR(prices);
-        resistance.forEach(({ price, count }) => {
+        resistance.forEach(({ price, count }, i) => {
           srLines.push(candleSeries.createPriceLine({
             price, color: "rgba(255,102,153,0.85)", lineWidth: 1,
-            lineStyle: 2, axisLabelVisible: true, title: `R×${count}`,
+            lineStyle: 2, axisLabelVisible: i < 2, title: `R×${count}`,   // A-mini: 軸ラベル上位2本/側（線は全本維持）
           }));
         });
-        support.forEach(({ price, count }) => {
+        support.forEach(({ price, count }, i) => {
           srLines.push(candleSeries.createPriceLine({
             price, color: "rgba(52,245,207,0.85)", lineWidth: 1,
-            lineStyle: 2, axisLabelVisible: true, title: `S×${count}`,
+            lineStyle: 2, axisLabelVisible: i < 2, title: `S×${count}`,
           }));
         });
       }
@@ -241,7 +241,7 @@
         srState = !srState;
         document.getElementById("ind-btn-sr").classList.toggle("active", srState);
         const data = STOCK_DATA[currentTicker];
-        if (data) applySRLines(data.prices);
+        if (data) applySRLines(currentDisplayPrices || data.prices);
       }
       // ── サブパネル 汎用レジストリ（RSI/MACD=既存ロジック・色を move-not-rewrite／ADX/ATR=
       //    scratchpad/subpanel-mock/mock-engine.js buildSubpanel の該当分岐を移植）────────────
@@ -505,7 +505,7 @@
         vwapSeries?.setData(calcVWAP(displayPrices));
 
         // ── 支持線・抵抗線 ──
-        applySRLines(base);
+        applySRLines(displayPrices);   // spec §6.1: S/R は表示窓基準（MA/BB/KC の base は不可侵）
 
         // ── T/Rトレンドライン ──
         currentDisplayPrices = displayPrices;
