@@ -310,7 +310,17 @@ const lowIndices = [
 **小工数頻出系一掃 wave の候補リスト**（今回スコープ外・着手時に本リストから選定）:
 銀行営業利益 0 の N/A 化／CF ウォーターフォールラベル衝突／浮遊「0」退避（※P5 横統一で BS 分は解消・他チャート分が残る）／レーダー団子／S/R 近接マージ（監査A フル版・完全一致化 D9 の再訪含む）／サブパネル二重ラベル・OBV 生値軸・時間軸位置／fitContent／比較チャートバッジ 8 連／トグルバー迷子「?」／タイトル二重ティッカー／P6 債務超過注記／P8 モバイル低棒サマリ／銀行 CF 専用表示／銀行の側パネル流動比率 0.0%（ratioOrNull 化）／cf_cash_start/end 年連鎖（**データ側**・9984.T 3年同一値・本人ローカル作業レーン）／全ゼロ FY2026 行の ETL 除去（**データ側**・同レーン）。
 
-## 13. 再開の合図
+## 13. 実装差分メモ（SDD 実装完了時点 2026-08-21・spec からの逸脱と訂正の記録）
+
+1. **stagger 適用条件**（§8.4）: 「セグメント中点の縦距離<50px のペア」は render 前に画素距離が取れないため、**「同側2本目以降は常に stagger」の保守的上位集合**で実装（受入は `_box._rect` 交差 0 の数値アサートで担保・bs-callout-verify.js ALL PASS）。
+2. **代表銘柄の訂正**（§9.2）: 実DB SELECT で **6758.T は低棒「右列」**（固定負債 9.53%）＝spec/recon の「低棒左列」は誤記。**左列（lowLeft）を演習する実在銘柄は MCD**（流動負債＋流動資産の両側低棒・負純資産＝displayNetAssets 除外の実証も兼ねる）。受入スクリプトは MCD を追加した7銘柄で実施。
+3. **D層 mono 直指定の全量**（§4.4）: 「4クラスが全量」は誤り＝**`.mcc-help::after` が5クラス目**（theme-a ⑦リスト由来・特異性 1,2,1）。in-place 奪回で対処済み（Task 8 fix round 1）。疑似要素の computedStyle 検証も theme-floor-check.js に追加。
+4. **検証ハーネスの実測値**: detail-snapshot の windowApi は **15/17**（§9.1 の「16/16」は recon 期の値）・portal-money-smoke は **8 assert**（§9.2 の 9 は旧値）。ゲートは「baseline から不変」で運用し全タスク維持。
+5. **sr-window-verify / zerofy-portal-verify**: plan 原文スクリプトに未ハイドレート実行時の vacuous PASS 欠陥→ `await getStock()` ハイドレーション＋非自明性チェック（dpLen>0 等）を追加して実質検証化。
+6. **SDD ledger パス**: `.superpowers/sdd/2026-08-21-theme-a-chart-fixes/progress.md`（skill の per-plan workspace・§9.3 の flat パスから変更）。
+7. **本番 Neon 確認**（§5.5）: `/api/market/financials?ticker=6861.T` で FY2026 行が year 以外全ゼロで配信されていることを確認済（2026-08-21）＝フロント防御は本番でも作動する。
+
+## 14. 再開の合図
 
 - spec 承認後: 「**テーマA+チャート修正の writing-plans から**」（→SDD 実装）。
 - 実装中断後: `.superpowers/sdd/progress.md` の Task 状態から再開。
