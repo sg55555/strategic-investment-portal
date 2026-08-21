@@ -449,18 +449,6 @@
     return `${companyName} (${ticker}) - 直近市場ローソク足時系列`;
   }
 
-  // ページ統一単位選定用の最大絶対値（15項目）。index.html 3780-3788。FinanceRules.n/totalAssets 委譲。
-  function financialMaxAbs(fin) {
-    let maxAbs = 0;
-    [FR.totalAssets(fin), fin.net_sales, fin.gross_profit, fin.operating_income,
-     fin.ordinary_income, fin.income_before_taxes, fin.net_income, fin.net_assets,
-     fin.current_liabilities, fin.non_current_liabilities, fin.cf_cash_start, fin.cf_cash_end,
-     fin.operating_cf, fin.investing_cf, fin.financing_cf].forEach((v) => {
-      const a = Math.abs(FR.n(v)); if (a > maxAbs) maxAbs = a;
-    });
-    return maxAbs;
-  }
-
   // 市場別バリュエーション基準の selector。index.html 3839。
   function marketBasisFor(isUS) { return MARKET_BASIS[isUS ? "US" : "JP"]; }
 
@@ -995,7 +983,7 @@
     calcATR, calcADX, calcKeltner, calcOBV, calcVWAP, disciplineDigest,
     signalDigest, healthTrendSeries, dupontFactorSeries, fcfTrendSeries,
     // 財務ディスクリプタ純関数
-    priceWindow, periodLabel, financialMaxAbs, marketBasisFor, perStatus, pbrStatus,
+    priceWindow, periodLabel, marketBasisFor, perStatus, pbrStatus,
     equityRatioDesc, currentRatioDesc, yoyBadge, plSteps, cfFlowStatus, cfCompanyType, cfWaterfall, radarScores,
     sparklineSVG, dupontDescriptor, fcfQualityDescriptor,
     // 色/特例定数

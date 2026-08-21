@@ -70,19 +70,6 @@ test("periodLabel: 絞り込みなしは直近市場ラベル", () => {
   );
 });
 
-// ── financialMaxAbs: 15項目の最大絶対値（FinanceRules.n / totalAssets 委譲）──
-test("financialMaxAbs: 15項目の max|abs|（totalAssets=流動+固定, 負も絶対値）", () => {
-  const fin = {
-    current_assets: 30000000, non_current_assets: 60000000, // totalAssets=90,000,000 が最大
-    net_sales: 48036704, net_income: 4765000, net_assets: 45000000,
-    current_liabilities: 25000000, non_current_liabilities: 20000000,
-    operating_cf: 4000000, investing_cf: -3000000, financing_cf: -1000000,
-  };
-  assert.equal(D.financialMaxAbs(fin), 90000000);
-  assert.equal(D.financialMaxAbs({ financing_cf: -12345 }), 12345); // 負の絶対値
-  assert.equal(D.financialMaxAbs({}), 0);
-});
-
 // ── marketBasisFor: 市場別バリュエーション基準（MARKET_BASIS 単一ソース）──
 test("marketBasisFor: US / JP の基準値", () => {
   assert.deepEqual(D.marketBasisFor(true),

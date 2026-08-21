@@ -704,15 +704,38 @@
       }
 
   // ── 財務チャート（BS/PL/CF/Radar・index.html から verbatim relocate）──
+      // カードタイトル右端の単位バッジ（チャート別単位・冪等・spec §7.2）。injectTermHelp の data-term
+      //  span と共存するため既存 child の後ろへ append し、2回目以降は textContent 差替のみ。
+      function setUnitBadge(titleId, unit) {
+        const title = document.getElementById(titleId);
+        if (!title) return;
+        const badgeId = titleId + "-unit-badge";
+        let badge = document.getElementById(badgeId);
+        if (!badge) {
+          badge = document.createElement("span");
+          badge.id = badgeId;
+          badge.className = "chart-unit-badge";
+          title.appendChild(badge);
+        }
+        badge.textContent = "単位: " + FinanceRules.unitLabel(unit);
+      }
+
       // 📊 1. BS (極太2.5倍 & 吹き出しエスケープ)
-      // cross-module state seam: pageUnit は detail.js の closure 私有につき引数で受ける（本体不変）。
-      function renderBSChart(fin, pageUnit) {
-        const unitStr = FinanceRules.fmtUnit(STOCK_DATA[currentTicker]?.currency);
+      // spec §7.1 D10: BS はチャート別単位＝両スタック和の max で選層（ページ統一単位の引数受け渡しは廃止）。
+      function renderBSChart(fin) {
         const isMobile = window.innerWidth < 768;
         const totalAssets = FinanceRules.totalAssets(fin);   // F1: 純関数へ集約（欠損は0扱い）
         const hasNegativeEquity = fin.net_assets < 0;
         // 負の純資産の場合はチャート用に0を使用（自社株買い等による）
         const displayNetAssets = hasNegativeEquity ? 0 : fin.net_assets;
+        // spec §7.1 D10: BS は stacked＝軸上限はスタック和。両スタック和の max で選層（JPY 単位層変化ゼロ）
+        const currency = STOCK_DATA[currentTicker]?.currency;
+        const bsAxisMax = Math.max(
+          totalAssets,
+          FinanceRules.n(fin.current_liabilities) + FinanceRules.n(fin.non_current_liabilities) + displayNetAssets
+        );
+        const unit = FinanceRules.pickUnit(bsAxisMax, currency);
+        setUnitBadge("bs-title", unit);
         const equityRatio = FinanceRules.equityRatio(fin);   // F1: 純関数へ集約
         const currentRatio = FinanceRules.currentRatio(fin);
 
@@ -882,7 +905,7 @@
                   return (
                     context.dataset.label +
                     "\n" +
-                    FinanceRules.fmtUnitValue(value, pageUnit)
+                    FinanceRules.fmtUnitValue(value, unit)
                   );
                 },
                 textAlign: "center",
@@ -900,7 +923,7 @@
                 ticks: {
                   color: "#8ba2af",
                   font: { size: 13 },
-                  callback: (v) => FinanceRules.fmtUnitValue(v, pageUnit),
+                  callback: (v, i, ticks) => FinanceRules.fmtTickValue(v, unit, ticks),
                 },
               },
             },
@@ -990,9 +1013,8 @@
         radarChartInstance.$lineGlow = true;
       }
       // 📈 3. PL
-      // cross-module state seam: pageUnit を detail.js から引数で受ける（本体不変）。
-      function renderPLChart(fin, pageUnit) {
-        const unitStr = FinanceRules.fmtUnit(STOCK_DATA[currentTicker]?.currency);
+      // spec §7.1: PL はチャート別単位＝plSteps の絶対値 max で選層（ページ統一単位の引数受け渡しは廃止）。
+      function renderPLChart(fin) {
         const isMobile = window.innerWidth < 768;
         const ctx = document.getElementById("plChart").getContext("2d");
         if (plChartInstance) {
@@ -1008,6 +1030,10 @@
         const plLabels = plSteps.map((s) => s.label);
         const plData = plSteps.map((s) => s.val);
         const plColors = plSteps.map((s) => s.color);
+        const currency = STOCK_DATA[currentTicker]?.currency;
+        const plMax = Math.max(0, ...plSteps.map((s) => Math.abs(FinanceRules.n(s.val))));
+        const unit = FinanceRules.pickUnit(plMax, currency);
+        setUnitBadge("pl-title", unit);
 
         plChartInstance = new Chart(ctx, {
           type: "bar",
@@ -1066,7 +1092,7 @@
                   if (value === 0 && label === "営業利益" && HOLDING_COMPANIES.has(currentTicker)) {
                     return `N/A\n(持株会社仕様)`;
                   }
-                  let baseStr = FinanceRules.fmtUnitValue(value, pageUnit);
+                  let baseStr = FinanceRules.fmtUnitValue(value, unit);
                   if (label === "営業利益") {
                     return (
                       baseStr +
@@ -1094,7 +1120,7 @@
                 ticks: {
                   color: "#8ba2af",
                   font: { size: 13 },
-                  callback: (v) => FinanceRules.fmtUnitValue(v, pageUnit),
+                  callback: (v, i, ticks) => FinanceRules.fmtTickValue(v, unit, ticks),
                 },
               },
             },
@@ -1103,9 +1129,7 @@
         plChartInstance.$neonSpecs = [plColors];
       }
       // 💸 4. CF
-      // cross-module state seam: pageUnit を detail.js から引数で受ける（本体不変）。
-      function renderCFChart(fin, pageUnit) {
-        const unitStr = FinanceRules.fmtUnit(STOCK_DATA[currentTicker]?.currency);
+      function renderCFChart(fin) {
         const isMobile = window.innerWidth < 768;
         const ctx = document.getElementById("cfChart").getContext("2d");
         if (cfChartInstance) {
@@ -1153,7 +1177,10 @@
         // C4: 期首現金が無い銘柄に特定企業のマジック定数(6524000)を流用していたのを廃止（0基準で実フロー表示）。
         //  ウォーターフォールの段構築（期首→営業→投資→財務→(その他調整)→期末/純増減）は
         //  detail-rules.js（cfWaterfall）へ集約。描画はここに残す（挙動不変）。
-        const { waterfallData, cfLabels, cfSpecs, cfDiffs, cfLastIdx } = DetailRules.cfWaterfall(fin);
+        const { waterfallData, cfLabels, cfSpecs, cfDiffs, cfLastIdx, maxCfScale } = DetailRules.cfWaterfall(fin);
+        const currency = STOCK_DATA[currentTicker]?.currency;
+        const unit = FinanceRules.pickUnit(maxCfScale, currency);   // 累積水準込み＝軸レンジと同義（spec §7.1）
+        setUnitBadge("cf-title", unit);
 
         cfChartInstance = new Chart(ctx, {
           type: "bar",
@@ -1208,7 +1235,7 @@
                     cfLabels[idx] +
                     "\n" +
                     sign +
-                    FinanceRules.fmtUnitValue(diff, pageUnit)
+                    FinanceRules.fmtUnitValue(diff, unit)
                   );
                 },
                 textAlign: "center",
@@ -1225,7 +1252,7 @@
                 ticks: {
                   color: "#8ba2af",
                   font: { size: 12 },
-                  callback: (v) => FinanceRules.fmtUnitValue(v, pageUnit),
+                  callback: (v, i, ticks) => FinanceRules.fmtTickValue(v, unit, ticks),
                 },
               },
             },

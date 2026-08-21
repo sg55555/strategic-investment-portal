@@ -4,10 +4,11 @@
 //   ②比較モーダル(openCompareModal/compareSearchInput/addToCompare/removeFromCompare/renderCompareChips/setComparePeriod)
 //   ③CSVエクスポート(exportCSV/_doExportCSV)＋数値アニメ/整形ヘルパ(animateNumber/fmtBillion)
 // を move-not-rewrite で IIFE クロージャへ隔離し、bare-global だった詳細状態
-//   (selectedYear/pageUnit/compareSet/comparePeriodMonths)を private 化する（挙動不変）。
+//   (selectedYear/compareSet/comparePeriodMonths)を private 化する（挙動不変）。
 // 純計算=DetailRules・描画=DetailCharts・単位=FinanceRules・ルーター=showView へ委譲（参照のみ・再宣言しない）。
-// ⚠️cross-module state seam: pageUnit/compareSet/comparePeriodMonths は detail-charts.js が読むため
-//   render*Chart / renderCompareChart へ引数で流し込む（index.html global 削除後の ReferenceError 回避）。
+// ⚠️cross-module state seam: compareSet/comparePeriodMonths は detail-charts.js が読むため
+//   renderCompareChart へ引数で流し込む（index.html global 削除後の ReferenceError 回避）。
+//   単位はチャート別（fin/plSteps/cfWaterfall 由来）へ移行済＝render{BS,PL,CF}Chart は fin 単独引数（spec §7.1）。
 //   描画ロジック本体は detail-charts.js 側で不変・signature と参照解決のみ。
 // inline onclick / portal / cross-module 用に bare 名(navigateToDetail/exportCSV/compare群)＋window.Detail を露出。
 // ⚠️読込順: この <script> は detail-charts.js / detail-rules.js の後（依存が下）・money-rules.js の前。
@@ -19,7 +20,6 @@
   // ── 詳細ビューの内部状態（index.html から private 化・bare-global 解消）──
   //  currentTicker は portal/watchlist が読むため index.html global 維持（双方 free-var 参照）。
   let selectedYear = 2025;
-  let pageUnit = null;   // Batch C: 会社規模で選定した「ページ統一単位」（pickUnit の結果）。
   // T3: navigateToDetail の多重起動ガード（await getStock 中の再クリックを no-op 化）。
   let navBusy = false;
 
@@ -655,18 +655,12 @@
     // C1: ここで早期 return せず、価格チャート/PER/PBR/ETF 判定まで進める。
     //  ETF(financials_trend={})や財務欠損年でもローソク足は描画する（財務固有の描画のみ後段で fin ガード）。
 
-    // Batch C: 会社規模で1単位を選定し、ヘッダ・全チャート軸・全ラベルで統一表示する。
-    //  軸の 兆/十億 混在と「単位: 百万円」表記の不整合（投資判断時の読みづらさ）を構造的に解消。
-    const _maxAbs = fin ? DetailRules.financialMaxAbs(fin) : 0;
-    pageUnit = FinanceRules.pickUnit(_maxAbs, data.currency);
-    const unitLabel = FinanceRules.unitLabel(pageUnit);
     const currBadgeHtml = currencyBadge(data.currency);
 
     const headerEl = document.getElementById("active-company-header");
     headerEl.innerHTML = `
       <span class="company-title-main">${esc(data.company_name)} <span style="color:#475569;font-size:12px;">(${currentTicker})</span></span>
       <span class="sector-badge">${esc(data.industry)}</span>${currBadgeHtml}
-      <span style="font-size:12px;color:#8ba2af;margin-left:4px;">単位: ${unitLabel}</span>
       <button class="detail-star-btn${isWatched(currentTicker) ? " watched" : ""}" id="detail-star-btn"
         onclick="toggleWatchlist('${currentTicker}')">${isWatched(currentTicker) ? ICO.starFill + " ウォッチ中" : ICO.starOutline + " ウォッチ"}</button>
       <button class="open-compare-btn" onclick="openCompareModal()">⊕ 比較チャート</button>
@@ -801,11 +795,11 @@
     }
 
     renderKpiCompare(data);
-    // cross-module state seam: pageUnit は detail-charts.js が読むため引数で渡す（render*Chart 本体は不変）。
-    DetailCharts.renderBSChart(fin, pageUnit);
+    // spec §7.1: 単位はチャート別に render{BS,PL,CF}Chart 内部で選定（fin 単独引数・ページ統一単位は全廃）。
+    DetailCharts.renderBSChart(fin);
     DetailCharts.renderRadarChart(fin);
-    DetailCharts.renderPLChart(fin, pageUnit);
-    DetailCharts.renderCFChart(fin, pageUnit);
+    DetailCharts.renderPLChart(fin);
+    DetailCharts.renderCFChart(fin);
     // Feature#3: 財務健全性の推移（二軸 line）。ETF/財務欠損は上の early-return でここに到達しない
     //  （health-trend-card は finCards に登録済＝ETF時 display:none）。免責は空 div へここで注入。
     DetailCharts.renderHealthTrend(data, isUS);
