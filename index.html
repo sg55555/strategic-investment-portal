@@ -1960,12 +1960,16 @@
           const company = STOCK_DATA[ticker];
           const currency = company.currency || DEFAULT_CURRENCY;
 
-          // 最新年度データを動的に取得（2025固定をやめ、NVDA FY2026等にも対応）
-          const finYears = Object.keys(company.financials_trend).sort((a, b) => Number(b) - Number(a));
-          const latestYear = finYears[0] || null;
+          // spec §5.4-5: 実質値のある年のみを母集合に（全ゼロFY行=ETL未確定を除外・hasFinSubstance 単一源）
+          const substYears = Object.keys(company.financials_trend)
+            .filter((y) => FinanceRules.hasFinSubstance(company.financials_trend[y]))
+            .sort((a, b) => Number(b) - Number(a));
+          const substTrend = {};
+          substYears.forEach((y) => { substTrend[y] = company.financials_trend[y]; });
+          const latestYear = substYears[0] || null;
           const latestFin = latestYear ? company.financials_trend[latestYear] : null;
           const fin = latestFin || {};
-          const hasFinData = latestFin !== null && (latestFin.net_sales > 0 || latestFin.net_assets > 0);
+          const hasFinData = latestFin !== null;   // substYears 由来＝常に実質行（旧 net_sales>0||net_assets>0 述語を置換）
 
           const eqRatio = FinanceRules.ratioOrNull(fin, FinanceRules.equityRatio, ["net_assets","current_assets","non_current_assets"], ["current_assets","non_current_assets"]);   // F1: 純関数へ集約
           const curRatio = FinanceRules.ratioOrNull(fin, FinanceRules.currentRatio, ["current_assets","current_liabilities"], ["current_liabilities"]);
@@ -1990,7 +1994,8 @@
           }
 
           let trendSales = [];
-          const trendYears = Object.keys(company.financials_trend).sort((a, b) => Number(a) - Number(b)).slice(-3);
+          // spec §5.4-6: 実質年のみの昇順末尾3年（全ゼロFY の 0 が偽のゼロ急落波形になるのを排除）
+          const trendYears = substYears.slice().sort((a, b) => Number(a) - Number(b)).slice(-3);
           trendYears.forEach((yr) => {
             trendSales.push(company.financials_trend[yr].net_sales || 0);
           });
@@ -1998,7 +2003,8 @@
           const opMargin = FinanceRules.ratioOrNull(fin, FinanceRules.opMargin, ["operating_income","net_sales"], ["net_sales"]);     // F1: 純関数へ集約
           const roe = FinanceRules.ratioOrNull(fin, FinanceRules.roe, ["net_income","net_assets"], ["net_assets"]);
           const netMargin = FinanceRules.ratioOrNull(fin, FinanceRules.netMargin, ["net_income","net_sales"], ["net_sales"]);
-          const growth = FinanceRules.growthRates(company.financials_trend, ["net_sales","net_income"]);
+          // spec §5.4-7: end=全ゼロ年だと salesYoY=-100%/CAGR null（バッジ劣化・ソート最下位・スクリーナー脱落）
+          const growth = FinanceRules.growthRates(substTrend, ["net_sales", "net_income"]);
 
           const item = {
             ticker: ticker,
