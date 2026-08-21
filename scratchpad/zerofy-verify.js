@@ -17,6 +17,10 @@ function check(name, ok) { console.log((ok ? "  ✅ " : "  ❌ ") + name); if (!
   const defYear = await page.evaluate(() => document.getElementById("selected-year-display").innerText);
   check("既定年が実質最新年（2026 FY でない）", !/2026/.test(defYear));
   check("既定年でプレースホルダ非表示", ["none", null].includes(await q("#fin-pending-note")));
+  // spec §5.4-3: KPI比較ストリップは全ゼロFY列（2026）を含まない（vacuousでないことも確認）
+  const kpiColTexts = await page.evaluate(() => [...document.querySelectorAll("#kpi-compare-grid .kpi-year-col")].map((c) => c.textContent));
+  check("KPI比較ストリップに列が1つ以上ある", kpiColTexts.length >= 1);
+  check("KPI比較ストリップに2026年列を含まない", !kpiColTexts.some((t) => /2026/.test(t)));
   // FY2026 ボタンを手動選択
   await page.evaluate(() => { [...document.querySelectorAll(".time-btn")].find((b) => /2026/.test(b.innerText))?.click(); });
   await page.waitForTimeout(700);

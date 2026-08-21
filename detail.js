@@ -523,7 +523,10 @@
     const grid = document.getElementById("kpi-compare-grid");
     if (!grid) return;
     const currency = data.currency || DEFAULT_CURRENCY;
-    const years = Object.keys(data.financials_trend).sort((a, b) => Number(a) - Number(b));
+    // spec §5.4-3: 全ゼロFY行（ETL未確定）はKPI比較ストリップから除去（D3＝年の存在提示は年ボタンが担う）
+    const years = Object.keys(data.financials_trend)
+      .filter((y) => FinanceRules.hasFinSubstance(data.financials_trend[y]))
+      .sort((a, b) => Number(a) - Number(b));
     grid.innerHTML = "";
 
     years.forEach((yr, idx) => {
