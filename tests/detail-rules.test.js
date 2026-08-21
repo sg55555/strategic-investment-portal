@@ -925,3 +925,28 @@ test("disciplineDigest.range: 窓前半で横ばい帯（真に検出）→そ�
   assert.equal(d.ok, true);
   assert.equal(d.range.ok, false); // band は検出済（古い横ばい帯）だが距離錠で"上抜け（直近）"にしない
 });
+
+test("healthTrendSeries/fcfTrendSeries: 全ゼロFY行は全系列 null 欠測点（偽0実点を排除）", () => {
+  const data = { currency: "JPY", financials_trend: {
+    2025: { net_sales: 1000, current_assets: 500, non_current_assets: 500, net_assets: 400,
+            current_liabilities: 300, non_current_liabilities: 300, cf_cash_end: 200,
+            operating_cf: 100, investing_cf: -50, net_income: 80 },
+    2026: { net_sales: 0, current_assets: 0, non_current_assets: 0, net_assets: 0,
+            current_liabilities: 0, non_current_liabilities: 0, cf_cash_end: 0,
+            operating_cf: 0, investing_cf: 0, net_income: 0 },
+  } };
+  const h = D.healthTrendSeries(data, false);
+  const zi = h.years.indexOf("2026"), oi = h.years.indexOf("2025");
+  assert.equal(h.equityRatio[zi], null);   // 比率2系列: 0%急落を欠測化
+  assert.equal(h.currentRatio[zi], null);
+  assert.equal(h.cash[zi], null);          // 金額2系列: 現金0/総負債0の偽実点も欠測化
+  assert.equal(h.totalLiab[zi], null);
+  assert.notEqual(h.equityRatio[oi], null);
+  assert.notEqual(h.cash[oi], null);
+  const fc = D.fcfTrendSeries(data);
+  const fzi = fc.years.indexOf("2026");
+  assert.equal(fc.fcf[fzi], null);         // FCF=0 の偽実点を排除
+  assert.equal(fc.operatingCf[fzi], null);
+  assert.equal(fc.investingCf[fzi], null);
+  assert.notEqual(fc.fcf[fc.years.indexOf("2025")], null);
+});

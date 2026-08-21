@@ -874,12 +874,13 @@
     var eq = [], cur = [], cash = [], tl = [];
     for (var i = 0; i < years.length; i++) {
       var f = tr[years[i]];
-      var eqOk = FR.hasValue(f, "net_assets") && FR.hasValue(f, "current_assets") && FR.hasValue(f, "non_current_assets");
-      var curOk = FR.hasValue(f, "current_assets") && FR.hasValue(f, "current_liabilities");
+      var sub = FR.hasFinSubstance(f);   // 全ゼロFY行（ETL未確定）は4系列とも欠測点（spec §5.4-1）
+      var eqOk = sub && FR.hasValue(f, "net_assets") && FR.hasValue(f, "current_assets") && FR.hasValue(f, "non_current_assets");
+      var curOk = sub && FR.hasValue(f, "current_assets") && FR.hasValue(f, "current_liabilities");
       eq.push(eqOk ? FR.equityRatio(f) : null);
       cur.push(curOk ? FR.currentRatio(f) : null);
-      cash.push(FR.hasValue(f, "cf_cash_end") ? f.cf_cash_end : null);
-      tl.push((FR.hasValue(f, "current_liabilities") || FR.hasValue(f, "non_current_liabilities")) ? FR.totalLiabilities(f) : null);
+      cash.push(sub && FR.hasValue(f, "cf_cash_end") ? f.cf_cash_end : null);
+      tl.push(sub && (FR.hasValue(f, "current_liabilities") || FR.hasValue(f, "non_current_liabilities")) ? FR.totalLiabilities(f) : null);
     }
     return {
       years: years, equityRatio: eq, currentRatio: cur, cash: cash, totalLiab: tl,
@@ -905,6 +906,10 @@
     var fcfA = [], mg = [], cc = [], op = [], iv = [];
     for (var i = 0; i < years.length; i++) {
       var f = tr[years[i]];
+      if (!FR.hasFinSubstance(f)) {   // 全ゼロFY行は全系列 null（FCF=0 の偽実点を排除・spec §5.4-2）
+        fcfA.push(null); mg.push(null); cc.push(null); op.push(null); iv.push(null);
+        continue;
+      }
       fcfA.push(FR.fcf(f));
       mg.push(FR.fcfMargin(f));
       cc.push(FR.cashConversion(f));
