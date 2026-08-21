@@ -24,7 +24,7 @@
 }
 .mcc-nav-btn {
   background: rgba(79,70,229,0.12); border: 1px solid rgba(129,140,248,0.4); color: var(--c-indigo-pale);
-  padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 0.74rem; font-weight: 700;
+  padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 700;
   letter-spacing: 1px; transition: all 0.2s;
 }
 .mcc-nav-btn:hover { background: rgba(79,70,229,0.25); }
@@ -47,7 +47,7 @@
 }
 .mcc-tab:hover { color: var(--c-cyan-pale); }
 .mcc-tab[aria-selected="true"] { color: var(--c-cyan-bright); }
-.mcc-tab-num { color: var(--c-text-mute); font-size: 0.62rem; margin-right: 4px; }
+.mcc-tab-num { color: var(--c-text-mute); font-size: 12px; margin-right: 4px; }
 /* アクティブ下線（色は theme D で発光させる。baseline では実在トークンの単色） */
 .mcc-tab::after {
   content: ""; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 2px;
@@ -72,10 +72,10 @@
 }
 .mcc-hero-main { padding: 20px 24px 16px; border-right: 1px solid rgba(129,140,248,0.2); min-width: 0; }
 .mcc-hero-side { padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; justify-content: center; min-width: 0; }
-.mcc-hero-label { color: var(--c-text-dim); font-size: 0.74rem; letter-spacing: 2px; }
+.mcc-hero-label { color: var(--c-text-dim); font-size: 12px; letter-spacing: 2px; }
 .mcc-hero-chip-live, .mcc-hero-chip-prov, .mcc-hero-badge-done, .mcc-hero-badge-auto {
   display: inline-block; margin-left: 8px; padding: 0 7px; border-radius: 5px;
-  font-size: 0.6rem; letter-spacing: 1px; vertical-align: 1px; white-space: nowrap;
+  font-size: 12px; letter-spacing: 1px; vertical-align: 1px; white-space: nowrap;
 }
 .mcc-hero-chip-live { border: 1px solid rgba(16,185,129,0.5); color: var(--c-emerald-soft); }
 .mcc-hero-chip-prov { border: 1px solid rgba(251,191,36,0.5); color: var(--c-amber-pale); }
@@ -85,20 +85,20 @@
   font-size: 2.6rem; font-weight: 700; line-height: 1.15; letter-spacing: 1px;
   color: var(--c-cyan-bright); overflow-wrap: anywhere;
 }
-.mcc-hero-basis { color: var(--c-text-faint); font-size: 0.68rem; line-height: 1.7; margin-top: 4px; }
+.mcc-hero-basis { color: var(--c-text-faint); font-size: 12px; line-height: 1.7; margin-top: 4px; }
 .mcc-hero-basis b { color: var(--c-cyan-pale); font-weight: 400; }
 .mcc-hero-ref { margin-top: 14px; padding-top: 12px; border-top: 1px dashed rgba(129,140,248,0.25); }
-.mcc-hero-ref-label { color: var(--c-text-dim); font-size: 0.7rem; letter-spacing: 1px; }
+.mcc-hero-ref-label { color: var(--c-text-dim); font-size: 12px; letter-spacing: 1px; }
 .mcc-hero-ref-amount { font-size: 1.4rem; font-weight: 700; color: var(--c-text-bright); }
-.mcc-hero-ref-note { color: var(--c-text-faint); font-size: 0.66rem; line-height: 1.5; margin-top: 2px; }
-.mcc-hero-side-label { color: var(--c-text-dim); font-size: 0.68rem; letter-spacing: 1.5px; margin-bottom: 5px; }
+.mcc-hero-ref-note { color: var(--c-text-faint); font-size: 12px; line-height: 1.5; margin-top: 2px; }
+.mcc-hero-side-label { color: var(--c-text-dim); font-size: 12px; letter-spacing: 1.5px; margin-bottom: 5px; }
 .mcc-hero-gauge-row { display: flex; align-items: center; gap: 10px; }
 .mcc-hero-gauge-track { flex: 1; min-width: 0; height: 10px; background: rgba(255,255,255,0.06); border: 1px solid rgba(129,140,248,0.2); border-radius: 6px; overflow: hidden; }
 .mcc-hero-gauge-fill { height: 100%; background: linear-gradient(90deg, var(--c-indigo), var(--c-indigo-bright), var(--c-emerald)); transition: width 0.4s ease; }
 .mcc-hero-gauge-pct { color: var(--c-emerald-bright); font-size: 1.05rem; font-weight: 700; white-space: nowrap; }
 .mcc-hero-power { font-size: 1.5rem; font-weight: 700; color: var(--c-emerald-bright); line-height: 1.25; }
-.mcc-hero-power small { color: var(--c-text-dim); font-size: 0.66rem; font-weight: 400; letter-spacing: 1px; }
-.mcc-hero-power-none { color: var(--c-text-dim); font-size: 0.74rem; line-height: 1.5; }
+.mcc-hero-power small { color: var(--c-text-dim); font-size: 12px; font-weight: 400; letter-spacing: 1px; }
+.mcc-hero-power-none { color: var(--c-text-dim); font-size: 12px; line-height: 1.5; }
 .mcc-hero-next {
   display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 6px;
   background: rgba(16,185,129,0.08); border-left: 3px solid var(--c-emerald);
@@ -143,7 +143,7 @@
 .mcc-fold-nm { font-size: 0.8rem; font-weight: 700; letter-spacing: 2px; white-space: nowrap; color: var(--c-text-bright); }
 /* ダイジェストは1行固定（溢れは省略記号）＝summary の高さが内容で暴れない */
 .mcc-fold-dg {
-  color: var(--c-text-faint); font-size: 0.7rem; letter-spacing: 0.3px;
+  color: var(--c-text-faint); font-size: 12px; letter-spacing: 0.3px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 200px; min-width: 0;
 }
 .mcc-fold-dg b { color: var(--c-text-dim); font-weight: 700; }
@@ -171,7 +171,7 @@
   border-radius: 10px; padding: 14px 16px; margin-bottom: 12px;
 }
 .mcc-cfg-card > .mcc-section-title { margin-bottom: 6px; }
-.mcc-cfg-sub { color: var(--c-text-dim); font-size: 0.72rem; font-weight: 700; letter-spacing: 1px; margin: 12px 0 6px; }
+.mcc-cfg-sub { color: var(--c-text-dim); font-size: 12px; font-weight: 700; letter-spacing: 1px; margin: 12px 0 6px; }
 .mcc-cfg-card .mcc-anchor { margin-top: 0; }
 .mcc-buckets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 @media (max-width: 640px) { .mcc-buckets { grid-template-columns: 1fr; } }
@@ -181,18 +181,18 @@
 /* 実効値方式（spec §2.1）: 基準連動中の buffer は read-only 表示（入力欄の代替＝同じ高さ帯を占める） */
 .mcc-bucket-auto { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin-top: 8px; }
 .mcc-auto-badge {
-  flex: 0 0 auto; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.5px; padding: 2px 7px; border-radius: 5px;
+  flex: 0 0 auto; font-size: 12px; font-weight: 700; letter-spacing: 0.5px; padding: 2px 7px; border-radius: 5px;
   background: rgba(56,189,248,0.14); border: 1px solid rgba(56,189,248,0.45); color: var(--c-cyan-pale);
 }
 .mcc-bucket-auto-val { color: var(--c-cyan-bright); font-size: 1.0rem; }
-.mcc-bucket-note { color: var(--c-text-mute); font-size: 0.64rem; line-height: 1.5; margin-top: 6px; }
-.mcc-field { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; color: var(--c-text-dim); font-size: 0.72rem; }
+.mcc-bucket-note { color: var(--c-text-mute); font-size: 12px; line-height: 1.5; margin-top: 6px; }
+.mcc-field { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; color: var(--c-text-dim); font-size: 12px; }
 .mcc-field input { background: rgba(0,0,0,0.3); border: 1px solid rgba(129,140,248,0.3); color: #fff; border-radius: 6px; padding: 7px 9px; font-size: 0.9rem; }
 .mcc-sat-bar { height: 8px; background: rgba(255,255,255,0.06); border-radius: 6px; overflow: hidden; margin-top: 10px; }
 .mcc-sat-fill { height: 100%; background: var(--c-indigo-bright); }
 .mcc-sat-fill.over { background: var(--c-danger); }
-.mcc-sat-cap { color: var(--c-text-dim); font-size: 0.7rem; margin-top: 6px; }
-.mcc-sat-warn { color: var(--c-danger-soft); font-size: 0.74rem; font-weight: 700; margin-top: 6px; }
+.mcc-sat-cap { color: var(--c-text-dim); font-size: 12px; margin-top: 6px; }
+.mcc-sat-warn { color: var(--c-danger-soft); font-size: 12px; font-weight: 700; margin-top: 6px; }
 /* D3: 設定タブのカード粒度を .mcc-cfg-card と揃える（入力の面で枠のある/ないが混在すると、
    どこまでが1つの設定群なのかが読み取れなくなる）。summary がカード見出しを兼ねる。 */
 .mcc-settings {
@@ -209,13 +209,13 @@
 .mcc-expense-suggest { margin: 4px 0 12px; padding: 8px 10px; border-radius: 8px; background: rgba(56,189,248,0.07); border-left: 3px solid var(--c-cyan); }
 .mcc-expense-suggest-main { color: var(--c-text-bright); font-size: 0.76rem; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
 .mcc-expense-suggest-main strong { color: var(--c-cyan-bright); }
-.mcc-expense-adopt { background: rgba(56,189,248,0.16); border: 1px solid rgba(56,189,248,0.45); color: var(--c-cyan-pale); padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 0.72rem; font-weight: 700; }
+.mcc-expense-adopt { background: rgba(56,189,248,0.16); border: 1px solid rgba(56,189,248,0.45); color: var(--c-cyan-pale); padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 700; }
 .mcc-expense-adopt:hover { background: rgba(56,189,248,0.26); }
-.mcc-expense-applied { color: var(--c-emerald-soft); font-size: 0.72rem; font-weight: 700; }
-.mcc-expense-note { color: var(--c-slate); font-size: 0.66rem; line-height: 1.5; margin-top: 6px; }
+.mcc-expense-applied { color: var(--c-emerald-soft); font-size: 12px; font-weight: 700; }
+.mcc-expense-note { color: var(--c-slate); font-size: 12px; line-height: 1.5; margin-top: 6px; }
 .mcc-onboard { background: rgba(79,70,229,0.1); border: 1px dashed rgba(129,140,248,0.45); border-radius: 10px; padding: 12px 14px; color: var(--c-indigo-pale); font-size: 0.8rem; line-height: 1.6; margin-bottom: 14px; }
 .mcc-tools { display: flex; gap: 10px; margin-top: 18px; }
-.mcc-tool-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); color: var(--c-text-bright); padding: 7px 12px; border-radius: 7px; cursor: pointer; font-size: 0.74rem; }
+.mcc-tool-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); color: var(--c-text-bright); padding: 7px 12px; border-radius: 7px; cursor: pointer; font-size: 12px; }
 .mcc-tool-btn:hover { background: rgba(255,255,255,0.1); }
 .mcc-save-warn { background: rgba(255,0,61,0.12); border: 1px solid rgba(255,122,157,0.5); border-radius:10px; padding:10px 14px; color:var(--c-danger-soft); font-size:0.78rem; margin-bottom:12px; }
 
@@ -235,26 +235,26 @@
 }
 .mcc-sync-btn {
   background: rgba(79,70,229,0.18); border: 1px solid rgba(129,140,248,0.4); color: var(--c-indigo-pale);
-  padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.74rem; font-weight: 700; white-space: nowrap;
+  padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 700; white-space: nowrap;
 }
 .mcc-sync-btn:hover { background: rgba(79,70,229,0.3); }
 .mcc-sync-btn:disabled { opacity: 0.5; cursor: default; }
-.mcc-sync-err { color: var(--c-danger-soft); font-size: 0.74rem; flex-basis: 100%; }
+.mcc-sync-err { color: var(--c-danger-soft); font-size: 12px; flex-basis: 100%; }
 
 /* --- v2: 資産目標(goals) --- */
 .mcc-goals { margin-top: 18px; }
 .mcc-section-title { color: var(--c-text-bright); font-size: 0.8rem; letter-spacing: 1.5px; font-weight: 700; margin-bottom: 10px; }
 /* カード外の素のセクション（バケツ等）が直前の要素に密着しないよう上余白を付与（カード内の見出しには付けない） */
 .mcc-section-title-gap { margin-top: 20px; }
-.mcc-section-desc { color: var(--c-text-faint); font-size: 0.68rem; line-height: 1.5; margin: -4px 0 12px; }
+.mcc-section-desc { color: var(--c-text-faint); font-size: 12px; line-height: 1.5; margin: -4px 0 12px; }
 
 /* --- ① 用語ヘルプ(? ツールチップ) --- */
 .mcc-help {
   position: relative;
   display: inline-flex; align-items: center; justify-content: center;
-  width: 14px; height: 14px; margin-left: 5px; border-radius: 50%;
+  width: 17px; height: 17px; margin-left: 5px; border-radius: 50%;
   background: rgba(129,140,248,0.18); border: 1px solid rgba(129,140,248,0.45);
-  color: var(--c-indigo-pale); font-size: 0.6rem; font-weight: 700; cursor: help; vertical-align: middle;
+  color: var(--c-indigo-pale); font-size: 12px; font-weight: 700; cursor: help; vertical-align: middle;
 }
 .mcc-help:hover, .mcc-help:focus { background: rgba(129,140,248,0.34); outline: none; }
 /* ホバーに加えタップ/キーボード(:focus)でも定義を表示する小ポップオーバー（title 依存をやめる） */
@@ -269,7 +269,7 @@
      viewport相対の上限も併用する。 */
   width: max-content; max-width: min(240px, calc(100vw - 24px)); z-index: 30;
   background: var(--c-surface-solid); border: 1px solid rgba(129,140,248,0.5); border-radius: 8px;
-  padding: 8px 10px; color: var(--c-tint-cyan); font-size: 0.66rem; font-weight: 400; line-height: 1.5;
+  padding: 8px 10px; color: var(--c-tint-cyan); font-size: 12px; font-weight: 400; line-height: 1.5;
   letter-spacing: 0; text-align: left; white-space: normal;
   box-shadow: 0 8px 24px rgba(0,0,0,0.5); opacity: 0; pointer-events: none; transition: opacity 0.12s;
 }
@@ -290,7 +290,7 @@
 .mcc-guide-body { padding: 4px 0 12px; border-top: 1px solid rgba(129,140,248,0.16); }
 .mcc-guide-lead { color: var(--c-text-bright); font-size: 0.78rem; line-height: 1.7; margin: 10px 0; }
 .mcc-guide-lead b { color: var(--c-indigo-soft); }
-.mcc-guide-rule { background: rgba(0,0,0,0.2); border-left: 3px solid var(--c-indigo-bright); border-radius: 6px; padding: 8px 10px; color: var(--c-indigo-pale); font-size: 0.74rem; line-height: 1.6; margin: 10px 0; }
+.mcc-guide-rule { background: rgba(0,0,0,0.2); border-left: 3px solid var(--c-indigo-bright); border-radius: 6px; padding: 8px 10px; color: var(--c-indigo-pale); font-size: 12px; line-height: 1.6; margin: 10px 0; }
 .mcc-guide-rule b { color: var(--c-violet); }
 .mcc-guide-steps { margin: 10px 0 4px; padding-left: 1.3em; color: var(--c-text-bright); font-size: 0.76rem; line-height: 1.9; }
 .mcc-guide-steps b { color: var(--c-indigo-soft); }
@@ -305,22 +305,22 @@
   20%, 45%, 70%   { box-shadow: 0 0 0 1px rgba(0,229,255,0.18), 0 0 6px rgba(0,229,255,0.12); }
   85%             { box-shadow: 0 0 0 0 rgba(0,229,255,0); }
 }
-.mcc-glo-title { color: var(--c-text-dim); font-size: 0.72rem; font-weight: 700; letter-spacing: 1px; margin: 14px 0 6px; }
+.mcc-glo-title { color: var(--c-text-dim); font-size: 12px; font-weight: 700; letter-spacing: 1px; margin: 14px 0 6px; }
 .mcc-glossary { display: grid; gap: 6px; }
 /* term＋読みを1行目（inline）、定義は下に block＝定義の開始位置が常にカード左端に揃う（語長非依存） */
 .mcc-glo-item { background: rgba(255,255,255,0.03); border-radius: 6px; padding: 8px 11px; }
 .mcc-glo-term { color: var(--c-indigo-soft); font-size: 0.78rem; font-weight: 700; }
-.mcc-glo-read { color: var(--c-text-dim); font-size: 0.66rem; margin-left: 8px; }
-.mcc-glo-def { display: block; color: var(--c-text-bright); font-size: 0.7rem; line-height: 1.5; margin-top: 4px; }
-.mcc-guide-privacy { color: var(--c-text-faint); font-size: 0.68rem; line-height: 1.5; margin-top: 12px; border-top: 1px solid rgba(129,140,248,0.12); padding-top: 8px; }
+.mcc-glo-read { color: var(--c-text-dim); font-size: 12px; margin-left: 8px; }
+.mcc-glo-def { display: block; color: var(--c-text-bright); font-size: 12px; line-height: 1.5; margin-top: 4px; }
+.mcc-guide-privacy { color: var(--c-text-faint); font-size: 12px; line-height: 1.5; margin-top: 12px; border-top: 1px solid rgba(129,140,248,0.12); padding-top: 8px; }
 
 /* --- ① 初回ステッパー(今ここ＋残ステップ) --- */
 .mcc-stepper { background: rgba(15,20,34,0.5); border: 1px solid rgba(129,140,248,0.25); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
 .mcc-stepper-track { display: flex; align-items: center; flex-wrap: wrap; gap: 0; }
 .mcc-step { display: flex; align-items: center; gap: 6px; }
 .mcc-step-dot { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; font-size: 0.66rem; font-weight: 700; border: 1px solid; flex-shrink: 0; }
-.mcc-step-label { color: var(--c-text-dim); font-size: 0.7rem; white-space: nowrap; }
-.mcc-step-opt { color: var(--c-gray); font-size: 0.58rem; margin-left: 3px; }
+.mcc-step-label { color: var(--c-text-dim); font-size: 12px; white-space: nowrap; }
+.mcc-step-opt { color: var(--c-gray); font-size: 12px; margin-left: 3px; }
 .mcc-step-sep { flex: 1 1 12px; min-width: 12px; height: 1px; background: rgba(129,140,248,0.25); margin: 0 4px; }
 .mcc-step-done .mcc-step-dot { background: rgba(16,185,129,0.2); border-color: rgba(16,185,129,0.55); color: var(--c-emerald-soft); }
 .mcc-step-done .mcc-step-label { color: var(--c-emerald-pale); }
@@ -328,7 +328,7 @@
 .mcc-step-current .mcc-step-label { color: var(--c-indigo-pale); font-weight: 700; }
 .mcc-step-todo .mcc-step-dot { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.14); color: var(--c-gray); }
 .mcc-stepper-next { margin-top: 10px; color: var(--c-indigo-pale); font-size: 0.76rem; background: rgba(0,0,0,0.2); border-radius: 6px; padding: 7px 10px; }
-@media (max-width: 640px) { .mcc-step-label { font-size: 0.62rem; } .mcc-step-sep { min-width: 6px; } }
+@media (max-width: 640px) { .mcc-step-label { font-size: 12px; } .mcc-step-sep { min-width: 6px; } }
 .mcc-goals-empty { color: var(--c-text-dim); font-size: 0.8rem; padding: 10px 0 14px; }
 .mcc-goal {
   background: rgba(15,20,34,0.5); border: 1px solid rgba(255,255,255,0.08);
@@ -336,13 +336,13 @@
 }
 .mcc-goal-head { display: flex; align-items: center; gap: 8px; }
 .mcc-goal-label { color: var(--c-text); font-size: 0.86rem; font-weight: 600; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mcc-goal-done { color: var(--c-emerald-soft); font-size: 0.7rem; font-weight: 700; border: 1px solid rgba(16,185,129,0.45); border-radius: 5px; padding: 1px 6px; }
+.mcc-goal-done { color: var(--c-emerald-soft); font-size: 12px; font-weight: 700; border: 1px solid rgba(16,185,129,0.45); border-radius: 5px; padding: 1px 6px; }
 .mcc-goal-del { background: none; border: none; color: var(--c-slate); cursor: pointer; font-size: 1.1rem; line-height: 1; padding: 0 4px; }
 .mcc-goal-del:hover { color: var(--c-danger-soft); }
 .mcc-goal-bar { height: 10px; background: rgba(255,255,255,0.06); border-radius: 6px; overflow: hidden; margin: 9px 0; }
 .mcc-goal-fill { height: 100%; background: linear-gradient(90deg, var(--c-indigo), var(--c-indigo-bright), var(--c-violet)); transition: width 0.4s ease; }
 .mcc-goal-fill.done { background: linear-gradient(90deg, var(--c-emerald), var(--c-emerald-soft)); }
-.mcc-goal-stat { color: var(--c-text-dim); font-size: 0.74rem; }
+.mcc-goal-stat { color: var(--c-text-dim); font-size: 12px; }
 .mcc-goal-dl { color: var(--c-indigo-bright); margin-left: 6px; }
 .mcc-goal-add { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
 .mcc-goal-add input {
@@ -354,7 +354,7 @@
 #mcc-goal-deadline { width: 150px; color-scheme: dark; }
 .mcc-goal-addbtn {
   background: rgba(79,70,229,0.18); border: 1px solid rgba(129,140,248,0.4); color: var(--c-indigo-pale);
-  padding: 7px 12px; border-radius: 6px; cursor: pointer; font-size: 0.74rem; font-weight: 700; white-space: nowrap;
+  padding: 7px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 700; white-space: nowrap;
 }
 .mcc-goal-addbtn:hover { background: rgba(79,70,229,0.3); }
 
@@ -363,7 +363,7 @@
   margin-top: 18px; padding: 14px 16px; border-radius: 12px;
   background: rgba(15,20,34,0.55); border: 1px solid rgba(129,140,248,0.22);
 }
-.mcc-advice-rulehead { color: var(--c-indigo-soft); font-size: 0.7rem; letter-spacing: 0.5px; font-weight: 700; margin-bottom: 6px; }
+.mcc-advice-rulehead { color: var(--c-indigo-soft); font-size: 12px; letter-spacing: 0.5px; font-weight: 700; margin-bottom: 6px; }
 .mcc-advice-rule {
   display: flex; gap: 8px; align-items: flex-start; color: var(--c-tint-indigo); font-size: 0.9rem; font-weight: 600;
   line-height: 1.5; padding: 10px 12px; border-radius: 8px;
@@ -375,11 +375,11 @@
   background: rgba(0,0,0,0.22); border: 1px solid rgba(255,255,255,0.06);
 }
 .mcc-advice-ai-muted { color: var(--c-text-dim); font-size: 0.8rem; }
-.mcc-advice-mode { display: inline-block; color: var(--c-amber); font-size: 0.62rem; font-weight: 700; letter-spacing: 0.5px; border: 1px solid rgba(251,191,36,0.4); border-radius: 4px; padding: 1px 5px; margin-bottom: 6px; }
+.mcc-advice-mode { display: inline-block; color: var(--c-amber); font-size: 12px; font-weight: 700; letter-spacing: 0.5px; border: 1px solid rgba(251,191,36,0.4); border-radius: 4px; padding: 1px 5px; margin-bottom: 6px; }
 .mcc-advice-ai-head { color: var(--c-text-bright); font-size: 0.84rem; font-weight: 700; margin-bottom: 4px; }
 .mcc-advice-ai-edu { color: var(--c-text-dim); font-size: 0.8rem; line-height: 1.6; }
 .mcc-advice-ai-next { color: var(--c-indigo-soft); font-size: 0.8rem; margin-top: 6px; }
-.mcc-advice-stale { color: var(--c-amber); font-size: 0.72rem; margin-top: 8px; }
+.mcc-advice-stale { color: var(--c-amber); font-size: 12px; margin-top: 8px; }
 .mcc-advice-actions { margin-top: 12px; }
 .mcc-advice-btn {
   background: rgba(79,70,229,0.22); border: 1px solid rgba(129,140,248,0.45); color: var(--c-indigo-pale);
@@ -388,8 +388,8 @@
 .mcc-advice-btn:hover { background: rgba(79,70,229,0.34); }
 .mcc-advice-btn:disabled { opacity: 0.5; cursor: default; }
 .mcc-advice-login { color: var(--c-slate); font-size: 0.78rem; }
-.mcc-advice-err { color: var(--c-danger-soft); font-size: 0.74rem; margin-top: 8px; }
-.mcc-advice-disclaimer { color: var(--c-text-mute); font-size: 0.62rem; line-height: 1.5; margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.06); }
+.mcc-advice-err { color: var(--c-danger-soft); font-size: 12px; margin-top: 8px; }
+.mcc-advice-disclaimer { color: var(--c-text-mute); font-size: 12px; line-height: 1.5; margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.06); }
 
 /* --- Slice4: 収支連携（投資余力）--- */
 .mcc-cashflow {
@@ -399,12 +399,12 @@
 .mcc-cashflow-empty { color: var(--c-slate); font-size: 0.78rem; line-height: 1.6; }
 .mcc-cf-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
 .mcc-cf-period { color: var(--c-text-bright); font-size: 0.94rem; font-weight: 700; }
-.mcc-cf-partial { color: var(--c-amber); font-size: 0.66rem; }
-.mcc-cf-latest { color: var(--c-emerald-soft); font-size: 0.66rem; }
-.mcc-cf-monthnote { color: var(--c-slate); font-size: 0.68rem; line-height: 1.5; margin: 0 0 12px; }
+.mcc-cf-partial { color: var(--c-amber); font-size: 12px; }
+.mcc-cf-latest { color: var(--c-emerald-soft); font-size: 12px; }
+.mcc-cf-monthnote { color: var(--c-slate); font-size: 12px; line-height: 1.5; margin: 0 0 12px; }
 .mcc-cf-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
 .mcc-cf-stat { display: flex; flex-direction: column; gap: 3px; }
-.mcc-cf-stat span { color: var(--c-slate); font-size: 0.7rem; }
+.mcc-cf-stat span { color: var(--c-slate); font-size: 12px; }
 .mcc-cf-stat strong { color: var(--c-text); font-size: 1.02rem; font-weight: 700; }
 .mcc-cf-stat strong.pos { color: var(--c-emerald-bright); }
 .mcc-cf-stat strong.neg { color: var(--c-danger-soft); }
@@ -418,11 +418,11 @@
 .mcc-cf-surplus-neg .mcc-cf-surplus-main { color: var(--c-tint-danger); }
 .mcc-cf-surplus-neg .mcc-cf-surplus-main strong { color: var(--c-danger-soft); }
 .mcc-cf-waterfall { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.mcc-wf { font-size: 0.66rem; color: var(--c-text-bright); padding: 2px 8px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.1); }
+.mcc-wf { font-size: 12px; color: var(--c-text-bright); padding: 2px 8px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.1); }
 .mcc-wf-buffer { border-color: rgba(56,189,248,0.5); color: var(--c-cyan-pale); }
 .mcc-wf-core { border-color: rgba(129,140,248,0.5); color: var(--c-indigo-pale); }
 .mcc-wf-sat { border-color: rgba(251,191,36,0.5); color: var(--c-amber-pale); }
-.mcc-cf-dest { color: var(--c-text-dim); font-size: 0.72rem; margin-top: 6px; }
+.mcc-cf-dest { color: var(--c-text-dim); font-size: 12px; margin-top: 6px; }
 .mcc-cf-apply {
   background: rgba(16,185,129,0.16); border: 1px solid rgba(52,211,153,0.45); color: var(--c-emerald-pale);
   padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 0.76rem; font-weight: 700; width: 100%;
@@ -431,7 +431,7 @@
 /* 実効値方式（spec §2.1）: 連動中は反映ボタンの代わりに理由を出す（ボタンと同じ位置＝動線の空白を作らない） */
 .mcc-cf-autonote {
   background: rgba(56,189,248,0.07); border: 1px dashed rgba(56,189,248,0.35); color: var(--c-cyan-pale);
-  padding: 8px 12px; border-radius: 8px; font-size: 0.72rem; line-height: 1.5;
+  padding: 8px 12px; border-radius: 8px; font-size: 12px; line-height: 1.5;
 }
 .mcc-cf-spark { margin-top: 12px; }
 .mcc-cf-spark svg { display: block; }
@@ -439,31 +439,31 @@
 .mcc-spark-neg { fill: var(--c-danger-soft); }
 .mcc-spark-axis { stroke: rgba(255,255,255,0.12); stroke-width: 1; }
 .mcc-cf-cats { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
-.mcc-cf-cat { color: var(--c-text-dim); font-size: 0.64rem; padding: 2px 7px; border-radius: 5px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); }
-.mcc-cf-note { color: var(--c-amber); font-size: 0.68rem; margin-top: 10px; }
-.mcc-cf-fresh { color: var(--c-text-mute); font-size: 0.64rem; margin-top: 8px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.mcc-cf-cat { color: var(--c-text-dim); font-size: 12px; padding: 2px 7px; border-radius: 5px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); }
+.mcc-cf-note { color: var(--c-amber); font-size: 12px; margin-top: 10px; }
+.mcc-cf-fresh { color: var(--c-text-mute); font-size: 12px; margin-top: 8px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .mcc-cf-fresh.stale .mcc-cf-fresh-txt { color: var(--c-amber); }
-.mcc-cf-refresh { flex-shrink: 0; background: rgba(56,189,248,0.14); border: 1px solid rgba(56,189,248,0.38); color: var(--c-cyan-pale); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 0.66rem; font-weight: 700; }
+.mcc-cf-refresh { flex-shrink: 0; background: rgba(56,189,248,0.14); border: 1px solid rgba(56,189,248,0.38); color: var(--c-cyan-pale); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 700; }
 .mcc-cf-refresh:hover { background: rgba(56,189,248,0.24); }
 .mcc-cf-refresh:disabled { opacity: 0.6; cursor: default; }
 /* B1: この端末での最終取得時刻／取得失敗の可視化（クラウド側の staleDays とは別概念で併記） */
-.mcc-cf-fetchinfo { color: var(--c-text-faint); font-size: 0.6rem; }
-.mcc-cf-fetcherr { color: var(--c-danger-soft); font-size: 0.7rem; margin-top: 6px; }
+.mcc-cf-fetchinfo { color: var(--c-text-faint); font-size: 12px; }
+.mcc-cf-fetcherr { color: var(--c-danger-soft); font-size: 12px; margin-top: 6px; }
 
 /* --- データ基盤Phase1: 定点アンカー（現在現金の自動算出） --- */
 .mcc-anchor {
   margin: 12px 0; padding: 10px 12px; border-radius: 8px;
   background: rgba(56,189,248,0.08); border-left: 3px solid var(--c-cyan);
 }
-.mcc-anchor-sub { color: var(--c-text-dim); font-size: 0.66rem; line-height: 1.5; margin-top: 6px; }
-.mcc-anchor-edit { margin-top: 8px; background: rgba(56,189,248,0.16); border: 1px solid rgba(56,189,248,0.4); color: var(--c-cyan-pale); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 0.68rem; font-weight: 700; }
+.mcc-anchor-sub { color: var(--c-text-dim); font-size: 12px; line-height: 1.5; margin-top: 6px; }
+.mcc-anchor-edit { margin-top: 8px; background: rgba(56,189,248,0.16); border: 1px solid rgba(56,189,248,0.4); color: var(--c-cyan-pale); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 700; }
 .mcc-anchor-edit:hover { background: rgba(56,189,248,0.26); }
 .mcc-anchor-setup { border-left-color: var(--c-slate); background: rgba(255,255,255,0.03); }
-.mcc-anchor-cta { color: var(--c-text-dim); font-size: 0.74rem; line-height: 1.6; }
+.mcc-anchor-cta { color: var(--c-text-dim); font-size: 12px; line-height: 1.6; }
 .mcc-anchor-form { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; }
-.mcc-anchor-form input[type="month"] { color-scheme: dark; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.12); color: var(--c-text); padding: 5px 8px; border-radius: 6px; font-size: 0.72rem; }
-.mcc-anchor-form input[type="number"] { width: 150px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.12); color: var(--c-text); padding: 5px 8px; border-radius: 6px; font-size: 0.72rem; }
-.mcc-anchor-set { background: rgba(56,189,248,0.18); border: 1px solid rgba(56,189,248,0.45); color: var(--c-cyan-pale); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.72rem; font-weight: 700; }
+.mcc-anchor-form input[type="month"] { color-scheme: dark; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.12); color: var(--c-text); padding: 5px 8px; border-radius: 6px; font-size: 12px; }
+.mcc-anchor-form input[type="number"] { width: 150px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.12); color: var(--c-text); padding: 5px 8px; border-radius: 6px; font-size: 12px; }
+.mcc-anchor-set { background: rgba(56,189,248,0.18); border: 1px solid rgba(56,189,248,0.45); color: var(--c-cyan-pale); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 700; }
 .mcc-anchor-set:hover { background: rgba(56,189,248,0.3); }
 @media (max-width: 640px) { .mcc-cf-stats { grid-template-columns: repeat(2, 1fr); } }
 
@@ -483,30 +483,30 @@
 .mcc-rsv.done { border-color: rgba(16,185,129,0.4); }
 .mcc-rsv-head { display: flex; align-items: center; gap: 8px; }
 .mcc-rsv-label { color: var(--c-text); font-size: 0.86rem; font-weight: 600; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mcc-rsv-badge { color: var(--c-emerald-soft); font-size: 0.7rem; font-weight: 700; border: 1px solid rgba(16,185,129,0.45); border-radius: 5px; padding: 1px 6px; }
+.mcc-rsv-badge { color: var(--c-emerald-soft); font-size: 12px; font-weight: 700; border: 1px solid rgba(16,185,129,0.45); border-radius: 5px; padding: 1px 6px; }
 .mcc-rsv-del { background: none; border: none; color: var(--c-slate); cursor: pointer; font-size: 1.1rem; line-height: 1; padding: 0 4px; }
 .mcc-rsv-del:hover { color: var(--c-danger-soft); }
 .mcc-rsv-bar { height: 10px; background: rgba(255,255,255,0.06); border-radius: 6px; overflow: hidden; margin: 9px 0; }
 .mcc-rsv-fill { height: 100%; background: linear-gradient(90deg, var(--c-amber-deeper), var(--c-amber-deep), var(--c-amber-bright)); transition: width 0.4s ease; }
 .mcc-rsv-fill.done { background: linear-gradient(90deg, var(--c-emerald), var(--c-emerald-soft)); }
-.mcc-rsv-stat { color: var(--c-text-dim); font-size: 0.74rem; }
+.mcc-rsv-stat { color: var(--c-text-dim); font-size: 12px; }
 .mcc-rsv-dl { color: var(--c-amber); margin-left: 6px; }
 .mcc-rsv-sub { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.mcc-rsv-monthly { font-size: 0.68rem; color: var(--c-amber-pale); padding: 2px 8px; border-radius: 5px; border: 1px solid rgba(251,191,36,0.4); }
+.mcc-rsv-monthly { font-size: 12px; color: var(--c-amber-pale); padding: 2px 8px; border-radius: 5px; border: 1px solid rgba(251,191,36,0.4); }
 .mcc-rsv-monthly.short { color: var(--c-danger-soft); border-color: rgba(255,122,157,0.5); }
 .mcc-rsv-monthly.done { color: var(--c-emerald-soft); border-color: rgba(16,185,129,0.45); }
 .mcc-rsv-monthly.muted { color: var(--c-text-dim); border-color: rgba(255,255,255,0.12); }
-.mcc-rsv-alloc { font-size: 0.68rem; color: var(--c-emerald-bright); padding: 2px 8px; border-radius: 5px; border: 1px solid rgba(52,211,153,0.45); }
+.mcc-rsv-alloc { font-size: 12px; color: var(--c-emerald-bright); padding: 2px 8px; border-radius: 5px; border: 1px solid rgba(52,211,153,0.45); }
 .mcc-rsv-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
 .mcc-rsv-fund {
   background: rgba(251,191,36,0.14); border: 1px solid rgba(251,191,36,0.4); color: var(--c-amber-pale);
-  padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.7rem; font-weight: 700;
+  padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 700;
 }
 .mcc-rsv-fund:hover { background: rgba(251,191,36,0.24); }
 .mcc-rsv-editbox { color: var(--c-text-bright); }
-.mcc-rsv-editbox summary { cursor: pointer; font-size: 0.7rem; color: var(--c-text-dim); letter-spacing: 0.5px; }
+.mcc-rsv-editbox summary { cursor: pointer; font-size: 12px; color: var(--c-text-dim); letter-spacing: 0.5px; }
 .mcc-rsv-editbox .mcc-field input[type="date"] { color-scheme: dark; }
-.mcc-rsv-summary { color: var(--c-text-bright); font-size: 0.74rem; margin: 6px 0 12px; padding: 8px 10px; border-radius: 7px; background: rgba(251,191,36,0.06); border: 1px solid rgba(251,191,36,0.18); }
+.mcc-rsv-summary { color: var(--c-text-bright); font-size: 12px; margin: 6px 0 12px; padding: 8px 10px; border-radius: 7px; background: rgba(251,191,36,0.06); border: 1px solid rgba(251,191,36,0.18); }
 .mcc-rsv-add { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 4px; }
 .mcc-rsv-add input {
   background: rgba(0,0,0,0.3); border: 1px solid rgba(251,191,36,0.3); color: #fff;
@@ -517,7 +517,7 @@
 #mcc-rsv-deadline { width: 150px; color-scheme: dark; }
 .mcc-rsv-addbtn {
   background: rgba(251,191,36,0.16); border: 1px solid rgba(251,191,36,0.4); color: var(--c-amber-pale);
-  padding: 7px 12px; border-radius: 6px; cursor: pointer; font-size: 0.74rem; font-weight: 700; white-space: nowrap;
+  padding: 7px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 700; white-space: nowrap;
 }
 .mcc-rsv-addbtn:hover { background: rgba(251,191,36,0.28); }
 
@@ -533,7 +533,7 @@
   border-radius: 50%; font-size: 0.66rem; font-weight: 700; border: 1px solid; flex-shrink: 0;
 }
 .mcc-rm-phase-label { color: var(--c-text-dim); font-size: 0.76rem; white-space: nowrap; }
-.mcc-rm-phase-pct { color: var(--c-text-mute); font-size: 0.66rem; }
+.mcc-rm-phase-pct { color: var(--c-text-mute); font-size: 12px; }
 .mcc-rm-sep { flex: 1 1 16px; min-width: 16px; height: 1px; background: rgba(129,140,248,0.25); margin: 0 6px; }
 .mcc-rm-phase-todo .mcc-rm-phase-dot { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.14); color: var(--c-gray); }
 .mcc-rm-phase-todo .mcc-rm-phase-label { color: var(--c-text-mute); }
@@ -552,17 +552,17 @@
 .mcc-rm-phase-current[data-key="core"] .mcc-rm-phase-label { color: var(--c-emerald-pale); }
 .mcc-rm-phase-current[data-key="satellite"] .mcc-rm-phase-dot { background: rgba(251,191,36,0.22); border-color: var(--c-amber-bright); color: var(--c-amber-pale); box-shadow: 0 0 12px rgba(251,191,36,0.4); }
 .mcc-rm-phase-current[data-key="satellite"] .mcc-rm-phase-label { color: var(--c-amber-pale); }
-@media (max-width: 640px) { .mcc-rm-phase-label { font-size: 0.66rem; } .mcc-rm-sep { min-width: 8px; } }
+@media (max-width: 640px) { .mcc-rm-phase-label { font-size: 12px; } .mcc-rm-sep { min-width: 8px; } }
 
 /* §7.1: バッファ→コア継ぎ目の「先取り(確保枠)」チップ。面禁則＝線/glowのみ、塗り面なし（.mcc-wf-reserveと同系のamber） */
 .mcc-rm-seam { display: flex; align-items: center; gap: 4px; flex: 1 1 16px; min-width: 16px; }
 .mcc-rm-seam .mcc-rm-sep { flex: 1 1 6px; min-width: 6px; margin: 0; }
 .mcc-rm-seam-chip {
-  font-size: 0.62rem; color: var(--c-amber-pale); white-space: nowrap; line-height: 1;
+  font-size: 12px; color: var(--c-amber-pale); white-space: nowrap; line-height: 1;
   padding: 3px 7px; border-radius: 6px; border: 1px solid rgba(251,191,36,0.45);
   box-shadow: 0 0 8px rgba(251,191,36,0.15);
 }
-@media (max-width: 640px) { .mcc-rm-seam { min-width: 8px; } .mcc-rm-seam-chip { font-size: 0.58rem; padding: 2px 5px; } }
+@media (max-width: 640px) { .mcc-rm-seam { min-width: 8px; } .mcc-rm-seam-chip { font-size: 12px; padding: 2px 5px; } }
 
 .mcc-rm-northstar {
   color: var(--c-text-bright); font-size: 0.8rem; line-height: 1.6; padding: 8px 10px; border-radius: 8px;
@@ -574,32 +574,32 @@
 .mcc-rm-thismonth-head { color: var(--c-text-bright); font-size: 0.78rem; letter-spacing: 0.5px; font-weight: 700; margin-bottom: 6px; }
 /* D2 重複統合②: ロードマップ側はチップでなくテキスト1行（チップ .mcc-wf-* は cashflowSection のみ） */
 .mcc-rm-wf-text { color: var(--c-text-bright); font-size: 0.76rem; line-height: 1.6; }
-.mcc-rm-note { color: var(--c-text-dim); font-size: 0.72rem; line-height: 1.6; }
+.mcc-rm-note { color: var(--c-text-dim); font-size: 12px; line-height: 1.6; }
 
 .mcc-rm-timeline { color: var(--c-text-dim); font-size: 0.78rem; line-height: 1.6; margin-bottom: 12px; }
 .mcc-rm-timeline.muted { color: var(--c-slate); }
 
-.mcc-rm-satchip { font-size: 0.74rem; padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); display: inline-block; }
+.mcc-rm-satchip { font-size: 12px; padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); display: inline-block; }
 .mcc-rm-satchip-locked { color: var(--c-amber-pale); border-color: rgba(251,191,36,0.4); background: rgba(251,191,36,0.06); }
 .mcc-rm-satchip-unlocked { color: var(--c-emerald-soft); border-color: rgba(16,185,129,0.4); background: rgba(16,185,129,0.08); }
 
 /* --- Task6b (backlog B#2): 資産クラス比率。baseline=構造/寸法のみ（色のneon glow/blend/screenは theme D 層＝二層構成） --- */
 .mcc-ac-card { background: rgba(15,20,34,0.55); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 18px 18px 20px; margin-top: 14px; }
 .mcc-ac-agerow { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 6px 0 4px; }
-.mcc-ac-agerow label { color: var(--c-text-dim); font-size: 0.72rem; letter-spacing: 0.5px; }
+.mcc-ac-agerow label { color: var(--c-text-dim); font-size: 12px; letter-spacing: 0.5px; }
 .mcc-ac-age { width: 74px; background: rgba(0,0,0,0.3); border: 1px solid rgba(129,140,248,0.3); color: #fff; border-radius: 6px; padding: 6px 8px; font-size: 0.95rem; text-align: center; }
 .mcc-ac-readout { color: var(--c-text-bright); font-size: 0.9rem; letter-spacing: 0.3px; }
 .mcc-ac-readout b.g { color: var(--c-emerald-soft); }
 .mcc-ac-readout b.d { color: var(--c-cyan-bright); }
 .mcc-ac-readout-muted { color: var(--c-text-dim); font-size: 0.78rem; }
 .mcc-ac-toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0 2px; align-items: center; }
-.mcc-ac-tbtn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); color: var(--c-text-bright); padding: 5px 11px; border-radius: 6px; cursor: pointer; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.5px; }
+.mcc-ac-tbtn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); color: var(--c-text-bright); padding: 5px 11px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 700; letter-spacing: 0.5px; }
 .mcc-ac-tbtn:hover { background: rgba(255,255,255,0.1); }
 .mcc-ac-tbtn.on { background: rgba(56,189,248,0.2); color: #fff; }
 .mcc-ac-input { margin-top: 14px; color: var(--c-text-bright); }
 .mcc-ac-input summary { cursor: pointer; font-size: 0.8rem; letter-spacing: 1px; }
 .mcc-ac-input-bucket { margin-top: 10px; }
-.mcc-ac-input-bktitle { color: var(--c-text-bright); font-size: 0.74rem; letter-spacing: 0.5px; margin-bottom: 4px; }
+.mcc-ac-input-bktitle { color: var(--c-text-bright); font-size: 12px; letter-spacing: 0.5px; margin-bottom: 4px; }
 .mcc-ac-input-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
 .mcc-ac-grid { display: grid; grid-template-columns: 230px 1fr; gap: 22px; align-items: center; margin-top: 14px; }
 @media (max-width: 720px) { .mcc-ac-grid { grid-template-columns: 1fr; } }
@@ -618,14 +618,14 @@
 .mcc-ac-center .big { font-size: 0.78rem; letter-spacing: 0.5px; }
 .mcc-ac-center .big.g { color: var(--c-emerald-soft); }
 .mcc-ac-center .big.d { color: var(--c-cyan-bright); }
-.mcc-ac-center .sub { color: var(--c-text-mute); font-size: 0.6rem; letter-spacing: 1px; }
+.mcc-ac-center .sub { color: var(--c-text-mute); font-size: 12px; letter-spacing: 1px; }
 .mcc-ac-legend { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px 16px; }
 .mcc-ac-leg { display: flex; align-items: center; gap: 8px; font-size: 0.76rem; color: var(--c-text-dim); }
 .mcc-ac-swatch { width: 10px; height: 10px; border-radius: 2px; flex: 0 0 auto; }
 .mcc-ac-leg .nm { color: var(--c-text); flex: 1 1 auto; }
 .mcc-ac-leg .pc { color: var(--c-text-bright); }
 .mcc-ac-bars { margin-top: 18px; }
-.mcc-ac-barlab { color: var(--c-text-faint); font-size: 0.66rem; letter-spacing: 1px; margin: 10px 0 5px; text-transform: uppercase; }
+.mcc-ac-barlab { color: var(--c-text-faint); font-size: 12px; letter-spacing: 1px; margin: 10px 0 5px; text-transform: uppercase; }
 .mcc-ac-stack { display: flex; height: 22px; border-radius: 5px; overflow: hidden; border: 1px solid rgba(255,255,255,0.08); }
 .mcc-ac-seg { height: 100%; position: relative; }
 .mcc-ac-seg + .mcc-ac-seg { border-left: 1px solid rgba(3,6,11,0.6); }
@@ -634,7 +634,7 @@
 .mcc-ac-rail { margin-top: 18px; display: flex; flex-direction: column; gap: 4px; }
 .mcc-ac-driftrow { display: grid; grid-template-columns: 78px 1fr 76px; align-items: center; gap: 10px; padding: 5px 10px; border-radius: 7px; border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.015); }
 .mcc-ac-driftrow .cn { font-size: 0.76rem; color: var(--c-text); display: flex; align-items: center; gap: 7px; }
-.mcc-ac-driftrow .tr { font-size: 0.72rem; color: var(--c-text-dim); }
+.mcc-ac-driftrow .tr { font-size: 12px; color: var(--c-text-dim); }
 .mcc-ac-driftrow .dv { font-size: 0.8rem; font-weight: 700; text-align: right; }
 .mcc-ac-driftrow.over { border-color: rgba(251,191,36,0.4); }
 .mcc-ac-driftrow.over .dv { color: var(--c-amber); }
@@ -643,16 +643,16 @@
 .mcc-ac-driftrow.match { border-color: rgba(16,185,129,0.34); }
 .mcc-ac-driftrow.match .dv { color: var(--c-emerald-soft); }
 .mcc-ac-bands { margin-top: 18px; padding-top: 14px; border-top: 1px dashed rgba(148,163,184,0.14); }
-.mcc-ac-bands .cap { color: var(--c-text-faint); font-size: 0.66rem; letter-spacing: 0.5px; margin-bottom: 8px; }
+.mcc-ac-bands .cap { color: var(--c-text-faint); font-size: 12px; letter-spacing: 0.5px; margin-bottom: 8px; }
 .mcc-ac-band-legend { display: flex; flex-wrap: wrap; gap: 16px; margin: 0 0 10px; }
-.mcc-ac-bk { display: flex; align-items: center; gap: 6px; font-size: 0.66rem; color: var(--c-text-dim); }
+.mcc-ac-bk { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--c-text-dim); }
 .mcc-ac-bk i { width: 16px; height: 8px; border-radius: 2px; display: inline-block; flex: 0 0 auto; }
 .mcc-ac-bk i.grow { background: linear-gradient(90deg, #ff2a4d, #ff7a00); }
 .mcc-ac-bk i.def { background: #1fdb5e; }
 .mcc-ac-band { display: grid; grid-template-columns: 64px 1fr; align-items: center; gap: 10px; margin: 6px 0; }
-.mcc-ac-band .yl { font-size: 0.7rem; color: var(--c-text-dim); }
+.mcc-ac-band .yl { font-size: 12px; color: var(--c-text-dim); }
 .mcc-ac-band .yl small { color: var(--c-text-mute); }
-.mcc-ac-disc { color: var(--c-text-mute); font-size: 0.6rem; line-height: 1.5; margin-top: 14px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px; }
+.mcc-ac-disc { color: var(--c-text-mute); font-size: 12px; line-height: 1.5; margin-top: 14px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px; }
 @media (max-width: 640px) { .mcc-ac-driftrow { grid-template-columns: 64px 1fr 60px; } }
 
 /* --- Task9 (backlog B#3): NISA枠（非課税枠）。baseline=構造/寸法+var()色のみ（neon glow/blend/screenは
@@ -660,7 +660,7 @@
 .mcc-nisa { margin-top: 14px; }
 .mcc-nisa-hud { display: flex; flex-wrap: wrap; gap: 14px 20px; padding: 10px 14px; margin: 10px 0 14px; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; background: rgba(255,255,255,0.02); }
 .mcc-nisa-hud .h { display: flex; flex-direction: column; gap: 2px; }
-.mcc-nisa-hud .k { color: var(--c-text-faint); font-size: 0.6rem; letter-spacing: 0.5px; }
+.mcc-nisa-hud .k { color: var(--c-text-faint); font-size: 12px; letter-spacing: 0.5px; }
 .mcc-nisa-hud .v { color: var(--c-cyan-bright); font-size: 0.92rem; font-weight: 700; }
 .mcc-nisa-hud .v.am { color: var(--c-amber-bright); }
 .mcc-nisa-hud .v.em { color: var(--c-emerald-bright); }
@@ -678,10 +678,10 @@
 .mcc-nisa-donut.glowlayer { pointer-events: none; }
 .mcc-nisa-donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 2px; }
 .mcc-nisa-donut-center .p { color: var(--c-violet-bright); font-size: 1.5rem; font-weight: 700; line-height: 1; }
-.mcc-nisa-donut-center .l { color: var(--c-text-dim); font-size: 0.6rem; margin-top: 2px; }
+.mcc-nisa-donut-center .l { color: var(--c-text-dim); font-size: 12px; margin-top: 2px; }
 .mcc-nisa-herobars { flex: 1 1 300px; min-width: 260px; }
 
-.mcc-nisa-qlabel { color: var(--c-text-dim); font-size: 0.7rem; letter-spacing: 0.4px; margin-bottom: 6px; display: flex; justify-content: space-between; }
+.mcc-nisa-qlabel { color: var(--c-text-dim); font-size: 12px; letter-spacing: 0.4px; margin-bottom: 6px; display: flex; justify-content: space-between; }
 .mcc-nisa-qlabel b { color: var(--c-cyan-bright); font-weight: 700; }
 .mcc-nisa-qlabel.gl b { color: var(--c-emerald-bright); }
 .mcc-nisa-bar { height: 12px; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden; border: 1px solid rgba(255,255,255,0.06); display: flex; }
@@ -689,20 +689,20 @@
 .mcc-nisa-seg, .mcc-nisa-fill { height: 100%; }
 .mcc-nisa-seg.tsum, .mcc-nisa-fill.tsum { background: var(--c-cyan); }
 .mcc-nisa-seg.grow, .mcc-nisa-fill.grow { background: var(--c-emerald); }
-.mcc-nisa-stat { margin-top: 6px; color: var(--c-text); font-size: 0.74rem; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px; }
+.mcc-nisa-stat { margin-top: 6px; color: var(--c-text); font-size: 12px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px; }
 .mcc-nisa-stat .rem { color: var(--c-amber-bright); }
-.mcc-nisa-legend { display: flex; gap: 14px; margin-top: 8px; color: var(--c-text-faint); font-size: 0.64rem; flex-wrap: wrap; }
+.mcc-nisa-legend { display: flex; gap: 14px; margin-top: 8px; color: var(--c-text-faint); font-size: 12px; flex-wrap: wrap; }
 .mcc-nisa-legend i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; margin-right: 4px; vertical-align: middle; }
 .mcc-nisa-legend i.tsum { background: var(--c-cyan); }
 .mcc-nisa-legend i.grow { background: var(--c-emerald); }
-.mcc-nisa-subbar-label { color: var(--c-text-dim); font-size: 0.68rem; margin: 12px 0 6px; }
+.mcc-nisa-subbar-label { color: var(--c-text-dim); font-size: 12px; margin: 12px 0 6px; }
 .mcc-nisa-subbar-label span { color: var(--c-emerald-bright); }
 
 .mcc-nisa-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 @media (max-width: 600px) { .mcc-nisa-grid2 { grid-template-columns: 1fr; } }
 
 .mcc-nisa-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; margin-bottom: 12px; }
-.mcc-nisa-chip { border: 1px solid; border-radius: 4px; padding: 6px 10px; font-size: 0.7rem; letter-spacing: 0.4px; display: flex; gap: 6px; align-items: center; }
+.mcc-nisa-chip { border: 1px solid; border-radius: 4px; padding: 6px 10px; font-size: 12px; letter-spacing: 0.4px; display: flex; gap: 6px; align-items: center; }
 .mcc-nisa-chip b { color: var(--c-text-bright); }
 .mcc-nisa-chip.feed { border-color: rgba(251,191,36,0.55); color: var(--c-amber-bright); background: rgba(251,191,36,0.06); }
 .mcc-nisa-chip.restore { border-color: rgba(16,185,129,0.5); color: var(--c-emerald-bright); background: rgba(16,185,129,0.05); }
@@ -715,30 +715,30 @@
 .mcc-nisa-input summary { cursor: pointer; font-size: 0.8rem; letter-spacing: 1px; color: var(--c-text-dim); }
 .mcc-nisa-fields { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
 @media (max-width: 600px) { .mcc-nisa-fields { grid-template-columns: 1fr 1fr; } }
-.mcc-nisa-gate { color: var(--c-text-faint); font-size: 0.62rem; margin-top: 8px; }
+.mcc-nisa-gate { color: var(--c-text-faint); font-size: 12px; margin-top: 8px; }
 
 /* Task9: 入力源トグル＋年別履歴テーブル＋リコンサイル（baseline＝構造/寸法＋実在var()色のみ）。 */
 .mcc-nisa-srctoggle { display: flex; gap: 8px; margin-top: 10px; }
 .mcc-nisa-srcbtn { flex: 0 0 auto; padding: 6px 14px; border: 1px solid rgba(129,140,248,0.3);
-  background: rgba(0,0,0,0.3); color: var(--c-text-dim); border-radius: 6px; cursor: pointer; font-size: 0.72rem; }
+  background: rgba(0,0,0,0.3); color: var(--c-text-dim); border-radius: 6px; cursor: pointer; font-size: 12px; }
 .mcc-nisa-srcbtn.on { color: var(--c-text-bright); border-color: var(--c-violet); }
 .mcc-nisa-srcbtn[disabled] { opacity: .45; cursor: not-allowed; }
-.mcc-nisa-srcnote { font-size: .72rem; opacity: .7; align-self: center; margin-left: .5rem; }
-.mcc-nisa-table { width: 100%; border-collapse: collapse; font-size: 0.72rem; margin-top: 10px; }
+.mcc-nisa-srcnote { font-size: 12px; opacity: .7; align-self: center; margin-left: .5rem; }
+.mcc-nisa-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
 .mcc-nisa-table th, .mcc-nisa-table td { padding: 4px 6px; text-align: right; }
-.mcc-nisa-table thead th { color: var(--c-text-dim); font-weight: normal; font-size: 0.66rem; }
+.mcc-nisa-table thead th { color: var(--c-text-dim); font-weight: normal; font-size: 12px; }
 .mcc-nisa-table tbody th { text-align: left; color: var(--c-text-bright); }
 .mcc-nisa-table input { width: 100%; min-width: 72px; background: rgba(0,0,0,0.3);
   border: 1px solid rgba(129,140,248,0.3); color: #fff; border-radius: 6px; padding: 5px 7px; font-size: 0.8rem; }
 .mcc-nisa-addrow { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
-.mcc-nisa-addrow.muted { color: var(--c-text-faint); font-size: 0.66rem; }
-.mcc-nisa-rowdel { background: none; border: none; color: var(--c-text-faint); cursor: pointer; font-size: 0.66rem; }
-.mcc-nisa-recon { margin-top: 10px; font-size: 0.72rem; }
+.mcc-nisa-addrow.muted { color: var(--c-text-faint); font-size: 12px; }
+.mcc-nisa-rowdel { background: none; border: none; color: var(--c-text-faint); cursor: pointer; font-size: 12px; }
+.mcc-nisa-recon { margin-top: 10px; font-size: 12px; }
 @media (max-width: 600px) {
   .mcc-nisa-table, .mcc-nisa-table tbody, .mcc-nisa-table tr, .mcc-nisa-table td, .mcc-nisa-table th { display: block; }
   .mcc-nisa-table thead { display: none; }
   .mcc-nisa-table tr { border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 8px; margin-bottom: 8px; }
-  .mcc-nisa-table td::before { content: attr(data-label); float: left; color: var(--c-text-dim); font-size: 0.66rem; }
+  .mcc-nisa-table td::before { content: attr(data-label); float: left; color: var(--c-text-dim); font-size: 12px; }
 }
 
 

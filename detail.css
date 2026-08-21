@@ -251,7 +251,7 @@
         cursor: pointer;
         font-size: 1rem;
         padding: 4px 10px;
-        color: var(--ix-border-mid);
+        color: var(--ix-text-dim);
         transition: all 0.2s;
         margin-left: 8px;
       }
@@ -346,7 +346,7 @@
       .compare-chip-remove {
         cursor: pointer;
         opacity: 0.6;
-        font-size: 0.7rem;
+        font-size: 12px;
         margin-left: 2px;
       }
       .compare-chip-remove:hover { opacity: 1; }
@@ -362,7 +362,7 @@
         padding: 4px 12px;
         border-radius: 3px;
         cursor: pointer;
-        font-size: 0.72rem;
+        font-size: 12px;
         font-weight: bold;
         font-family: var(--ix-mono);
         transition: all 0.2s;
@@ -395,7 +395,7 @@
         padding: 4px 12px;
         border-radius: 3px;
         cursor: pointer;
-        font-size: 0.72rem;
+        font-size: 12px;
         font-weight: bold;
         letter-spacing: 1px;
         transition: all 0.2s;
@@ -405,7 +405,7 @@
 
       @media (max-width: 768px) {
         .panel-sign-value-large { font-size: 1.8rem !important; }
-        .panel-desc-text-below { font-size: 0.72rem; }
+        .panel-desc-text-below { font-size: 12px; }
         .panel-label { font-size: 0.75rem; }
         .type-badge { font-size: 1rem; padding: 10px; letter-spacing: 1px; }
         .panel-sign-value-cf { font-size: 1.5rem !important; }
@@ -436,7 +436,7 @@
         .detail-star-btn, .open-compare-btn {
           display: inline-flex; align-items: center; justify-content: center;
           min-height: 44px; padding: 6px 10px; margin-left: 4px;
-          font-size: 0.68rem; white-space: nowrap;
+          font-size: 12px; white-space: nowrap;
         }
         .company-title-year { display: none; }
         /* T2: 比較モーダルの箱を必ず画面内に収める（従来 width:95%/max-width:1100px は
@@ -491,7 +491,7 @@
         flex-shrink: 0;
       }
       .ma-label {
-        font-size: 0.68rem;
+        font-size: 12px;
         color: var(--ix-slate);
         font-weight: bold;
         letter-spacing: 0.8px;
@@ -520,7 +520,7 @@
       #ind-btn-sr.active   { border-color: #ff6699; color: #ff6699; background: rgba(255,102,153,0.12); }
       #ind-btn-tr.active   { border-color: var(--ix-amber); color: var(--ix-amber); background: rgba(251,191,36,0.12); }
       .vol-label {
-        font-size: 0.68rem;
+        font-size: 12px;
         color: var(--ix-slate);
         padding-left: 10px;
         white-space: nowrap;
@@ -546,7 +546,7 @@
       .subpanel-links { display: inline-flex; align-items: center; gap: 10px; margin-left: auto; }
       .subpanel-links a {
         font-family: var(--ix-mono);
-        font-size: 0.66rem;
+        font-size: 12px;
         color: var(--ix-cyan-bright2, #62f0ff);
         cursor: pointer;
         text-decoration: none;
@@ -556,7 +556,7 @@
       .subpanel-links a:hover { color: #eafcff; }
       .subpanel-hint {
         font-family: var(--ix-mono);
-        font-size: 0.64rem;
+        font-size: 12px;
         color: var(--ix-text-dim);
         white-space: nowrap;
       }
@@ -577,19 +577,19 @@
       }
       .disc-title {
         font-family: var(--ix-mono);
-        font-size: 0.66rem;
+        font-size: 12px;
         letter-spacing: 0.08em;
         text-transform: uppercase;
         color: var(--ix-text-dim);
         flex-basis: 100%;
       }
       .disc-chip { display: inline-flex; align-items: baseline; gap: 6px; font-family: var(--ix-mono); font-size: 0.78rem; }
-      .disc-chip .k { color: var(--ix-text-dim); font-size: 0.68rem; }
+      .disc-chip .k { color: var(--ix-text-dim); font-size: 12px; }
       .disc-chip .v { color: var(--ix-text, #eafcff); font-weight: bold; }
       .disc-chip .v.hot  { color: var(--ix-pink, #ff4db8); text-shadow: 0 0 8px color-mix(in srgb, var(--ix-pink, #ff4db8) 50%, transparent); }
       .disc-chip .v.warm { color: var(--ix-amber, #ffca3a); text-shadow: 0 0 8px color-mix(in srgb, var(--ix-amber, #ffca3a) 45%, transparent); }
       .disc-chip .v.calm { color: var(--ix-teal-bright, #2fe6c4); text-shadow: 0 0 8px color-mix(in srgb, var(--ix-teal-bright, #2fe6c4) 40%, transparent); }
-      .disc-note { flex-basis: 100%; font-size: 0.66rem; color: var(--ix-text-dim); line-height: 1.5; }
+      .disc-note { flex-basis: 100%; font-size: 12px; color: var(--ix-text-dim); line-height: 1.5; }
       /* discipline-card は flex-wrap レイアウトゆえ .panel-disclaimer（共通免責スタイル）に
          flex-basis:100% だけを局所付与（他カードでの .panel-disclaimer 定義は無改変）。 */
       .discipline-card .panel-disclaimer { flex-basis: 100%; }
@@ -617,10 +617,10 @@
       .acc-head:hover { background: color-mix(in srgb, var(--ix-cyan-bright2, #62f0ff) 5%, transparent); }
       .acc-caret { font-family: var(--ix-mono); font-size: 11px; color: var(--ix-cyan-bright2, #62f0ff); width: 12px; text-align: center; flex-shrink: 0; }
       .acc-label { font-family: var(--ix-mono); font-size: 0.75rem; font-weight: bold; color: var(--ix-text-hi, #eaf6ff); letter-spacing: 0.02em; }
-      .acc-sub { font-family: var(--ix-mono); font-size: 0.62rem; color: var(--ix-text-dim); }
+      .acc-sub { font-family: var(--ix-mono); font-size: 12px; color: var(--ix-text-dim); }
       .acc-head .spacer { flex: 1 1 auto; }
       .acc-desc {
-        font-size: 0.62rem;
+        font-size: 12px;
         color: var(--ix-text-dim);
         max-width: 46%;
         overflow: hidden;
@@ -638,7 +638,7 @@
       }
       .acc-close:hover { color: var(--ix-red-soft, #ff5c7a); border-color: rgba(255,92,153,0.4); }
       .acc-body { padding: 0 9px 9px; }
-      .acc-body .acc-full-desc { font-size: 0.68rem; color: var(--ix-text-dim); line-height: 1.5; margin: 2px 2px 6px; }
+      .acc-body .acc-full-desc { font-size: 12px; color: var(--ix-text-dim); line-height: 1.5; margin: 2px 2px 6px; }
       .subpanel-host { width: 100%; }
 
       /* ── ヘッダーセクターバッジ ── */
@@ -649,7 +649,7 @@
         border: 1px solid rgba(99, 102, 241, 0.35);
         padding: 3px 10px;
         border-radius: 20px;
-        font-size: 0.72rem;
+        font-size: 12px;
         font-weight: bold;
         letter-spacing: 0.5px;
         margin-left: 10px;
@@ -704,8 +704,8 @@
         opacity: 0.4;
       }
       .time-label {
-        font-size: 0.74rem;
-        color: var(--ix-border-mid);
+        font-size: 12px;
+        color: var(--ix-text-dim);
         font-weight: bold;
         letter-spacing: 2px;
         text-transform: uppercase;
@@ -733,7 +733,7 @@
         position: relative;
       }
       .ai-analysis-title {
-        font-size: 0.72rem;
+        font-size: 12px;
         font-weight: bold;
         color: var(--ix-indigo-accent);
         letter-spacing: 1.5px;
@@ -755,7 +755,7 @@
         font-style: italic;
       }
       .ai-analysis-year-label {
-        font-size: 0.7rem;
+        font-size: 12px;
         color: var(--ix-slate);
         position: absolute;
         top: 14px;
@@ -810,7 +810,7 @@
       }
       .kpi-year-col.active-year .kpi-year-label { color: var(--ix-blue-bright); }
       .kpi-active-badge {
-        font-size: 0.6rem;
+        font-size: 12px;
         background: var(--ix-blue-bright);
         color: var(--ix-white);
         padding: 1px 6px;
@@ -837,7 +837,7 @@
         flex-shrink: 0;
       }
       .kpi-yoy {
-        font-size: 0.72rem;
+        font-size: 12px;
         font-weight: bold;
         margin-left: 4px;
       }
@@ -896,22 +896,22 @@
       .sig-label { color: var(--ix-text-dim, #9fb0d0); min-width: 9em; }
       .sig-state { color: var(--ix-text, #e8eefc); font-family: var(--ix-mono, monospace); }
       .sig-readout { color: var(--ix-cyan, #62f0ff); font-family: var(--ix-mono, monospace); }
-      .sig-note { color: var(--ix-text-dim, #9fb0d0); font-size: 11px; }
-      .sig-asof { color: var(--ix-text-dim, #9fb0d0); font-size: 11px; font-weight: normal; }
-      .sig-disclaimer { margin-top: 8px; font-size: 10px; color: var(--ix-text-dim, #9fb0d0); line-height: 1.5; }
+      .sig-note { color: var(--ix-text-dim, #9fb0d0); font-size: 12px; }
+      .sig-asof { color: var(--ix-text-dim, #9fb0d0); font-size: 12px; font-weight: normal; }
+      .sig-disclaimer { margin-top: 8px; font-size: 12px; color: var(--ix-text-dim, #9fb0d0); line-height: 1.5; }
 
       /* ── 財務健全性の推移カード（Feature#3）── */
       .health-trend-card { overflow: visible; }
       /* Chart.js(responsive・maintainAspectRatio:false)は親の高さに追従＝明示高さで 0x0罠を回避 */
       .ht-chart { position: relative; height: 300px; }
-      .ht-note { margin-top: 6px; font-size: 11px; color: var(--ix-text-dim, #9fb0d0); }
-      .ht-disclaimer { margin-top: 4px; font-size: 10px; color: var(--ix-text-dim, #9fb0d0); line-height: 1.5; }
+      .ht-note { margin-top: 6px; font-size: 12px; color: var(--ix-text-dim, #9fb0d0); }
+      .ht-disclaimer { margin-top: 4px; font-size: 12px; color: var(--ix-text-dim, #9fb0d0); line-height: 1.5; }
       @media (max-width: 768px) { .ht-chart { height: 240px; } }
 
       /* ── DuPont恒等式カード（束D 層1・canvas無し＝inline SVGスパークライン）── */
       .dp-identity{display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap;margin:6px 0 10px;}
       .dp-factor{display:flex;flex-direction:column;gap:2px;min-width:84px;}
-      .dp-flabel{font-size:11px;color:var(--ix-text-dim,#8aa);}
+      .dp-flabel{font-size:12px;color:var(--ix-text-dim,#8aa);}
       .dp-fval{font-family:var(--ix-mono,monospace);font-size:18px;color:var(--ix-text,#dff);}
       .dp-op{font-size:16px;color:var(--ix-text-dim,#8aa);padding-bottom:20px;}
       .dp-roe .dp-fval{color:#ffd84d;}
@@ -932,14 +932,14 @@
       .relpos-marker { position: absolute; top: -4px; width: 10px; height: 14px; margin-left: -5px; border-radius: 2px;
         background: var(--ix-cyan-bright2, var(--c-cyan, #62f0ff)); box-shadow: 0 0 8px var(--ix-cyan-bright2, var(--c-cyan, #62f0ff)); }
       .relpos-val { font: 12px/1.3 var(--ix-mono, monospace); color: #fff; text-align: right; }
-      .relpos-cap { grid-column: 2 / 4; font: 11px/1.3 var(--ix-mono, monospace); color: #9fb9cc; margin-top: -2px; }
-      .relpos-na { color: #7d93a5; font-size: 11px; }
+      .relpos-cap { grid-column: 2 / 4; font: 12px/1.3 var(--ix-mono, monospace); color: #9fb9cc; margin-top: -2px; }
+      .relpos-na { color: #7d93a5; font-size: 12px; }
 
       /* ── term-help ポップオーバー（純CSS・--ix-* トークンで自己完結／money.css .mcc-help 非依存） ── */
       .term-help {
         display: inline-flex; align-items: center; justify-content: center;
-        width: 14px; height: 14px; margin-left: 5px; border-radius: 50%;
-        font-size: 10px; line-height: 1; cursor: help; position: relative;
+        width: 17px; height: 17px; margin-left: 5px; border-radius: 50%;
+        font-size: 12px; line-height: 1; cursor: help; position: relative;
         color: var(--ix-cyan, #62f0ff);
         border: 1px solid color-mix(in srgb, var(--ix-cyan, #62f0ff) 55%, transparent);
         background: color-mix(in srgb, var(--ix-cyan, #62f0ff) 12%, transparent);
@@ -955,7 +955,7 @@
         /* T2 review fix1: 240px 固定だと極小ビューポートでそれ自体が画面よりはみ出しうるため
            viewport相対の上限も併用する。 */
         width: max-content; max-width: min(240px, calc(100vw - 24px)); padding: 8px 10px; border-radius: 6px;
-        font-size: 11px; line-height: 1.5; text-align: left; white-space: normal;
+        font-size: 12px; line-height: 1.5; text-align: left; white-space: normal;
         color: var(--ix-text, #e8eefc);
         background: var(--ix-surface-2, rgba(10,16,32,.96));
         border: 1px solid color-mix(in srgb, var(--ix-cyan, #62f0ff) 40%, transparent);
@@ -977,11 +977,11 @@
       .cmp-table thead th { color: var(--c-cyan, #62f0ff); font-weight: 600; }
       .cmp-table td.na { color: #7d93a5; }
       .cmp-table-wrap { overflow-x: auto; }
-      .cmp-etf { color: #ffca3a; font-size: 10px; }
+      .cmp-etf { color: #ffca3a; font-size: 12px; }
       .cmp-cur { color: #9fb9cc; }
       .cmp-note { font: 11px var(--ix-mono, monospace); color: #9fb9cc; margin: 6px 0; }
       /* 免責の共通スタイル（相対カード/比較テーブル/ランキングで共用・.sig-disclaimer と同等） */
-      .panel-disclaimer { margin-top: 8px; font-size: 10px; color: var(--ix-text-dim, #9fb0d0); line-height: 1.5; }
+      .panel-disclaimer { margin-top: 8px; font-size: 12px; color: var(--ix-text-dim, #9fb0d0); line-height: 1.5; }
 
       /* ── ③ランキングビュー（Task11: 表 + 市場/指標コントロール。散布図/帯は Task12） ── */
       #ranking-view .ranking-head { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 12px; }
