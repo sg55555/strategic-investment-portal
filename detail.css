@@ -1018,3 +1018,6 @@
       .ai-ins-sec-label { font-size: .82rem; letter-spacing: .06em; opacity: .8; margin-bottom: 2px; }
       .ai-ins-sec-body { line-height: 1.6; }
       .ai-ins-note { opacity: .7; font-size: .85rem; }
+
+      /* 修正① 全ゼロFY: 決算未確定プレースホルダ（spec §5.3） */
+      .fin-pending-note { color: var(--ix-text-dim); font-size: 13px; padding: 18px 0 6px; letter-spacing: 1px; }

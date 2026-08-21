@@ -598,7 +598,9 @@
       const availableYears = Object.keys(data.financials_trend).sort(
         (a, b) => b - a,
       );
-      selectedYear = availableYears[0] || 2025;
+      // spec §5.2: 既定年は「実質値のある最新年」（全ゼロFY行=ETL未確定はスキップ・FY2026ボタン自体は残す）
+      selectedYear = availableYears.find((y) => FinanceRules.hasFinSubstance(data.financials_trend[y]))
+        || availableYears[0] || 2025;
 
       const ctrlBox = document.getElementById("year-controller-box");
       ctrlBox.innerHTML = "";
@@ -647,7 +649,9 @@
     const data = STOCK_DATA[currentTicker];
     if (!data) return;
 
-    const fin = data.financials_trend[selectedYear];
+    const rawFin = data.financials_trend[selectedYear];
+    // spec §5.3 合流方式: 全ゼロFY行は既存 !fin 経路へ合流（財務描画スキップ＋プレースホルダ）
+    const fin = FinanceRules.hasFinSubstance(rawFin) ? rawFin : null;
     // C1: ここで早期 return せず、価格チャート/PER/PBR/ETF 判定まで進める。
     //  ETF(financials_trend={})や財務欠損年でもローソク足は描画する（財務固有の描画のみ後段で fin ガード）。
 
@@ -751,24 +755,36 @@
     if (eqDesc) eqDesc.innerText = DetailRules.equityRatioDesc(isUS);
     if (crDesc) crDesc.innerText = DetailRules.currentRatioDesc(isUS);
 
-    // ETF・財務データなしの場合はチャートカードを非表示
+    // spec §5.3: ETF・財務なし(全ゼロFY含む)の表示/非表示は finVisible を単一判定源に毎回評価する
+    //  共通ブロック（isEtf return より前の無条件通過点）。FY2026→実質年復帰・ETF→株式の復帰も担う。
     const isEtf = data.type === "etf";
-    const finCards = ["kpi-compare-card", "bs-title", "radar-title", "pl-title", "cf-title", "health-trend-card", "dupont-card", "fcf-trend-card"];
+    const finVisible = !isEtf && !!fin;
+    const finCards = ["bs-title", "radar-title", "pl-title", "cf-title", "health-trend-card", "dupont-card", "fcf-trend-card"];
     finCards.forEach(id => {
       const card = document.getElementById(id)?.closest(".card");
-      if (card) card.style.display = isEtf ? "none" : "";
+      if (card) card.style.display = finVisible ? "" : "none";
     });
-    // ai-insight-card は常に既定 none を維持し、wireInsightCard の可視ゲート（login+personal＋層1カード表示）
-    //  でのみ表示する。ETF/財務欠損(!fin)の early-return や production デプロイでは一切可視化させない（痕跡ゼロ）。
+    // kpi-compare-card / ai-analysis-card は .card 祖先を持たない（#detail-view 直下）＝直接 display
+    const kpiCard = document.getElementById("kpi-compare-card");
+    if (kpiCard) kpiCard.style.display = finVisible ? "" : "none";
+    const aiCardHide = document.getElementById("ai-analysis-card");
+    if (aiCardHide && !finVisible) aiCardHide.style.display = "none";
+    // 決算未確定プレースホルダ（株式×非実質年のみ表示・冪等・#kpi-compare-card 直前）
+    let pendingNote = document.getElementById("fin-pending-note");
+    if (!pendingNote && kpiCard) {
+      pendingNote = document.createElement("div");
+      pendingNote.id = "fin-pending-note";
+      pendingNote.className = "fin-pending-note";
+      pendingNote.textContent = "この年度は決算未確定です";
+      kpiCard.parentNode.insertBefore(pendingNote, kpiCard);
+    }
+    if (pendingNote) pendingNote.style.display = (!isEtf && !fin) ? "" : "none";
+    // ai-insight-card は常に既定 none を維持する（既存挙動保存・wireInsightCard の可視ゲートのみが表示する）
     var _aiInsightCard = document.getElementById("ai-insight-card");
     if (_aiInsightCard) _aiInsightCard.style.display = "none";
-    if (isEtf) {
-      document.getElementById("kpi-compare-card").style.display = "none";
-      return;
-    }
+    if (isEtf) return;
 
-    // C1: 非ETFで当該年度の財務が欠損なら、価格チャートまでは描画済みなので
-    //  財務固有の描画(KPI/BS/PL/CF/レーダー)だけをスキップする。
+    // C1: 非ETFで当該年度の財務が欠損（全ゼロFY含む）なら財務固有の描画だけをスキップ
     if (!fin) return;
 
     // AI財務分析コメントの表示
