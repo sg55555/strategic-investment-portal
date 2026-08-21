@@ -173,3 +173,15 @@ test("METRIC_REGISTRY termKeys all resolve in INDICATOR_GLOSSARY", () => {
     assert.ok(gloss.has(m.termKey), `termKey "${m.termKey}" (${m.key}) missing from INDICATOR_GLOSSARY`);
   });
 });
+test("_latestFin: 最新年が全ゼロFY行なら実質値のある直近年へフォールバック", () => {
+  const raw = { financials_trend: {
+    2025: { net_sales: 1000, current_assets: 500, non_current_assets: 500, net_assets: 400 },
+    2026: { net_sales: 0, current_assets: 0, non_current_assets: 0, net_assets: 0 },
+  } };
+  const fin = CS._latestFin(raw);
+  assert.equal(fin.net_sales, 1000);            // 2026(全ゼロ)でなく2025を採用
+  const allZeroOnly = { financials_trend: {
+    2026: { net_sales: 0, current_assets: 0, non_current_assets: 0, net_assets: 0 },
+  } };
+  assert.equal(CS._latestFin(allZeroOnly), null); // 実質年が無ければ null（分布から除外）
+});

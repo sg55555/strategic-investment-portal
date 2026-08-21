@@ -63,9 +63,12 @@
   function _latestFin(raw) {
     var t = raw && raw.financials_trend;
     if (!t || typeof t !== "object") return null;
-    var years = Object.keys(t).map(Number).filter(isFinite);
-    if (years.length === 0) return null;
-    return t[String(Math.max.apply(null, years))] || null;
+    var years = Object.keys(t).map(Number).filter(isFinite).sort(function (a, b) { return b - a; });
+    for (var i = 0; i < years.length; i++) {   // spec §5.4-4: 実質値のある最大年（全ゼロFY行スキップ）
+      var fin = t[String(years[i])];
+      if (FR && FR.hasFinSubstance(fin)) return fin;
+    }
+    return null;
   }
 
   // ---- 指標レジストリ ----
