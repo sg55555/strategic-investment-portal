@@ -100,10 +100,10 @@ test("pickUnit: 会社規模で1単位を選定（JPY 兆/億/百万・USD 兆/�
   assert.deepEqual(F.pickUnit(5000, "JPY"), { div: 100, suffix: "億円", dec: 1 });
   // JPY: 1億未満は百万円
   assert.deepEqual(F.pickUnit(50, "JPY"), { div: 1, suffix: "百万円", dec: 0 });
-  // USD: 兆ドル / 十億ドル / 百万ドル（億は使わない）
-  assert.deepEqual(F.pickUnit(416161, "USD"), { div: 1000, suffix: "十億ドル", dec: 1 });
+  // USD: 兆ドル / 億ドル / 百万ドル（十億層廃止・JPY鏡像）
+  assert.deepEqual(F.pickUnit(416161, "USD"), { div: 100, suffix: "億ドル", dec: 0 });
   assert.deepEqual(F.pickUnit(1500000, "USD"), { div: 1000000, suffix: "兆ドル", dec: 1 });
-  assert.deepEqual(F.pickUnit(500, "USD"), { div: 1, suffix: "百万ドル", dec: 0 });
+  assert.deepEqual(F.pickUnit(500, "USD"), { div: 100, suffix: "億ドル", dec: 1 });
 });
 
 test("fmtUnitValue: pickUnit の単位でページ統一整形（千区切り／0点は単位なし）", () => {
@@ -115,8 +115,8 @@ test("fmtUnitValue: pickUnit の単位でページ統一整形（千区切り／
   assert.equal(F.fmtUnitValue(520000, jpyOku), "5,200億円");
   var jpyOku1 = F.pickUnit(5000, "JPY");         // 億円(小数1桁)
   assert.equal(F.fmtUnitValue(5000, jpyOku1), "50.0億円");
-  var usdB = F.pickUnit(416161, "USD");          // 十億ドル
-  assert.equal(F.fmtUnitValue(416161, usdB), "416.2十億ドル");
+  var usdB = F.pickUnit(416161, "USD");          // 億ドル
+  assert.equal(F.fmtUnitValue(416161, usdB), "4,162億ドル");
 });
 
 test("fmtUnitValue: 小さな値の適応精度（兆円ページでCFを0.0に潰さない・符号付き0回避）", () => {
@@ -268,4 +268,17 @@ test("hasFinSubstance: 全ゼロFY行（ETL未確定）を欠測扱いにする�
   assert.equal(F.hasFinSubstance(normal), true);
   const negEquityOnly = { net_sales: 0, current_assets: 0, non_current_assets: 0, net_assets: -500 };
   assert.equal(F.hasFinSubstance(negEquityOnly), true);  // 純資産のみ負値＝実質データあり
+});
+
+test("fmtTickValue: 軸目盛は目盛間隔から小数桁を動的算出（0.1兆×4連の重複と桁不揃いを同時に防ぐ）", () => {
+  var t = { div: 1000000, suffix: "兆ドル", dec: 1 };
+  var ticks = [{ value: 0 }, { value: 20000 }, { value: 40000 }];   // step=0.02兆
+  assert.equal(F.fmtTickValue(20000, t, ticks), "0.02兆ドル");
+  assert.equal(F.fmtTickValue(40000, t, ticks), "0.04兆ドル");
+  assert.equal(F.fmtTickValue(0, t, ticks), "0");
+  assert.equal(F.fmtTickValue(20000, t, null), "0.02兆ドル");        // ticks 無しは値単体で桁算出
+  var oku = { div: 100, suffix: "億円", dec: 0 };
+  var ticks2 = [{ value: 0 }, { value: 100000 }];                    // step=1000億
+  assert.equal(F.fmtTickValue(100000, oku, ticks2), "1,000億円");    // dec0 保持・千区切り
+  assert.equal(F.fmtTickValue(100000, null, ticks2), "100000");      // unit 無しは素通し
 });

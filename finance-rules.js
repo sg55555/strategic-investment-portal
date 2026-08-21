@@ -115,7 +115,7 @@
     var cur = unitWord(currency);
     if (a >= 1000000) return { div: 1000000, suffix: "兆" + cur, dec: 1 };
     if (usd) {
-      if (a >= 1000) return { div: 1000, suffix: "十億" + cur, dec: 1 };
+      if (a >= 100) return { div: 100, suffix: "億" + cur, dec: a >= 10000 ? 0 : 1 }; // 1億=100百万（JPY鏡像・十億層廃止=spec §7.3）
       return { div: 1, suffix: "百万" + cur, dec: 0 };
     }
     if (a >= 100) return { div: 100, suffix: "億" + cur, dec: a >= 10000 ? 0 : 1 }; // 1億=100百万
@@ -125,6 +125,7 @@
   // pickUnit で得た unit で値を整形。0点は単位なしで揃える。
   //  非0が指定桁で 0 に丸まる小さな値は、有効数字が出るまで小数桁を増やす（売上高基準の兆円ページで
   //  小さな CF を「0.0兆円」に潰さない＝ページ単位統一を保ちつつ精度退行と符号付き0を回避）。
+  //  軸目盛は fmtTickValue（下）＝変更時は両方を同じ向きに保つこと。
   function fmtUnitValue(val, unit) {
     var v = n(val);
     if (!unit) return String(v);
@@ -134,6 +135,22 @@
     while (parseFloat(x.toFixed(dec)) === 0 && dec < 4) dec++;
     if (parseFloat(x.toFixed(dec)) === 0) return "0";   // 4桁でも0 ≒ 実質0（符号付き0も回避）
     var s = dec === 0 ? Math.round(x).toLocaleString() : x.toFixed(dec); // 整数桁は千区切り
+    return s + unit.suffix;
+  }
+
+  // 軸目盛専用の整形（spec §7.4）。datalabel 側は fmtUnitValue を使用＝**両者は必ず同じ向きに変更すること**。
+  //  目盛間隔(step)から小数桁を動的算出し「0.1兆ドル×4連」重複と「0.02兆ドル」桁不揃いを同時に防ぐ。
+  function fmtTickValue(val, unit, ticks) {
+    var v = n(val);
+    if (!unit) return String(v);
+    if (v === 0) return "0";
+    var step = (ticks && ticks.length > 1)
+      ? Math.abs(ticks[1].value - ticks[0].value) / unit.div
+      : Math.abs(v) / unit.div;
+    var dec = step > 0 ? Math.max(unit.dec, Math.min(4, Math.ceil(-Math.log10(step)))) : unit.dec;
+    var x = v / unit.div;
+    if (parseFloat(x.toFixed(dec)) === 0) return "0";
+    var s = dec === 0 ? Math.round(x).toLocaleString() : x.toFixed(dec);
     return s + unit.suffix;
   }
 
@@ -242,6 +259,7 @@
     n: n,
     pickUnit: pickUnit,
     fmtUnitValue: fmtUnitValue,
+    fmtTickValue: fmtTickValue,
     unitLabel: unitLabel,
     ratio: ratio,
     totalAssets: totalAssets,
