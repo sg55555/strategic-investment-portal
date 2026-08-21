@@ -1131,9 +1131,10 @@
   color: var(--c-cyan-bright); font-family: var(--mcc-mono);
 }
 [data-theme="D"] #money-view .mcc-help:hover, [data-theme="D"] #money-view .mcc-help:focus { background: rgba(0,229,255,0.28); box-shadow: 0 0 10px rgba(0,229,255,0.4); }
+/* テーマA⑦: mono奪回（5クラス目・D層高特異性1,2,1が末尾ルール0,1,1に勝つため in-place 必須） */
 [data-theme="D"] #money-view .mcc-help::after {
   background: #02050a; border: 1px solid rgba(0,229,255,0.5); border-radius: 3px;
-  color: var(--c-cyan-pale); font-family: var(--mcc-mono);
+  color: var(--c-cyan-pale); font-family: var(--ix-sans); letter-spacing: 0; line-height: 1.65;
   box-shadow: 0 0 0 1px rgba(0,229,255,0.15), 0 8px 24px rgba(0,0,0,0.75);
 }
 

@@ -51,7 +51,15 @@ const selectors = m[1].split(",").map((s) => s.replace(/\/\*[\s\S]*?\*\//g, "").
   const sansM = css.match(/日本語長文:[\s\S]*?\*\/([\s\S]*?)\{\s*font-family:\s*var\(--ix-sans\)/);
   const sansSels = sansM[1].split(",").map((s) => s.replace(/\/\*[\s\S]*?\*\//g, "").trim()).filter(Boolean);
   for (const sel of sansSels) {
-    const ff = await page.evaluate((s) => { const el = document.querySelector(s); return el ? getComputedStyle(el).fontFamily : null; }, sel).catch(() => null);
+    // ::after 等の疑似要素は querySelector に渡すと例外→無言スキップになるため、
+    // base部分をquerySelectorし getComputedStyle(el, "::after") で判定する。
+    const isAfter = /::after$/.test(sel);
+    const baseSel = isAfter ? sel.replace(/::after$/, "") : sel;
+    const ff = await page.evaluate((args) => {
+      const el = document.querySelector(args.baseSel);
+      if (!el) return null;
+      return getComputedStyle(el, args.isAfter ? "::after" : null).fontFamily;
+    }, { baseSel, isAfter }).catch(() => null);
     if (ff !== null && !/system-ui/.test(ff)) fails.push(`${sel}: fontFamily=${ff.slice(0, 40)}`);
   }
   await browser.close();
