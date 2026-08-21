@@ -1,0 +1,77 @@
+// 修正④⑤ 受入: 代表銘柄×幅で吹き出し矩形を実測（監査 2026-08-09 と同手法・spec §9.2）
+// Task 14: BS 吹き出しの数値アサート受入（監査再現）
+//
+// 銘柄補正（Task 12-13 の実DB検証で判明。task-14-brief.md のコメントより本コメントが正）:
+//   - 6758.T は lowRight を exercise する（固定負債 9.53% が LOW=0.12 未満）。
+//     brief 内コメント「低棒左列」表記は誤りだった（lowLeft ではなく lowRight）。
+//   - MCD を追加。lowLeft の実 exerciser（流動負債{di:2,bi:1}＋流動資産{di:4,bi:0}）かつ
+//     displayNetAssets=0（v>0 ガードで除外される負の純資産）を持つ。USD 銘柄。
+//   - 4755.T は同側ペア {di:0,bi:1}+{di:2,bi:1} → stagger（角度 align）ケース。
+const { chromium } = require("playwright");
+let failed = 0;
+function check(name, ok) { console.log((ok ? "  ✅ " : "  ❌ ") + name); if (!ok) failed++; }
+const X = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+(async () => {
+  const browser = await chromium.launch();
+  for (const width of [1440, 1024]) {
+    const page = await browser.newPage({ viewport: { width, height: 900 } });
+    const errors = [];
+    page.on("pageerror", (e) => errors.push(String(e)));
+    await page.goto("http://127.0.0.1:8200", { waitUntil: "networkidle" });
+    for (const t of ["6758.T", "8306.T", "7203.T", "4755.T", "NVDA", "BRK-B", "MCD"]) {
+      await page.evaluate((tk) => navigateToDetail(tk), t);
+      await page.waitForTimeout(2000);   // アニメ1500ms 完了後に実測
+      const r = await page.evaluate(() => {
+        const chart = Chart.getChart(document.getElementById("bsChart"));
+        if (!chart) return null;
+        const ca = chart.chartArea;
+        const cw = chart.canvas.width / (window.devicePixelRatio || 1);
+        const ch = chart.canvas.height / (window.devicePixelRatio || 1);
+        const axisBand = { x: ca.left - chart.scales.y.width, y: ca.top, w: chart.scales.y.width, h: ca.bottom - ca.top };
+        const chips = [], bars = [];
+        (chart.$bsLeaders || []).forEach(({ di, bi }) => {
+          const el = chart.getDatasetMeta(di).data[bi];
+          const lab = el && (el.$datalabels || [])[0];
+          if (!lab || !lab.$layout || !lab.$layout._visible) return;
+          const rc = lab.$layout._box._rect;
+          chips.push({ x: rc.x, y: rc.y, w: rc.w, h: rc.h });
+          const half = ca.width / 4;
+          const p = el.getProps(["x", "y", "base"]);
+          bars.push({ x: p.x - half, y: Math.min(p.y, p.base), w: half * 2, h: Math.abs(p.base - p.y) });
+        });
+        return { cw, ch, axisBand, chips, bars, leaders: (chart.$bsLeaders || []).length };
+      });
+      if (!r) { check(`${t}@${width}: chart 取得`, false); continue; }
+      const clip = r.chips.every((c) => c.x >= 0 && c.y >= 0 && c.x + c.w <= r.cw && c.y + c.h <= r.ch);
+      check(`${t}@${width}: チップのcanvas外クリップ 0（${r.chips.length}枚）`, clip);
+      let overlap = false, axisHit = false, barHit = false;
+      for (let i = 0; i < r.chips.length; i++) {
+        if (X(r.chips[i], r.axisBand)) axisHit = true;
+        for (let j = i + 1; j < r.chips.length; j++) if (X(r.chips[i], r.chips[j])) overlap = true;
+        for (const b of r.bars) if (X(r.chips[i], b)) barHit = true;
+      }
+      check(`${t}@${width}: チップ相互重なり 0`, !overlap);
+      check(`${t}@${width}: チップ×y軸目盛帯の重なり 0`, !axisHit);
+      check(`${t}@${width}: チップ×バー矩形の交差 0`, !barHit);
+    }
+    // ETF: bsChart 不描画
+    await page.evaluate(() => navigateToDetail("SPY"));
+    await page.waitForTimeout(800);
+    check(`SPY@${width}: BSカード非表示（ETF非影響）`, await page.evaluate(() => getComputedStyle(document.getElementById("bs-title").closest(".card")).display === "none"));
+    check(`pageerror 0 @${width}`, errors.length === 0);
+    await page.close();
+  }
+  // モバイル: 低棒ラベル自体が非表示＝新分岐不到達（padding モバイル arm 不変）
+  const page = await browser.newPage({ viewport: { width: 375, height: 800 } });
+  await page.goto("http://127.0.0.1:8200", { waitUntil: "networkidle" });
+  await page.evaluate(() => navigateToDetail("6758.T"));
+  await page.waitForTimeout(2000);
+  const mob = await page.evaluate(() => {
+    const chart = Chart.getChart(document.getElementById("bsChart"));
+    return chart ? chart.options.layout.padding.left : null;
+  });
+  check("モバイル: padding arm 不変（left=4）", mob === 4);
+  await browser.close();
+  console.log(failed === 0 ? "ALL PASS" : `${failed} FAILED`);
+  process.exit(failed === 0 ? 0 : 1);
+})();
