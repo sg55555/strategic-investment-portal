@@ -199,6 +199,15 @@ test("plSteps: 欠損項目(gross_profit)は段を出さない", () => {
   assert.ok(D.plSteps({ ...fin, gross_profit: 0 }).some((s) => s.label === "売上総利益"));
 });
 
+test("plSteps: IFRS 型（経常0×税引前≠0）は経常段を省略する", () => {
+  const ifrs = { net_sales: 6000000, operating_income: 0, ordinary_income: 0,
+                 income_before_taxes: 3086701, net_income: 2000000, gross_profit: null };  // 9984.T FY2025 型
+  assert.deepEqual(D.plSteps(ifrs).map((s) => s.label),
+    ["当期純利益", "税金等調整前当期純利益", "営業利益", "売上高"]);
+  // 税引前も0（＝実質欠測）なら従来どおり段を出す（省略条件を広げない錠）
+  assert.ok(D.plSteps({ ...ifrs, income_before_taxes: 0 }).some((s) => s.label === "経常利益"));
+});
+
 // ── radarScores: 5指標スコア（0..100 clamp）＋ roe/roa 実値 ──
 test("radarScores: スコア配列と roe/roa（持株会社は税引前利益で収益性評価）", () => {
   const fin = {

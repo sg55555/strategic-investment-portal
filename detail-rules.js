@@ -506,7 +506,9 @@
       { label: "営業利益", val: opIncome, color: FIN_COLORS.pl[3], core: true },
       { label: "売上総利益", key: "gross_profit", val: fin.gross_profit, color: FIN_COLORS.pl[4] },
       { label: "売上高", val: sales, color: FIN_COLORS.pl[5], core: true },
-    ].filter((s) => s.core || FR.hasValue(fin, s.key));
+    ].filter((s) => (s.core || FR.hasValue(fin, s.key))
+      // IFRS 型（経常概念なし＝経常0×税引前≠0）の経常段は省略（spec §7.2・実DB該当は 9984.T の3行のみ）。
+      && !(s.key === "ordinary_income" && FR.n(fin.ordinary_income) === 0 && FR.n(fin.income_before_taxes) !== 0));
   }
 
   // CF カード状態（符号→クラス/文言/色）。index.html 4418-4461。
