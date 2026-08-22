@@ -80,6 +80,63 @@ const SNAP = () => [...document.querySelectorAll("#subpanel-accordion .acc-item"
   s = await page.evaluate(SNAP);
   check("ATR 再展開: バッジ復帰", /^中央 \d+(\.\d+)?%$/.test(s.find((x) => x.key === "atr").metric));
 
+  // ── ③ C4: 時間軸は DOM 最下段のみ＋高さ補償（TIME_AXIS_H は b0-measured.md の実測値）
+  const TIME_AXIS_H = 28;
+  const BASE_H = { rsi: 100, macd: 104, adx: 132, atr: 104, obv: 104 };
+  const axisKeys = (arr) => arr.filter((x) => x.axisH > 0).map((x) => x.key);
+  check("C4: createChart は常に軸 OFF 生成", /timeScale: \{ borderColor: "#2a3a44", visible: false \}/.test(src));
+  check("C4: SUBPANEL_REGISTRY の timeAxis フラグ廃止", !/timeAxis/.test(src));
+  check("C4: _updateSubTimeAxes = 定義1＋呼出2", (src.match(/_updateSubTimeAxes\(\)/g) || []).length === 3,
+    String((src.match(/_updateSubTimeAxes\(\)/g) || []).length));
+  const dsrc = fs.readFileSync("detail.js", "utf8");
+  check("C4: MACD 高さ 104 の二重定義ミラー",
+    /macd: \{ height: 104,/.test(src) && /key: "macd",[^\n]*height: 104,/.test(dsrc));
+
+  s = await page.evaluate(SNAP);
+  check("C4: 軸を持つのは1枚だけ", axisKeys(s).length === 1, axisKeys(s).join(","));
+  check("C4: 軸は DOM 最下段", axisKeys(s)[0] === s[s.length - 1].key, `${axisKeys(s)[0]} vs ${s[s.length - 1].key}`);
+  check("C4: 軸行の高さ = TIME_AXIS_H", s[s.length - 1].axisH === TIME_AXIS_H, String(s[s.length - 1].axisH));
+  check("C4: host 高 = ペイン高+軸高（canvas はみ出しゼロ）",
+    s.every((x) => x.hostH === x.paneH + Math.max(x.axisH, 0)),
+    JSON.stringify(s.map((x) => [x.key, x.hostH, x.paneH, x.axisH])));
+  check("C4: 高さ補償 = base(+28 は最下段のみ)",
+    s.every((x) => x.hostH === BASE_H[x.key] + (x.axisH > 0 ? TIME_AXIS_H : 0)),
+    JSON.stringify(s.map((x) => x.key + ":" + x.hostH)));
+
+  // 最下段を「外す」→ 軸が新しい最下段へ移る
+  await page.evaluate(() => {
+    const items = [...document.querySelectorAll("#subpanel-accordion .acc-item")];
+    items[items.length - 1].querySelector(".acc-close").click();
+  });
+  await page.waitForTimeout(1200);
+  s = await page.evaluate(SNAP);
+  check("C4: 最下段除去後も軸は1枚・新最下段",
+    axisKeys(s).length === 1 && axisKeys(s)[0] === s[s.length - 1].key, axisKeys(s).join(",") + " / " + s.map((x) => x.key).join(","));
+  check("C4: 除去後の高さ補償も整合", s.every((x) => x.hostH === BASE_H[x.key] + (x.axisH > 0 ? TIME_AXIS_H : 0)),
+    JSON.stringify(s.map((x) => x.key + ":" + x.hostH)));
+
+  // resizeSubpanels 二重呼び出しで高さが累積しない（冪等）
+  await page.evaluate(() => { DetailCharts.resizeSubpanels(); DetailCharts.resizeSubpanels(); });
+  await page.waitForTimeout(400);
+  const s2 = await page.evaluate(SNAP);
+  check("C4: resize 冪等（高さ累積なし）",
+    JSON.stringify(s2.map((x) => x.hostH)) === JSON.stringify(s.map((x) => x.hostH)),
+    JSON.stringify(s2.map((x) => x.hostH)));
+
+  // rAF 世代ガード: 同一チップの高速 4 連打（add→remove→add→remove→add 相当）でも chart は host あたり1個
+  await page.evaluate(() => { const c = document.getElementById("sp-chip-rsi"); c.click(); c.click(); c.click(); c.click(); });
+  await page.waitForTimeout(2000);
+  const s3 = await page.evaluate(SNAP);
+  check("rAF 世代ガード: host あたり chart は 1 個以下", s3.every((x) => x.charts <= 1),
+    JSON.stringify(s3.map((x) => x.key + ":" + x.charts)));
+  // 注: SOFT_CAP(=2 in detail.js・Task8対象外) により rsi は連打後「DOM末尾だが未マウント」になり得る
+  //  （既に3枚(adx/atr/macd)展開中の状態から add→remove を繰り返すと再展開がキャップでブロックされるため）。
+  //  未マウントの acc-item は chart を持たず時間軸も持ち得ない＝比較対象は「DOM順で最後にマウント済み」の枠。
+  const s3Mounted = s3.filter((x) => x.mounted);
+  check("C4: 連打後も軸は最下段(マウント済み)1枚",
+    axisKeys(s3).length === 1 && axisKeys(s3)[0] === s3Mounted[s3Mounted.length - 1].key,
+    axisKeys(s3).join(",") + " / " + s3.map((x) => x.key + (x.mounted ? "" : "(unmounted)")).join(","));
+
   check("pageerror 0", errors.length === 0, errors.join(" | "));
   await browser.close();
   console.log(failed === 0 ? "ALL PASS" : `${failed} FAILED`);

@@ -385,33 +385,39 @@
         };
       }
       const SUBPANEL_REGISTRY = {
-        rsi:  { height: 100, timeAxis: false, build: buildRSI },
-        macd: { height: 110, timeAxis: true,  build: buildMACD },
-        adx:  { height: 132, timeAxis: false, build: buildADX },
-        atr:  { height: 104, timeAxis: false, build: buildATR },
-        obv:  { height: 104, timeAxis: false, build: buildOBV },
+        rsi:  { height: 100, build: buildRSI },
+        macd: { height: 104, build: buildMACD },   // C4: 110 は時間軸込みの設計値 → base=104 に正規化（detail.js SUBPANEL_META と鏡像・両方必須）
+        adx:  { height: 132, build: buildADX },
+        atr:  { height: 104, build: buildATR },
+        obv:  { height: 104, build: buildOBV },
       };
-      const _subMounted = {};   // key -> { chart, host, height }
+      const _subMounted = {};   // key -> { chart, host, height, axisOn }
       const _subOrder = [];     // mount順
+      const _mountGen = {};     // key -> rAF create ループの世代（expand→即collapse→再expand の二重 createChart 防止）
       let _subSyncBound = false;
 
       // 0x0罠回避: hostEl が可視(clientWidth>0)になるまで rAF で待ってから createChart（冪等）。
+      //  世代トークン: pending な create ループは unmount / 後続 mount で失効する（旧ループの復活による
+      //  二重 createChart＝chart リークを防ぐ。現物に再入ガードが無かった潜在バグの同梱修正）。
       function mountSubpanel(key, hostEl, opts) {
         opts = opts || {};
         if (_subMounted[key]) { resizeSubpanels(); return; }
         const def = SUBPANEL_REGISTRY[key];
         if (!def || !hostEl) return;
         const height = opts.height || def.height;
+        const gen = _mountGen[key] = (_mountGen[key] || 0) + 1;
         let tries = 0;
         const create = () => {
+          if (gen !== _mountGen[key] || _subMounted[key]) return;   // 世代失効／別ループが作成済み
           if (!hostEl.clientWidth) { if (tries++ < 30) requestAnimationFrame(create); return; }
           const chart = LightweightCharts.createChart(hostEl, {
-            ...subBaseOpts, timeScale: { borderColor: "#2a3a44", visible: def.timeAxis }, height,
+            ...subBaseOpts, timeScale: { borderColor: "#2a3a44", visible: false }, height,   // C4: 生成時は常に軸OFF
           });
           chart.__host = hostEl;   // IIFE 私有 chart から見出し DOM へ到達する唯一の経路（C1 代替表示／C4 の DOM 順判定）
           def.build(chart);
-          _subMounted[key] = { chart, host: hostEl, height };
+          _subMounted[key] = { chart, host: hostEl, height, axisOn: false };
           if (_subOrder.indexOf(key) === -1) _subOrder.push(key);
+          _updateSubTimeAxes();       // C4: 登録直後（DOM 順が確定した地点）で最下段へ軸を付け替える
           ensureSubSync();
           if (currentDisplayPrices) chart.__setData(currentDisplayPrices, currentAllPrices);
           const range = priceChart && priceChart.timeScale().getVisibleLogicalRange();
@@ -420,6 +426,7 @@
         requestAnimationFrame(create);
       }
       function unmountSubpanel(key) {
+        _mountGen[key] = (_mountGen[key] || 0) + 1;   // pending な create ループを失効（collapse 直後の再 expand 対策）
         const m = _subMounted[key];
         if (!m) return;
         try { m.chart.remove(); } catch (e) {}
@@ -428,6 +435,31 @@
         delete _subMounted[key];
         const i = _subOrder.indexOf(key);
         if (i !== -1) _subOrder.splice(i, 1);
+        _updateSubTimeAxes();         // C4: 残ったパネルの最下段へ軸を移す
+      }
+      // C4: 時間軸は「DOM 上いちばん下のサブパネル」だけに出す（mount/unmount 後に必ず呼ぶ・冪等）。
+      //  DOM 順で判定する理由（D19）: _subOrder は mount 順で、畳む→開くで並びが崩れ最下段判定に使えない。
+      //  高さ補償: 軸 ON のパネルは host/chart とも base+TIME_AXIS_H にする（chart.resize だけだと canvas が
+      //  host を TIME_AXIS_H 分はみ出す＝detail.js:331 が base 固定・.subpanel-host に高さ規定が無いため）。
+      //  既知トレードオフ: 軸の付け替えでアコーディオン全体の高さが ±TIME_AXIS_H 動く（レイアウトシフト）。
+      //  許容不可なら「補償なし案(a)」＝h を m.height 固定にし host.style.height を触らない（最下段ペインが
+      //  TIME_AXIS_H 分縮む）へ 1 行差で退避できる。
+      const TIME_AXIS_H = 28;
+      function _updateSubTimeAxes() {
+        const keys = Object.keys(_subMounted).filter((k) => _subMounted[k]);
+        if (!keys.length) return;
+        keys.sort((a, b) => (_subMounted[a].host.compareDocumentPosition(_subMounted[b].host)
+          & Node.DOCUMENT_POSITION_FOLLOWING) ? -1 : 1);
+        const bottom = keys[keys.length - 1];
+        for (const k of keys) {
+          const m = _subMounted[k], on = (k === bottom);
+          if (m.axisOn === on) continue;                 // 冪等ガード
+          m.axisOn = on;
+          m.chart.applyOptions({ timeScale: { visible: on } });
+          const h = m.height + (on ? TIME_AXIS_H : 0);
+          m.host.style.height = h + "px";
+          if (m.host.clientWidth > 0) m.chart.resize(m.host.clientWidth, h);
+        }
       }
       function isSubpanelMounted(key) { return !!_subMounted[key]; }
       function activeSubpanels() { return _subOrder.filter((k) => _subMounted[k]); }
@@ -439,7 +471,11 @@
       function resizeSubpanels() {
         for (const k in _subMounted) {
           const m = _subMounted[k];
-          if (m && m.host.clientWidth > 0) m.chart.resize(m.host.clientWidth, m.height);
+          if (m && m.host.clientWidth > 0) {
+            const h = m.height + (m.axisOn ? TIME_AXIS_H : 0);
+            m.host.style.height = h + "px";
+            m.chart.resize(m.host.clientWidth, h);
+          }
         }
       }
       function ensureSubSync() {
