@@ -52,6 +52,13 @@ _CONTENT_TYPES = {
 _OHLCV_BARS = 600          # ≥550（MA75/BB20/RSI14/MACD/ZigZag に十分）
 _OHLCV_END = datetime.date(2026, 6, 30)   # 終端日を固定（決定論）
 
+# 受入専用の合成銘柄（#9 少数バークランプ）。ticker_master に無く /api/market/list にも載らない
+#  （＝ポータル DOM・前 wave 受入6本へ非波及）。詳細ビューは verify 側が STOCK_DATA へ stub を注入し
+#  navigateToDetail → getStock がこの ohlcv/financials を引く。
+_SYNTH_OHLCV = {
+    "ZZFIT35": {"bars": 35, "end": datetime.date(2025, 12, 31)},
+}
+
 
 def _db():
     conn = sqlite3.connect(_DB_PATH)
@@ -158,6 +165,8 @@ def _base_ticker(ticker: str) -> str:
 
 
 def _ticker_known(ticker: str) -> bool:
+    if ticker in _SYNTH_OHLCV:          # 受入専用の合成銘柄
+        return True
     with _db() as conn:
         return conn.execute(
             "SELECT 1 FROM ticker_master WHERE ticker = ? LIMIT 1", (_base_ticker(ticker),)
@@ -170,8 +179,10 @@ def build_ohlcv(ticker: str) -> dict:
         return {"ticker": ticker, "prices": []}
     h = _ticker_hash(ticker)
     base = 1000.0 + (h % 4000)          # 銘柄別ベース価格 1000〜5000
-    n = _OHLCV_BARS
-    start = _OHLCV_END - datetime.timedelta(days=n - 1)
+    synth = _SYNTH_OHLCV.get(ticker)
+    n = synth["bars"] if synth else _OHLCV_BARS
+    end = synth["end"] if synth else _OHLCV_END
+    start = end - datetime.timedelta(days=n - 1)
 
     prices = []
     prev_close = None

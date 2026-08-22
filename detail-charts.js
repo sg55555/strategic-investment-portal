@@ -574,6 +574,14 @@
 
         // ── サブパネル（mount 済み全 key・表示範囲に揃える） ──
         refreshSubpanels(displayPrices, allPrices);
+
+        // ── 表示窓の視域確定（#9・D20）: 全系列 setData 完了後に一度だけ。少数バーは中央寄せパディングで
+        //  ローソク幅を maxBarSpacing にクランプする（LWC v4.2.3 に maxBarSpacing オプションは無い）。
+        //  ts.width()=price 軸を除いたペイン幅。0（非表示）は skip＝0x0罠と同じガード思想。
+        const ts = priceChart.timeScale();
+        const w = ts.width() || (document.getElementById("chart-container")?.clientWidth || 0);
+        const r = DetailRules.fitLogicalRange(displayPrices.length, w);
+        if (r) r.fit ? ts.fitContent() : ts.setVisibleLogicalRange({ from: r.from, to: r.to });
       }
       // ローソク足のネオン発光（各足をその色で発光・本体と同フレーム描画＝ズーム/パン時もズレない）。
       //  lightweight-charts の Series Primitive を candleSeries に attach し、currentDisplayPrices を読む。
@@ -647,7 +655,7 @@
             vertLine: { color: "rgba(92,240,255,0.5)", labelBackgroundColor: "#0a3a4a" },
             horzLine: { color: "rgba(92,240,255,0.5)", labelBackgroundColor: "#0a3a4a" },
           },
-          timeScale: { borderColor: "#2a3a44" },
+          timeScale: { borderColor: "#2a3a44", lockVisibleTimeRangeOnResize: true },
           rightPriceScale: { borderColor: "#2a3a44", minimumWidth: 72 },
         });
 
@@ -1345,6 +1353,11 @@
   function resizePrice(w, h) {
     if (priceChart) priceChart.resize(w, h);
   }
+  // #9 受入用の薄いデバッグゲッター（resizePrice と同型）。window 直下には公開しない（spec §14 の IIFE 規律・
+  //  detail-snapshot の WINDOW_API 17 名は window 直下のみ検査＝windowApi 15/17 は不変）。
+  function getPriceVisibleRange() {
+    return priceChart ? priceChart.timeScale().getVisibleLogicalRange() : null;
+  }
 
   // ── 財務健全性の推移（Feature#3・二軸 line）──────────────────────────
   //  純計算は DetailRules.healthTrendSeries(欠測 null)。Chart.js line・**destroy 先行**・
@@ -1516,7 +1529,7 @@
     initPriceChart, updateMaAndVolume, setCandleData,
     renderBSChart, renderRadarChart, renderPLChart, renderCFChart, renderHealthTrend,
     renderDuPont, renderFCFTrend,
-    repaint, onWindowResize, renderCompareChart, resizePrice,
+    repaint, onWindowResize, renderCompareChart, resizePrice, getPriceVisibleRange,
     mountSubpanel, unmountSubpanel, isSubpanelMounted, activeSubpanels, refreshSubpanels, resizeSubpanels,
   };
 })();
