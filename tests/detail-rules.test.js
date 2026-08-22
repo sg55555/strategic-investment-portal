@@ -481,6 +481,96 @@ test("signalDigest S/R: computed from display window (dp), independent of allPri
   assert.match(srWithHugeAll.readout, /直近の抵抗まで \+1\.7%/);
 });
 
+// 近接マージ検証用の決定論 builder（synthSRSeries と同じ谷=100・末尾 close=120・ピーク間は谷4本）。
+function srSeriesFromPeaks(peaks) {
+  const A = []; let t = 0;
+  const bar = (o, h, l, c) => { const d = new Date(2020, 0, 1 + t++); return { time: d.toISOString().slice(0, 10), open: o, high: h, low: l, close: c, volume: 1000 }; };
+  const valley = () => A.push(bar(100, 100.8, 99.2, 100));
+  const peak = (lvl) => A.push(bar(100, lvl, 99, 100.5));
+  const valleys = (n) => { for (let i = 0; i < n; i++) valley(); };
+  valleys(4);
+  peaks.forEach((p) => { peak(p); valleys(4); });
+  for (let i = 0; i < 5; i++) A.push(bar(120, 120.5, 119.5, 120));
+  return A;
+}
+
+test("detectSR: 近接クラスタ(<1%)を count 加重平均＋count 合算でマージ", () => {
+  // 一次帯1.5% の greedy 分割で {150,151.5,152.1}(avg 151.2・count3) と {152.4}(count1) に割れる。
+  // 隣接ギャップ 0.79% < 1% → マージ後 price=(151.2*3+152.4*1)/4=151.5・count=4。
+  const A = srSeriesFromPeaks([150, 151.5, 152.1, 152.4]);
+  const r = D.detectSR(A, Infinity).resistance;
+  assert.equal(r.length, 1);
+  assert.ok(Math.abs(r[0].price - 151.5) < 1e-9);
+  assert.equal(r[0].count, 4);
+});
+
+test("detectSR: ≥1% 離れたクラスタはマージしない（一次帯の断片是正に閉じる）", () => {
+  const A = srSeriesFromPeaks([150, 150, 153.5, 153.5]);   // 隣接 2.33%
+  const r = D.detectSR(A, Infinity).resistance;
+  assert.deepEqual(r.map((x) => [x.price, x.count]), [[150, 2], [153.5, 2]]);
+});
+
+test("signalDigest S/R: マージ後の強度（合算 count）が readout に出る（単一源）", () => {
+  const A = srSeriesFromPeaks([150, 151.5, 152.1, 152.4]);
+  const sr = D.signalDigest(A, A).find((d) => d.key === "sr");
+  assert.match(sr.readout, /直近の抵抗まで \+\d+\.\d%（強度4）/);   // マージ前は 強度3
+});
+
+test("srNearest: 終値の直上/直下の最寄りレベルを返す（digest と同一源）", () => {
+  const A = synthSRSeries();                    // close=120・抵抗 122(×1)/150/160/170・支持 99
+  const nr = D.srNearest(D.detectSR(A, Infinity), 120);
+  assert.equal(nr.up.price, 122);
+  assert.equal(nr.up.count, 1);
+  assert.equal(nr.dn.price, 99);
+  const sd = D.signalDigest(A, A).find((d) => d.key === "sr");
+  assert.match(sd.readout, new RegExp("直近の抵抗まで \\+" + (((nr.up.price - 120) / 120) * 100).toFixed(1) + "%"));
+});
+
+test("srNearest: 片側不在は null・側は close との大小だけで決まる（R が下側になり得る）", () => {
+  const nr = D.srNearest({ resistance: [{ price: 90, count: 1 }], support: [{ price: 80, count: 2 }] }, 100);
+  assert.equal(nr.up, null);
+  assert.equal(nr.dn.price, 90);      // R クラスタでも close 未満なら「直近の支持」側（M7 既存仕様＝§8.4 の用語集注記の根拠）
+  assert.deepEqual(D.srNearest({ resistance: [], support: [] }, 100), { up: null, dn: null });
+  assert.deepEqual(D.srNearest(null, 100), { up: null, dn: null });
+});
+
+test("srLabelPlan: 終値±1% のレベルはラベルを抑制（終値バッジ埋没の解消）", () => {
+  const plan = D.srLabelPlan(
+    [{ price: 100.5, count: 9 }, { price: 120, count: 4 }],
+    [{ price: 99.6, count: 8 }, { price: 80, count: 3 }],
+    100);
+  assert.deepEqual(plan.resistance, [false, true]);   // 100.5=+0.5% は抑制
+  assert.deepEqual(plan.support, [false, true]);      // 99.6=-0.4% は抑制
+});
+
+test("srLabelPlan: 既採用と <1% は cross-side でも抑制（count 降順に採用）", () => {
+  const plan = D.srLabelPlan(
+    [{ price: 120, count: 5 }, { price: 120.5, count: 4 }],
+    [{ price: 119.5, count: 3 }],
+    100);
+  assert.deepEqual(plan.resistance, [true, false]);   // 120.5 は 120 と 0.42%
+  assert.deepEqual(plan.support, [false]);            // 119.5 も 120 と 0.42%（cross-side）
+});
+
+test("srLabelPlan: ラベルは各側 top-2 まで（3本目以降は常に false）＋縮退入力", () => {
+  const plan = D.srLabelPlan(
+    [{ price: 120, count: 5 }, { price: 130, count: 4 }, { price: 140, count: 3 }], [], 100);
+  assert.deepEqual(plan.resistance, [true, true, false]);
+  assert.deepEqual(plan.support, []);
+  assert.deepEqual(D.srLabelPlan([], [], 100), { resistance: [], support: [] });
+  assert.deepEqual(D.srLabelPlan([{ price: 120, count: 1 }], [], 0),
+    { resistance: [false], support: [] });            // close 不正は全 false（決定論の縮退）
+});
+
+test("srLabelPlan: tie-break は count 降順 → 終値に近い順 → R 優先（決定論）", () => {
+  const plan = D.srLabelPlan([{ price: 110, count: 3 }], [{ price: 109, count: 3 }], 100);
+  assert.deepEqual(plan.support, [true]);       // 同 count なら終値に近い S(109・距離9) が先
+  assert.deepEqual(plan.resistance, [false]);   // 110 は 109 と 0.92% → 抑制
+  const same = D.srLabelPlan([{ price: 110, count: 3 }], [{ price: 90, count: 3 }], 100);
+  assert.deepEqual(same.resistance, [true]);    // 距離同値(10)なら R 優先・互いに ≥1% で共存
+  assert.deepEqual(same.support, [true]);
+});
+
 // ── healthTrendSeries（財務健全性トレンド・Feature#3）──────────────────
 test("healthTrendSeries: per-ratio missing gate → null (not 0%)", () => {
   const data = { currency: "JPY", financials_trend: {

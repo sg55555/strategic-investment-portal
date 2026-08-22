@@ -143,9 +143,61 @@
         groups.push({ price: group.reduce((a, b) => a + b, 0) / group.length, count: group.length });
         i = j;
       }
-      return groups.sort((a, b) => b.count - a.count).slice(0, _maxPerSide);
+      // 二次マージ（監査A①・spec §8.1）: 一次帯 1.5% の greedy 分割が残す断片を tol=1% で束ねる。
+      //  代表値＝count 加重平均（多数 pivot 側へ寄せる）／強度＝count 合算。**slice の前**に置くため
+      //  chart top-3 ⊆ digest 全クラスタ の prefix 性（sr-window-verify.js:32-33）と digest 強度の単一源性が保たれる。
+      const MERGE_TOL = 0.01;
+      const merged = [];
+      for (const g of groups) {
+        const last = merged[merged.length - 1];
+        if (last && (g.price - last.price) / last.price < MERGE_TOL) {
+          const c = last.count + g.count;
+          last.price = (last.price * last.count + g.price * g.count) / c;
+          last.count = c;
+        } else merged.push({ price: g.price, count: g.count });
+      }
+      return merged.sort((a, b) => b.count - a.count).slice(0, _maxPerSide);
     }
     return { resistance: cluster(pivotHighs), support: cluster(pivotLows) };
+  }
+
+  // 終値の直上/直下の最寄りレベル選択（digest の :700-705 を関数化＝チャートの和集合描画と共用の単一源・spec §8.4）。
+  //  side は「price と close の関係」だけで決まるため R クラスタが下側（＝直近の支持）になり得る（M7 既存仕様）。
+  function srNearest(sr, close) {
+    const s = sr || {};
+    const all = (s.resistance || []).concat(s.support || []);
+    let up = null, dn = null;
+    if (close != null) {
+      for (let i = 0; i < all.length; i++) {
+        const lv = all[i];
+        if (lv.price >= close) { if (!up || (lv.price - close) < (up.price - close)) up = lv; }
+        else { if (!dn || (close - lv.price) < (close - dn.price)) dn = lv; }
+      }
+    }
+    return { up, dn };
+  }
+
+  // 軸ラベルを付与するレベルの選抜（spec §8.2・実装＝検証の単一源＝H3）。各側 top-2 を候補とし
+  //  count 降順 → 終値に近い順 → R 優先 で走査して (i) 終値±1% は抑制（終値バッジ埋没対策）
+  //  (ii) 既採用と <1% は cross-side でも抑制。戻り値は入力配列と同じ長さの boolean 配列。
+  function srLabelPlan(resistance, support, close) {
+    const R = resistance || [], S = support || [];
+    const plan = { resistance: R.map(() => false), support: S.map(() => false) };
+    if (!(close > 0)) return plan;
+    const cand = [];
+    for (let i = 0; i < Math.min(2, R.length); i++) cand.push({ side: "R", idx: i, price: R[i].price, count: R[i].count });
+    for (let j = 0; j < Math.min(2, S.length); j++) cand.push({ side: "S", idx: j, price: S[j].price, count: S[j].count });
+    cand.sort((a, b) => (b.count - a.count)
+      || (Math.abs(a.price - close) - Math.abs(b.price - close))
+      || (a.side === b.side ? a.idx - b.idx : (a.side === "R" ? -1 : 1)));
+    const taken = [];
+    for (const c of cand) {
+      if (Math.abs(c.price - close) / close < 0.01) continue;                                   // 終値バッジゾーン
+      if (taken.some((p) => Math.abs(p - c.price) / Math.min(p, c.price) < 0.01)) continue;     // 既採用と近接
+      taken.push(c.price);
+      plan[c.side === "R" ? "resistance" : "support"][c.idx] = true;
+    }
+    return plan;
   }
 
   // ── RSI ────────────────────────────────────────────────────────
@@ -706,15 +758,8 @@
     //    〔spec §6.1 窓統一済〕／全クラスタを close で上下分割し価格差最小を選ぶ＝top-3 外も対象[M7]）
     (function () {
       var sr = detectSR(dp, Infinity) || { resistance: [], support: [] };
-      var all = (sr.resistance || []).concat(sr.support || []);
-      var up = null, dn = null;
-      if (close != null) {
-        for (var i = 0; i < all.length; i++) {
-          var lv = all[i];
-          if (lv.price >= close) { if (!up || (lv.price - close) < (up.price - close)) up = lv; }
-          else { if (!dn || (close - lv.price) < (close - dn.price)) dn = lv; }
-        }
-      }
+      var nr = srNearest(sr, close);   // 最寄り選択は srNearest に単一源化（チャート側の和集合描画と共用）
+      var up = nr.up, dn = nr.dn;
       var parts = [];
       if (up) parts.push('直近の抵抗まで +' + (((up.price - close) / close) * 100).toFixed(1) + '%（強度' + up.count + '）');
       if (dn) parts.push('直近の支持まで −' + (((close - dn.price) / close) * 100).toFixed(1) + '%（強度' + dn.count + '）');
@@ -991,7 +1036,7 @@
 
   return {
     // テクニカル純関数
-    calcMA, calcBB, detectSR, calcRSI, calcEMA, calcMACD, calcZigZag, autoZigZagDeviation, zigzagSegments, autoClusterTol, volumeColorData,
+    calcMA, calcBB, detectSR, srNearest, srLabelPlan, calcRSI, calcEMA, calcMACD, calcZigZag, autoZigZagDeviation, zigzagSegments, autoClusterTol, volumeColorData,
     calcATR, calcADX, calcKeltner, calcOBV, calcVWAP, disciplineDigest,
     signalDigest, healthTrendSeries, dupontFactorSeries, fcfTrendSeries,
     // 財務ディスクリプタ純関数
