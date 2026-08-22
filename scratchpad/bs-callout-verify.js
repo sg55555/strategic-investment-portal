@@ -18,7 +18,7 @@ const X = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y
     const errors = [];
     page.on("pageerror", (e) => errors.push(String(e)));
     await page.goto("http://127.0.0.1:8200", { waitUntil: "networkidle" });
-    for (const t of ["6758.T", "8306.T", "7203.T", "4755.T", "NVDA", "BRK-B", "MCD"]) {
+    for (const t of ["6758.T", "8306.T", "7203.T", "4755.T", "NVDA", "BRK-B", "MCD", "SBUX"]) {
       await page.evaluate((tk) => navigateToDetail(tk), t);
       await page.waitForTimeout(2000);   // アニメ1500ms 完了後に実測
       const r = await page.evaluate(() => {
@@ -28,6 +28,9 @@ const X = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y
         const cw = chart.canvas.width / (window.devicePixelRatio || 1);
         const ch = chart.canvas.height / (window.devicePixelRatio || 1);
         const axisBand = { x: ca.left - chart.scales.y.width, y: ca.top, w: chart.scales.y.width, h: ca.bottom - ca.top };
+        // spec §11.3: 注記チップは chartArea の上（top:65 帯）に出るため、y軸 tick ラベルの上半分との近接を
+        //  検出できるよう注記専用に 8px 上へ広げた帯を使う（チップ系の既存アサートは axisBand のまま）。
+        const axisBandWide = { x: axisBand.x, y: ca.top - 8, w: axisBand.w, h: (ca.bottom - ca.top) + 8 };
         const chips = [], bars = [];
         (chart.$bsLeaders || []).forEach(({ di, bi }) => {
           const el = chart.getDatasetMeta(di).data[bi];
@@ -39,7 +42,8 @@ const X = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y
           const p = el.getProps(["x", "y", "base"]);
           bars.push({ x: p.x - half, y: Math.min(p.y, p.base), w: half * 2, h: Math.abs(p.base - p.y) });
         });
-        return { cw, ch, axisBand, chips, bars, leaders: (chart.$bsLeaders || []).length };
+        return { cw, ch, axisBand, axisBandWide, chips, bars, leaders: (chart.$bsLeaders || []).length,
+                 noteRect: chart.$bsNoteRect || null, noteText: (chart.$bsNote || {}).text || null };
       });
       if (!r) { check(`${t}@${width}: chart 取得`, false); continue; }
       const clip = r.chips.every((c) => c.x >= 0 && c.y >= 0 && c.x + c.w <= r.cw && c.y + c.h <= r.ch);
@@ -53,6 +57,21 @@ const X = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y
       check(`${t}@${width}: チップ相互重なり 0`, !overlap);
       check(`${t}@${width}: チップ×y軸目盛帯の重なり 0`, !axisHit);
       check(`${t}@${width}: チップ×バー矩形の交差 0`, !barHit);
+      // spec §11.3: P6 債務超過注記（実DB該当は MCD/SBUX の FY2023-2025 のみ・全 USD 億ドル層）
+      const NEG = ["MCD", "SBUX"];
+      if (NEG.includes(t)) {
+        check(`${t}@${width}: 注記 $bsNoteRect 非null`, !!r.noteRect);
+        if (r.noteRect) {
+          const nr = r.noteRect;
+          check(`${t}@${width}: 注記のcanvas外クリップ 0`, nr.x >= 0 && nr.y >= 0 && nr.x + nr.w <= r.cw && nr.y + nr.h <= r.ch);
+          check(`${t}@${width}: 注記×低棒チップ 交差0`, r.chips.every((c) => !X(nr, c)));
+          check(`${t}@${width}: 注記×バー矩形 交差0`, r.bars.every((b) => !X(nr, b)));
+          check(`${t}@${width}: 注記×y軸帯(拡張) 交差0`, !X(nr, r.axisBandWide));
+        }
+        check(`${t}@${width}: 注記文言が単位整合（億ドル層）`, /^純資産 ▲\d+(\.\d+)?億ドル（債務超過）$/.test(r.noteText || ""));
+      } else {
+        check(`${t}@${width}: 非債務超過は注記なし（$bsNoteRect null）`, r.noteRect === null);
+      }
     }
     // ETF: bsChart 不描画
     await page.evaluate(() => navigateToDetail("SPY"));

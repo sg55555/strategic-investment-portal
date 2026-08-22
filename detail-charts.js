@@ -145,6 +145,28 @@
         c.restore();
       } };
       Chart.register(bsLeaderPlugin);
+      // spec §11.1 (P6/D22): 債務超過（net_assets<0）の注記チップ。chart.$bsNote 設定時のみ動作（gate 方式は
+      //  neonGlow/bsLeader と同型の3例目）。**datalabels 内部 API に非依存**＝プラグイン更新でリード線が
+      //  死んでも注記は生存する（bsLeader 相乗りを採らない理由）。描画矩形は chart.$bsNoteRect へ書き戻し、
+      //  受入（scratchpad/bs-callout-verify.js の X() 交差判定）が数値で検収できるようにする。
+      const bsNotePlugin = { id: "bsNote", afterDatasetsDraw(chart) {
+        chart.$bsNoteRect = null;                                  // 非該当/前回残りを毎フレーム明示クリア
+        const note = chart.$bsNote; if (!note || !note.text) return;
+        const el = chart.getDatasetMeta(0).data[1]; if (!el) return;  // 調達源泉列の中心x（value=0 でも x は有効）
+        const c = chart.ctx, ca = chart.chartArea;
+        c.save();
+        c.font = "bold 12px " + (Chart.defaults.font.family || "sans-serif");   // テーマA 12px 床
+        const tw = c.measureText(note.text).width, padX = 10, padY = 5, h = 12 + padY * 2;
+        const cx = Math.max(tw / 2 + padX + 4, Math.min(el.x, chart.width - tw / 2 - padX - 4));   // 端クランプ
+        const x = cx - tw / 2 - padX, y = ca.top - h - 16;          // top:65 帯内・低棒チップ上端越え(~12px)と非干渉
+        c.fillStyle = "#0a0f17"; c.strokeStyle = "#ff5c7a"; c.lineWidth = 1.5;
+        c.beginPath(); c.roundRect(x, y, tw + padX * 2, h, 6); c.fill(); c.stroke();
+        c.fillStyle = "#ff8fa5"; c.textAlign = "left"; c.textBaseline = "middle";
+        c.fillText(note.text, x + padX, y + h / 2);
+        c.restore();
+        chart.$bsNoteRect = { x: x, y: y, w: tw + padX * 2, h: h };
+      } };
+      Chart.register(bsNotePlugin);
       // 数値ラベルのネオン・テキストグロー（各 datalabels に展開）
       const NEON_TEXT_GLOW = { textShadowBlur: 6, textShadowColor: "rgba(120,210,255,0.6)" };
 
@@ -1038,6 +1060,12 @@
         });
         bsChartInstance.$neonSpecs = [FIN_COLORS.bs.eq, FIN_COLORS.bs.ncl, FIN_COLORS.bs.cl, FIN_COLORS.bs.nca, FIN_COLORS.bs.ca].map((s) => [s, s]);
         bsChartInstance.$bsLeaders = lowIndices;
+        // spec §11.1 (P6): 債務超過はチャート上で無痕跡（displayNetAssets=0＋formatter null）だったため上部に明示注記。
+        //  unit はチャート別単位（:756）＝バッジ/軸/ラベルと自動整合。モバイルは top 帯 10px で置き場がないため
+        //  非表示にし、Task 13 の #bs-mobile-note が債務超過行を兼務する。
+        bsChartInstance.$bsNote = (!isMobile && hasNegativeEquity)
+          ? { text: "純資産 ▲" + FinanceRules.fmtUnitValue(Math.abs(fin.net_assets), unit) + "（債務超過）" }
+          : null;
       }
       // 🕸️ 2. レーダー
       function renderRadarChart(fin) {
