@@ -490,6 +490,16 @@
     return { startDate, endDate, filteredPrices, displayPrices };
   }
 
+  // 表示窓の logical range 決定（spec §9・D20）。LWC v4.2.3 に maxBarSpacing オプションが無いため
+  //  「barCount×maxBarSpacing ≥ paneWidth なら素の fitContent／未満なら中央寄せパディング」を手実装する。
+  //  無効入力（0本・幅0/負・spacing 0）は null＝呼び出し側は skip（非表示チャートの 0x0 罠ガードと同思想）。
+  function fitLogicalRange(barCount, paneWidth, maxBarSpacing = 15) {
+    if (!(barCount > 0) || !(paneWidth > 0) || !(maxBarSpacing > 0)) return null;
+    if (barCount * maxBarSpacing >= paneWidth) return { fit: true };
+    const pad = (paneWidth / maxBarSpacing - barCount) / 2;
+    return { fit: false, from: -pad, to: barCount - 1 + pad };
+  }
+
   // 社名表示（社名が既に "(ticker)" を含むなら付加を省略＝SPY 型の二重ティッカー防止・spec §6.1/D14）。
   //  QQQ/GOOGL の括弧連鎖（括弧内が ticker でない）は情報として維持し、社名整理はデータ側レーンで扱う。
   function displayName(companyName, ticker) {
@@ -1062,7 +1072,7 @@
     calcATR, calcADX, calcKeltner, calcOBV, calcVWAP, disciplineDigest,
     signalDigest, healthTrendSeries, dupontFactorSeries, fcfTrendSeries,
     // 財務ディスクリプタ純関数
-    priceWindow, periodLabel, periodLabelParts, displayName, marketBasisFor, perStatus, pbrStatus,
+    priceWindow, fitLogicalRange, periodLabel, periodLabelParts, displayName, marketBasisFor, perStatus, pbrStatus,
     equityRatioDesc, currentRatioDesc, yoyBadge, isFinancialPL, plSteps, cfFlowStatus, cfCompanyType, cfWaterfall, radarScores,
     sparklineSVG, dupontDescriptor, fcfQualityDescriptor,
     // 色/特例定数

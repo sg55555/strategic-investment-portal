@@ -50,6 +50,39 @@ test("priceWindow: 0件は末尾200件フォールバック（filteredPrices は
   assert.equal(r.displayPrices[0].close, 50); // slice(-200) = index 50..249
 });
 
+// ── fitLogicalRange: 少数バー時の中央寄せパディング（spec §9・LWC v4.2.3 に maxBarSpacing が無いための手実装）──
+test("fitLogicalRange: 十分な本数は素の fitContent（境界はちょうど幅一致も fit 側）", () => {
+  assert.deepEqual(D.fitLogicalRange(300, 900), { fit: true });
+  assert.deepEqual(D.fitLogicalRange(60, 900), { fit: true });   // 60*15 = 900（等号は fit）
+});
+
+test("fitLogicalRange: 境界の1本下はパディング分岐へ落ちる", () => {
+  const r = D.fitLogicalRange(59, 900);
+  assert.equal(r.fit, false);
+  assert.equal(r.from, -0.5);      // (900/15 - 59)/2 = 0.5
+  assert.equal(r.to, 58.5);        // barCount-1 + pad
+});
+
+test("fitLogicalRange: 少数バーは中央寄せ（pad 対称・全バーが必ず可視域に入る）", () => {
+  const r = D.fitLogicalRange(35, 900);
+  assert.deepEqual(r, { fit: false, from: -12.5, to: 46.5 });
+  assert.equal(r.from + r.to, 34);            // 対称性: 中心 = (barCount-1)/2
+  assert.ok(r.from <= 0 && r.to >= 34);       // 全バー可視
+});
+
+test("fitLogicalRange: maxBarSpacing は第3引数で上書きできる（既定 15）", () => {
+  assert.deepEqual(D.fitLogicalRange(35, 900, 30), { fit: true });   // 35*30 = 1050 >= 900
+  assert.equal(D.fitLogicalRange(35, 900, 10).from, -27.5);          // (900/10 - 35)/2 = 27.5
+});
+
+test("fitLogicalRange: 0本/幅0/無効入力は null（非表示時 skip の根拠）", () => {
+  assert.equal(D.fitLogicalRange(0, 900), null);
+  assert.equal(D.fitLogicalRange(35, 0), null);
+  assert.equal(D.fitLogicalRange(35, -10), null);
+  assert.equal(D.fitLogicalRange(null, 900), null);
+  assert.equal(D.fitLogicalRange(35, 900, 0), null);
+});
+
 // ── periodLabel: stock-title 文言（絞り込みの有無で分岐）──
 test("periodLabel: US 絞り込みあり", () => {
   assert.equal(
