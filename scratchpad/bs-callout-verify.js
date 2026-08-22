@@ -83,13 +83,35 @@ const X = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y
   // モバイル: 低棒ラベル自体が非表示＝新分岐不到達（padding モバイル arm 不変）
   const page = await browser.newPage({ viewport: { width: 375, height: 800 } });
   await page.goto("http://127.0.0.1:8200", { waitUntil: "networkidle" });
-  await page.evaluate(() => navigateToDetail("6758.T"));
-  await page.waitForTimeout(2000);
-  const mob = await page.evaluate(() => {
-    const chart = Chart.getChart(document.getElementById("bsChart"));
-    return chart ? chart.options.layout.padding.left : null;
-  });
-  check("モバイル: padding arm 不変（left=4）", mob === 4);
+  const mobRead = async (t) => {
+    await page.evaluate((tk) => navigateToDetail(tk), t);
+    await page.waitForTimeout(2000);
+    return page.evaluate(() => {
+      const el = document.getElementById("bs-mobile-note");
+      const chart = Chart.getChart(document.getElementById("bsChart"));
+      return {
+        exists: !!el,
+        hidden: el ? el.hidden : null,
+        text: el ? el.textContent : null,
+        padLeft: chart ? chart.options.layout.padding.left : null,
+        noteRect: chart ? (chart.$bsNoteRect || null) : null,
+      };
+    });
+  };
+  const m6758 = await mobRead("6758.T");
+  check("モバイル: padding arm 不変（left=4）", m6758.padLeft === 4);
+  check("モバイル: #bs-mobile-note が存在", m6758.exists === true);
+  // spec §11.2: 8306.T は純資産 5.3%（<15%）＝モバイルで datalabels が出ない唯一情報を DOM で補完
+  const m8306 = await mobRead("8306.T");
+  check("モバイル 8306.T: サマリ表示", m8306.hidden === false);
+  check("モバイル 8306.T: 文言（純資産 21.7兆円 (5.3%)）", /純資産 21\.7兆円 \(5\.3%\)/.test(m8306.text || ""));
+  // MCD: 債務超過行が先頭・canvas 注記はモバイル非発火
+  const mMcd = await mobRead("MCD");
+  check("モバイル MCD: サマリに債務超過行", /^純資産 ▲\d+(\.\d+)?億ドル（債務超過）/.test(mMcd.text || ""));
+  check("モバイル MCD: canvas 注記は非発火（$bsNoteRect null）", mMcd.noteRect === null);
+  // 7203.T: 最小セグメント 29.2%＝全て >=15% ゆえサマリ不要
+  const m7203 = await mobRead("7203.T");
+  check("モバイル 7203.T: サマリ hidden（全セグメント>=15%）", m7203.hidden === true);
   await browser.close();
   console.log(failed === 0 ? "ALL PASS" : `${failed} FAILED`);
   process.exit(failed === 0 ? 0 : 1);

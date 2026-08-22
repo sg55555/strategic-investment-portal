@@ -1041,3 +1041,6 @@
 
       /* チャート別単位バッジ（spec §7.2・12px床/テーマA整合） */
       .chart-unit-badge { margin-left: 10px; font-size: 12px; color: var(--ix-text-dim); letter-spacing: 0.5px; text-transform: none; }
+
+      /* spec §11.2 (P8): BS モバイル低棒サマリ（.sig-disclaimer/.fin-pending-note と同規約・12px床） */
+      .bs-mobile-note { font-size: 12px; color: var(--ix-text-dim); line-height: 1.5; margin: 6px 2px 0; }

@@ -859,14 +859,21 @@
         // spec §8.3: リード線対象（低棒のみ）。bi は datasets data 配列の実バー位置＝
         //  負債/純資産系 data=[0,v]→bi=1・資産系 data=[v,0]→bi=0（取り違えると value=0 バーを引き
         //  formatter null→_visible=false で gate が黙って skip＝リード線が無言で欠ける）。
-        const lowIndices = [
+        // spec §11.2 (P8): ラベル付き生タプル → filter の2段化（機能等価・lowIndices の LOW=0.12 判定は不変）。
+        //  ⚠ desktop 吹き出し=LOW(0.12) と モバイルサマリ=MOBILE_NOTE_LOW(0.15) の**非対称は意図的**（D21）＝
+        //   「モバイル情報全損」の定義が datalabels 表示ゲート（:881-884 の 0.15）側だから。揃えると 12-15% 帯が
+        //   「デスクトップ吹き出しもモバイルサマリも無い」取りこぼしになる。
+        const BS_LABELS = ["純資産", "固定負債", "流動負債", "固定資産", "流動資産"];
+        const lowTuples = [
           [0, displayNetAssets, 1],            // 純資産→調達源泉列
           [1, fin.non_current_liabilities, 1], // 固定負債→調達源泉列
           [2, fin.current_liabilities, 1],     // 流動負債→調達源泉列
           [3, fin.non_current_assets, 0],      // 固定資産→運用形態列
           [4, fin.current_assets, 0],          // 流動資産→運用形態列
-        ].filter(([, v]) => totalAssets > 0 && v > 0 && v / totalAssets < LOW)
-         .map(([di, , bi]) => ({ di, bi }));
+        ];
+        const lowIndices = lowTuples
+          .filter(([, v]) => totalAssets > 0 && v > 0 && v / totalAssets < LOW)
+          .map(([di, , bi]) => ({ di, bi }));
         // spec §8.4: 同側低棒2つ以上は2本目以降を角度 align で分離（θ<45°・offset は /cosθ 補正で
         //  「バー端+12px」の水平クリアランスを保存）。※縦距離<50px 条件は render 前に画素距離が
         //  取れないため「同側2本目以降は常に stagger」の保守的上位集合で運用（受入は rect 交差 0 で判定）。
@@ -1066,6 +1073,18 @@
         bsChartInstance.$bsNote = (!isMobile && hasNegativeEquity)
           ? { text: "純資産 ▲" + FinanceRules.fmtUnitValue(Math.abs(fin.net_assets), unit) + "（債務超過）" }
           : null;
+        // spec §11.2 (P8): モバイルの <15% セグメントは datalabels が出ない（:881-884）＝金額/構成比を DOM で補完。
+        //  債務超過は displayNetAssets=0（v>0 ガードで除外）ゆえタプルに乗らないため unshift で先頭に置く。
+        const MOBILE_NOTE_LOW = 0.15;
+        const noteEl = document.getElementById("bs-mobile-note");
+        if (noteEl) {
+          const items = totalAssets > 0 ? lowTuples
+            .filter(([, v]) => v > 0 && v / totalAssets < MOBILE_NOTE_LOW)
+            .map(([di, v]) => BS_LABELS[di] + " " + FinanceRules.fmtUnitValue(v, unit) + " (" + (v / totalAssets * 100).toFixed(1) + "%)") : [];
+          if (hasNegativeEquity) items.unshift("純資産 ▲" + FinanceRules.fmtUnitValue(Math.abs(fin.net_assets), unit) + "（債務超過）");
+          noteEl.textContent = items.join("・");
+          noteEl.hidden = !(isMobile && items.length > 0);
+        }
       }
       // 🕸️ 2. レーダー
       function renderRadarChart(fin) {
