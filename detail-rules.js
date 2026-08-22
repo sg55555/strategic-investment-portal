@@ -864,7 +864,8 @@
       var f = tr[years[i]];
       var sub = FR.hasFinSubstance(f);   // 全ゼロFY行（ETL未確定）は4系列とも欠測点（spec §5.4-1）
       var eqOk = sub && FR.hasValue(f, "net_assets") && FR.hasValue(f, "current_assets") && FR.hasValue(f, "non_current_assets");
-      var curOk = sub && FR.hasValue(f, "current_assets") && FR.hasValue(f, "current_liabilities");
+      var curOk = sub && FR.hasValue(f, "current_assets") && FR.hasValue(f, "current_liabilities")
+        && FR.n(f.current_liabilities) > 0;   // 分母0（銀行・金融は流動区分なし）は 0% 偽実線でなく欠測点（spec §7.4）
       eq.push(eqOk ? FR.equityRatio(f) : null);
       cur.push(curOk ? FR.currentRatio(f) : null);
       cash.push(sub && FR.hasValue(f, "cf_cash_end") ? f.cf_cash_end : null);

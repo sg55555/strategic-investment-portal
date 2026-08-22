@@ -473,6 +473,22 @@ test("healthTrendSeries: ETF (financials_trend={}) → 空系列", () => {
   assert.equal(s.basis.equityMin, 40);
 });
 
+test("healthTrendSeries: 流動負債0（銀行型）は流動比率を null 欠測化（0% 偽実線の根絶）", () => {
+  const data = { currency: "JPY", financials_trend: {
+    "2024": { net_sales: 6838439, current_assets: 0, non_current_assets: 413113501,
+              current_liabilities: 0, non_current_liabilities: 390000000,
+              net_assets: 18000000, cf_cash_end: 50000000 },
+    "2025": { net_sales: 7000000, current_assets: 30000000, non_current_assets: 60000000,
+              current_liabilities: 25000000, non_current_liabilities: 20000000,
+              net_assets: 45000000, cf_cash_end: 6524000 },
+  }};
+  const s = D.healthTrendSeries(data, false);
+  assert.equal(s.currentRatio[0], null);              // 分母0 → 0.0% でなく欠測点
+  assert.equal(typeof s.currentRatio[1], "number");   // 通常年は従来どおり実値（非退行）
+  assert.equal(typeof s.equityRatio[0], "number");    // 自己資本比率は銀行でも算出可＝巻き込み禁止
+  assert.equal(s.cash[0], 50000000);                  // 現金系列も巻き込まない
+});
+
 // ── dupontFactorSeries / fcfTrendSeries（財務系列・束D Task5）──────────────
 test("dupontFactorSeries: 全年・欠測null点・ETF空", () => {
   const data = { financials_trend: {
