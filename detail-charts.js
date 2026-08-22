@@ -888,7 +888,10 @@
           });
         });
         const equityRatio = FinanceRules.equityRatio(fin);   // F1: 純関数へ集約
-        const currentRatio = FinanceRules.currentRatio(fin);
+        // spec §7.4 D17: 銀行/保険/証券は流動/固定区分がなく分母0＝ratio の 0 返しが「0.0%」偽値になる。
+        //  本体（finance-rules.js:36-39/:19-22）は既存挙動固定のまま、消費者側で ratioOrNull を選ぶ既存パターン
+        //  （ポータル index.html:1980・cross-section-rules.js:90-91）に揃える＝3例目・同引数。
+        const currentRatio = FinanceRules.ratioOrNull(fin, FinanceRules.currentRatio, ["current_assets", "current_liabilities"], ["current_liabilities"]);
 
         if (hasNegativeEquity) {
           document.getElementById("equity-ratio").innerText = "マイナス";
@@ -898,7 +901,17 @@
           document.getElementById("equity-ratio").style.color = "#ffd60a";
           animateNumber(document.getElementById("equity-ratio"), equityRatio, "%", 1, 900);
         }
-        animateNumber(document.getElementById("current-ratio"), currentRatio, "%", 1, 900);
+        // ⚠ animateNumber(null) は (null*eased).toFixed(1) = "0.0%" を**無言表示**する（detail.js:189-199）＝分岐必須。
+        const crEl = document.getElementById("current-ratio");
+        if (currentRatio === null) {
+          crEl.innerText = "N/A";
+          // detail.js:753（currentRatioDesc）が毎 render 先に書く→ここが後勝ち。非 null 年/銘柄では上書きしないため
+          //  基準文言への復帰は detail.js 側の毎回書込で自動成立（追加の戻し処理は不要）。
+          const crDescEl = document.getElementById("desc-current-ratio");
+          if (crDescEl) crDescEl.innerText = "▶ 銀行・金融は流動/固定区分がなく適用外";
+        } else {
+          animateNumber(crEl, currentRatio, "%", 1, 900);
+        }
 
         const ctx = document.getElementById("bsChart").getContext("2d");
         if (bsChartInstance) {
@@ -1147,6 +1160,10 @@
                 textShadowBlur: 6,
                 textShadowColor: "rgba(120,210,255,0.55)",
                 font: { weight: "bold", size: 11 },
+                // spec §7.3 (#6): 低スコアだと点が中心付近に集まりラベルが団子になる＝各軸の外向きへ放射退避。
+                //  頂点0=真上(-90°)・時計回り 360/軸数 刻み。数値 align は BS stagger（:920-921）で本番実績のある機構。
+                align: (ctx) => ctx.dataIndex * (360 / ctx.chart.data.labels.length) - 90,
+                offset: 16,
                 formatter: (v) => Math.round(v) + "点",
               },
             },
@@ -1231,14 +1248,15 @@
                 anchor: "end",
                 align: function (context) {
                   const val = context.dataset.data[context.dataIndex];
-                  const label = context.chart.data.labels[context.dataIndex];
-                  if (val === 0 && label === "営業利益" && HOLDING_COMPANIES.has(currentTicker))
-                    return "center";
+                  // spec §7.2 (#5): val=0 は一律 top 退避（HOLDING の center=基線上＝X軸ラベル衝突を廃止）。
+                  //  銀行 N/A（#4）も 0 値ゆえ同経路に乗る。
+                  if (val === 0) return "top";
                   const max = Math.max(...context.dataset.data.map(Math.abs));
                   return Math.abs(val) / max < 0.15 ? "top" : "bottom";
                 },
                 offset: function (context) {
                   const val = context.dataset.data[context.dataIndex];
+                  if (val === 0) return 12;   // spec §7.2: 現行6→12 で軸帯から確実に離す
                   const max = Math.max(...context.dataset.data.map(Math.abs));
                   return Math.abs(val) / max < 0.15 ? 6 : 0;
                 },
@@ -1246,6 +1264,12 @@
                   let label = context.chart.data.labels[context.dataIndex];
                   if (value === 0 && label === "営業利益" && HOLDING_COMPANIES.has(currentTicker)) {
                     return `N/A\n(持株会社仕様)`;
+                  }
+                  // spec §7.1 D16: 銀行/保険/証券は営業利益の概念がなく経常利益で開示＝棒なしの黄「0」ラベルを N/A 化。
+                  //  判定は値ベース純関数（DetailRules.isFinancialPL・実DBで金融12銘柄36行と外延一致）。
+                  //  9984.T は経常=0 で自動排除＝上の HOLDING 分岐と非衝突（順序も HOLDING 優先で保険）。
+                  if (value === 0 && label === "営業利益" && DetailRules.isFinancialPL(fin)) {
+                    return `N/A\n(銀行・金融)`;
                   }
                   let baseStr = FinanceRules.fmtUnitValue(value, unit);
                   if (label === "営業利益") {
