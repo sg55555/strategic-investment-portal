@@ -490,15 +490,37 @@
     return { startDate, endDate, filteredPrices, displayPrices };
   }
 
-  // stock-title 文言（絞り込みの有無で分岐）。index.html 3814-3822。
-  function periodLabel(companyName, ticker, year, isUS, hasFiltered) {
+  // 社名表示（社名が既に "(ticker)" を含むなら付加を省略＝SPY 型の二重ティッカー防止・spec §6.1/D14）。
+  //  QQQ/GOOGL の括弧連鎖（括弧内が ticker でない）は情報として維持し、社名整理はデータ側レーンで扱う。
+  function displayName(companyName, ticker) {
+    const name = String(companyName == null ? "" : companyName);
+    return name.includes(`(${ticker})`) ? name : `${name} (${ticker})`;
+  }
+
+  // stock-title 文言を main（社名＋時系列種別）と period（[...] 注記）に分離（spec §6.2/§6.3）。
+  //  isEtf: ETF は「経営期間」を使わず「年間市場トレンド」、フォールバック注記も FY 表記を避ける
+  //  （ETF は selectedYear=2025 ハードコードのため FY 表記が不自然になる・§16 に恒久対応を残置）。
+  function periodLabelParts(companyName, ticker, year, isUS, hasFiltered, isEtf) {
+    const name = displayName(companyName, ticker);
     if (hasFiltered) {
+      const trend = isEtf ? "年間市場トレンド" : "経営期間トレンド";
       const pl = isUS
-        ? `${year}年1月 〜 ${year}年12月 経営期間トレンド`
-        : `${year - 1}年4月 〜 ${year}年3月 経営期間トレンド`;
-      return `${companyName} (${ticker}) - 歴史的ローソク足時系列 [${pl}]`;
+        ? `${year}年1月 〜 ${year}年12月 ${trend}`
+        : `${year - 1}年4月 〜 ${year}年3月 ${trend}`;
+      return { main: `${name} - 歴史的ローソク足時系列`, period: `[${pl}]` };
     }
-    return `${companyName} (${ticker}) - 直近市場ローソク足時系列`;
+    return {
+      main: `${name} - 直近市場ローソク足時系列`,
+      period: isEtf
+        ? "[価格データ未収録のため直近200営業日を表示]"
+        : `[${year}FY の価格データ未収録のため直近200営業日を表示]`,
+    };
+  }
+
+  // 1行版（既存呼出し互換の薄いラッパ）。index.html 3814-3822 由来。
+  function periodLabel(companyName, ticker, year, isUS, hasFiltered, isEtf) {
+    const p = periodLabelParts(companyName, ticker, year, isUS, hasFiltered, isEtf);
+    return p.period ? `${p.main} ${p.period}` : p.main;
   }
 
   // 市場別バリュエーション基準の selector。index.html 3839。
@@ -1040,7 +1062,7 @@
     calcATR, calcADX, calcKeltner, calcOBV, calcVWAP, disciplineDigest,
     signalDigest, healthTrendSeries, dupontFactorSeries, fcfTrendSeries,
     // 財務ディスクリプタ純関数
-    priceWindow, periodLabel, marketBasisFor, perStatus, pbrStatus,
+    priceWindow, periodLabel, periodLabelParts, displayName, marketBasisFor, perStatus, pbrStatus,
     equityRatioDesc, currentRatioDesc, yoyBadge, isFinancialPL, plSteps, cfFlowStatus, cfCompanyType, cfWaterfall, radarScores,
     sparklineSVG, dupontDescriptor, fcfQualityDescriptor,
     // 色/特例定数

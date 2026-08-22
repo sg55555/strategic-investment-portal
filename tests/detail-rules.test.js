@@ -63,10 +63,51 @@ test("periodLabel: JP 絞り込みあり", () => {
     "トヨタ (7203.T) - 歴史的ローソク足時系列 [2022年4月 〜 2023年3月 経営期間トレンド]",
   );
 });
-test("periodLabel: 絞り込みなしは直近市場ラベル", () => {
+test("periodLabel: 絞り込みなしは直近市場ラベル＋未収録注記（G2）", () => {
   assert.equal(
     D.periodLabel("トヨタ", "7203.T", 2023, false, false),
-    "トヨタ (7203.T) - 直近市場ローソク足時系列",
+    "トヨタ (7203.T) - 直近市場ローソク足時系列 [2023FY の価格データ未収録のため直近200営業日を表示]",
+  );
+});
+
+// ── displayName / periodLabelParts（G1/G2/G3・spec §6）──
+test("displayName: 社名が既に (ticker) を含む場合は付加しない（SPY 型二重の解消）", () => {
+  assert.equal(D.displayName("S&P 500 ETF (SPY)", "SPY"), "S&P 500 ETF (SPY)");
+  assert.equal(D.displayName("Apple", "AAPL"), "Apple (AAPL)");
+  // QQQ/GOOGL の括弧連鎖（括弧内が ticker でない）は情報として維持＝D14
+  assert.equal(D.displayName("Invesco QQQ (NASDAQ 100)", "QQQ"), "Invesco QQQ (NASDAQ 100) (QQQ)");
+});
+
+test("periodLabelParts: US/JP は main（社名＋種別）と period（[...] 注記）を分離して返す", () => {
+  const us = D.periodLabelParts("Apple", "AAPL", 2023, true, true, false);
+  assert.equal(us.main, "Apple (AAPL) - 歴史的ローソク足時系列");
+  assert.equal(us.period, "[2023年1月 〜 2023年12月 経営期間トレンド]");
+  const jp = D.periodLabelParts("トヨタ", "7203.T", 2023, false, true, false);
+  assert.equal(jp.main, "トヨタ (7203.T) - 歴史的ローソク足時系列");
+  assert.equal(jp.period, "[2022年4月 〜 2023年3月 経営期間トレンド]");
+});
+
+test("periodLabelParts: フォールバック（窓0件）は実窓との不一致を注記で明示する", () => {
+  const p = D.periodLabelParts("トヨタ", "7203.T", 2023, false, false, false);
+  assert.equal(p.main, "トヨタ (7203.T) - 直近市場ローソク足時系列");
+  assert.equal(p.period, "[2023FY の価格データ未収録のため直近200営業日を表示]");
+});
+
+test("periodLabelParts: ETF は「年間市場トレンド」・フォールバック注記は FY 表記を避ける", () => {
+  const on = D.periodLabelParts("S&P 500 ETF (SPY)", "SPY", 2025, true, true, true);
+  assert.equal(on.period, "[2025年1月 〜 2025年12月 年間市場トレンド]");
+  assert.doesNotMatch(on.period, /経営期間/);
+  const fb = D.periodLabelParts("S&P 500 ETF (SPY)", "SPY", 2025, true, false, true);
+  assert.equal(fb.period, "[価格データ未収録のため直近200営業日を表示]");
+  assert.doesNotMatch(fb.period, /FY/);
+});
+
+test("periodLabel: periodLabelParts の薄いラッパ（SPY 型でティッカーが二重にならない）", () => {
+  const p = D.periodLabelParts("Apple", "AAPL", 2023, true, true, false);
+  assert.equal(D.periodLabel("Apple", "AAPL", 2023, true, true, false), p.main + " " + p.period);
+  assert.equal(
+    D.periodLabel("S&P 500 ETF (SPY)", "SPY", 2025, true, true, true),
+    "S&P 500 ETF (SPY) - 歴史的ローソク足時系列 [2025年1月 〜 2025年12月 年間市場トレンド]",
   );
 });
 
