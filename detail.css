@@ -387,6 +387,11 @@
         height: 3px;
         border-radius: 2px;
       }
+      .compare-legend-val {
+        font-family: var(--ix-mono);
+        font-weight: bold;
+        margin-left: 2px;
+      }
       .open-compare-btn {
         background: rgba(0,229,255,0.1);
         border: 1px solid rgba(0,229,255,0.3);
@@ -441,6 +446,8 @@
         /* T2: 比較モーダルの箱を必ず画面内に収める（従来 width:95%/max-width:1100px は
            内包要素の自動最小幅フロアに押されて画面幅を超えることがあった＝min-width:0 で解除）。 */
         .compare-modal-box { width: min(429px, calc(100vw - 24px)); min-width: 0; }
+        /* F-3: legend の縦膨張抑制（8行→4行）。chips はティッカー化で約2段に収まる。 */
+        .compare-legend { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; }
         /* T2 review fix1: term-help ツールチップは display:none 全廃(review Important指摘=
            PER/PBR等の用語解説がモバイルで完全に失われる機能撤去だった)。画面内クランプ方式
            （上の base ルールの --th-shift・index.html の delegated listener）へ置き換え済み。 */

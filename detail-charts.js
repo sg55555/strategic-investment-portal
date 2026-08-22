@@ -182,9 +182,13 @@
           const color = COMPARE_COLORS[i % COMPARE_COLORS.length];
           const data = normalizeForCompare(ticker, comparePeriodMonths);
           if (data.length === 0) return;
-          const series = compareChart.addLineSeries({ color, lineWidth: 2, priceLineVisible: false, lastValueVisible: true });
+          const series = compareChart.addLineSeries({ color, lineWidth: 2, priceLineVisible: false, lastValueVisible: false });
           series.setData(data);
-          legendEl.innerHTML += `<div class="compare-legend-item"><div class="compare-legend-dot" style="background:${color}"></div><span>${esc(STOCK_DATA[ticker]?.company_name || ticker)}</span></div>`;
+          // F-2: 右軸バッジ8連を止めた代わりに legend で期間リターン%を読む（value=normalizeForCompare が
+          //  算出済みの期間リターン%＝追加のデータ取得ゼロ・基準は index.html:1490 の注記どおり期間開始日）。
+          const last = data[data.length - 1].value;
+          const pct = (last >= 0 ? "+" : "") + last.toFixed(1) + "%";
+          legendEl.innerHTML += `<div class="compare-legend-item"><div class="compare-legend-dot" style="background:${color}"></div><span>${esc(STOCK_DATA[ticker]?.company_name || ticker)}</span><span class="compare-legend-val" style="color:${color}">${pct}</span></div>`;
         });
 
         compareChart.timeScale().fitContent();

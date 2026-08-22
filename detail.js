@@ -79,16 +79,17 @@
     chipsEl.innerHTML = [...compareSet].map((t, i) => {
       const color = DetailRules.COMPARE_COLORS[i % DetailRules.COMPARE_COLORS.length];
       return `<div class="compare-chip" style="border-color:${color};color:${color};background:${color}22;">
-        ${esc(STOCK_DATA[t]?.company_name || t)}
+        ${esc(t)}
         <span class="compare-chip-remove" onclick="removeFromCompare('${t}')">✕</span>
       </div>`;
     }).join("");
   }
 
-  function setComparePeriod(months) {
+  function setComparePeriod(months, btn) {
     comparePeriodMonths = months;
     document.querySelectorAll(".compare-period-btn").forEach(b => b.classList.remove("active"));
-    window.event.target.classList.add("active");   // Task3: 暗黙 global event を window.event に明示化（markup 無改変・挙動不変）
+    // D23: window.event 依存を解消（引数 btn が正・旧 onclick 形と console/テストからの呼出しも壊さない）。
+    (btn || (window.event && window.event.target))?.classList.add("active");
     DetailCharts.renderCompareChart(compareSet, comparePeriodMonths);
   }
 
