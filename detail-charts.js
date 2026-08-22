@@ -242,17 +242,36 @@
         srLines.forEach(l => { try { candleSeries.removePriceLine(l); } catch(e) {} });
         srLines = [];
         if (!srState || !prices?.length) return;
-        const { resistance, support } = detectSR(prices);
+        // D13/D26: 描画集合＝全クラスタの top-3/側 ∪ digest 引用（srNearest の up/dn）。
+        //  「digest の数値には必ず対応する線がある」を保証する（実測 平均 +0.89 本/最大 +2 本）。
+        //  ラベル（軸バッジ＝pane title と運命共同）の選抜は rules 層の純関数 srLabelPlan が単一源
+        //  ＝実装・node テスト・verify が同一実装を参照する（選抜ロジックの重複実装によるドリフト根絶）。
+        const close = prices[prices.length - 1].close;
+        const all = detectSR(prices, Infinity);
+        const resistance = all.resistance.slice(0, 3);
+        const support = all.support.slice(0, 3);
+        const plan = DetailRules.srLabelPlan(resistance, support, close);
+        const near = DetailRules.srNearest(all, close);
         resistance.forEach(({ price, count }, i) => {
           srLines.push(candleSeries.createPriceLine({
             price, color: "rgba(255,102,153,0.85)", lineWidth: 1,
-            lineStyle: 2, axisLabelVisible: i < 2, title: `R×${count}`,   // A-mini: 軸ラベル上位2本/側（線は全本維持）
+            lineStyle: 2, axisLabelVisible: plan.resistance[i], title: `R×${count}`,
           }));
         });
         support.forEach(({ price, count }, i) => {
           srLines.push(candleSeries.createPriceLine({
             price, color: "rgba(52,245,207,0.85)", lineWidth: 1,
-            lineStyle: 2, axisLabelVisible: i < 2, title: `S×${count}`,
+            lineStyle: 2, axisLabelVisible: plan.support[i], title: `S×${count}`,
+          }));
+        });
+        // 和集合の追加分（digest が引用する最寄り up/dn が top-3 に無い場合のみ）。ラベルは常に非表示。
+        const drawn = new Set(resistance.concat(support).map((x) => x.price));
+        [[near.up, "rgba(255,102,153,0.85)", "R"], [near.dn, "rgba(52,245,207,0.85)", "S"]].forEach(([lv, color, tag]) => {
+          if (!lv || drawn.has(lv.price)) return;
+          drawn.add(lv.price);
+          srLines.push(candleSeries.createPriceLine({
+            price: lv.price, color, lineWidth: 1,
+            lineStyle: 2, axisLabelVisible: false, title: `${tag}×${lv.count}`,
           }));
         });
       }
