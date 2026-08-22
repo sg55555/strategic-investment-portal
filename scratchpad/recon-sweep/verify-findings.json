@@ -1,0 +1,266 @@
+{
+ "verdicts": [
+  {
+   "lens": "coverage",
+   "verdict": "spec の file:line 引用・テスト影響明細（§13）・B0 起点は全スポットチェックで現物と一致し精度は高いが、LWC 私有インスタンスを前提にした受入基準（#1/#8/#10）が「誰がどう assert するか」実行不能のまま書かれており、windowApi 再baseline の前提誤りと合わせて SDD に渡す前に受入手段の明文化が必要。"
+  },
+  {
+   "lens": "vs-recon",
+   "verdict": "spec は承認済み設計と recon 9ファイルに対し極めて忠実で、本人確定3判断・全閾値・全方式が正確に落ちており（DB 数値・約60箇所の file:line も現物一致を実測確認）、Medium 2件（#9 の windowApi「意図 diff」は事実誤認＝検証ゲートの弱体化・ETF selectedYear=2025 時限挙動の未決）と Low 4件を修正すれば SDD に渡せる品質。"
+  },
+  {
+   "lens": "vs-code",
+   "verdict": "file:line 参照・引用コード・DB 実測主張（金融12銘柄36行/IFRS 9984.T 3行/MCD・SBUX 6行/▲18億・▲81億ドル/8306.T 37.3%・21.7兆円 5.3%/7203.T 最小29.2%/SPY のみ二重）・テスト数（node 334/pytest 228/windowApi 15/17）はほぼ全数が現物と一致し極めて正確。Medium 3件（windowApi 主張の自己矛盾・C4 host 高さ補償の未指定・D1 受入アサートの空虚）を直せば SDD に渡せる品質。"
+  },
+  {
+   "lens": "feasibility",
+   "verdict": "実装可能性はおおむね堅牢（LWC v4.2.3 API 実在・maxBarSpacing 不在・DB 外延・digest 波及 1/100・subset 不変・Chart.js 幾何を現物/実測で全て裏取り一致）だが、LWC v4.2.3 の「axisLabelVisible:false で priceLine の title（ペイン内ラベル）も消える」実挙動が C1/#8 の中核主張「title は維持」と矛盾しており、この2点の文言修正（＋本人再承認）と C4 の host 高さ補償の明記を入れれば SDD に渡せる品質。"
+  },
+  {
+   "lens": "deviations",
+   "verdict": "執筆逸脱7点はすべて実質妥当（①D13-D24連番化=前waveD1-D12実在で衝突回避が正・②G2文言・③.stock-title-sub・⑦D24 X+Y併用=いずれも本人承認済み00-approved-designの文言どおりでrecon側からの逸脱はspecの責でない・④終値抑制1%=mock決定論100銘柄で再実測しrecon値61/100・28/100を完全再現の上、0.6%緩和だと残存±1%内可視ラベル30/100銘柄でバッジ埋没問題が半分残り、緩和で救われる31本は全て終値0.62-1.0%のバッジゾーン内=1%確定を実測で支持、実機サニティ項目9に本人確認機会も確保・⑤⑥も方式は正当）で、要本人判断に格上げすべきものはなし。ただし⑤に付随する windowApi ゲート影響の事実誤認（Medium）と、⑥の非decision-complete表現・①の残存D1/D2ラベル衝突（各Low）を修正すればこのレンズではSDDに渡せる品質。"
+  }
+ ],
+ "findings": [
+  {
+   "severity": "High",
+   "section": "§4.4/§4.5/§8.5/§10（×§14）",
+   "claim": "受入基準の複数項目が Playwright から到達不能な観測面を前提にしており、そのままでは誰も機械実行できない。lightweight-charts のインスタンス（priceChart/サブパネル/compareChart）と priceLines は IIFE 私有で、Chart.js の Chart.getChart() に相当するレジストリが LWC v4 に無く、§14 が新規公開を getPriceVisibleRange 1本に制限しているため矛盾する。具体的に実行不能: §4.5②「priceScale(\"right\").width() 一致」・§4.5③「軸に基準線ラベルが出ない」（軸ラベルは canvas 描画で DOM に無い）・§4.4「TIME_AXIS_H は chart.timeScale().height() 実測」・§8.5「ラベル可視≤2/側・ペア間≥1%・終値±1%にラベル無し・digest引用値と一致する priceLine が存在」（srLines は私有配列・greedy dedup は charts 層 closure 内でルール層に純関数が無い）・§10①「右軸バッジ0」（compareChart 私有）。",
+   "evidence": "detail-charts.js:1473-1479（window.DetailCharts は関数のみ公開・chart ハンドル非公開）・:391-393（_subMounted/_subOrder 私有）・:242-258（srLines 私有配列・LWC に priceLine 列挙APIなし）。対照的に #12 は $bsNoteRect 書き戻し＋Chart.getChart（bs-callout-verify.js:26 実在）で機械化済み。現行 sr-window-verify.js:8-12 もソース regex＋DetailRules 純関数評価で代替している＝レンダリング実体は直接観測していない前例。",
+   "fix_suggestion": "各アサートの観測手段を spec に明記する: #8(1b) のラベル選抜を rules 層純関数（例 srLabelPlan）に切り出し verify は「ソース照合＋純関数評価」（現 sr-window-verify と同型）に、#1 は DOM 計測（LWC の price-axis canvas 幅・time-axis 行の有無・host 高 104/132px）に、#10① はソース照合（lastValueVisible: false 存在）に置換。もしくは §14 の公開例外にデバッグゲッター（サブパネル軸情報/描画済み S/R レベル）を追加して整合させる。",
+   "lens": "coverage"
+  },
+  {
+   "severity": "High",
+   "section": "§4.1 (C1)",
+   "claim": "LWC v4.2.3 では axisLabelVisible:false を付けると priceLine の title（ペイン内ラベル）も描画されなくなるため、「title は現状維持」は実装不能。RSI70/30 の「70」「30」・ADX25 の「25」・ATR 中央線の「中央 x.x%」が全て消え、特に ATR 中央値は他に表示箇所がなく情報全損になる（受入基準③は軸ラベルのみ検査するため素通りする）。",
+   "evidence": "SRI 一致確認済みの CDN 実バンドル（sha384-stKl…=index.html:44 と完全一致）の最小化コード `Ei(t,i,n){…if(!e||!h.yt())return;…r&&(i.Kt=s.title,i.yt=!0)`＝axisLabelVisible:false で title 代入前に early-return。headless Chromium 実測でも title 画素 96→0（axisLabelVisible true/false 比較）。対象 title は detail-charts.js:287「70」/:289「30」/:335「25」/:363「中央 x.x%」。",
+   "fix_suggestion": "C1 の記述を「title も同時に消える（v4.2.3 の挙動）」へ訂正し、タイトル持ち4本（RSI70/30・ADX25・ATR中央）を対象から外すか消える前提で本人再承認を取る。ATR 中央値は残すなら別表示（lastValueVisible や側パネル併記等）を plan で決める。",
+   "lens": "feasibility"
+  },
+  {
+   "severity": "High",
+   "section": "§8.2 / §8.4 (D13)",
+   "claim": "「(線と title は残す)」「線・title（R×n/S×n）は不変＝情報を失わない」「追加線は axisLabelVisible:false 固定・title は既存側表記」は同じ理由で誤り。ラベル抑制線・D9 和集合の追加線には R×n/S×n の title が一切描画されず、本人承認済み D13 の情報保持根拠が偽前提になっている（現行も i>=2 の線は title 非表示＝recon sr-merge.md:9 の「線とtitleは全本維持」も誤記）。",
+   "evidence": "上記と同一のバンドル実証（axisLabelVisible:false → pane title 画素 0）。現行コード detail-charts.js:249/:255 の `axisLabelVisible: i < 2` で i>=2 の title `R×${count}` は現在も非表示＝dedup 拡大で title 消失線が増える。",
+   "fix_suggestion": "§8.2/§8.4 の title 保持文言を「線のみ残る・title はラベルと運命共同」へ訂正し、情報保持の主張を「digest 引用値に対応する線の存在」までに縮める（title 保持が必要なら series marker 等の代替を次 wave 判断として明記）。",
+   "lens": "feasibility"
+  },
+  {
+   "severity": "Medium",
+   "section": "§9/§12.1",
+   "claim": "「windowApi キー数が変わるため detail-snapshot の windowApi 期待値を同タスクで再 baseline」（§9）「windowApi 15/17（#9 のゲッター新設タスクのみ意図 diff→期待値更新）」（§12.1）は前提が誤り。WINDOW_API は window 直下 17 名の静的リストで typeof window[n] を見るだけであり、DetailCharts 名前空間に足す getPriceVisibleRange では windowApi は一切 diff しない＝発生しない diff を待つ/期待値更新する指示になっている。",
+   "evidence": "scratchpad/detail-snapshot.js:7-9（WINDOW_API 17名の静的配列・getPriceVisibleRange も DetailCharts も含まず）・:42（typeof window[n] のみ評価）。fitcontent recon の「windowApi 16→17」と harness recon の「15/17 が正」も相互不整合のまま spec に転記されている。",
+   "fix_suggestion": "§9/§12.1 を「windowApi は不変（DetailCharts 配下のゲッターは WINDOW_API の観測対象外）」に訂正する。検知面に載せたいなら detail-snapshot.js の WINDOW_API 追記（＋DetailCharts メンバー対応の評価式変更）を受入タスクに明示する。",
+   "lens": "coverage"
+  },
+  {
+   "severity": "Medium",
+   "section": "§3（実施順 B1/B2/B3）",
+   "claim": "バッチ割当てに宙吊り/二重割当てがある。B1「純関数系＝node テストで完結」に「#7 ratioOrNull 呼び替え」を含むが、呼び替えの実体は detail-charts.js:789/:799 の null 分岐＋DOM 書込（node 非検証・受入は §7.5 Playwright）で B2「#4-7 の描画側（…側パネル）」と重複。#5 の plSteps IFRS 段省略（rules 純関数）は B1 に列挙が無く、#3 の detail.js 配線（:665 ヘッダ・:677 第6引数・:676-677 innerHTML 化）はどのバッチにも未割当て（B3 は「G3 副題行 CSS」のみ＝CSS が先行すると span 不在で inert）。",
+   "evidence": "spec §3 B1/B2/B3 の列挙 vs §6.1-6.3（detail.js:665/:677 変更）・§7.2（detail-rules.js:509 filter）・§7.4（detail-charts.js:789/:799）。現物確認: detail.js:665/676-677・detail-charts.js:789/:799・detail-rules.js:509 はすべて実在し層が異なる。",
+   "fix_suggestion": "バッチ表を「項目×対象ファイル×受入手段」で書き直し、#7 側パネル呼び替えは B2 のみに、#5 plSteps filter は B1 に、#3 の detail.js 配線は B2（innerHTML/G3 CSS と同タスクか先行）に明示割当てする。",
+   "lens": "coverage"
+  },
+  {
+   "severity": "Medium",
+   "section": "§9受入・§12.1",
+   "claim": "「#9 の getPriceVisibleRange ゲッター新設で windowApi キー数が変わるため期待値を再 baseline」は誤り。detail-snapshot の windowApi は window 直下17名の固定リスト存在チェックであり、§14 のとおりゲッターは DetailCharts 名前空間（resizePrice と同型）に載るため windowApi は一切変化しない。無条件 MATCH ゲートに偽の「意図 diff 例外」を作り、#9 実装中に本物の windowApi 退行を『期待された diff』として見逃す口実になる。",
+   "evidence": "scratchpad/detail-snapshot.js:7-9（WINDOW_API 固定リスト・getPriceVisibleRange 非含有）＋:43 `windowApi[n] = typeof window[n] === 'function'`（window 直下のみ検査）。detail-charts.js:1477 で resizePrice は DetailCharts return オブジェクト公開＝window 直下名にならない。fitcontent recon risks の「windowApi 16→17」記載と harness recon の訂正（15/17 が正）を統合し損ねた残骸。",
+   "fix_suggestion": "§9 受入と §12.1 から「windowApi 期待値の再 baseline／#9 のみ意図 diff」の記述を削除し、「windowApi 15/17 は全タスク無条件 MATCH（ゲッターは DetailCharts 名前空間ゆえ非影響）」に統一する。",
+   "lens": "vs-recon"
+  },
+  {
+   "severity": "Medium",
+   "section": "§6.2・§16",
+   "claim": "titles recon risks が明示した「ETF の selectedYear=2025 ハードコード（detail.js:606）の時限的挙動＝2027年頃に 2025 暦年窓が価格5年窓から外れ ETF タイトルが突然フォールバック文言に変わる。恒久対応は G2 と同時に決めるのが安全」が spec 本文にも §16 積み残しにも未反映。G2 実装後は ETF に『[2025FY の価格データ未収録のため…]』という FY 文言注記が出る（ETF に FY 概念なし）未決の文言 wrinkle が残る。",
+   "evidence": "scratchpad/recon-sweep/titles.md risks 5項目め（「恒久対応（ETF は常に直近N本+専用文言）はこの wave で G2 と同時に決めるのが安全」）。detail.js:605-606（`|| availableYears[0] || 2025` を現物確認）。spec は §6.2 で株式フォールバック文言のみ規定し ETF 経路の latent は言及ゼロ。",
+   "fix_suggestion": "G2 に「ETF がフォールバックに入った場合の文言方針（FY 表記を避ける等）」を1行で決めるか、少なくとも §16 積み残しに「ETF selectedYear=2025 時限挙動の恒久対応」を明示追加する。",
+   "lens": "vs-recon"
+  },
+  {
+   "severity": "Medium",
+   "section": "§9・§12.1",
+   "claim": "「windowApi キー数が変わるため detail-snapshot の windowApi 期待値を同タスクで再 baseline」（§9）と「windowApi 15/17（#9 のゲッター新設タスクのみ意図 diff→期待値更新）」（§12.1）は誤り。getPriceVisibleRange は §14 どおり DetailCharts 名前空間に置くため、window グローバル 17 名の固定リストを typeof window[n] でチェックする detail-snapshot の windowApi はキーも値も一切変わらない。",
+   "evidence": "scratchpad/detail-snapshot.js:7-9（WINDOW_API=固定17名）・:42（typeof window[n] チェック）／detail-charts.js:1473-1479（DetailCharts は window.DetailCharts 配下・resizePrice 同型）／spec §14「新規 window 公開なし（例外＝DetailCharts 名前空間へ）」と自己矛盾／recon harness.md:18 は「ゲートは baseline から不変で運用」とし #9 例外を置いていない（誤りの出所は fitcontent.md:65 の「16→17」誤記）",
+   "fix_suggestion": "§9 と §12.1 から windowApi 再 baseline の記述を削除し「windowApi は #9 でも不変（ゲッターは DetailCharts 配下＝スナップショット非観測）」と明記。受入は page.evaluate(() => DetailCharts.getPriceVisibleRange()) で行うと書く。",
+   "lens": "vs-code"
+  },
+  {
+   "severity": "Medium",
+   "section": "§4.4",
+   "claim": "C4 の最下段 +TIME_AXIS_H 高さ補償で chart.resize のみ指定し host 要素の高さ更新が未指定。detail.js expandSubpanel が host.style.height を META 値（base）で固定するため、最下段パネルの canvas（base+28px）が host を 28px はみ出す（.subpanel-host に overflow 制御なし）。",
+   "evidence": "detail.js:330-331（host.style.height = meta.height + 'px'）／detail.css:641（.subpanel-host { width:100% } のみ）／spec §4.4 は「高さ補償（TIME_AXIS_H=28 を加算・chart.resize）」と resizeSubpanels :436 の修正のみ記載し host 側の動的補償に言及なし（META/REGISTRY の静的ミラー 110→104 は明記済）",
+   "fix_suggestion": "_updateSubTimeAxes と resizeSubpanels で m.host.style.height も base+(axisOn?TIME_AXIS_H:0) に更新する旨を §4.4 に1行追記（または host 高さの受け渡し方針を明記）。",
+   "lens": "vs-code"
+  },
+  {
+   "severity": "Medium",
+   "section": "§5.3",
+   "claim": "D1 の機械アサート `document.querySelectorAll(\".ma-control-bar .ma-label:empty\") = 0 件` は空虚。現行コードでも injectTermHelp 実行後は空 span に .term-help が注入され :empty でなくなるため、修正前でも 0 件＝修正の成否を判定できない。",
+   "evidence": "detail.js:693（updateFinancialViews が injectTermHelp を無条件実行）＋:224-233（[data-term] 全要素へ beforeend 注入）→ index.html:1225/1231/1236-1238 の空 span は詳細ビュー表示時点で必ず子要素を持つ",
+   "fix_suggestion": "識別力のあるアサートへ差し替え：「.ma-control-bar .ma-label[data-term] は全てテキスト非空（グループラベルのみ）」＋「.ctrl-pair > .term-help が4件存在し previousElementSibling が button」等。",
+   "lens": "vs-code"
+  },
+  {
+   "severity": "Medium",
+   "section": "§4.4 (C4)",
+   "claim": "時間軸 ON の高さ補償が chart.resize のみで、host（.subpanel-host）の inline height 更新が spec から欠落している。detail.js:331 が SUBPANEL_META の base 高（104px 等）を host に固定するため、最下段パネルは 132px のチャートが 104px の host からはみ出し（.acc-item は overflow:visible）、カード下端に約 28px 重なる。受入①〜④のどれもこれを検出しない。",
+   "evidence": "典拠 recon subpanels.md の proposal コードには `m.host.style.height = h + \"px\";`（同 md :83）が明記され、risk :102 に「ミラー忘れ→chart が host からはみ出す/余白」とあるが、spec §4.4 は chart.resize と TIME_AXIS_H 加算のみ記載。現物＝detail.js:331 `it.host.style.height = height + \"px\"`・detail.css:641 `.subpanel-host{width:100%}`（高さ規定なし）・detail.css:605 `.acc-item{overflow:visible}`。",
+   "fix_suggestion": "§4.4 に「_updateSubTimeAxes と resizeSubpanels で m.host.style.height も m.height+(m.axisOn?TIME_AXIS_H:0) に同期する（axis OFF 復帰時は base へ戻す）」を明記し、受入に host.clientHeight とチャート高の一致アサートを1本足す。",
+   "lens": "feasibility"
+  },
+  {
+   "severity": "Medium",
+   "section": "§9受入基準/§12.1",
+   "claim": "「getPriceVisibleRange 新設で windowApi キー数が変わるため再 baseline」（§9）および「windowApi 15/17（#9 のゲッター新設タスクのみ意図 diff→期待値更新）」（§12.1）は事実誤認。windowApi ゲートは detail-snapshot.js の固定17名リストを window 直下グローバルに対して typeof チェックするだけで、DetailCharts 名前空間へのメンバ追加（§14 の例外方式）は出力を一切変えない＝diff は発生せず再 baseline も不要。この記述を信じた SDD 実装者が「ゲートを変化させるため」に window.getPriceVisibleRange をグローバル公開すると §14 の IIFE 制約に違反する誘導リスクがある。",
+   "evidence": "scratchpad/detail-snapshot.js:7-9（WINDOW_API=固定17名）・:42（typeof window[n] のみ検査）／detail-charts.js:1473-1478（DetailCharts は window.DetailCharts オブジェクトのメンバ・resizePrice 同居）／recon harness.md:18「WINDOW_API は源泉17個・実測15/17が正」／spec 185行・229行。誤りの源流は fitcontent.md:65「windowApi 16→17」（recon 自体の誤記＝現状15/17とも不整合）で spec が無検証で継承。",
+   "fix_suggestion": "§9・§12.1 の windowApi 再 baseline/期待値更新の記述を削除し「windowApi は不変（固定17名の window グローバルのみ検査・DetailCharts メンバは対象外）」へ訂正。ゲッターの存在検収は §9 の Playwright アサート自身（DetailCharts.getPriceVisibleRange() 呼出）が兼ねると明記。方式自体（DetailCharts 名前空間・resizePrice 同型）は §14 と無矛盾で妥当。",
+   "lens": "deviations"
+  },
+  {
+   "severity": "Low",
+   "section": "§14 実機サニティ",
+   "claim": "サニティ10項目に 12+1 項目のうち2点の被覆漏れ: (a) #2 D2（アコーディオン展開時の説明二重解消）が項目7（軸/幅のみ言及）にも項目10にも無い。(b) #9 の lockVisibleTimeRangeOnResize は全リサイズ経路の挙動変更（barSpacing 維持→時間範囲維持）だが項目8はローソク幅のみで、リサイズ/ズーム後の体感確認が落ちている（fitcontent recon のサニティ案「ウィンドウリサイズで fit 維持」が spec で脱落）。",
+   "evidence": "spec §14 サニティ項目7/8/10 の文言 vs §5.2（D2）・§9（lockVisibleTimeRangeOnResize 追加）。fitcontent.md proposal 4「本人実機サニティ: …ウィンドウリサイズで fit 維持」が spec §14 に未転記。",
+   "fix_suggestion": "項目7に「展開時ヘッダ説明が消え折り畳みで復帰」を、項目8に「ズーム→FY切替→視域リセット・ウィンドウリサイズで fit 維持」を追記する。",
+   "lens": "coverage"
+  },
+  {
+   "severity": "Low",
+   "section": "§12（検証計画の手順未定義）",
+   "claim": "cockpit-e2e 昇格の判定手順が未指定: 「money.css を触った場合のみ昇格」の条件だけあり、wave クロージャで非接触を機械確認する手順（git diff --name-only に money.css/money.js/money-rules.js が無いことの確認）が無い。同様に 8200 専有の「衝突検知で即中断」も検知手順（起動前ポート確認等）が未定義。",
+   "evidence": "spec §12.0/§12.2 money.css 行・harness.md risks（8200 ハードコード・偽陰性リスクの指摘はあるが手順なし）。",
+   "fix_suggestion": "全タスク共通クロージャに「git diff --name-only <base> で司令室3ファイル＋money.css の非接触を確認」を1行追加し、B0 に「8200 の使用中チェック（curl/lsof）で衝突時は中断」を明記する。",
+   "lens": "coverage"
+  },
+  {
+   "severity": "Low",
+   "section": "§12.0（B0 前処理）",
+   "claim": "f2-snapshot の扱いが recon と不整合。finviz recon の束ね検証と bs-additions risks は「detail-snapshot/f2-snapshot の2層ゲート」「index.html 1行追加で f2 の portalDomLen が diff る」と f2-snapshot をゲートの一部として引用するが、spec §12/B0 は detail-snapshot のみ capture（f2-baseline.json は worktree に不在）。SDD が recon を典拠に f2-snapshot compare を回すと baseline 不在で混乱する。",
+   "evidence": "scratchpad/f2-snapshot.js 実在（baseline JSON は scratchpad に無し・ls 実測）・finviz-labels.md「detail-snapshot/f2-snapshot の2層ゲート」・bs-additions.md risks「domHash・portalDomLen が diff る」 vs spec §12.0「残る前処理は…1手のみ」。",
+   "fix_suggestion": "spec §12 に「f2-snapshot は本 wave のゲート外（使う場合は B0 で capture を追加）」の一文を入れ、recon 記載との食い違いを閉じる。",
+   "lens": "coverage"
+  },
+  {
+   "severity": "Low",
+   "section": "§9/§10/§4.5（受入手段の未確定断片）",
+   "claim": "機械判定の実施詳細が3点曖昧: (a) #9「合成35本 OHLCV 銘柄（mock STOCK_DATA 改変）」の改変場所が不明（STOCK_DATA はフロントのグローバル・OHLCV 合成の実体は scratchpad/mock_prod_server.py build_ohlcv）で、改変が他ゲートへ波及しないことの言及も無い。(b) #10③「480px で modal 総縦高 before/after 実測」は before 値の取得タイミングが未定義（B0 の detail-snapshot は modal を開かない＝コード変更後には before が取れない）。(c) §4.5④ C3 の「スクショ検分」は担い手（SDD/本人）が不明で唯一の非機械項目。",
+   "evidence": "scratchpad/detail-snapshot.js:20-24（7203.T の detail-view のみ・compare モーダル非対象）・scratchpad/mock_prod_server.py:167-210（OHLCV 合成の実体・sr-merge recon 記載）・spec §9/§10/§4.5 の各文言。",
+   "fix_suggestion": "(a) は「mock_prod_server.py に検証専用 ticker を追加（他銘柄の合成系列は不変）」と明記、(b) は #10 タスクの冒頭で before 実測を先に取る手順を書く、(c) は担い手を本人実機サニティへ寄せるか、LWC 時間軸/ティックの DOM 計測に置換する。",
+   "lens": "coverage"
+  },
+  {
+   "severity": "Low",
+   "section": "§4.1・§15 D18",
+   "claim": "「監査記載の3本に RSI50/MACD0/OBV0 を加えた7本」は算術不整合（3+3=6≠7）。監査 C1 が記載するのは RSI70・RSI30（:268-270）・ADX25（:316）・ATR中央（:344）の4本＝4+3=7 が正。列挙された7行番号は正確なので実装は迷わないが、本数の内訳記述が誤り。",
+   "evidence": "docs/superpowers/audits/2026-08-09-chart-callout-audit.md:152（C1 原文＝RSI「70」「30」・ADX「25」・ATR「中央」の4本を明記）。spec §4.1/D18 の「3本」表記。detail-charts.js:287/:289/:335/:363（監査4本）＋:288/:309/:372（追加3本）＝計7本は現物確認済み。",
+   "fix_suggestion": "「監査記載の4本（RSI70/30・ADX25・ATR中央）に RSI50/MACD0/OBV0 の3本を加えた7本」へ訂正する。",
+   "lens": "vs-recon"
+  },
+  {
+   "severity": "Low",
+   "section": "§4.4・§7.1・§8.1・§9",
+   "claim": "recon の risks に書かれた注意4点が spec に未反映：①C4 高さ補償で切替時にアコーディオン全体が±28px 動くレイアウトシフト（許容不可なら補償なし案へ退避可）②isFinancialPL 値ベース判定の将来誤爆（非金融で営業利益ちょうど0の年が入ると N/A 誤表示・堅くする追加条件 current_liabilities===0 の選択肢）③同側マージの連鎖ドリフト（チェーン先頭基準 span 上限 1.5% の+2行オプション）④lockVisibleTimeRangeOnResize によるリサイズ挙動変化（barSpacing維持→時間範囲維持）が §9 の挙動変更明示 (a)(b)(c) に含まれない。",
+   "evidence": "scratchpad/recon-sweep/subpanels.md risks（±28px シフト・(a)退避）／finviz-labels.md risks（値ベース判定の将来誤爆）／sr-merge.md risks（連鎖マージのドリフト）／fitcontent.md risks（lockVisibleTimeRangeOnResize の副作用＝検分対象）。spec 該当節にいずれの言及もなし（grep 確認）。",
+   "fix_suggestion": "採否は現行設計のままでよいので、各節（§4.4/§7.1/§8.1/§9 の挙動変更リスト）に既知トレードオフとして1行ずつ明記し、SDD レビューでの再発見コストを消す。",
+   "lens": "vs-recon"
+  },
+  {
+   "severity": "Low",
+   "section": "§6.3・§14サニティ10",
+   "claim": "承認済み設計は G3 を「narrowは期間注記を .stock-title-sub 副題行分離」と narrow 文脈で記述するが、spec は「wide でも副題行分離＝narrow 個別対応不要」と全幅適用に拡大（recon 推奨には沿う）。デスクトップでもタイトルが2行化する見た目変化なのに、実機サニティ項目10は「narrow タイトルの副題行」のみで wide の変化が検分対象に無い。",
+   "evidence": "scratchpad/recon-sweep/00-approved-design.md 表#3「G3=narrowは期間注記を…副題行分離」vs spec §6.3「wide でも副題行分離＝narrow 個別対応不要」。titles.md proposal G3 は「wide でも副題行分離で可読性向上…wide は inline 維持したい場合のみ ≦768px 限定」と選択肢を残していた。",
+   "fix_suggestion": "wide 2行化を「意図変更」として §6.3 に明記し実機サニティ項目10に wide タイトルを追加するか、承認済み文言に忠実に ≦768px 限定 display:block とするかを spec 上で明示決定する。",
+   "lens": "vs-recon"
+  },
+  {
+   "severity": "Low",
+   "section": "§9・§10・§12.2",
+   "claim": "recon 由来の軽微な行番号誤転記3件：bs-callout-verify.js の X() は実際 :13（spec は :14）・detail-snapshot.js の setComparePeriod 記載行は :9（spec は :8）・refreshSubpanels 呼出は :534/updateMaAndVolume 終端 :535（spec は「:536 refreshSubpanels の後」）。spec 冒頭の「SDD 実装時に必ず現物確認」規約と挿入位置の意味記述（関数末尾等）で実害は小。",
+   "evidence": "grep 実測: scratchpad/bs-callout-verify.js:13 `const X = (a, b) =>…`／scratchpad/detail-snapshot.js:9 `'removeFromCompare','setComparePeriod',…`／detail-charts.js:534 `refreshSubpanels(displayPrices, allPrices);`・:535 `}`。その他スポット検証した約60箇所の file:line（C1 7本・subBaseOpts:270・REGISTRY:384-390/:386・mount:406/:410/:424/:436・META:292・S/R:249/:255/:527/:612-614・PL:1112-1129・radar:1025-1031・BS:747/:756/:873/:881-884/:967・rules:140-146/:442-450/:498-510/:581/:867/:697-710/:986・detail.js:82/:91/:189-199/:224-233/:326/:338/:605-606/:665/:671/:753/:757・index.html:44/:46/:1222-1240/:1253/:1262/:1486-1489/:1980・tests:54-70/:270/:401-448/:188/:450・finance-rules:36-39/:174・sr-window-verify:11/:32-33）はすべて一致。",
+   "fix_suggestion": "3箇所の行番号を :13/:9/:534（関数終端 :535）へ訂正する（誤編集リスクは低いが典拠の正確性維持のため）。",
+   "lens": "vs-recon"
+  },
+  {
+   "severity": "Low",
+   "section": "§4.5",
+   "claim": "受入②「全サブパネル priceScale('right').width() が一致」と③「軸に基準線由来ラベルが出ない」は現公開面では実装手段が未指定。サブパネルの chart インスタンスは IIFE 私有（_subMounted 非公開）で priceScale API に page から到達できず、LWC の軸ラベルは canvas 描画のため DOM から文字列取得不可。",
+   "evidence": "detail-charts.js:391（_subMounted はモジュール私有・DetailCharts 公開面 :1473-1479 に chart アクセサなし）／§14 は新規公開を getPriceVisibleRange 1本に限定。②は LWC の軸セル DOM 幅計測、③は sr-window-verify.js:11 同様のソース固定アサート（7本の createPriceLine 全てに axisLabelVisible:false）で代替可能だが spec に手段の記載なし",
+   "fix_suggestion": "②は「LWC が生成する右軸要素の DOM 幅計測」、③は「ソース固定アサート（7箇所 axisLabelVisible:false の出現数）＋スクショ検分」と受入手段を明記する。",
+   "lens": "vs-code"
+  },
+  {
+   "severity": "Low",
+   "section": "§4.5・§12.1",
+   "claim": "（低確度）C4 で ATR 等の最下段パネルに時間軸を動的 ON した後も canvasCount が「無条件 MATCH」で不変か未実証。LWC v4 が timeScale.visible の切替で軸 canvas 要素を DOM に追加/温存するかに依存し、追加なら層1ゲートが偽 FAIL する。detail-snapshot の既定状態は ADX/ATR 展開済のため影響圏内。",
+   "evidence": "scratchpad/detail-snapshot.js:46（querySelectorAll('#detail-view canvas').length）／detail.js:700-702（既定 ADX/ATR 展開）／recon 9ファイルに時間軸切替後の canvas 数実測の記載なし（確度：低・LWC 実測未了）",
+   "fix_suggestion": "B0 直後のハーネス実測項目（TIME_AXIS_H 実測と同じタイミング）に「時間軸 ON/OFF 前後の canvasCount」を1項追加し、変わる場合は §12.1 に C4 の意図 diff 例外を明記。",
+   "lens": "vs-code"
+  },
+  {
+   "severity": "Low",
+   "section": "§7.5・§12",
+   "claim": "「bs-callout-verify.js:14 の X() 流用」の行番号が1行ズレ。X() の定義は :13（:14 は IIFE 開始行）。",
+   "evidence": "scratchpad/bs-callout-verify.js:13 `const X = (a, b) => a.x < b.x + b.w && ...`・:14 `(async () => {`",
+   "fix_suggestion": "2箇所（§7.5・§12.2 下注記）の :14 を :13 に訂正。",
+   "lens": "vs-code"
+  },
+  {
+   "severity": "Low",
+   "section": "§9",
+   "claim": "行参照の軽微ズレ2件：「updateMaAndVolume 末尾（:536 refreshSubpanels の後）」の refreshSubpanels 呼出は実際 :534（関数末尾 :535・:536 は次関数のコメント行）。「ensureSubSync（:441-447）」は実際 :439-446。",
+   "evidence": "detail-charts.js:534 `refreshSubpanels(displayPrices, allPrices);`・:535 `}`・:536 コメント行／ensureSubSync 定義 :439-446",
+   "fix_suggestion": ":536→:534、:441-447→:439-446 に訂正（挿入位置の実体「updateMaAndVolume 末尾」は正しいため訂正のみで可）。",
+   "lens": "vs-code"
+  },
+  {
+   "severity": "Low",
+   "section": "§4.1",
+   "claim": "「監査記載の3本に RSI50/MACD0/OBV0 を加えた7本」の算数が不整合。監査 C1 の記載は RSI70/RSI30/ADX25/ATR中央の4本（4+3=7）。操作対象の7行明細（:287/:288/:289/:309/:335/:363/:372）自体は現物の subpanel 系 createPriceLine 全数と過不足なく一致しており実装影響なし。",
+   "evidence": "docs/superpowers/audits/2026-08-09-chart-callout-audit.md:153（RSI 70/30・ADX 25・ATR 中央＝4本）／detail-charts.js の createPriceLine 全9箇所中 S/R 2箇所（:247/:253）を除く7箇所が spec 明細と完全一致",
+   "fix_suggestion": "「監査記載の4本に RSI50/MACD0/OBV0 を加えた7本」に訂正（D18 の同記述も同時に）。",
+   "lens": "vs-code"
+  },
+  {
+   "severity": "Low",
+   "section": "§6.3",
+   "claim": "（設計品質・低確度）.stock-title-sub の文字色 var(--ix-border-mid)=#2a3a44 は背景 #05080f に対しコントラスト比 ≈1.6:1 で、期間情報を担う12px 本文としては可読性不足。既存の同トークン用途は区切り線等の装飾のみ。",
+   "evidence": "index.html:65 `--ix-border-mid: #2a3a44`／既存テキスト用途は .screening-sep・.c-sep 等の装飾（index.html:687/:977）／同種の説明文は --ix-text-dim=#8ba2af を使用（.acc-desc detail.css:621-628・.sig-disclaimer :900）",
+   "fix_suggestion": "副題色を var(--ix-text-dim) 基調に変更（spec は「相当」表記のため1語の差し替えで可・最終は本人実機サニティ項目10で確認）。",
+   "lens": "vs-code"
+  },
+  {
+   "severity": "Low",
+   "section": "§8.5 / §13-2",
+   "claim": "「ラベル可視 ≤2/側・ペア間 ≥1%・終値±1% にラベル無し」の Playwright 数値アサートは観測手段が未規定。greedy 選抜は detail-charts.js の closure 内・srLines も非公開のため、verify スクリプトは選抜ロジックを重複実装するしかなく（recon 計測スクリプトと同手法）、実装と検証のドリフトリスクがある。",
+   "evidence": "spec §8.2 は greedy dedup を applySRLines（detail-charts.js:245-257）内に置く設計で、§14 の rules 層移管リスト（displayName/…/srNearest/マージ）に greedy 選抜が含まれていない。srLines は IIFE 私有（detail-charts.js:241-258）で page.evaluate から読めない。",
+   "fix_suggestion": "greedy 選抜を rules 層の純関数（例 srLabelPlan(sr, close)→labeled Set）として export し、applySRLines と node テスト・Playwright 受入が同一実装を参照する形に spec を修正する（§14 の「純計算=rules」規律とも整合）。",
+   "lens": "feasibility"
+  },
+  {
+   "severity": "Low",
+   "section": "§9 / §12.1",
+   "claim": "「windowApi キー数が変わるため detail-snapshot の windowApi 期待値を同タスクで再 baseline」は偽前提。windowApi は固定17名の window 直下関数チェックであり、DetailCharts 名前空間に getPriceVisibleRange を足しても一切変化しない。文言に従うと不要作業か、window 直公開（§14 の IIFE 公開面規律違反）へ誘導される。",
+   "evidence": "scratchpad/detail-snapshot.js:7-9（WINDOW_API 固定17名）・:42 `windowApi[n] = typeof window[n] === 'function'`。典拠 recon fitcontent.md:65 の「windowApi 16→17」も現物と不一致（harness.md:18 は 15/17 と別値で recon 内でも非整合）。",
+   "fix_suggestion": "§9 と §12.1 の当該文言を「windowApi は不変（ゲッターは DetailCharts 名前空間のため非対象）」へ訂正し、#9 タスクの意図 diff は domHash/chartContainerDims 側のみとする。",
+   "lens": "feasibility"
+  },
+  {
+   "severity": "Low",
+   "section": "§4.4",
+   "claim": "C4 の rAF 世代トークンガードが「同梱推奨（recon risks）」というヘッジ表現のままで decision-complete でない。追加自体はスコープクリープではない（二重 createChart の潜在バグは現物コードで実在確認済み・C4 が書き換える同一関数 mountSubpanel 内の数行改修・recon が明示的に同梱推奨）が、00-approved-design（正）には含まれておらず、「推奨」のままだと SDD 実装者が必須/任意の判定に迷う。",
+   "evidence": "detail-charts.js:396-417 実査＝mountSubpanel の rAF create ループは entry の _subMounted チェックのみで pending ループの再入ガードなし→expand→即collapse→再expand（30フレーム内）で2本の create が並走し二重 createChart が成立。subpanels.md risks 冒頭「世代トークン…を足す小改修を同梱推奨」／00-approved-design #1 行に言及なし／spec 75行「同梱推奨（recon risks）」。",
+   "fix_suggestion": "「同梱する（C4 タスクに含める・必須）」へ確定するか、§6.2/§9 の任意項目と同じ「plan で採否確定」の明示ラベルに揃える。1-2語の修正で足りる。",
+   "lens": "deviations"
+  },
+  {
+   "severity": "Low",
+   "section": "§5/§15",
+   "claim": "決定番号の D13-D24 連番化自体は妥当（前 wave spec に D1-D12 が実在し衝突を正しく回避・spec 内の全 D 参照 12 件が §15 定義と過不足なく一致することを確認済み）だが、§2/§3表/§5 に残る「D1」「D2」は recon toolbar-terms.md 由来の監査系項目ラベルで、前 wave 決定 D1（テーマA反映方式）/D2（全ゼロFY合流）と2文書コーパス上で名前空間が衝突し、両 spec を横断参照する SDD/レビュー時に誤読の余地がある。",
+   "evidence": "前 wave spec 2026-08-20-theme-a-chart-fixes-design.md:293-304（D1-D12 定義実在）／本 spec §15「前 wave spec の D1-D12 からの連番」／本 spec 42行「D1 のスコープ外」・82行「D1＋説明二重 D2」／toolbar-terms.md:4（D1/D2 ラベルの出所は recon・監査原文には D 番号なし＝grep 0件）。",
+   "fix_suggestion": "§5 冒頭（または §15 の連番注記）に「§5 の D1/D2 は toolbar-terms recon の項目ラベルで §15 の決定番号系とは別」と一文注記する。",
+   "lens": "deviations"
+  }
+ ]
+}
