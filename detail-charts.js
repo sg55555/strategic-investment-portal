@@ -267,7 +267,7 @@
       const subBaseOpts = {
         layout: { background: { type: "solid", color: "#05080f" }, textColor: "#a8bcc6" },
         grid: { vertLines: { color: "rgba(0,229,255,0.06)" }, horzLines: { color: "rgba(0,229,255,0.06)" } },
-        rightPriceScale: { borderColor: "#2a3a44", scaleMargins: { top: 0.1, bottom: 0.1 } },
+        rightPriceScale: { borderColor: "#2a3a44", scaleMargins: { top: 0.16, bottom: 0.16 }, minimumWidth: 72 },
         crosshair: { mode: 1, vertLine: { color: "rgba(92,240,255,0.45)", labelBackgroundColor: "#0a3a4a" }, horzLine: { color: "rgba(92,240,255,0.45)", labelBackgroundColor: "#0a3a4a" } },
         handleScale: false,
         handleScroll: false,
@@ -284,9 +284,9 @@
           color: "#ffd84d", lineWidth: 1.5,
           priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: true,
         });
-        series.createPriceLine({ price: 70, color: "rgba(255,102,153,0.5)", lineWidth: 1, lineStyle: 2, title: "70" });
-        series.createPriceLine({ price: 50, color: "rgba(148,163,184,0.2)", lineWidth: 1, lineStyle: 3 });
-        series.createPriceLine({ price: 30, color: "rgba(52,245,207,0.5)",  lineWidth: 1, lineStyle: 2, title: "30" });
+        series.createPriceLine({ price: 70, color: "rgba(255,102,153,0.5)", lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: "70" });
+        series.createPriceLine({ price: 50, color: "rgba(148,163,184,0.2)", lineWidth: 1, lineStyle: 3, axisLabelVisible: false });
+        series.createPriceLine({ price: 30, color: "rgba(52,245,207,0.5)",  lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: "30" });
         chart.__setData = (display, all) => {
           if (!display?.length) return;
           const startTime = display[0].time, endTime = display[display.length - 1].time;
@@ -306,7 +306,7 @@
           color: "#3aa6ff", lineWidth: 1.5,
           priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
         });
-        hist.createPriceLine({ price: 0, color: "rgba(148,163,184,0.2)", lineWidth: 1, lineStyle: 0 });
+        hist.createPriceLine({ price: 0, color: "rgba(148,163,184,0.2)", lineWidth: 1, lineStyle: 0, axisLabelVisible: false });
         chart.__setData = (display, all) => {
           if (!display?.length) return;
           const startTime = display[0].time, endTime = display[display.length - 1].time;
@@ -332,7 +332,7 @@
           color: "rgba(255,102,153,0.85)", lineWidth: 1.4,
           priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
         });
-        adxLine.createPriceLine({ price: 25, color: "rgba(255,216,77,0.5)", lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: "25" });
+        adxLine.createPriceLine({ price: 25, color: "rgba(255,216,77,0.5)", lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: "25" });
         chart.__setData = (display, all) => {
           if (!display?.length || !calcADX) return;
           const startTime = display[0].time, endTime = display[display.length - 1].time;
@@ -360,7 +360,9 @@
           series.setData(at.map((o) => ({ time: o.time, value: o.pct })));
           const med = _subMedian(at.map((o) => o.pct));
           if (medLine) { try { series.removePriceLine(medLine); } catch (e) {} medLine = null; }
-          medLine = series.createPriceLine({ price: +med.toFixed(2), color: "rgba(168,188,198,0.4)", lineWidth: 1, lineStyle: 3, axisLabelVisible: true, title: "中央 " + med.toFixed(1) + "%" });
+          medLine = series.createPriceLine({ price: +med.toFixed(2), color: "rgba(168,188,198,0.4)", lineWidth: 1, lineStyle: 3, axisLabelVisible: false, title: "中央 " + med.toFixed(1) + "%" });
+          const badge = chart.__host?.closest(".acc-item")?.querySelector(".acc-metric");
+          if (badge) badge.textContent = "中央 " + med.toFixed(1) + "%";   // textContent＝esc 不要
         };
       }
       // OBV（累計出来高線・自動スケール／buildRSI 雛形。0基準の破線を1本＝符号の目安）
@@ -368,8 +370,9 @@
         const series = chart.addLineSeries({
           color: "#5cf0ff", lineWidth: 1.8,
           priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: true,
+          priceFormat: { type: "volume" },   // C2: 生値2桁小数(-58416942.00・軸幅92px)→ ±58.4M 形式（メイン出来高 :631 と同型）
         });
-        series.createPriceLine({ price: 0, color: "rgba(148,163,184,0.25)", lineWidth: 1, lineStyle: 3 });
+        series.createPriceLine({ price: 0, color: "rgba(148,163,184,0.25)", lineWidth: 1, lineStyle: 3, axisLabelVisible: false });
         chart.__setData = (display, all) => {
           if (!display?.length || !calcOBV) return;
           const startTime = display[0].time, endTime = display[display.length - 1].time;
@@ -405,6 +408,7 @@
           const chart = LightweightCharts.createChart(hostEl, {
             ...subBaseOpts, timeScale: { borderColor: "#2a3a44", visible: def.timeAxis }, height,
           });
+          chart.__host = hostEl;   // IIFE 私有 chart から見出し DOM へ到達する唯一の経路（C1 代替表示／C4 の DOM 順判定）
           def.build(chart);
           _subMounted[key] = { chart, host: hostEl, height };
           if (_subOrder.indexOf(key) === -1) _subOrder.push(key);
@@ -419,6 +423,8 @@
         const m = _subMounted[key];
         if (!m) return;
         try { m.chart.remove(); } catch (e) {}
+        const badge = m.host?.closest(".acc-item")?.querySelector(".acc-metric");
+        if (badge) badge.textContent = "";
         delete _subMounted[key];
         const i = _subOrder.indexOf(key);
         if (i !== -1) _subOrder.splice(i, 1);
@@ -606,7 +612,7 @@
             horzLine: { color: "rgba(92,240,255,0.5)", labelBackgroundColor: "#0a3a4a" },
           },
           timeScale: { borderColor: "#2a3a44" },
-          rightPriceScale: { borderColor: "#2a3a44" },
+          rightPriceScale: { borderColor: "#2a3a44", minimumWidth: 72 },
         });
 
         priceChart.priceScale("right").applyOptions({

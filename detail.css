@@ -617,6 +617,7 @@
       .acc-caret { font-family: var(--ix-mono); font-size: 11px; color: var(--ix-cyan-bright2, #62f0ff); width: 12px; text-align: center; flex-shrink: 0; }
       .acc-label { font-family: var(--ix-mono); font-size: 0.75rem; font-weight: bold; color: var(--ix-text-hi, #eaf6ff); letter-spacing: 0.02em; }
       .acc-sub { font-family: var(--ix-mono); font-size: 12px; color: var(--ix-text-dim); }
+      .acc-metric { font-family: var(--ix-mono); font-size: 12px; color: var(--ix-text-dim); }
       .acc-head .spacer { flex: 1 1 auto; }
       .acc-desc {
         font-size: 12px;

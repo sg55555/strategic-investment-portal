@@ -360,6 +360,7 @@
       '<span class="acc-caret">▸</span>' +
       '<span class="acc-label" data-term="' + window.esc(meta.term) + '">' + window.esc(meta.label) + '</span>' +
       '<span class="acc-sub">' + window.esc(meta.sub) + '</span>' +
+      '<span class="acc-metric"></span>' +   // C1(D25): 軸ラベル/pane title を消した動的値の代替表示（ATR 中央値のみ書込・他は空）
       '<span class="spacer"></span>' +
       '<span class="acc-desc">' + window.esc(meta.desc) + '</span>' +
       '<span class="acc-close" title="外す">✕</span>';
