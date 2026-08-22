@@ -225,6 +225,31 @@ test("radarScores: スコア配列と roe/roa（持株会社は税引前利益�
   assert.equal(h.scores[2], 100);
 });
 
+// ── isFinancialPL: 金融（銀行・保険・証券）の PL 判定（値ベース単独・D16）──
+test("isFinancialPL: 営業利益0×経常>0 の金融型だけ true", () => {
+  assert.equal(D.isFinancialPL({ operating_income: 0, ordinary_income: 1500000 }), true);   // 8306.T 型（実DB 金融12銘柄36行）
+  assert.equal(D.isFinancialPL({ operating_income: 0, ordinary_income: 0, income_before_taxes: 3086701 }), false); // 9984.T 型（経常0で自動排除）
+  assert.equal(D.isFinancialPL({ operating_income: 4795586, ordinary_income: 6000000 }), false); // 通常銘柄
+  assert.equal(D.isFinancialPL(null), false);
+});
+
+test("radarScores: 金融型は収益性を経常利益で代替評価（営業利益0の0点固定を解消）", () => {
+  const bank = { net_income: 100, net_assets: 500, current_assets: 0, non_current_assets: 1000,
+                 operating_income: 0, ordinary_income: 200, income_before_taxes: 210,
+                 net_sales: 1000, current_liabilities: 0 };
+  assert.equal(D.radarScores(bank, "8306.T").scores[2], 100);   // 経常率 20% → clampScore(20,0,12)=100（従来は 0 点）
+  // 非金融は営業利益のまま（経常で代替していないことの錠: 経常24% でなく 営業6% が使われる）
+  const normal = { net_income: 100, net_assets: 500, current_assets: 400, non_current_assets: 600,
+                   operating_income: 60, ordinary_income: 240, income_before_taxes: 240,
+                   net_sales: 1000, current_liabilities: 200 };
+  assert.equal(D.radarScores(normal, "7203.T").scores[2], 50);  // opMargin 6% → clampScore(6,0,12)=50
+  // 持株会社は従来どおり税引前利益（HOLDING 特例が先・非衝突）
+  const holding = { net_income: 100, net_assets: 500, current_assets: 400, non_current_assets: 600,
+                    operating_income: 0, ordinary_income: 0, income_before_taxes: 240,
+                    net_sales: 1000, current_liabilities: 200 };
+  assert.equal(D.radarScores(holding, "9984.T").scores[2], 100);
+});
+
 // ── volumeColorData: 出来高バーの色（陽線/陰線）──
 test("volumeColorData: close>=open は赤系 / < は青系", () => {
   const out = D.volumeColorData([

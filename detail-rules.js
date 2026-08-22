@@ -494,6 +494,14 @@
     return `<span class="kpi-yoy ${cls}">${sign}${Math.abs(pct).toFixed(1)}%</span>`;
   }
 
+  // 金融（銀行・保険・証券）の PL 構造判定（値ベース単独・D16）。営業利益の科目を持たず経常利益が本業成績。
+  //  実DB照会で金融12銘柄36行（銀行5/保険3/証券2/US2）と過不足なく外延一致・非金融の該当0行。
+  //  9984.T（経常0×税引前≠0）は ordinary>0 条件で自動排除＝HOLDING_COMPANIES 特例と非衝突。
+  function isFinancialPL(fin) {
+    if (!fin) return false;
+    return FR.n(fin.operating_income) === 0 && FR.n(fin.ordinary_income) > 0;
+  }
+
   // PL の段（core は常出・その他は hasValue ゲート）。index.html 4299-4306。
   function plSteps(fin) {
     const sales = fin.net_sales || 0;
@@ -580,7 +588,8 @@
     const roa = FR.roa(fin);
     const equityRatio = FR.equityRatio(fin);
     const currentRatio = FR.currentRatio(fin);
-    const targetOp = HOLDING_COMPANIES.has(ticker) ? fin.income_before_taxes : fin.operating_income;
+    const targetOp = HOLDING_COMPANIES.has(ticker) ? fin.income_before_taxes
+      : (isFinancialPL(fin) ? fin.ordinary_income : fin.operating_income);   // 金融は経常で収益性を評価（spec §7.1）
     const opMargin = FR.ratio(targetOp, fin.net_sales);
     const score = (val, min, max) => FR.clampScore(val, min, max);
     return {
@@ -987,7 +996,7 @@
     signalDigest, healthTrendSeries, dupontFactorSeries, fcfTrendSeries,
     // 財務ディスクリプタ純関数
     priceWindow, periodLabel, marketBasisFor, perStatus, pbrStatus,
-    equityRatioDesc, currentRatioDesc, yoyBadge, plSteps, cfFlowStatus, cfCompanyType, cfWaterfall, radarScores,
+    equityRatioDesc, currentRatioDesc, yoyBadge, isFinancialPL, plSteps, cfFlowStatus, cfCompanyType, cfWaterfall, radarScores,
     sparklineSVG, dupontDescriptor, fcfQualityDescriptor,
     // 色/特例定数
     FIN_COLORS, CF_BADGE_PAIR, COMPARE_COLORS, HOLDING_COMPANIES,
