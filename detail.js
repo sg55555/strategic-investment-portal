@@ -20,6 +20,7 @@
   // ── 詳細ビューの内部状態（index.html から private 化・bare-global 解消）──
   //  currentTicker は portal/watchlist が読むため index.html global 維持（双方 free-var 参照）。
   let selectedYear = 2025;
+  let selectedPeriod = "FY";      // W2: Task 6 で LS 復元と UI を足す
   // T3: navigateToDetail の多重起動ガード（await getStock 中の再クリックを no-op 化）。
   let navBusy = false;
 
@@ -665,6 +666,42 @@
     updateFinancialViews();
   }
 
+  // W2: 価格系の描画をまとめた単一の入口。updateFinancialViews（財務も含む全体再描画）と
+  //  期間バー（価格だけの再描画）の両方がここを通る。
+  //  ⚠ 空窓でも描画を止めない。現行は価格が空でも #stock-title 書換・setCandleData([])・
+  //     renderSignalDigest([], …) まで無条件に走る。ここに early-return を足すと、価格ゼロの銘柄へ
+  //     遷移したときに**前銘柄のタイトル・ローソク・解析カードが残る**（api/market/list.py:165 が
+  //     全銘柄に prices: [] を入れ、navigateToDetail は getStock の失敗を握って続行する＝到達する）。
+  function applyPriceWindow() {
+    const data = STOCK_DATA[currentTicker];
+    if (!data) return;
+    const isUS = data.country === "US";
+    const prices = data.prices || [];
+    const win = selectedPeriod === "FY"
+      ? DetailRules.priceWindow(prices, selectedYear, isUS)
+      : DetailRules.rollingWindow(prices, selectedPeriod);
+    const dp = win.displayPrices;
+
+    // 見出し（FY は既存関数のまま＝文言不変。ローリングは新関数）
+    const titleParts = selectedPeriod === "FY"
+      ? DetailRules.periodLabelParts(
+          data.company_name, currentTicker, selectedYear, isUS, win.filteredPrices.length > 0, data.type === "etf")
+      : DetailRules.rollingLabelParts(data.company_name, currentTicker, win, data.type === "etf");
+    document.getElementById("stock-title").innerHTML =
+      `${esc(titleParts.main)}${titleParts.period ? `<span class="stock-title-sub">${esc(titleParts.period)}</span>` : ""}`;
+
+    DetailCharts.setCandleData(dp);
+    DetailCharts.updateMaAndVolume(dp, prices);
+
+    // Feature#2: テクニカル現在地サマリ。価格のみで成立するので isEtf/!fin early-return より前で無条件に描画。
+    //  カード自身の「?」注入は renderSignalDigest 内の injectTermHelp(card) が行う（冪等）。
+    renderSignalDigest(dp, prices);
+
+    //  ミニ解説カードは renderSignalDigest と同型（価格のみで成立・isEtf/!fin early-return より前で無条件描画・
+    //  switchYear 等の再呼び出しでも冪等）で毎回再描画する。
+    renderDisciplineCard(dp, prices);
+  }
+
   function updateFinancialViews() {
     const data = STOCK_DATA[currentTicker];
     if (!data) return;
@@ -687,18 +724,8 @@
     `;
     document.getElementById("selected-year-display").innerText = selectedYear + " FY";
 
-    // 米国株は暦年、日本株は4月〜翌3月の決算期でフィルタ（priceWindow で単一ソース化）
-    const isUS = data.country === "US";
-    const { filteredPrices, displayPrices } = DetailRules.priceWindow(data.prices, selectedYear, isUS);
-    // spec §6.3 G3: 期間注記を副題行へ分離（parts 消費）。第6引数 isEtf は `data.type === "etf"` を式直書き
-    //  （isEtf 定数は :759 で後方定義＝ここでは未宣言）。
-    // ⚠ innerText→innerHTML 化で自動エスケープを失うため esc() 必須（company_name は DB 由来）。
-    const titleParts = DetailRules.periodLabelParts(
-      data.company_name, currentTicker, selectedYear, isUS, filteredPrices.length > 0, data.type === "etf");
-    document.getElementById("stock-title").innerHTML =
-      `${esc(titleParts.main)}${titleParts.period ? `<span class="stock-title-sub">${esc(titleParts.period)}</span>` : ""}`;
-    DetailCharts.setCandleData(displayPrices);
-    DetailCharts.updateMaAndVolume(displayPrices, data.prices);
+    const isUS = data.country === "US";     // 後段（marketBasisFor 等）が使うので残す
+    applyPriceWindow();
 
     // ★FHD 初回ペイント黒面バグの正式修正（diag=redraw で全カード黒→正常を実証）：
     //  価格チャート描画直後・かつ ETF/財務欠損の early-return より前で強制再描画をスケジュールする。
@@ -714,18 +741,11 @@
     //  冪等ガード（injectTermHelp 内）があるため switchYear 等での再呼び出しも安全。
     injectTermHelp(document.getElementById("detail-view"));
 
-    // Feature#2: テクニカル現在地サマリ。価格のみで成立するので isEtf/!fin early-return より前で無条件に描画。
-    //  カード自身の「?」注入は renderSignalDigest 内の injectTermHelp(card) が行う（冪等）。
-    renderSignalDigest(displayPrices, data.prices);
-
     // 束C③規律テクニカル（ADX/ATR）: サブパネル選択UI（アコーディオン）は初回のみ構築（冪等・chip/accordion
     //  DOM は銘柄をまたいで再利用＝navigate/switchYear のたびに再構築しない）。既定 ADX/ATR 展開は
     //  initSubpanelUI 内で1度だけ行われ、以後の銘柄/年切替はチャート側 refreshSubpanels（updateMaAndVolume
     //  経由・上記で呼び出し済）が mount 済みパネルへ setData するだけで追従する。
-    //  ミニ解説カードは renderSignalDigest と同型（価格のみで成立・isEtf/!fin early-return より前で無条件描画・
-    //  switchYear 等の再呼び出しでも冪等）で毎回再描画する。
     initSubpanelUI();
-    renderDisciplineCard(displayPrices, data.prices);
 
     // Feature: 相対で見る目 束B ①相対ポジションカード。renderSignalDigest と同型で isEtf/!fin の
     //  early-return より前に無条件で呼び、関数内の fail-safe（!disc/ETF/データ欠損で自己非表示）に
