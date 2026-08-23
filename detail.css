@@ -1044,3 +1044,14 @@
 
       /* spec §11.2 (P8): BS モバイル低棒サマリ（.sig-disclaimer/.fin-pending-note と同規約・12px床） */
       .bs-mobile-note { font-size: 12px; color: var(--ix-text-dim); line-height: 1.5; margin: 6px 2px 0; }
+
+      /* spec §6.3 G3/D27: タイトルの期間注記を副題行へ分離（wide でも block＝narrow 個別 media 分岐は不要）。
+         色は 12px 本文として AA 寄りの --ix-text-dim（--ix-border-mid は背景比 ≈1.6:1 で本文には不足）。 */
+      .stock-title-sub {
+        display: block;
+        font-size: 12px;
+        color: var(--ix-text-dim);
+        letter-spacing: 1px;
+        margin-top: 2px;
+        text-transform: none;
+      }

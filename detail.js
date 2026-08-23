@@ -664,7 +664,7 @@
 
     const headerEl = document.getElementById("active-company-header");
     headerEl.innerHTML = `
-      <span class="company-title-main">${esc(data.company_name)} <span style="color:#475569;font-size:12px;">(${currentTicker})</span></span>
+      <span class="company-title-main">${esc(data.company_name)}${data.company_name.includes(`(${currentTicker})`) ? "" : ` <span style="color:#475569;font-size:12px;">(${currentTicker})</span>`}</span>
       <span class="sector-badge">${esc(data.industry)}</span>${currBadgeHtml}
       <button class="detail-star-btn${isWatched(currentTicker) ? " watched" : ""}" id="detail-star-btn"
         onclick="toggleWatchlist('${currentTicker}')">${isWatched(currentTicker) ? ICO.starFill + " ウォッチ中" : ICO.starOutline + " ウォッチ"}</button>
@@ -675,8 +675,13 @@
     // 米国株は暦年、日本株は4月〜翌3月の決算期でフィルタ（priceWindow で単一ソース化）
     const isUS = data.country === "US";
     const { filteredPrices, displayPrices } = DetailRules.priceWindow(data.prices, selectedYear, isUS);
-    document.getElementById("stock-title").innerText =
-      DetailRules.periodLabel(data.company_name, currentTicker, selectedYear, isUS, filteredPrices.length > 0);
+    // spec §6.3 G3: 期間注記を副題行へ分離（parts 消費）。第6引数 isEtf は `data.type === "etf"` を式直書き
+    //  （isEtf 定数は :759 で後方定義＝ここでは未宣言）。
+    // ⚠ innerText→innerHTML 化で自動エスケープを失うため esc() 必須（company_name は DB 由来）。
+    const titleParts = DetailRules.periodLabelParts(
+      data.company_name, currentTicker, selectedYear, isUS, filteredPrices.length > 0, data.type === "etf");
+    document.getElementById("stock-title").innerHTML =
+      `${esc(titleParts.main)}${titleParts.period ? `<span class="stock-title-sub">${esc(titleParts.period)}</span>` : ""}`;
     DetailCharts.setCandleData(displayPrices);
     DetailCharts.updateMaAndVolume(displayPrices, data.prices);
 
