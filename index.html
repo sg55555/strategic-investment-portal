@@ -1071,6 +1071,14 @@
         .w15-tile { min-height: 66px; padding: 8px; }
         .w15-t-val { font-size: 16px; }
       }
+      .w15-ctls { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin-bottom: 11px; }
+      .w15-ctls > span { font-size: 11px; color: var(--ix-slate); letter-spacing: 0.06em; margin-right: 2px; }
+      .w15-ctls > span + span { margin-left: 8px; }
+      .w15-ctl { font-size: 12px; min-height: 32px; padding: 5px 11px; border-radius: 999px; cursor: pointer;
+                 background: transparent; border: 1px solid var(--ix-border-mid);
+                 color: var(--ix-text-dim); font-family: inherit; }
+      .w15-ctl.on { background: rgba(0, 229, 255, 0.14); border-color: rgba(0, 229, 255, 0.5);
+                    color: var(--ix-text-hi); }
 
       /* ── W1 発掘ストリップ ── */
       #portal-strip { margin: 0 0 18px; }
@@ -2506,6 +2514,7 @@
       let heatMetricKey = localStorage.getItem("sip_heat_metric") || "c1";
       let heatWeighted = localStorage.getItem("sip_heat_weight") === "cap";
       let heatOpenSector = null;                // 展開中の大分類（保存しない＝毎回閉じた状態で始まる）
+      let heatOpenMarket = null;                // 展開中の市場（"JP"/"US"）。大分類名は市場間で重複するため対で持つ（Ruling 5）
 
       function _heatMix(a, b, t) {
         return "rgb(" + Math.round(a[0] + (b[0] - a[0]) * t) + "," +
@@ -2526,21 +2535,25 @@
         if (v === null || v === undefined || !isFinite(v)) return "--";
         return m.signed ? PortalPriceRules.fmtSigned(v, m.digits, m.unit) : v.toFixed(m.digits);
       }
-      function _heatTile(a) {
+      function _heatTile(a, market) {
         const pct = (a.up + a.down) ? Math.round((a.up / (a.up + a.down)) * 100) : 0;
-        return `<button type="button" class="w15-tile${heatOpenSector === a.key ? " open" : ""}"
-            data-sec="${esc(a.key)}" style="background:${_heatFill(a.v)};color:${_heatInk(a.v)}"
-            title="${esc(a.key)} ${a.n}社 ${_heatFmt(a.v)}">
+        const isOpen = heatOpenSector === a.key && heatOpenMarket === market;
+        // (B) 表示している値の母数＝withPx（全件数の a.n ではない）。一部の銘柄で値が出ない指標
+        // （52週位置など）に切り替えたとき「N社」と表示している平均が食い違わないようにする。
+        const note = a.withPx < a.n ? `（${a.n}社中${a.withPx}社で算出）` : "";
+        return `<button type="button" class="w15-tile${isOpen ? " open" : ""}"
+            data-sec="${esc(a.key)}" data-market="${esc(market)}" style="background:${_heatFill(a.v)};color:${_heatInk(a.v)}"
+            title="${esc(a.key)} ${a.withPx}社 ${_heatFmt(a.v)}${note}">
             <span class="w15-t-name">${esc(a.key)}</span>
             <span class="w15-t-val">${_heatFmt(a.v)}</span>
-            <span class="w15-t-sub">${a.n}社　<i class="w15-bar"><i style="width:${pct}%"></i></i></span>
+            <span class="w15-t-sub">${a.withPx}社　<i class="w15-bar"><i style="width:${pct}%"></i></i></span>
           </button>`;
       }
-      function _heatColumn(title, asofDate, items) {
+      function _heatColumn(title, asofDate, items, market) {
         const aggs = PortalPriceRules.groupBySector(items, heatMetricKey, heatWeighted);
         const asof = asofDate ? `<span>${esc(asofDate.slice(5).replace("-", "/"))} 終値</span>` : "";
         const body = aggs.length
-          ? `<div class="w15-grid">${aggs.map(_heatTile).join("")}</div>`
+          ? `<div class="w15-grid">${aggs.map((a) => _heatTile(a, market)).join("")}</div>`
           : `<div class="w15-empty">該当する銘柄がありません</div>`;
         return `<div class="w15-col"><h4>${esc(title)}　${asof}</h4>${body}</div>`;
       }
@@ -2558,6 +2571,14 @@
           <span>${m.signed ? "上昇" : "高値圏"}</span>
           <span class="w15-note">${esc(m.note)}　/　タイル下の細いバーは「その大分類のうち上昇した銘柄の割合」</span></div>`;
       }
+      function _heatControls() {
+        const metrics = PortalPriceRules.HEAT_METRICS.map((m) =>
+          `<button type="button" class="w15-ctl${m.key === heatMetricKey ? " on" : ""}"
+             data-metric="${esc(m.key)}">${esc(m.label)}</button>`).join("");
+        const weights = [{ k: "eq", label: "単純", on: !heatWeighted }, { k: "cap", label: "時価総額", on: heatWeighted }]
+          .map((w) => `<button type="button" class="w15-ctl${w.on ? " on" : ""}" data-weight="${w.k}">${esc(w.label)}</button>`).join("");
+        return `<div class="w15-ctls"><span>指標</span>${metrics}<span>平均</span>${weights}</div>`;
+      }
 
       // 日本株はティッカーが数字で識別できないので社名を短縮（米国株はティッカーが通り名）。
       function _heatStockLabel(it) {
@@ -2566,8 +2587,13 @@
         return n.slice(0, 4) || String(it.ticker).replace(".T", "");
       }
       function _heatExpansion(items) {
-        if (!heatOpenSector) return "";
-        const mine = items.filter((it) => PortalPriceRules.sectorOf(it.industry, !!it.isEtf) === heatOpenSector);
+        if (!heatOpenSector || !heatOpenMarket) return "";
+        // (A) 展開は「押した市場カラム」にスコープする。市場を跨いで合算すると、案C を選んだ理由
+        // （市場ごとに割れているのが見えること）が展開した瞬間に消えてしまう（Ruling 5）。
+        const marketLabel = heatOpenMarket === "JP" ? "日本株" : "米国株";
+        const mine = items.filter((it) =>
+          PortalPriceRules.marketOf(it.ticker, it) === heatOpenMarket &&
+          PortalPriceRules.sectorOf(it.industry, !!it.isEtf) === heatOpenSector);
         if (!mine.length) return "";
         const byInd = {};
         mine.forEach((it) => { (byInd[it.industry] = byInd[it.industry] || []).push(it); });
@@ -2594,7 +2620,7 @@
           }).join("");
         const a = PortalPriceRules.heatAggregate(mine, heatMetricKey, heatWeighted);
         return `<div class="w15-exp">
-            <div class="w15-exp-h">${esc(heatOpenSector)}　<b>${_heatFmt(a.v)}</b>　${mine.length}社
+            <div class="w15-exp-h">${esc(marketLabel)} ・ ${esc(heatOpenSector)}　<b>${_heatFmt(a.v)}</b>　${mine.length}社
               <button type="button" class="w15-close">閉じる ✕</button></div>
             ${blocks}</div>`;
       }
@@ -2614,9 +2640,10 @@
         host.innerHTML = `
           <div class="w15-head">市場の温度感　<b>${esc(m.label)}</b>　/　${items.length}銘柄を大分類でまとめています（クリックで中の銘柄を展開）</div>
           <div class="w15-panel">
+            ${_heatControls()}
             <div class="w15-cols">
-              ${_heatColumn("日本株", asof.JP, items.filter((it) => PortalPriceRules.marketOf(it.ticker, it) === "JP"))}
-              ${_heatColumn("米国株", asof.US, items.filter((it) => PortalPriceRules.marketOf(it.ticker, it) === "US"))}
+              ${_heatColumn("日本株", asof.JP, items.filter((it) => PortalPriceRules.marketOf(it.ticker, it) === "JP"), "JP")}
+              ${_heatColumn("米国株", asof.US, items.filter((it) => PortalPriceRules.marketOf(it.ticker, it) === "US"), "US")}
             </div>
             ${_heatLegend()}
             ${_heatExpansion(items)}
@@ -2682,15 +2709,30 @@
         if (!host || host.dataset.wired === "1") return;
         host.dataset.wired = "1";
         host.addEventListener("click", (e) => {
+          const ctl = e.target.closest(".w15-ctl");
+          if (ctl) {
+            if (ctl.dataset.metric) {
+              heatMetricKey = ctl.dataset.metric;
+              localStorage.setItem("sip_heat_metric", heatMetricKey);
+            } else if (ctl.dataset.weight) {
+              heatWeighted = ctl.dataset.weight === "cap";
+              localStorage.setItem("sip_heat_weight", ctl.dataset.weight);
+            }
+            renderPortalHeatmap(lastPortalList);
+            return;
+          }
           const close = e.target.closest(".w15-close");
-          if (close) { heatOpenSector = null; renderPortalHeatmap(lastPortalList); return; }
+          if (close) { heatOpenSector = null; heatOpenMarket = null; renderPortalHeatmap(lastPortalList); return; }
           const stock = e.target.closest(".w15-stock");
           if (stock && stock.dataset.ticker) { navigateToDetail(stock.dataset.ticker, stock); return; }
           const ind = e.target.closest(".w15-ind-h");
           if (ind && ind.dataset.ind) { setSectorFilter(ind.dataset.ind); return; }
           const tile = e.target.closest(".w15-tile");
           if (tile && tile.dataset.sec) {
-            heatOpenSector = (heatOpenSector === tile.dataset.sec) ? null : tile.dataset.sec;
+            // (A) 同じ大分類名でも市場が違えば別物として扱う＝市場と大分類の両方が一致したときだけ閉じる。
+            const sameOpen = heatOpenSector === tile.dataset.sec && heatOpenMarket === tile.dataset.market;
+            heatOpenSector = sameOpen ? null : tile.dataset.sec;
+            heatOpenMarket = sameOpen ? null : tile.dataset.market;
             renderPortalHeatmap(lastPortalList);   // 母集合は変わらない＝表（窓化・スクロール位置）は触らない
           }
         });
