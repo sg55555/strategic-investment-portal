@@ -1046,6 +1046,38 @@
       .pstrip-empty { font-size: 12px; color: var(--ix-slate); padding: 10px 2px; }
       @media (max-width: 760px) { .pstrip-card { flex-basis: 142px; } }
 
+      /* ── W1 値動きモード ── */
+      .pmode-bar { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; flex-wrap: wrap; }
+      .pmode-seg { display: inline-flex; border: 1px solid var(--ix-border-mid); border-radius: 999px; overflow: hidden; }
+      .pmode-seg button { font-size: 12px; padding: 7px 14px; min-height: 32px; background: transparent;
+                          color: var(--ix-text-dim); border: 0; cursor: pointer; font-family: inherit; }
+      .pmode-seg button.active { background: rgba(0, 229, 255, 0.12); color: var(--ix-text-hi); }
+      .pmode-hint { font-size: 12px; color: var(--ix-text-dim); }
+      /* ⚠ .portal-table を付けない：既存の nth-child 列非表示（1024/768/480/375px）が別の列を消すため */
+      table.portal-px-table { width: 100%; border-collapse: collapse; background: var(--ix-surface-panel);
+                              border: 1px solid var(--ix-border-strong); border-radius: 2px; overflow: hidden; }
+      table.portal-px-table th { position: sticky; top: 0; z-index: 2; background: var(--ix-surface-panel);
+                                 font-size: 12px; color: var(--ix-text-dim); text-align: left; padding: 9px 8px;
+                                 border-bottom: 1px solid var(--ix-border-strong); cursor: pointer; white-space: nowrap; }
+      table.portal-px-table th.active-sort { color: var(--ix-cyan); }
+      /* .sort-icon 自体は global だが、点灯色は .portal-table th.active-sort .sort-icon に scope されている */
+      table.portal-px-table th.active-sort .sort-icon { color: var(--ix-cyan); opacity: 1; }
+      table.portal-px-table td { padding: 8px; border-bottom: 1px solid rgba(20, 32, 43, 0.7);
+                                 font-size: 13px; white-space: nowrap; }
+      table.portal-px-table tbody tr:nth-child(even) { background: rgba(255, 255, 255, 0.012); }
+      table.portal-px-table tbody tr:hover td { background: rgba(0, 229, 255, 0.04); cursor: pointer; }
+      .pnum { font-family: var(--ix-mono); font-weight: 600; }
+      .prangebar { position: relative; width: 84px; height: 6px; border-radius: 3px; background: #16222c; }
+      .prangebar i { position: absolute; top: -3px; width: 2px; height: 12px; background: var(--ix-cyan); border-radius: 1px; }
+      .p52 { font-size: 12px; color: var(--ix-text-dim); font-family: var(--ix-mono); }
+      .pstale { font-size: 12px; font-family: var(--ix-mono); color: #ffca3a; border: 1px solid rgba(255, 202, 58, 0.35);
+                border-radius: 4px; padding: 0 4px; margin-left: 6px; }
+      tr.is-stale td { opacity: 0.62; }
+      @media (max-width: 760px) {
+        table.portal-px-table th, table.portal-px-table td { padding: 8px 5px; }
+        table.portal-px-table td .company-clickable { display: block; max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
+      }
+
     </style>
     <link rel="stylesheet" href="detail.css">
     <link rel="stylesheet" href="money.css">
@@ -1208,6 +1240,7 @@
         </div>
 
         <div id="portal-strip"></div>
+        <div id="portal-modebar"></div>
         <div id="portal-container"></div>
       </div>
 
@@ -2066,6 +2099,13 @@
             netMargin: netMargin,
             salesYoY: growth.net_sales.yoy, salesCagr: growth.net_sales.cagr,
             niYoY: growth.net_income.yoy, niCagr: growth.net_income.cagr,
+            // W1: 価格集計（値動きモードの列とソートが読む。px 無し銘柄は全て null）
+            px: company.px || null,
+            last: company.px ? company.px.last : null,
+            c1: company.px ? company.px.c1 : null,
+            c5: company.px ? company.px.c5 : null,
+            vr: company.px ? company.px.vr : null,
+            pos52: company.px ? company.px.pos52 : null,
           };
           if (!ScreenerRules.passesScreening(item, screeningCriteria)) continue;
           if (!ScreenerRules.passesMarket(item, screeningMarkets)) continue;
@@ -2079,7 +2119,9 @@
           countEl.innerText = hasFilter ? `${list.length} 銘柄がヒット` : "";
         }
 
-        const NULL_LAST_KEYS = { eqRatio:1, opMargin:1, roe:1, curRatio:1, netMargin:1, salesCagr:1, niCagr:1 };
+        const NULL_LAST_KEYS = Object.assign(
+          { eqRatio: 1, opMargin: 1, roe: 1, curRatio: 1, netMargin: 1, salesCagr: 1, niCagr: 1 },
+          PortalPriceRules.PRICE_KEYS);   // W1: px 無し銘柄が昇順で先頭に来ないようにする
         list.sort((a, b) => {
           let valA = a[sortKey], valB = b[sortKey];
           if (NULL_LAST_KEYS[sortKey]) {
@@ -2093,14 +2135,21 @@
           return sortAsc ? valA - valB : valB - valA;
         });
 
-        // Plan 2: sectorOrder を明示構築（integer-like key の並び替え罠回避・挿入順=ソート内初出順で視覚順と一致）。
-        const groups = {}, sectorOrder = [];
-        list.forEach((item) => {
-          if (!groups[item.industry]) { groups[item.industry] = []; sectorOrder.push(item.industry); }
-          groups[item.industry].push(item);
-        });
+        renderPortalModeBar();
+        const singleTable = (portalTableMode === "px");
 
-        if (sectorOrder.length === 0) {
+        // Plan 2: sectorOrder を明示構築（integer-like key の並び替え罠回避・挿入順=ソート内初出順で視覚順と一致）。
+        // W1: 値動きモードは業種で束ねない（横断ソートが目的なので1枚表にする）。
+        const groups = {}, sectorOrder = [];
+        if (!singleTable) {
+          list.forEach((item) => {
+            if (!groups[item.industry]) { groups[item.industry] = []; sectorOrder.push(item.industry); }
+            groups[item.industry].push(item);
+          });
+        }
+
+        // W1: 値動きモードでは sectorOrder を作らないため 0件判定は list.length で見る（財務モードでは同値）。
+        if (list.length === 0) {
           renderPortalStrip(list);            // 0件でも見出し＋「該当なし」を出す
           const marketOn = screeningMarkets.length > 0;
           const sectorOn = (activeSectorFilter !== "all" && activeSectorFilter !== "stock_only");
@@ -2113,12 +2162,17 @@
         // Plan 2: セクター束ね順にフラット化 → 先頭チャンク描画 → sentinel + IntersectionObserver で増分。
         //  視覚順（セクタークラスタ順・各セクター内ソート順）は sectorOrder→groups の連結で完全一致。
         const flat = [], sectorLen = {};
-        sectorOrder.forEach((ind) => {
-          sectorLen[ind] = groups[ind].length;   // N社バッジは窓外込みの全数
-          groups[ind].forEach((it) => flat.push(it));
-        });
+        if (singleTable) {
+          list.forEach((it) => flat.push(it));
+        } else {
+          sectorOrder.forEach((ind) => {
+            sectorLen[ind] = groups[ind].length;   // N社バッジは窓外込みの全数
+            groups[ind].forEach((it) => flat.push(it));
+          });
+        }
         const sentinel = flat.length > PORTAL_CHUNK ? _makePortalSentinel() : null;
-        portalWin = { flat, sectorLen, rendered: 0, curIndustry: null, curTbody: null, sentinel, observer: null, container };
+        portalWin = { flat, sectorLen, rendered: 0, curIndustry: null, curTbody: null,
+                      sentinel, observer: null, container, single: singleTable };
         if (sentinel) container.appendChild(sentinel);   // insertBefore の参照ノードとして先に末尾へ
         _renderPortalChunk();                            // 先頭チャンク
         if (sentinel) {
@@ -2265,6 +2319,74 @@
         return tr;
       }
 
+      // W1: 値動きモードの1枚表（業種見出し無し・列ヘッダで横断ソート）。
+      function _makePortalPriceSection() {
+        const wrap = document.createElement("div");
+        wrap.className = "sector-section";
+        const scrollWrap = document.createElement("div");
+        scrollWrap.style.cssText = "overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; background-color: #0a0f17; border-radius: 10px;";
+        const table = document.createElement("table");
+        table.className = "portal-px-table";
+        const cols = PortalPriceRules.priceColumns(_portalIsNarrow());
+        table.innerHTML = "<thead><tr>" + cols.map((c) => {
+          const on = sortKey === c.key;
+          const icon = c.sortable ? `<span class="sort-icon">${on ? (sortAsc ? "▲" : "▼") : "↕"}</span>` : "";
+          return `<th style="width:${c.width}" class="${on ? "active-sort" : ""}"${c.sortable ? ` data-sort="${c.key}"` : ""}>${esc(c.label)}${icon}</th>`;
+        }).join("") + "</tr></thead><tbody></tbody>";
+        table.querySelector("thead").addEventListener("click", (e) => {
+          const th = e.target.closest("th[data-sort]");
+          if (th) setSort(th.dataset.sort);
+        });
+        table.querySelector("tbody").addEventListener("click", (e) => {
+          const tr = e.target.closest("tr[data-ticker]");
+          if (tr) navigateToDetail(tr.dataset.ticker, tr);
+        });
+        scrollWrap.appendChild(table);
+        wrap.appendChild(scrollWrap);
+        return { sectionEl: wrap, tbody: table.querySelector("tbody") };
+      }
+
+      function _makePortalPriceRow(item) {
+        const R = PortalPriceRules;
+        const px = item.px;
+        const tr = document.createElement("tr");
+        tr.dataset.ticker = item.ticker;               // 委譲リスナーが読む（inline onclick を作らない）
+        const narrow = _portalIsNarrow();
+        const cols = R.priceColumns(narrow);
+        if (!px) {
+          tr.innerHTML = `<td colspan="${cols.length}" style="color:var(--ix-slate)">${esc(item.name)}（価格データなし）</td>`;
+          return tr;
+        }
+        const market = R.marketOf(item.ticker, item);
+        const asof = (typeof DATA_MARKET_ASOF !== "undefined" && DATA_MARKET_ASOF) || {};
+        const stale = R.isStale(px, asof, market);
+        if (stale) tr.className = "is-stale";
+        const tone = px.c1 > 0 ? "#00e676" : (px.c1 < 0 ? "#ff5c7a" : "var(--ix-slate)");
+        const price = px.last == null ? "--"
+          : (item.currency === "USD" ? "$" : "¥") + (px.last >= 1000 ? Math.round(px.last).toLocaleString() : px.last.toFixed(2));
+        const staleBadge = stale ? `<span class="pstale">${esc(String(px.date).slice(5).replace("-", "/"))}</span>` : "";
+        const g = R.sparkGeometry(px.spark, narrow ? 52 : 84, narrow ? 22 : 24);
+        const svg = g ? `<svg width="${narrow ? 52 : 84}" height="${narrow ? 22 : 24}" viewBox="0 0 ${narrow ? 52 : 84} ${narrow ? 22 : 24}" aria-hidden="true">
+            <polyline points="${g.points}" fill="none" stroke="${tone}" stroke-width="1.4"
+              stroke-linejoin="round" stroke-linecap="round"></polyline></svg>` : "";
+        const pos = R.clampPos(px.pos52);
+        const cell = {
+          ticker: `<td><span class="ticker-code">${esc(item.ticker)}</span></td>`,
+          name: narrow
+            ? `<td><div class="company-clickable" style="font-size:13px">${esc(item.name)}</div><span class="ticker-code" style="font-size:12px">${esc(item.ticker)}</span>${staleBadge}</td>`
+            : `<td><span class="company-clickable" title="${esc(item.name)}">${esc(item.name)}</span>${currencyBadge(item.currency)}${staleBadge}</td>`,
+          last: `<td class="pnum" style="color:var(--ix-text)">${price}</td>`,
+          c1: `<td class="pnum" style="color:${tone}">${R.fmtSigned(px.c1, 2, "%")}</td>`,
+          c5: `<td class="pnum" style="color:${px.c5 > 0 ? "#00e676" : (px.c5 < 0 ? "#ff5c7a" : "var(--ix-slate)")}">${R.fmtSigned(px.c5, 1, "%")}</td>`,
+          vr: `<td class="pnum" style="color:${px.vr >= 1.5 ? "#ffca3a" : "var(--ix-text-dim)"}">${R.fmtVolRatio(px.vr)}</td>`,
+          pos52: `<td>${pos == null ? '<span class="p52">--</span>'
+            : `<div class="prangebar"><i style="left:${pos}%"></i></div><div class="p52">${R.fmtDistHigh(px.dh)}</div>`}</td>`,
+          spark: `<td>${svg}</td>`,
+        };
+        tr.innerHTML = cols.map((c) => cell[c.key]).join("");
+        return tr;
+      }
+
       // ── W1 発掘ストリップ（表の上・4タブ・上位12件）──
       const PSTRIP_N = 12;
       let pstripTab = localStorage.getItem("sip_pstrip_tab") || "gain";
@@ -2353,6 +2475,56 @@
         });
       }
 
+      // ── W1 値動きモード ──
+      const PORTAL_NARROW_MAX = 760;                 // この幅以下は列セットを絞る（4列）
+      let portalTableMode = localStorage.getItem("sip_portal_table_mode") === "px" ? "px" : "fin";
+      function _portalIsNarrow() { return window.innerWidth <= PORTAL_NARROW_MAX; }
+
+      function setPortalTableMode(mode) {
+        portalTableMode = (mode === "px") ? "px" : "fin";
+        localStorage.setItem("sip_portal_table_mode", portalTableMode);
+        // モードとソートキーの整合：値動きは前日比の降順で開き、財務へ戻す時はコード順へ戻す。
+        if (portalTableMode === "px" && !PortalPriceRules.PRICE_KEYS[sortKey]) { setSort("c1"); return; }
+        if (portalTableMode === "fin" && PortalPriceRules.PRICE_KEYS[sortKey]) { setSort("ticker"); return; }
+        filterAndRenderPortal();
+      }
+
+      function renderPortalModeBar() {
+        const host = document.getElementById("portal-modebar");
+        if (!host) return;
+        if (dataLoadState !== "ready" || (typeof DATA_PX_ERROR !== "undefined" && DATA_PX_ERROR)) { host.innerHTML = ""; return; }
+        const px = portalTableMode === "px";
+        host.innerHTML = `
+          <div class="pmode-bar">
+            <div class="pmode-seg">
+              <button type="button" data-mode="fin" class="${px ? "" : "active"}">財務</button>
+              <button type="button" data-mode="px" class="${px ? "active" : ""}">値動き</button>
+            </div>
+            <span class="pmode-hint">${px
+              ? "値動きモード：業種セクションを畳んで1枚表にし、列ヘッダで全銘柄を横断して並べ替えます。"
+              : "財務モード：業種セクションごとの財務指標一覧です。"}</span>
+          </div>`;
+        if (host.dataset.wired !== "1") {
+          host.dataset.wired = "1";
+          host.addEventListener("click", (e) => {
+            const b = e.target.closest("button[data-mode]");
+            if (b) setPortalTableMode(b.dataset.mode);
+          });
+        }
+      }
+
+      // 幅の閾値をまたいだら列セットが変わるので描き直す（またがない resize では何もしない）。
+      let _portalWasNarrow = null;
+      window.addEventListener("resize", () => {
+        clearTimeout(window.__portalResizeTimer);
+        window.__portalResizeTimer = setTimeout(() => {
+          const now = _portalIsNarrow();
+          if (_portalWasNarrow === now) return;
+          _portalWasNarrow = now;
+          if (portalTableMode === "px" && dataLoadState === "ready") filterAndRenderPortal();
+        }, 200);
+      });
+
       // Plan 2: 無限スクロール検知用センチネル（末尾の 1px 要素）。
       function _makePortalSentinel() {
         const s = document.createElement("div");
@@ -2370,16 +2542,18 @@
         const end = Math.min(w.rendered + PORTAL_CHUNK, w.flat.length);
         for (let i = w.rendered; i < end; i++) {
           const item = w.flat[i];
-          if (!w.curTbody || item.industry !== w.curIndustry) {   // !curTbody で万一の null/undefined industry でもクラッシュせず先頭セクションを生成（元 for..in の文字列キー化が持っていた耐性を回復）
+          // !curTbody で万一の null/undefined industry でもクラッシュせず先頭セクションを生成（元 for..in の文字列キー化が持っていた耐性を回復）。
+          // W1: single（値動きモード）は業種境界で切らず、1枚表を1回だけ作る。
+          if (!w.curTbody || (!w.single && item.industry !== w.curIndustry)) {
             w.curIndustry = item.industry;
-            const sec = _makePortalSection(item.industry, w.sectorLen[item.industry]);
+            const sec = w.single ? _makePortalPriceSection() : _makePortalSection(item.industry, w.sectorLen[item.industry]);
             if (w.sentinel) w.container.insertBefore(sec.sectionEl, w.sentinel);
             else w.container.appendChild(sec.sectionEl);
             w.curTbody = sec.tbody;
             // 新セクション見出しの 3期トレンド列 data-term="growth-rate" を活性化（冪等・subtree スコープ）。
             if (window.Detail && typeof window.Detail.injectTermHelp === "function") window.Detail.injectTermHelp(sec.sectionEl);
           }
-          w.curTbody.appendChild(_makePortalRow(item));
+          w.curTbody.appendChild(w.single ? _makePortalPriceRow(item) : _makePortalRow(item));
         }
         w.rendered = end;
         if (w.rendered >= w.flat.length && w.observer && w.sentinel) {   // 完了 → 後片付け
@@ -2710,6 +2884,7 @@
         openModal, closeModal, retryLoadData, onPortalSearchInput, setSort, navigateToPortal,
         navigateToRanking, setRankMarket, renderRanking,
         saveScreenerPreset, onScreenerPresetChange, deleteScreenerPreset, loadScreenerPreset,
+        setPortalTableMode,
       });
     })();
 
