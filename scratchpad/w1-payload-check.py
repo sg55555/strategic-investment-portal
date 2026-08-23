@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""W1: /api/market/list の gzip サイズ回帰（上限 60KB）＋ px カバレッジの確認。
+"""W1: /api/market/list の gzip サイズ回帰（上限 75KB）＋ px カバレッジの確認。
+
+上限 75KB は実測 59.1KB に対する余裕（292銘柄→400銘柄程度まで持つ）。60KB は実測前に置いた仮の値だった。
 
     .venv/bin/python scratchpad/w1-payload-check.py
 Neon への SELECT のみ（書込ゼロ）。fetch_list() を直接呼ぶので Vercel は不要。
@@ -12,7 +14,7 @@ import sys
 import time
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-LIMIT_KB = 60.0
+LIMIT_KB = 75.0
 
 for line in open(os.path.join(ROOT, ".env"), encoding="utf-8"):
     line = line.strip()

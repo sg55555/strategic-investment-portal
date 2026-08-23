@@ -81,6 +81,7 @@
 - **ランキング（案①ストリップ）は stale を除外**。除外が発生した日は見出し脇に「（1銘柄は価格が古いため除外）」と件数を出す（黙って消さない）。
 - **表（案②）は stale も表示**し、日付バッジ（例 `08/10`）を付け、数値は dim 表示。
 - ストリップ見出しの日付表記は **「日本株 8/20 ／ 米国株 8/21 終値」の2本立て**（1つに丸めない）。
+- **鮮度除外の安全弁（2026-08-23 追加・レビュー指摘 R6 起点）**: `market_asof` は市場ごとの MAX 日付なので、ETL が未来日付の行を1本でも混入させるとその市場が丸ごと stale 扱いになり、ストリップが**何も出ない**状態になる（原因が UI から一切見えない最悪の壊れ方）。そこで `rankTop` は **候補の 50% 超が stale なら鮮度除外そのものを停止**し（`staleFilterDisabled: true`）、全件を出したうえで見出しに「価格の日付が揃っていないため、鮮度による除外を一時停止しています」と明示する。検索で1銘柄に絞った結果がその銘柄だけ stale だった場合も同じ経路に入る（「該当なし」より「出して注記」を選ぶ）。
 
 ## 5. サーバ（`api/market/list.py` の拡張）
 
@@ -214,7 +215,7 @@ FROM p JOIN y USING (ticker) JOIN v USING (ticker) JOIN s USING (ticker)
 | payload: 現行 | 196.9KB raw / **35.1KB gzip** | — |
 | payload: 集計4点 | 35.3KB raw / **+8.8KB gzip** | — |
 | payload: spark30 | 27.7KB raw / **+10.7KB gzip** | — |
-| payload: 合計 | 259.6KB raw / **54.6KB gzip** | **≤ 60KB gzip**（回帰テストで assert） |
+| payload: 合計 | 259.6KB raw / **54.6KB gzip**（本番と同じ直列化＝`ensure_ascii=False` のみでは **59.1KB**） | **≤ 75KB gzip**（回帰テストで assert・2026-08-23 に 60KB から改訂＝60 は実測前に置いた仮の値で、実測 59.1KB に対して余裕が 1.5% しかなかった） |
 
 参考（不採用案）: spark20 = +7.8KB、spark10（3日間引き）= +4.7KB。
 
@@ -266,6 +267,19 @@ FROM p JOIN y USING (ticker) JOIN v USING (ticker) JOIN s USING (ticker)
 Task 1〜4 は plan のコードをそのまま実装済み（コミット履歴: `dba2636` list.py、`8ed1b04` portal-price-rules.js、`7cb2ec6` 発掘ストリップ、`0ece1ce` 値動きモード）。Task 5（本タスク）で見つかった、plan の記述と実行環境の現物との差分は以下の3点。**コード側の設計変更は無し**（すべて検証環境・実測値の差分）。
 
 - **pytest 件数**: plan は `tests/test_market_list_px.py` を「9 tests」と書いているが、Step 1 に貼られたコード自体が定義するテスト関数は8個（`test_px_row_basic` 〜 `test_market_asof_takes_max_date_per_market`）。実行結果も一貫して8。既存228 + 新規8 = **236 passed**（plan記載の「237」ではなく236が正）。node側は既存357 + 新規11（portal-price-rules.test.js）= **368 passed**（plan通り）。
-- **payload 実測値の再測定**: 2026-08-23 のこのセッションでの実測は `fetch_list: 3052ms（2回目）  gzip=57.7KB  px=292/292  asof={'US': '2026-08-21', 'JP': '2026-08-20'}  px_error=False`。§11 表の「723–904ms／54.6KB」より遅く・大きい（Neon 側のレイテンシ変動と考えられる）が、**受入閾値（<3.0s・≤60KB gzip）は両方とも満たしている**ため fail 扱いにはしていない。閾値割れではなく実測値のブレとして記録。
+- **payload 実測値の再測定**: 2026-08-23 のこのセッションでの実測は `fetch_list: 3052ms（2回目）  gzip=57.7KB  px=292/292  asof={'US': '2026-08-21', 'JP': '2026-08-20'}  px_error=False`。§11 表の「723–904ms／54.6KB」より遅く・大きい（Neon 側のレイテンシ変動と考えられる）が、**当時の受入閾値（<3.0s・≤60KB gzip）を満たしているとしていたが、これは本番と異なる直列化（`separators=(",", ":")`）で測った値だった**（後述の追補で訂正）。
 - **`.env` / `.venv` は worktree に無かった**: git 管理外のため worktree チェックアウトには含まれず、`.venv` も未作成だった。読み取り専用で main チェックアウトの `.env` を worktree にコピーし、`uv venv` + `uv pip install -r requirements.txt pytest openpyxl`（`scripts/requirements.txt` にある openpyxl はテスト実行に必要）でセットアップした。**root `requirements.txt` 自体は変更していない**（Global Constraints 遵守）。
 - **`.claude/CLAUDE.md`（Step 6）は本タスクでは未実施**: このファイルは git 管理外かつ物理的に main チェックアウト配下 `/home/shugo/apps/investment-portal/.claude/CLAUDE.md` にのみ存在し、worktree からは `git add` できない（worktree に `.claude/` 自体が存在しない）。本タスクの絶対規則「main のチェックアウトは絶対に触らない」を優先し、直接編集を見送った。plan Step 6 で追記予定だった「ポータル価格レイヤー（W1）」の恒久運用注意ブロックの原文はそのまま plan 本文（Task 5 Step 6）に残っているので、**統合（main merge）を行うセッションが `.claude/CLAUDE.md` へ追記する**こと。
+
+## 17. 追補（統合セッション・2026-08-23）
+
+Task 5 完了後に統合セッション側で行った修正と決定。
+
+- **`.claude/CLAUDE.md` は追記済み**（§16 の申し送りを実施）。worktree からは触れないファイルなので main チェックアウトの実体に直接追記した（git 管理外＝merge 不要）。追記内容＝400日境界の必須性／`.portal-table` の nth-child 依存／sticky と `overflow:hidden`／銘柄ごとに最終終値日が違うこと／`px_error` の劣化契約／playwright `page.click()` のスクロール副作用／受入スクリプト群。
+- **payload 上限を 60KB → 75KB に改訂**（本人決定）。本番と同じ直列化での実測は **59.1KB** で、60KB では余裕が 1.5% しかなく銘柄を数本足すだけでゲートが赤になる。60KB は実測前に置いた仮の値であり、見た目（spark 30点）を削ってまで守る数字ではないと判断した。
+- **sticky 列ヘッダの実効化**（`ac7eaf8`）: `table.portal-px-table` の `overflow: hidden` を除去。table 自身がスクロールコンテナになり `position: sticky` の th が「表の中で固定」になっていた（実測 `th.top = -738` → 修正後 `0`）。角丸2pxのクリップより sticky を優先。
+- **免責文の逐語重複を解消**（`ac7eaf8`）: ストリップと値動き表で同一文が上下100px に二度出ていた（前 wave D2「説明二重」と同じ悪さ）。表側の文面を「表の数値は各銘柄の最新終値ベースです（推奨・売買判断ではありません）。」に分離し、§10 の「各面に免責」は維持したまま重複感を消した。
+- **鮮度除外の安全弁を追加**（§4 に反映・node テスト2本追加）。
+- **エッジ経路の受入スクリプトを追加**: `scratchpad/w1-edge-check.js`（stale の見え方／`px_error` 劣化／タブ切替の非再構築／sticky の4経路・常設スモークでは通らない）。
+- **検証で判明した測定器の罠**: playwright の `page.click()` は要素を画面内へスクロールしてから押すため、画面上部の要素では scrollY が必ず 0 になる。「タブ切替でスクロール位置が保持されるか」を `page.click()` で測ると**偽陽性の失敗**が出る（実際に踏んだ）。`page.evaluate(() => el.click())` を使う。
+- **申し送り（次 wave）**: レビュー Low 15件のうち未対応＝①52週レンジのマーカーがバー枠から上下にはみ出して下の文字にかぶる ②ソート不可の「30日」列ヘッダに `cursor: pointer` が当たる ③`sparkGeometry` の `area` は未使用（先頭点が二重に打たれている死コード）④`_portalWasNarrow` の初期値 null で閾値をまたがない最初の resize でも1回再描画 ⑤`_px_row` の `dh` は hi52=0 のとき spec の null でなく 0.0（「高値更新」表示）。いずれも実害は軽微。

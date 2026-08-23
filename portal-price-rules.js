@@ -38,21 +38,34 @@
 
   // items = [{ticker, market, px, ...}]。tabKey のタブ定義で並べ替え、上位 n 件を返す。
   // 除外: px 無し / 指標が非有限 / stale。同値は ticker 昇順で安定化（再描画で順序が揺れない）。
+  // 鮮度除外の安全弁：候補の半分より多くが stale なら「除外」をやめて全件を出す。
+  // 理由＝ETL が未来日付の行を1本でも混入させると market_asof（市場ごとの MAX）が先へ飛び、
+  //       その市場が丸ごと stale 扱いになってストリップが空になる。「何も出ない」は原因が
+  //       UI から見えない最悪の壊れ方なので、出したうえで stale を明示する側に倒す。
+  var STALE_FILTER_MAX_RATIO = 0.5;
+
   function rankTop(items, tabKey, n, marketAsof) {
     var tab = TAB_BY_KEY[tabKey] || TABS[0];
-    var excludedStale = 0;
-    var rows = (items || []).filter(function (it) {
+    var candidates = (items || []).filter(function (it) {
       var px = it && it.px;
-      if (!px || !_fin(px[tab.metric])) return false;
-      if (isStale(px, marketAsof, it.market || marketOf(it.ticker, it))) { excludedStale++; return false; }
-      return true;
+      return !!px && _fin(px[tab.metric]);
     });
+    var staleFlags = candidates.map(function (it) {
+      return isStale(it.px, marketAsof, it.market || marketOf(it.ticker, it));
+    });
+    var staleCount = staleFlags.filter(Boolean).length;
+    var staleFilterDisabled = candidates.length > 0 && staleCount > candidates.length * STALE_FILTER_MAX_RATIO;
+    var rows = candidates.filter(function (_it, i) { return staleFilterDisabled || !staleFlags[i]; });
     rows.sort(function (a, b) {
       var va = a.px[tab.metric], vb = b.px[tab.metric];
       if (va !== vb) return tab.dir === "asc" ? va - vb : vb - va;
       return String(a.ticker) < String(b.ticker) ? -1 : (String(a.ticker) > String(b.ticker) ? 1 : 0);
     });
-    return { rows: rows.slice(0, n), excludedStale: excludedStale };
+    return {
+      rows: rows.slice(0, n),
+      excludedStale: staleFilterDisabled ? 0 : staleCount,
+      staleFilterDisabled: staleFilterDisabled,
+    };
   }
 
   // 値動き表の列定義（描画・テスト・受入の単一源）。

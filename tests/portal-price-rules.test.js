@@ -94,3 +94,29 @@ test("clampPos: 0-100 に収める・null は null", () => {
   assert.equal(R.clampPos(42), 42);
   assert.equal(R.clampPos(null), null);
 });
+
+test("rankTop: 候補の半分超が stale なら鮮度除外を止めて全件出す（安全弁）", () => {
+  // ETL が未来日付を1本混入 → market_asof が先へ飛び、その市場が丸ごと stale になる状況。
+  // 「何も出ない」は原因が UI から見えない最悪の壊れ方なので、出す側へ倒す。
+  const asof = { US: "2026-08-25" };
+  const items = [
+    item("A", px({ c1: 5, date: "2026-08-21" })),
+    item("B", px({ c1: 9, date: "2026-08-21" })),
+    item("C", px({ c1: 7, date: "2026-08-25" })),
+  ];
+  const r = R.rankTop(items, "gain", 5, asof);
+  assert.equal(r.staleFilterDisabled, true);
+  assert.deepEqual(r.rows.map((x) => x.ticker), ["B", "C", "A"]);
+  assert.equal(r.excludedStale, 0);
+});
+
+test("rankTop: stale が半分以下なら従来どおり除外する（安全弁は働かない）", () => {
+  const items = [
+    item("A", px({ c1: 5 })), item("B", px({ c1: 9 })),
+    item("EA", px({ c1: 99, date: "2026-08-10" })),
+  ];
+  const r = R.rankTop(items, "gain", 5, ASOF);
+  assert.equal(r.staleFilterDisabled, false);
+  assert.equal(r.excludedStale, 1);
+  assert.deepEqual(r.rows.map((x) => x.ticker), ["B", "A"]);
+});

@@ -2462,8 +2462,9 @@
         const body = r.rows.length
           ? `<div class="pstrip-cards">${r.rows.map((it) => _pstripCard(it, tab)).join("")}</div>`
           : `<div class="pstrip-empty">該当する銘柄がありません</div>`;
-        const staleNote = r.excludedStale
-          ? `（${r.excludedStale}銘柄は価格が古いため除外）` : "";
+        const staleNote = r.staleFilterDisabled
+          ? "（価格の日付が揃っていないため、鮮度による除外を一時停止しています）"
+          : (r.excludedStale ? `（${r.excludedStale}銘柄は価格が古いため除外）` : "");
         host.innerHTML = `
           <div class="pstrip-head">今日の動き　<b>${esc(_pstripAsofLabel())}</b>　/　${list.length}銘柄${esc(staleNote)}</div>
           <div class="pstrip-panel">

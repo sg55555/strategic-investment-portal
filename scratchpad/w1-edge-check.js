@@ -38,7 +38,20 @@ function check(name, ok, detail) {
     check("stale: EA 1行が is-stale", s.rows === 1 && s.staleRows === 1, `rows=${s.rows} stale=${s.staleRows}`);
     check("stale: 日付バッジ 08/10", s.badge.trim() === "08/10", `badge="${s.badge.trim()}"`);
     check("stale: 行が減光される", s.opacity !== "" && Number(s.opacity) < 1, `opacity=${s.opacity}`);
-    check("stale: ストリップから除外され件数が出る", /価格が古いため除外/.test(s.head) && s.cards === 0, s.head.replace(/\s+/g, " ").trim());
+    // 検索で EA だけに絞ると「候補が全部 stale」になり、安全弁（除外率>50%で除外を止める）が働く。
+    // ここで「該当なし」を出すと原因が見えないので、出したうえで一時停止の注記を出すのが正。
+    check("stale: 候補が全部 stale の時は安全弁で出す＋注記", /鮮度による除外を一時停止/.test(s.head) && s.cards === 1,
+      s.head.replace(/\s+/g, " ").trim());
+
+    // 絞り込みを外すと候補269件中 stale は EA の1件だけ＝通常どおり除外され件数が出る。
+    await page.fill("#portal-search", "");
+    await page.waitForTimeout(700);
+    const s2 = await page.evaluate(() => ({
+      head: (document.querySelector(".pstrip-head") || {}).textContent || "",
+      cards: document.querySelectorAll(".pstrip-card").length,
+    }));
+    check("stale: 少数なら従来どおり除外され件数が出る", /1銘柄は価格が古いため除外/.test(s2.head) && s2.cards === 12,
+      s2.head.replace(/\s+/g, " ").trim());
     await page.close();
   }
 
