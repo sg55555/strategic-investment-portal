@@ -77,29 +77,18 @@ def compute_px(rows):
 
 
 def main():
+    # ⚠ px は fetch_list()（＝本番 list.py の _px_row）が載せたものをそのまま使う。
+    #    compute_px はモック3案時代の遺物で、52週の最小件数ガード等の分岐が _px_row と違うため、
+    #    これで上書きするとスモークが「本番が返す px」ではないものを検証してしまう。
     payload = prod_list.fetch_list()
     stocks = payload["stocks"] if "stocks" in payload else payload
-    url = os.environ["DATABASE_URL"]
-    by_ticker = {}
-    with psycopg.connect(url) as conn, conn.cursor() as cur:
-        cur.execute(
-            "SELECT ticker, date, close, volume FROM ("
-            "  SELECT ticker, date, close, volume, ROW_NUMBER() OVER "
-            "    (PARTITION BY ticker ORDER BY date DESC) rn FROM market.ohlcv"
-            f") t WHERE rn <= {WINDOW} ORDER BY ticker, date ASC"
-        )
-        for ticker, date, close, vol in cur.fetchall():
-            by_ticker.setdefault(ticker, []).append((date, close, vol))
-
-    n_ok = 0
-    for ticker, entry in stocks.items():
-        px = compute_px(by_ticker.get(ticker, []))
-        if px:
-            entry["px"] = px
-            n_ok += 1
+    n_ok = sum(1 for e in stocks.values() if isinstance(e, dict) and e.get("px"))
     out = {
         "stocks": stocks,
         "updated_at": payload.get("updated_at", "") if isinstance(payload, dict) else "",
+        # 鮮度（stale バッジ・dim・ストリップ除外）はこの2つが無いとスモークで一度も実行されない。
+        "market_asof": payload.get("market_asof", {}) if isinstance(payload, dict) else {},
+        "px_error": payload.get("px_error", False) if isinstance(payload, dict) else False,
         "px_meta": {"tickers": len(stocks), "with_px": n_ok,
                     "spark_n": SPARK_N, "vol_avg_n": VOL_AVG_N, "year_n": YEAR_N},
     }

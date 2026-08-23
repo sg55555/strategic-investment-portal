@@ -91,8 +91,14 @@ def main():
     if not os.path.isfile(DATA):
         raise SystemExit("scratchpad/w1-mock-data.json がありません → 先に w1-dump.py を実行")
     patched_index()  # 起動時に index.html が読めるか検査（失敗なら即終了）
-    print(f"[w1-mock] http://127.0.0.1:{PORT}/  （Ctrl+C で停止）")
-    ThreadingHTTPServer(("127.0.0.1", PORT), handler).serve_forever()
+    # ⚠ bind してから print する。先に print すると、他 worktree の古いモック鯖が同じポートを
+    #    握っていても「起動した」ように見え、別ツリーの index.html を検証してしまう。
+    try:
+        srv = ThreadingHTTPServer(("127.0.0.1", PORT), handler)
+    except OSError as e:
+        raise SystemExit(f"[w1-mock] ポート {PORT} を bind できません（別プロセスが使用中？）: {e}") from e
+    print(f"[w1-mock] http://127.0.0.1:{PORT}/  （Ctrl+C で停止・cwd={ROOT}）")
+    srv.serve_forever()
 
 
 if __name__ == "__main__":

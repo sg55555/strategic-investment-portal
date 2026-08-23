@@ -27,7 +27,9 @@ spec.loader.exec_module(market_list)
 t0 = time.time()
 payload = market_list.fetch_list()
 elapsed = (time.time() - t0) * 1000
-body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+# ⚠ 本番 handler._json は既定セパレータ（", " / ": "）で dumps する。compact で測ると
+# 実際の応答より 1.4KB ほど小さく出て回帰ゲートとして機能しないので、handler と同じ直列化にする。
+body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
 gz = len(gzip.compress(body)) / 1024
 stocks = payload["stocks"]
 with_px = sum(1 for e in stocks.values() if "px" in e)

@@ -1053,6 +1053,10 @@
                           color: var(--ix-text-dim); border: 0; cursor: pointer; font-family: inherit; }
       .pmode-seg button.active { background: rgba(0, 229, 255, 0.12); color: var(--ix-text-hi); }
       .pmode-hint { font-size: 12px; color: var(--ix-text-dim); }
+      .pmode-seg button:disabled { opacity: 0.45; cursor: default; }
+      /* ⚠ overflow-x を付けると縦方向もスクロール容器になり th の position:sticky が無効化される。
+         8列が収まりにくい狭幅だけ横スクロールを許し、広幅では sticky ヘッダを活かす。 */
+      @media (max-width: 1024px) { .portal-px-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; } }
       /* ⚠ .portal-table を付けない：既存の nth-child 列非表示（1024/768/480/375px）が別の列を消すため */
       table.portal-px-table { width: 100%; border-collapse: collapse; background: var(--ix-surface-panel);
                               border: 1px solid var(--ix-border-strong); border-radius: 2px; overflow: hidden; }
@@ -2119,6 +2123,11 @@
           countEl.innerText = hasFilter ? `${list.length} 銘柄がヒット` : "";
         }
 
+        // px_error の劣化時は財務表にフォールバックする（下の singleTable）ので、価格キーのままだと
+        // 財務表を存在しない列で並べることになる。ここでコード昇順（現行既定）へ戻す。
+        if ((typeof DATA_PX_ERROR !== "undefined" && DATA_PX_ERROR) && PortalPriceRules.PRICE_KEYS[sortKey]) {
+          sortKey = "ticker"; sortAsc = true;
+        }
         const NULL_LAST_KEYS = Object.assign(
           { eqRatio: 1, opMargin: 1, roe: 1, curRatio: 1, netMargin: 1, salesCagr: 1, niCagr: 1 },
           PortalPriceRules.PRICE_KEYS);   // W1: px 無し銘柄が昇順で先頭に来ないようにする
@@ -2136,7 +2145,10 @@
         });
 
         renderPortalModeBar();
-        const singleTable = (portalTableMode === "px");
+        lastPortalList = list;   // ストリップのタブ切替は表を再構築せずこの母集合で描き直す
+        // 価格集計が落ちた日（px_error）は値動きモードの記憶が残っていても財務表を出す＝
+        // 「価格が取れないだけで一覧全体を失う」退行を作らない（spec D10 / §5.3）。localStorage は書き換えない。
+        const singleTable = (portalTableMode === "px") && !(typeof DATA_PX_ERROR !== "undefined" && DATA_PX_ERROR);
 
         // Plan 2: sectorOrder を明示構築（integer-like key の並び替え罠回避・挿入順=ソート内初出順で視覚順と一致）。
         // W1: 値動きモードは業種で束ねない（横断ソートが目的なので1枚表にする）。
@@ -2324,7 +2336,8 @@
         const wrap = document.createElement("div");
         wrap.className = "sector-section";
         const scrollWrap = document.createElement("div");
-        scrollWrap.style.cssText = "overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; background-color: #0a0f17; border-radius: 10px;";
+        scrollWrap.className = "portal-px-scroll";   // 横スクロールは狭幅のみ（広幅は th の sticky を活かす）
+        scrollWrap.style.cssText = "width: 100%; background-color: #0a0f17; border-radius: 10px;";
         const table = document.createElement("table");
         table.className = "portal-px-table";
         const cols = PortalPriceRules.priceColumns(_portalIsNarrow());
@@ -2424,6 +2437,7 @@
           </div>`;
       }
 
+      let lastPortalList = [];   // 直近の母集合（タブ切替でストリップだけ描き直すために保持）
       // list = filterAndRenderPortal がフィルタ/スクリーニング後に作った item 配列（表と同じ母集合）。
       function renderPortalStrip(list) {
         const host = document.getElementById("portal-strip");
@@ -2467,7 +2481,7 @@
           if (tabBtn && tabBtn.dataset.tab) {
             pstripTab = tabBtn.dataset.tab;
             localStorage.setItem("sip_pstrip_tab", pstripTab);
-            filterAndRenderPortal();
+            renderPortalStrip(lastPortalList);   // 母集合は変わらない＝表（窓化・スクロール位置）は触らない
             return;
           }
           const card = e.target.closest(".pstrip-card");
@@ -2478,6 +2492,9 @@
       // ── W1 値動きモード ──
       const PORTAL_NARROW_MAX = 760;                 // この幅以下は列セットを絞る（4列）
       let portalTableMode = localStorage.getItem("sip_portal_table_mode") === "px" ? "px" : "fin";
+      // 復元経路（再訪＝クリックを経ない）でもモードとソートキーの整合を取る。ここは初回描画前なので
+      // setSort（＝再描画を伴う）ではなく変数を直接そろえる（spec §7 の既定ソート＝c1 降順）。
+      if (portalTableMode === "px" && !PortalPriceRules.PRICE_KEYS[sortKey]) { sortKey = "c1"; sortAsc = false; }
       function _portalIsNarrow() { return window.innerWidth <= PORTAL_NARROW_MAX; }
 
       function setPortalTableMode(mode) {
@@ -2492,18 +2509,24 @@
       function renderPortalModeBar() {
         const host = document.getElementById("portal-modebar");
         if (!host) return;
-        if (dataLoadState !== "ready" || (typeof DATA_PX_ERROR !== "undefined" && DATA_PX_ERROR)) { host.innerHTML = ""; return; }
-        const px = portalTableMode === "px";
+        if (dataLoadState !== "ready") { host.innerHTML = ""; return; }
+        // px_error でもバー自体は残す（消すと財務モードへ戻す手段が UI から消える）。値動きだけ不可にする。
+        const pxErr = (typeof DATA_PX_ERROR !== "undefined" && DATA_PX_ERROR);
+        const px = portalTableMode === "px" && !pxErr;
+        const hint = pxErr
+          ? "値動きは一時的に取得できません（財務モードで表示しています）。"
+          : px
+            ? "値動きモード：業種セクションを畳んで1枚表にし、列ヘッダで全銘柄を横断して並べ替えます。"
+            : "財務モード：業種セクションごとの財務指標一覧です。";
         host.innerHTML = `
           <div class="pmode-bar">
             <div class="pmode-seg">
               <button type="button" data-mode="fin" class="${px ? "" : "active"}">財務</button>
-              <button type="button" data-mode="px" class="${px ? "active" : ""}">値動き</button>
+              <button type="button" data-mode="px" class="${px ? "active" : ""}"${pxErr ? " disabled" : ""}>値動き</button>
             </div>
-            <span class="pmode-hint">${px
-              ? "値動きモード：業種セクションを畳んで1枚表にし、列ヘッダで全銘柄を横断して並べ替えます。"
-              : "財務モード：業種セクションごとの財務指標一覧です。"}</span>
-          </div>`;
+            <span class="pmode-hint">${hint}</span>
+          </div>
+          ${px ? `<div class="pstrip-note" style="margin:0 0 10px">終値ベースの事実の並べ替えです（推奨・売買判断ではありません）。</div>` : ""}`;
         if (host.dataset.wired !== "1") {
           host.dataset.wired = "1";
           host.addEventListener("click", (e) => {
