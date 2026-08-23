@@ -504,6 +504,10 @@
         text-transform: uppercase;
         white-space: nowrap;
       }
+      /* spec §5.1 D1: ボタン固有概念の「?」をボタンへ密着させる改行不可ラッパ。
+         480px の .ma-control-bar flex-wrap（:454）でボタンと ? の間で改行するのを根絶する。 */
+      .ctrl-pair { display: inline-flex; align-items: center; }
+      .ctrl-pair > .term-help { margin-left: 3px; }   /* .ctrl-group の gap:5px より密着 */
       .ma-btn {
         background: transparent;
         border: 1px solid var(--ix-border-mid);
@@ -634,6 +638,8 @@
         text-overflow: ellipsis;
         white-space: nowrap;
       }
+      /* spec §5.2 D2: 展開時はヘッダ desc を隠す（body の .acc-full-desc と同文二重の解消・.expanded は detail.js:326/:338） */
+      .acc-item.expanded .acc-desc { display: none; }
       .acc-close {
         font-family: var(--ix-mono);
         font-size: 12px;

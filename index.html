@@ -1219,23 +1219,23 @@
             <div class="card-title" id="stock-title">MARKET CHART</div>
             <div class="ma-control-bar">
               <div class="ctrl-group">
-                <span class="ma-label">移動平均</span>
+                <span class="ma-label" data-term="ma">移動平均</span>
                 <button class="ma-btn" id="ma-btn-5"  onclick="toggleMA(5)">MA 5</button>
                 <button class="ma-btn" id="ma-btn-25" onclick="toggleMA(25)">MA 25</button>
-                <button class="ma-btn" id="ma-btn-75" onclick="toggleMA(75)">MA 75</button><span class="ma-label" data-term="ma"></span>
+                <button class="ma-btn" id="ma-btn-75" onclick="toggleMA(75)">MA 75</button>
               </div>
               <div class="ctrl-separator"></div>
               <div class="ctrl-group">
                 <span class="ma-label" data-term="bb">エンベロープ</span>
                 <button class="ma-btn" id="ind-btn-bb" onclick="toggleBB()">BB 20</button>
-                <button class="ma-btn" id="ind-btn-keltner" onclick="toggleKeltner()">KC 20</button><span class="ma-label" data-term="keltner"></span>
+                <span class="ctrl-pair" data-term="keltner"><button class="ma-btn" id="ind-btn-keltner" onclick="toggleKeltner()">KC 20</button></span>
               </div>
               <div class="ctrl-separator"></div>
               <div class="ctrl-group">
                 <span class="ma-label">分析</span>
-                <button class="ma-btn" id="ind-btn-sr" onclick="toggleSR()">S/R線</button><span class="ma-label" data-term="sr"></span>
-                <button class="ma-btn" id="ind-btn-tr" onclick="toggleTR()">T/R線</button><span class="ma-label" data-term="zigzag"></span>
-                <button class="ma-btn" id="ind-btn-vwap" onclick="toggleVWAP()">VWAP</button><span class="ma-label" data-term="vwap"></span>
+                <span class="ctrl-pair" data-term="sr"><button class="ma-btn" id="ind-btn-sr" onclick="toggleSR()">S/R線</button></span>
+                <span class="ctrl-pair" data-term="zigzag"><button class="ma-btn" id="ind-btn-tr" onclick="toggleTR()">T/R線</button></span>
+                <span class="ctrl-pair" data-term="vwap"><button class="ma-btn" id="ind-btn-vwap" onclick="toggleVWAP()">VWAP</button></span>
               </div>
               <span class="vol-label" data-term="volume">▌ 出来高: 下段</span>
             </div>
