@@ -149,7 +149,7 @@ test("SECTOR_ORDER: 全ての写像先を含み、重複が無い", () => {
 });
 
 test("SECTOR_MAP: 現ユニバースの全業種が写像に載っている（マップ漏れ検知）", () => {
-  const lines = fs.readFileSync(path.join(__dirname, "..", "data", "universe.csv"), "utf8").trim().split("\n");
+  const lines = fs.readFileSync(path.join(__dirname, "..", "data", "universe.csv"), "utf8").trim().split(/\r?\n/);
   const unmapped = new Set();
   for (const line of lines.slice(1)) {
     const cols = line.split(",");
