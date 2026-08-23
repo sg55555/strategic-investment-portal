@@ -113,9 +113,48 @@
   }
   function clampPos(pos) { return _fin(pos) ? Math.max(0, Math.min(100, pos)) : null; }
 
+  // ── W1.5 セクターヒートマップ：54業種 → 13大分類の写像（spec §3）──
+  // ⚠ 手作りの表。ユニバース拡張で未知業種が来ても "その他" に落ちて壊れない。
+  //    現ユニバースに "その他" 落ちが無いことは tests/portal-price-rules.test.js が検知する。
+  var SECTOR_MAP = {
+    "US - テクノロジー": "テクノロジー", "US - クラウド・SaaS": "テクノロジー", "US - 半導体・AI": "テクノロジー",
+    "US - SNS・AI": "テクノロジー", "US - EC・クラウド": "テクノロジー", "US - 広告・クラウド": "テクノロジー",
+    "US - 決済・フィンテック": "テクノロジー",
+    "電気機器・半導体": "テクノロジー", "精密機器・半導体": "テクノロジー", "電機・ITサービス": "テクノロジー",
+    "電機・インフラIT": "テクノロジー", "テクノロジー・家電": "テクノロジー", "情報通信": "テクノロジー",
+    "情報通信・巨大投資": "テクノロジー",
+    "US - 銀行・金融": "金融", "US - 保険": "金融", "US - 証券・資産運用": "金融",
+    "銀行・金融": "金融", "保険": "金融", "証券・金融サービス": "金融",
+    "US - 医薬品・バイオ": "ヘルスケア", "医薬品・バイオ": "ヘルスケア",
+    "US - 資本財・防衛": "資本財", "重工・防衛": "資本財", "産業用ロボット": "資本財", "空調・産業機器": "資本財",
+    "US - 小売・流通": "一般消費財", "US - 飲食・外食": "一般消費財", "US - 自動車": "一般消費財",
+    "US - 電気自動車・エネルギー": "一般消費財", "US - エンターテインメント": "一般消費財",
+    "小売業": "一般消費財", "自動車・輸送機器": "一般消費財", "自動車部品・電装": "一般消費財",
+    "エンターテインメント": "一般消費財",
+    "US - 生活必需品": "生活必需品", "食品・飲料": "生活必需品",
+    "US - 素材・化学": "素材", "化学・素材": "素材", "総合商社": "素材",
+    "US - エネルギー": "エネルギー",
+    "US - 公益事業": "公益", "電力・ガス": "公益",
+    "US - 通信": "通信",
+    "US - REIT・不動産": "不動産", "不動産": "不動産",
+    "US - 運輸・物流": "運輸", "運輸・インフラ": "運輸",
+  };
+
+  // 面の並び順は意味で固定する（社数順にすると検索/フィルタのたびに並びが踊る）。
+  var SECTOR_ORDER = ["テクノロジー", "金融", "ヘルスケア", "一般消費財", "生活必需品", "資本財",
+    "素材", "エネルギー", "公益", "通信", "不動産", "運輸", "ETF", "その他"];
+
+  function sectorOf(industry, isEtf) {
+    if (isEtf === true) return "ETF";
+    var ind = String(industry == null ? "" : industry);
+    if (ind.indexOf("ETF") !== -1) return "ETF";
+    return SECTOR_MAP[ind] || "その他";
+  }
+
   return {
     PRICE_KEYS: PRICE_KEYS, TABS: TABS, marketOf: marketOf, isStale: isStale,
     rankTop: rankTop, priceColumns: priceColumns, sparkGeometry: sparkGeometry,
     fmtSigned: fmtSigned, fmtVolRatio: fmtVolRatio, fmtDistHigh: fmtDistHigh, clampPos: clampPos,
+    SECTOR_MAP: SECTOR_MAP, SECTOR_ORDER: SECTOR_ORDER, sectorOf: sectorOf,
   };
 });

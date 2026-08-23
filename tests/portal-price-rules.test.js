@@ -120,3 +120,42 @@ test("rankTop: stale が半分以下なら従来どおり除外する（安全�
   assert.equal(r.excludedStale, 1);
   assert.deepEqual(r.rows.map((x) => x.ticker), ["B", "A"]);
 });
+
+const fs = require("node:fs");
+const path = require("node:path");
+
+test("sectorOf: 代表的な業種が大分類へ落ちる", () => {
+  assert.equal(R.sectorOf("US - 半導体・AI", false), "テクノロジー");
+  assert.equal(R.sectorOf("電機・インフラIT", false), "テクノロジー");
+  assert.equal(R.sectorOf("情報通信・巨大投資", false), "テクノロジー");   // dump 側にだけある業種
+  assert.equal(R.sectorOf("証券・金融サービス", false), "金融");
+  assert.equal(R.sectorOf("US - REIT・不動産", false), "不動産");
+  assert.equal(R.sectorOf("総合商社", false), "素材");
+});
+
+test("sectorOf: ETF 判定が最優先・未知業種は その他", () => {
+  assert.equal(R.sectorOf("US - テクノロジー", true), "ETF");   // isEtf が industry に勝つ
+  assert.equal(R.sectorOf("国内ETF - TOPIX", false), "ETF");    // industry に ETF を含む
+  assert.equal(R.sectorOf("宇宙開発", false), "その他");
+  assert.equal(R.sectorOf(null, false), "その他");
+  assert.equal(R.sectorOf(undefined, false), "その他");
+});
+
+test("SECTOR_ORDER: 全ての写像先を含み、重複が無い", () => {
+  const targets = new Set(Object.values(R.SECTOR_MAP));
+  targets.add("ETF"); targets.add("その他");
+  for (const t of targets) assert.ok(R.SECTOR_ORDER.includes(t), `${t} が SECTOR_ORDER に無い`);
+  assert.equal(new Set(R.SECTOR_ORDER).size, R.SECTOR_ORDER.length);
+});
+
+test("SECTOR_MAP: 現ユニバースの全業種が写像に載っている（マップ漏れ検知）", () => {
+  const lines = fs.readFileSync(path.join(__dirname, "..", "data", "universe.csv"), "utf8").trim().split("\n");
+  const unmapped = new Set();
+  for (const line of lines.slice(1)) {
+    const cols = line.split(",");
+    const industry = cols.slice(-4)[0];              // 末尾から: industry,currency,country,type
+    const isEtf = cols[cols.length - 1] === "etf";   // 社名にカンマが入っても壊れない読み方
+    if (R.sectorOf(industry, isEtf) === "その他") unmapped.add(industry);
+  }
+  assert.deepEqual([...unmapped], [], "写像に無い業種がある＝SECTOR_MAP に追記が必要");
+});
