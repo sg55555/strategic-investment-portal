@@ -186,6 +186,45 @@
     return { i: HEAT_STEPS.length - 1, up: d >= 0 };
   }
 
+  // items = filterAndRenderPortal の item（{px, marketCap, industry, isEtf, …}）。
+  // ⚠ weighted は「同一通貨の集合」に対してのみ呼ぶこと。呼び出し側が市場カラム単位で
+  //    groupBySector を呼ぶ設計なので、JP=円 / US=ドルの混在は構造的に起きない（spec §5）。
+  function heatAggregate(items, metricKey, weighted) {
+    var list = items || [], m = heatMetric(metricKey);
+    var vals = [], caps = [], up = 0, down = 0, capSum = 0;
+    list.forEach(function (it) {
+      var v = heatValue(it && it.px, metricKey);
+      if (v === null) return;
+      var cap = (it && _fin(it.marketCap) && it.marketCap > 0) ? it.marketCap : 0;
+      vals.push(v); caps.push(cap); capSum += cap;
+      if (v > m.center) up++; else if (v < m.center) down++;
+    });
+    if (!vals.length) return { v: null, n: list.length, withPx: 0, up: 0, down: 0, cap: 0 };
+    var v = 0;
+    if (weighted && capSum > 0) {
+      for (var i = 0; i < vals.length; i++) v += vals[i] * caps[i];
+      v = v / capSum;
+    } else {
+      for (var j = 0; j < vals.length; j++) v += vals[j];
+      v = v / vals.length;
+    }
+    return { v: v, n: list.length, withPx: vals.length, up: up, down: down, cap: capSum };
+  }
+
+  function groupBySector(items, metricKey, weighted) {
+    var buckets = {};
+    (items || []).forEach(function (it) {
+      var key = sectorOf(it && it.industry, !!(it && it.isEtf));
+      (buckets[key] = buckets[key] || []).push(it);
+    });
+    return SECTOR_ORDER.filter(function (k) { return buckets[k] && buckets[k].length; })
+      .map(function (k) {
+        var a = heatAggregate(buckets[k], metricKey, weighted);
+        a.key = k; a.items = buckets[k];
+        return a;
+      });
+  }
+
   return {
     PRICE_KEYS: PRICE_KEYS, TABS: TABS, marketOf: marketOf, isStale: isStale,
     rankTop: rankTop, priceColumns: priceColumns, sparkGeometry: sparkGeometry,
@@ -193,5 +232,6 @@
     SECTOR_MAP: SECTOR_MAP, SECTOR_ORDER: SECTOR_ORDER, sectorOf: sectorOf,
     HEAT_METRICS: HEAT_METRICS, heatMetric: heatMetric, heatValue: heatValue,
     HEAT_STEPS: HEAT_STEPS, heatStep: heatStep,
+    heatAggregate: heatAggregate, groupBySector: groupBySector,
   };
 });

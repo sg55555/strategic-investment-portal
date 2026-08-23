@@ -186,3 +186,42 @@ test("heatStep: 中立帯・段・振り切り・null", () => {
   assert.deepEqual(R.heatStep(100, "pos52"), { i: 4, up: true });
   assert.deepEqual(R.heatStep(0, "pos52"), { i: 4, up: false });
 });
+
+function hit(industry, v, cap, extra) {
+  return Object.assign({ industry: industry, isEtf: false, marketCap: cap,
+    px: px({ c1: v, pos52: v }) }, extra || {});
+}
+
+test("heatAggregate: 単純平均・加重平均・cap=0 のフォールバック", () => {
+  const items = [hit("銀行・金融", 1, 100), hit("保険", 3, 300)];
+  assert.equal(R.heatAggregate(items, "c1", false).v, 2);              // (1+3)/2
+  assert.equal(R.heatAggregate(items, "c1", true).v, 2.5);             // (1*100+3*300)/400
+  const noCap = [hit("銀行・金融", 1, 0), hit("保険", 3, 0)];
+  assert.equal(R.heatAggregate(noCap, "c1", true).v, 2);               // Σcap=0 → 単純平均へ
+});
+
+test("heatAggregate: px 欠損の除外・up/down・同値はどちらにも数えない", () => {
+  const items = [hit("保険", 2, 10), hit("保険", -2, 10),
+    Object.assign(hit("保険", 0, 10), { px: null }), hit("保険", 0, 10)];
+  const a = R.heatAggregate(items, "c1", false);
+  assert.equal(a.n, 4);            // 件数は px 無しも含む
+  assert.equal(a.withPx, 3);       // 平均の母数は 3
+  assert.equal(a.up, 1);
+  assert.equal(a.down, 1);         // 0 は中央値と同値＝どちらにも数えない
+  assert.equal(a.v, 0);            // (2 + -2 + 0)/3
+});
+
+test("heatAggregate: 対象ゼロなら v=null", () => {
+  const a = R.heatAggregate([Object.assign(hit("保険", 0, 10), { px: null })], "c1", false);
+  assert.equal(a.v, null);
+  assert.equal(a.withPx, 0);
+});
+
+test("groupBySector: SECTOR_ORDER 順・空の大分類は落とす・ETF は別枠", () => {
+  const items = [hit("US - 銀行・金融", 1, 10), hit("US - 半導体・AI", 2, 10),
+    Object.assign(hit("国内ETF - TOPIX", 3, 0), { isEtf: true })];
+  const g = R.groupBySector(items, "c1", false);
+  assert.deepEqual(g.map((x) => x.key), ["テクノロジー", "金融", "ETF"]);   // 定義順であって社数順でない
+  assert.equal(g[0].items.length, 1);
+  assert.equal(g[1].v, 1);
+});
