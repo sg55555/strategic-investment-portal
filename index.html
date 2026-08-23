@@ -2619,8 +2619,12 @@
                 <div class="w15-stocks">${tiles}</div></div>`;
           }).join("");
         const a = PortalPriceRules.heatAggregate(mine, heatMetricKey, heatWeighted);
+        // 見出しの社数も _heatTile と同じく withPx（_heatFmt(a.v) を計算した母数）に揃える。
+        // mine.length（=a.n）のままだと、値の欠損がある指標で「平均は withPx 件・社数は全件」の
+        // 食い違いがタイル側で直した後もここに移って残る（レビュー指摘・Ruling 5 (B)）。
+        const expNote = a.withPx < a.n ? `（${a.n}社中）` : "";
         return `<div class="w15-exp">
-            <div class="w15-exp-h">${esc(marketLabel)} ・ ${esc(heatOpenSector)}　<b>${_heatFmt(a.v)}</b>　${mine.length}社
+            <div class="w15-exp-h">${esc(marketLabel)} ・ ${esc(heatOpenSector)}　<b>${_heatFmt(a.v)}</b>　${a.withPx}社${expNote}
               <button type="button" class="w15-close">閉じる ✕</button></div>
             ${blocks}</div>`;
       }
