@@ -446,21 +446,34 @@ git commit -m "feat(w2): ベンチの純関数 benchRebase（共通アンカー�
 期間バーとモックの期間バーが二重に mount され、`localStorage` キー（`sip_detail_period`）も奪い合うので、
 **本実装の検証は必ず注入 OFF で行う**。環境変数とクエリの両方で切れるようにする:
 
+現在の実装は `patched_index()`（:40-47）が無条件に注入している。引数で切れるようにする:
+
 ```python
 INJECT_DEFAULT = os.environ.get("W2_INJECT", "1") != "0"
+
+
+def patched_index(inject: bool = True) -> bytes:
+    """本実装の index.html を返す（inject=True のときだけ </body> 直前へ比較ハーネスを注入）。"""
+    with open(os.path.join(ROOT, "index.html"), encoding="utf-8") as f:
+        html = f.read()
+    if not inject:
+        return html.encode("utf-8")
+    if html.count(ANCHOR_SCRIPT) != 1:
+        raise SystemExit(f"[w2-mock] アンカー </body> が {html.count(ANCHOR_SCRIPT)} 箇所（1でない）＝注入中止")
+    html = html.replace(ANCHOR_SCRIPT, SCRIPT_TAG, 1)
+    return html.encode("utf-8")
 ```
 
-`</body>` 直前へ `<script src="/scratchpad/w2-variants.js"></script>` を差し込む処理を、
+`do_GET`（:52-）の分岐を差し替える:
 
 ```python
-        q = urlparse(self.path).query
-        inject = INJECT_DEFAULT and "w2mock=off" not in q
-        if inject:
-            body = body.replace(b"</body>", b'<script src="/scratchpad/w2-variants.js"></script></body>', 1)
+            if path in ("/", "/index.html", "/index"):
+                inject = INJECT_DEFAULT and "w2mock=off" not in urlparse(self.path).query
+                return self._send(200, patched_index(inject), _CT[".html"])
 ```
 
-の形に変える（`body` の変数名は既存実装に合わせる）。docstring に「**本実装の受入・検証は
-`W2_INJECT=0` か `?w2mock=off` で起動する**（案A のモックと実装が二重に mount されるため）」と追記する。
+docstring に「**本実装の受入・検証は `W2_INJECT=0` か `?w2mock=off` で起動する**（案A のモックと実装が
+二重に mount され、localStorage キー `sip_detail_period` も奪い合うため）」と追記する。
 
 確認:
 
@@ -1187,7 +1200,9 @@ const range = (page) =>
   check(keys.join(",") === "FY,1M,3M,6M,YTD,1Y,5Y,MAX", `8個がこの順で並ぶ (${keys.join("/")})`);
   check(await page.evaluate(() => document.querySelector('#w2-period-box .w2-p[data-p="FY"]').classList.contains("active")),
     "既定は FY（初回・LS 空）");
-  check(await page.evaluate(() => !document.querySelector(".w2-variants-injected")), "比較ハーネスが注入されていない");
+  // 比較ハーネス（w2-variants.js）が入っていないこと。入っていると期間バーが二重に mount され、
+  //  実装ではなくモックを検査してしまう。ハーネスは window.__W2 を必ず生やすのでそれで判定する。
+  check(await page.evaluate(() => typeof window.__W2 === "undefined"), "比較ハーネスが注入されていない（W2_INJECT=0）");
 
   const bars = {};
   for (const k of ["1M", "1Y", "5Y", "MAX"]) { await clickPeriod(page, k); await page.waitForTimeout(800); bars[k] = await range(page); }
