@@ -1016,6 +1016,45 @@
       /* テーマA⑦: portal 側の日本語注記 sans 化 */
       .screening-note { font-family: var(--ix-sans); letter-spacing: 0; line-height: 1.65; }
 
+      /* ── W1.5 セクターヒートマップ（市場の温度感）── */
+      #portal-heat { margin: 0 0 18px; }
+      #portal-heat:empty { display: none; }
+      .w15-head { font-size: 12px; color: var(--ix-text-dim); margin: 0 0 8px; }
+      .w15-head b { color: var(--ix-text); font-weight: 600; }
+      .w15-panel { background: var(--ix-surface-panel); border: 1px solid var(--ix-border);
+                   border-radius: 4px; padding: 14px 16px 12px; }
+      .w15-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+      .w15-col > h4 { font-size: 12px; color: var(--ix-text-dim); margin: 0 0 8px;
+                      letter-spacing: 0.08em; font-weight: 600; }
+      .w15-col > h4 span { color: var(--ix-slate); font-weight: 400; letter-spacing: 0; }
+      .w15-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); gap: 6px; }
+      .w15-tile { display: flex; flex-direction: column; gap: 2px; align-items: flex-start;
+                  justify-content: center; min-height: 74px; padding: 9px 10px; border-radius: 4px;
+                  cursor: pointer; border: 1px solid rgba(255, 255, 255, 0.06); font-family: inherit;
+                  text-align: left; overflow: hidden; }
+      .w15-tile:hover { outline: 1px solid var(--ix-cyan); outline-offset: -1px; }
+      .w15-tile.open { outline: 2px solid var(--ix-cyan); outline-offset: -2px; }
+      .w15-t-name { font-size: 12px; opacity: 0.92; white-space: nowrap; overflow: hidden;
+                    text-overflow: ellipsis; max-width: 100%; }
+      .w15-t-val { font-family: var(--ix-mono); font-size: 19px; font-weight: 700; line-height: 1.05; }
+      .w15-t-sub { font-size: 11px; opacity: 0.78; display: flex; align-items: center; gap: 6px; }
+      .w15-bar { display: inline-block; width: 42px; height: 4px; border-radius: 2px;
+                 background: rgba(255, 80, 110, 0.55); overflow: hidden; }
+      .w15-bar > i { display: block; height: 100%; background: rgba(0, 214, 110, 0.95); }
+      .w15-empty { font-size: 12px; color: var(--ix-slate); padding: 8px 0; }
+      .w15-legend { display: flex; align-items: center; gap: 3px; font-size: 11px;
+                    color: var(--ix-text-dim); margin-top: 10px; flex-wrap: wrap; }
+      .w15-legend i { width: 17px; height: 9px; border-radius: 1px; display: inline-block; }
+      .w15-legend span { margin: 0 5px; }
+      .w15-legend .w15-note { color: var(--ix-slate); }
+      @media (max-width: 760px) {
+        .w15-panel { padding: 12px 11px 10px; }
+        .w15-cols { grid-template-columns: 1fr; }
+        .w15-grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 5px; }
+        .w15-tile { min-height: 66px; padding: 8px; }
+        .w15-t-val { font-size: 16px; }
+      }
+
       /* ── W1 発掘ストリップ ── */
       #portal-strip { margin: 0 0 18px; }
       #portal-strip:empty { display: none; }
@@ -1245,6 +1284,7 @@
           </div>
         </div>
 
+        <div id="portal-heat"></div>
         <div id="portal-strip"></div>
         <div id="portal-modebar"></div>
         <div id="portal-container"></div>
@@ -2164,6 +2204,7 @@
 
         // W1: 値動きモードでは sectorOrder を作らないため 0件判定は list.length で見る（財務モードでは同値）。
         if (list.length === 0) {
+          renderPortalHeatmap(list);          // 0件では自分で消える
           renderPortalStrip(list);            // 0件でも見出し＋「該当なし」を出す
           const marketOn = screeningMarkets.length > 0;
           const sectorOn = (activeSectorFilter !== "all" && activeSectorFilter !== "stock_only");
@@ -2172,6 +2213,7 @@
           return;
         }
 
+        renderPortalHeatmap(list);
         renderPortalStrip(list);
         // Plan 2: セクター束ね順にフラット化 → 先頭チャンク描画 → sentinel + IntersectionObserver で増分。
         //  視覚順（セクタークラスタ順・各セクター内ソート順）は sectorOrder→groups の連結で完全一致。
@@ -2436,6 +2478,89 @@
             <div class="pstrip-row"><div class="pstrip-main" style="color:${mainColor}">${main}</div>
               <div class="pstrip-sub">${price}</div></div>
             <div class="pstrip-sub">${sub}</div>
+          </div>`;
+      }
+
+      // ── W1.5 セクターヒートマップ（市場の温度感・spec §6）──
+      const HEAT_NEUTRAL_RGB = [35, 46, 56];    // パネルの地色に寄せた中立＝「動いていない業種は色がつかない」
+      const HEAT_UP_RGB = [0, 200, 110];
+      const HEAT_DOWN_RGB = [255, 70, 105];
+      let heatMetricKey = localStorage.getItem("sip_heat_metric") || "c1";
+      let heatWeighted = localStorage.getItem("sip_heat_weight") === "cap";
+      let heatOpenSector = null;                // 展開中の大分類（保存しない＝毎回閉じた状態で始まる）
+
+      function _heatMix(a, b, t) {
+        return "rgb(" + Math.round(a[0] + (b[0] - a[0]) * t) + "," +
+          Math.round(a[1] + (b[1] - a[1]) * t) + "," + Math.round(a[2] + (b[2] - a[2]) * t) + ")";
+      }
+      function _heatFill(v) {
+        const s = PortalPriceRules.heatStep(v, heatMetricKey);
+        if (!s) return "rgba(120,140,150,.10)";                       // 指標値なし
+        if (s.i < 0) return _heatMix(HEAT_NEUTRAL_RGB, HEAT_NEUTRAL_RGB, 0);
+        return _heatMix(HEAT_NEUTRAL_RGB, s.up ? HEAT_UP_RGB : HEAT_DOWN_RGB, PortalPriceRules.HEAT_STEPS[s.i]);
+      }
+      function _heatInk(v) {
+        const s = PortalPriceRules.heatStep(v, heatMetricKey);
+        return (s && s.i >= 3) ? "#06121a" : "#eaf6fb";               // 濃い上位2段は黒文字（可読性）
+      }
+      function _heatFmt(v) {
+        const m = PortalPriceRules.heatMetric(heatMetricKey);
+        if (v === null || v === undefined || !isFinite(v)) return "--";
+        return m.signed ? PortalPriceRules.fmtSigned(v, m.digits, m.unit) : v.toFixed(m.digits);
+      }
+      function _heatTile(a) {
+        const pct = (a.up + a.down) ? Math.round((a.up / (a.up + a.down)) * 100) : 0;
+        return `<button type="button" class="w15-tile${heatOpenSector === a.key ? " open" : ""}"
+            data-sec="${esc(a.key)}" style="background:${_heatFill(a.v)};color:${_heatInk(a.v)}"
+            title="${esc(a.key)} ${a.n}社 ${_heatFmt(a.v)}">
+            <span class="w15-t-name">${esc(a.key)}</span>
+            <span class="w15-t-val">${_heatFmt(a.v)}</span>
+            <span class="w15-t-sub">${a.n}社　<i class="w15-bar"><i style="width:${pct}%"></i></i></span>
+          </button>`;
+      }
+      function _heatColumn(title, asofDate, items) {
+        const aggs = PortalPriceRules.groupBySector(items, heatMetricKey, heatWeighted);
+        const asof = asofDate ? `<span>${esc(asofDate.slice(5).replace("-", "/"))} 終値</span>` : "";
+        const body = aggs.length
+          ? `<div class="w15-grid">${aggs.map(_heatTile).join("")}</div>`
+          : `<div class="w15-empty">該当する銘柄がありません</div>`;
+        return `<div class="w15-col"><h4>${esc(title)}　${asof}</h4>${body}</div>`;
+      }
+      function _heatLegend() {
+        const m = PortalPriceRules.heatMetric(heatMetricKey);
+        const sw = [];
+        for (let i = PortalPriceRules.HEAT_STEPS.length - 1; i >= 0; i--) {
+          sw.push(`<i style="background:${_heatMix(HEAT_NEUTRAL_RGB, HEAT_DOWN_RGB, PortalPriceRules.HEAT_STEPS[i])}"></i>`);
+        }
+        sw.push(`<i style="background:${_heatMix(HEAT_NEUTRAL_RGB, HEAT_NEUTRAL_RGB, 0)}"></i>`);
+        for (let j = 0; j < PortalPriceRules.HEAT_STEPS.length; j++) {
+          sw.push(`<i style="background:${_heatMix(HEAT_NEUTRAL_RGB, HEAT_UP_RGB, PortalPriceRules.HEAT_STEPS[j])}"></i>`);
+        }
+        return `<div class="w15-legend"><span>${m.signed ? "下落" : "安値圏"}</span>${sw.join("")}
+          <span>${m.signed ? "上昇" : "高値圏"}</span>
+          <span class="w15-note">${esc(m.note)}　/　タイル下の細いバーは「その大分類のうち上昇した銘柄の割合」</span></div>`;
+      }
+
+      // list = 表と同じ母集合（filterAndRenderPortal が作った item 配列）。
+      function renderPortalHeatmap(list) {
+        const host = document.getElementById("portal-heat");
+        if (!host) return;
+        // 劣化（spec §7）: データ未取得・価格集計の失敗・0件ではパネルごと出さない。
+        // ⚠ 免責文はこのパネルに置かない。直下のストリップ末尾の免責1つが両パネルをカバーする。
+        if (dataLoadState !== "ready" || !(list || []).length) { host.innerHTML = ""; return; }
+        if (typeof DATA_PX_ERROR !== "undefined" && DATA_PX_ERROR) { host.innerHTML = ""; return; }
+        const items = (list || []).filter((it) => it.px);
+        if (!items.length) { host.innerHTML = ""; return; }
+        const asof = (typeof DATA_MARKET_ASOF !== "undefined" && DATA_MARKET_ASOF) || {};
+        const m = PortalPriceRules.heatMetric(heatMetricKey);
+        host.innerHTML = `
+          <div class="w15-head">市場の温度感　<b>${esc(m.label)}</b>　/　${items.length}銘柄を13の大分類で（クリックで中の銘柄を展開）</div>
+          <div class="w15-panel">
+            <div class="w15-cols">
+              ${_heatColumn("日本株", asof.JP, items.filter((it) => PortalPriceRules.marketOf(it.ticker, it) === "JP"))}
+              ${_heatColumn("米国株", asof.US, items.filter((it) => PortalPriceRules.marketOf(it.ticker, it) === "US"))}
+            </div>
+            ${_heatLegend()}
           </div>`;
       }
 
