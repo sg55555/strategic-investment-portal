@@ -1047,6 +1047,23 @@
       .w15-legend i { width: 17px; height: 9px; border-radius: 1px; display: inline-block; }
       .w15-legend span { margin: 0 5px; }
       .w15-legend .w15-note { color: var(--ix-slate); }
+      .w15-exp { margin-top: 12px; border-top: 1px solid var(--ix-border); padding-top: 11px; }
+      .w15-exp-h { font-size: 13px; color: var(--ix-text); margin-bottom: 9px;
+                   display: flex; align-items: center; }
+      .w15-exp-h b { font-family: var(--ix-mono); margin: 0 4px; }
+      .w15-close { margin-left: auto; font-size: 11px; padding: 5px 10px; min-height: 30px;
+                   border-radius: 999px; background: transparent; border: 1px solid var(--ix-border-mid);
+                   color: var(--ix-text-dim); cursor: pointer; font-family: inherit; }
+      .w15-ind { margin-bottom: 10px; }
+      .w15-ind-h { font-size: 12px; color: var(--ix-text-dim); margin-bottom: 4px; cursor: pointer; }
+      .w15-ind-h:hover { color: var(--ix-cyan); }
+      .w15-ind-h span { color: var(--ix-slate); font-size: 11px; }
+      .w15-stocks { display: grid; grid-template-columns: repeat(auto-fill, minmax(66px, 1fr)); gap: 3px; }
+      .w15-stock { border-radius: 3px; padding: 6px 3px; text-align: center; cursor: pointer;
+                   border: 1px solid rgba(255, 255, 255, 0.05); font-family: inherit; display: block; }
+      .w15-stock:hover { outline: 1px solid var(--ix-cyan); outline-offset: -1px; }
+      .w15-s-name { display: block; font-family: var(--ix-mono); font-size: 12px; line-height: 1.15; }
+      .w15-s-val { display: block; font-family: var(--ix-mono); font-size: 11px; opacity: 0.85; }
       @media (max-width: 760px) {
         .w15-panel { padding: 12px 11px 10px; }
         .w15-cols { grid-template-columns: 1fr; }
@@ -2044,6 +2061,7 @@
         window.addEventListener("hashchange", onHashChange);
         window.addEventListener("resize", DetailCharts.onWindowResize);   // P4: リサイズ追従
         _initPortalStripDelegation();                                     // W1: 発掘ストリップの委譲リスナー（1回だけ）
+        _initPortalHeatDelegation();                                      // W1.5: ヒートマップの委譲リスナー（1回だけ）
         await loadPortalData();
         DetailCharts.initPriceChart();
       };
@@ -2541,6 +2559,46 @@
           <span class="w15-note">${esc(m.note)}　/　タイル下の細いバーは「その大分類のうち上昇した銘柄の割合」</span></div>`;
       }
 
+      // 日本株はティッカーが数字で識別できないので社名を短縮（米国株はティッカーが通り名）。
+      function _heatStockLabel(it) {
+        if (String(it.ticker).indexOf(".T") === -1) return it.ticker;
+        const n = String(it.name || "").replace(/(ホールディングス|グループ本社|グループ|株式会社|・|　| )/g, "");
+        return n.slice(0, 4) || String(it.ticker).replace(".T", "");
+      }
+      function _heatExpansion(items) {
+        if (!heatOpenSector) return "";
+        const mine = items.filter((it) => PortalPriceRules.sectorOf(it.industry, !!it.isEtf) === heatOpenSector);
+        if (!mine.length) return "";
+        const byInd = {};
+        mine.forEach((it) => { (byInd[it.industry] = byInd[it.industry] || []).push(it); });
+        const blocks = Object.keys(byInd)
+          .sort((a, b) => byInd[b].length - byInd[a].length)
+          .map((ind) => {
+            const g = byInd[ind].slice().sort((a, b) => {
+              const x = PortalPriceRules.heatValue(a.px, heatMetricKey);
+              const y = PortalPriceRules.heatValue(b.px, heatMetricKey);
+              return (y === null ? -Infinity : y) - (x === null ? -Infinity : x);
+            });
+            const tiles = g.map((it) => {
+              const v = PortalPriceRules.heatValue(it.px, heatMetricKey);
+              return `<button type="button" class="w15-stock" data-ticker="${esc(it.ticker)}"
+                  style="background:${_heatFill(v)};color:${_heatInk(v)}"
+                  title="${esc(it.name)} ${esc(it.ticker)} ${_heatFmt(v)}">
+                  <span class="w15-s-name">${esc(_heatStockLabel(it))}</span>
+                  <span class="w15-s-val">${_heatFmt(v)}</span></button>`;
+            }).join("");
+            return `<div class="w15-ind">
+                <div class="w15-ind-h" data-ind="${esc(ind)}">${esc(String(ind).replace("US - ", ""))}
+                  <span>${g.length}社 ・ 表をこの業種に絞る</span></div>
+                <div class="w15-stocks">${tiles}</div></div>`;
+          }).join("");
+        const a = PortalPriceRules.heatAggregate(mine, heatMetricKey, heatWeighted);
+        return `<div class="w15-exp">
+            <div class="w15-exp-h">${esc(heatOpenSector)}　<b>${_heatFmt(a.v)}</b>　${mine.length}社
+              <button type="button" class="w15-close">閉じる ✕</button></div>
+            ${blocks}</div>`;
+      }
+
       // list = 表と同じ母集合（filterAndRenderPortal が作った item 配列）。
       function renderPortalHeatmap(list) {
         const host = document.getElementById("portal-heat");
@@ -2561,6 +2619,7 @@
               ${_heatColumn("米国株", asof.US, items.filter((it) => PortalPriceRules.marketOf(it.ticker, it) === "US"))}
             </div>
             ${_heatLegend()}
+            ${_heatExpansion(items)}
           </div>`;
       }
 
@@ -2614,6 +2673,26 @@
           }
           const card = e.target.closest(".pstrip-card");
           if (card && card.dataset.ticker) navigateToDetail(card.dataset.ticker, card);
+        });
+      }
+
+      // 委譲リスナー（1回だけ）。タイル→展開 / 銘柄→詳細 / 小分類見出し→表の絞り込み。
+      function _initPortalHeatDelegation() {
+        const host = document.getElementById("portal-heat");
+        if (!host || host.dataset.wired === "1") return;
+        host.dataset.wired = "1";
+        host.addEventListener("click", (e) => {
+          const close = e.target.closest(".w15-close");
+          if (close) { heatOpenSector = null; renderPortalHeatmap(lastPortalList); return; }
+          const stock = e.target.closest(".w15-stock");
+          if (stock && stock.dataset.ticker) { navigateToDetail(stock.dataset.ticker, stock); return; }
+          const ind = e.target.closest(".w15-ind-h");
+          if (ind && ind.dataset.ind) { setSectorFilter(ind.dataset.ind); return; }
+          const tile = e.target.closest(".w15-tile");
+          if (tile && tile.dataset.sec) {
+            heatOpenSector = (heatOpenSector === tile.dataset.sec) ? null : tile.dataset.sec;
+            renderPortalHeatmap(lastPortalList);   // 母集合は変わらない＝表（窓化・スクロール位置）は触らない
+          }
         });
       }
 
