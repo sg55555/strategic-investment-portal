@@ -1016,6 +1016,36 @@
       /* テーマA⑦: portal 側の日本語注記 sans 化 */
       .screening-note { font-family: var(--ix-sans); letter-spacing: 0; line-height: 1.65; }
 
+      /* ── W1 発掘ストリップ ── */
+      #portal-strip { margin: 0 0 18px; }
+      #portal-strip:empty { display: none; }
+      .pstrip-head { font-size: 12px; color: var(--ix-text-dim); margin: 0 0 8px; }
+      .pstrip-head b { color: var(--ix-text); font-weight: 600; }
+      .pstrip-panel { background: var(--ix-surface-panel); border: 1px solid var(--ix-border);
+                      border-radius: 12px; padding: 12px 12px 14px; }
+      .pstrip-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+      .pstrip-tab { font-size: 12px; padding: 7px 12px; min-height: 32px; border-radius: 999px;
+                    cursor: pointer; background: transparent; color: var(--ix-text-dim);
+                    border: 1px solid var(--ix-border-mid); font-family: inherit; }
+      .pstrip-tab.active { color: var(--ix-text-hi); border-color: rgba(0, 229, 255, 0.45);
+                           background: rgba(0, 229, 255, 0.08); }
+      .pstrip-cards { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px;
+                      scroll-snap-type: x proximity; }
+      .pstrip-card { flex: 0 0 158px; scroll-snap-align: start; background: var(--ix-surface-chart);
+                     border: 1px solid var(--ix-border); border-radius: 10px; padding: 9px 10px;
+                     cursor: pointer; transition: border-color 0.15s, transform 0.15s; }
+      .pstrip-card:hover { border-color: rgba(0, 229, 255, 0.4); transform: translateY(-2px); }
+      .pstrip-card.row-busy { opacity: 0.55; }
+      .pstrip-code { font-family: var(--ix-mono); font-size: 12px; color: var(--ix-cyan); letter-spacing: 0.04em; }
+      .pstrip-name { font-size: 12px; color: var(--ix-text); white-space: nowrap; overflow: hidden;
+                     text-overflow: ellipsis; margin: 2px 0 4px; }
+      .pstrip-main { font-size: 17px; font-weight: 700; font-family: var(--ix-mono); line-height: 1.1; }
+      .pstrip-sub { font-size: 12px; color: var(--ix-text-dim); font-family: var(--ix-mono); }
+      .pstrip-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 6px; }
+      .pstrip-note { font-size: 12px; color: var(--ix-slate); margin-top: 9px; line-height: 1.5; }
+      .pstrip-empty { font-size: 12px; color: var(--ix-slate); padding: 10px 2px; }
+      @media (max-width: 760px) { .pstrip-card { flex-basis: 142px; } }
+
     </style>
     <link rel="stylesheet" href="detail.css">
     <link rel="stylesheet" href="money.css">
@@ -1177,6 +1207,7 @@
           </div>
         </div>
 
+        <div id="portal-strip"></div>
         <div id="portal-container"></div>
       </div>
 
@@ -1933,6 +1964,7 @@
         }
         window.addEventListener("hashchange", onHashChange);
         window.addEventListener("resize", DetailCharts.onWindowResize);   // P4: リサイズ追従
+        _initPortalStripDelegation();                                     // W1: 発掘ストリップの委譲リスナー（1回だけ）
         await loadPortalData();
         DetailCharts.initPriceChart();
       };
@@ -2069,6 +2101,7 @@
         });
 
         if (sectorOrder.length === 0) {
+          renderPortalStrip(list);            // 0件でも見出し＋「該当なし」を出す
           const marketOn = screeningMarkets.length > 0;
           const sectorOn = (activeSectorFilter !== "all" && activeSectorFilter !== "stock_only");
           const hint = (marketOn && sectorOn) ? "<br><span style='font-size:0.8rem;color:#5a6c78'>セクター条件と市場条件が重複している可能性があります</span>" : "";
@@ -2076,6 +2109,7 @@
           return;
         }
 
+        renderPortalStrip(list);
         // Plan 2: セクター束ね順にフラット化 → 先頭チャンク描画 → sentinel + IntersectionObserver で増分。
         //  視覚順（セクタークラスタ順・各セクター内ソート順）は sectorOrder→groups の連結で完全一致。
         const flat = [], sectorLen = {};
@@ -2229,6 +2263,94 @@
                     <td style="${roeStyle}">${item.hasFinData ? roeText : "--"}</td>
                 `;
         return tr;
+      }
+
+      // ── W1 発掘ストリップ（表の上・4タブ・上位12件）──
+      const PSTRIP_N = 12;
+      let pstripTab = localStorage.getItem("sip_pstrip_tab") || "gain";
+
+      function _pstripAsofLabel() {
+        const a = (typeof DATA_MARKET_ASOF !== "undefined" && DATA_MARKET_ASOF) || {};
+        const parts = [];
+        if (a.JP) parts.push("日本株 " + a.JP.slice(5).replace("-", "/"));
+        if (a.US) parts.push("米国株 " + a.US.slice(5).replace("-", "/"));
+        return parts.length ? parts.join(" ／ ") + " 終値" : "終値";
+      }
+
+      function _pstripCard(it, tab) {
+        const px = it.px;
+        const tone = px.c1 > 0 ? "#00e676" : (px.c1 < 0 ? "#ff5c7a" : "var(--ix-slate)");
+        let main = "", sub = "";
+        if (tab.key === "vol") { main = PortalPriceRules.fmtVolRatio(px.vr); sub = "前日比 " + PortalPriceRules.fmtSigned(px.c1, 2, "%"); }
+        else if (tab.key === "high") { main = PortalPriceRules.fmtDistHigh(px.dh); sub = "前日比 " + PortalPriceRules.fmtSigned(px.c1, 2, "%"); }
+        else { main = PortalPriceRules.fmtSigned(px.c1, 2, "%"); sub = "5日 " + PortalPriceRules.fmtSigned(px.c5, 1, "%"); }
+        const mainColor = (tab.key === "vol") ? (px.vr >= 1.5 ? "#ffca3a" : "var(--ix-text)")
+          : (tab.key === "high") ? (px.dh >= -1 ? "#00e676" : "#ffca3a") : tone;
+        const g = PortalPriceRules.sparkGeometry(px.spark, 136, 30);
+        const svg = g ? `<svg width="136" height="30" viewBox="0 0 136 30" aria-hidden="true">
+            <polyline points="${g.points}" fill="none" stroke="${tone}" stroke-width="1.4"
+              stroke-linejoin="round" stroke-linecap="round"></polyline></svg>` : "";
+        const price = px.last == null ? "--"
+          : (it.currency === "USD" ? "$" : "¥") + (px.last >= 1000 ? Math.round(px.last).toLocaleString() : px.last.toFixed(2));
+        return `<div class="pstrip-card" data-ticker="${esc(it.ticker)}">
+            <div class="pstrip-code">${esc(it.ticker)}</div>
+            <div class="pstrip-name" title="${esc(it.name)}">${esc(it.name)}</div>
+            ${svg}
+            <div class="pstrip-row"><div class="pstrip-main" style="color:${mainColor}">${main}</div>
+              <div class="pstrip-sub">${price}</div></div>
+            <div class="pstrip-sub">${sub}</div>
+          </div>`;
+      }
+
+      // list = filterAndRenderPortal がフィルタ/スクリーニング後に作った item 配列（表と同じ母集合）。
+      function renderPortalStrip(list) {
+        const host = document.getElementById("portal-strip");
+        if (!host) return;
+        if (dataLoadState !== "ready") { host.innerHTML = ""; return; }
+        if (typeof DATA_PX_ERROR !== "undefined" && DATA_PX_ERROR) {
+          host.innerHTML = `<div class="pstrip-panel"><div class="pstrip-empty">値動きは一時的に取得できません（一覧は表示できます）。</div></div>`;
+          return;
+        }
+        const asof = (typeof DATA_MARKET_ASOF !== "undefined" && DATA_MARKET_ASOF) || {};
+        const items = (list || []).map((it) => ({
+          ticker: it.ticker, name: it.name, currency: it.currency,
+          market: PortalPriceRules.marketOf(it.ticker, it),
+          px: (STOCK_DATA[it.ticker] || {}).px || null,
+        }));
+        const tab = PortalPriceRules.TABS.filter((t) => t.key === pstripTab)[0] || PortalPriceRules.TABS[0];
+        const r = PortalPriceRules.rankTop(items, tab.key, PSTRIP_N, asof);
+        const tabsHtml = PortalPriceRules.TABS.map((t) =>
+          `<button type="button" class="pstrip-tab${t.key === tab.key ? " active" : ""}" data-tab="${t.key}">${esc(t.label)}</button>`).join("");
+        const body = r.rows.length
+          ? `<div class="pstrip-cards">${r.rows.map((it) => _pstripCard(it, tab)).join("")}</div>`
+          : `<div class="pstrip-empty">該当する銘柄がありません</div>`;
+        const staleNote = r.excludedStale
+          ? `（${r.excludedStale}銘柄は価格が古いため除外）` : "";
+        host.innerHTML = `
+          <div class="pstrip-head">今日の動き　<b>${esc(_pstripAsofLabel())}</b>　/　${list.length}銘柄${esc(staleNote)}</div>
+          <div class="pstrip-panel">
+            <div class="pstrip-tabs">${tabsHtml}</div>
+            ${body}
+            <div class="pstrip-note">終値ベースの事実の並べ替えです（推奨・売買判断ではありません）。出来高倍率＝当日出来高 ÷ 直近20営業日平均。</div>
+          </div>`;
+      }
+
+      // 委譲リスナー（inline onclick を作らない＝data-* は属性値として読むだけ）。1回だけ張る。
+      function _initPortalStripDelegation() {
+        const host = document.getElementById("portal-strip");
+        if (!host || host.dataset.wired === "1") return;
+        host.dataset.wired = "1";
+        host.addEventListener("click", (e) => {
+          const tabBtn = e.target.closest(".pstrip-tab");
+          if (tabBtn && tabBtn.dataset.tab) {
+            pstripTab = tabBtn.dataset.tab;
+            localStorage.setItem("sip_pstrip_tab", pstripTab);
+            filterAndRenderPortal();
+            return;
+          }
+          const card = e.target.closest(".pstrip-card");
+          if (card && card.dataset.ticker) navigateToDetail(card.dataset.ticker, card);
+        });
       }
 
       // Plan 2: 無限スクロール検知用センチネル（末尾の 1px 要素）。

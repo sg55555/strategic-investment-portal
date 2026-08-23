@@ -13,6 +13,8 @@
  */
 let STOCK_DATA = {};
 let DATA_UPDATED_AT = "";
+let DATA_MARKET_ASOF = {};   // W1: 市場ごとの最新終値日 {"JP":"2026-08-20","US":"2026-08-21"}
+let DATA_PX_ERROR = false;   // W1: 価格集計だけが失敗した（一覧は表示できる）
 const REMOTE_ENABLED = true;
 
 const _MKT_API = "/api/market";
@@ -42,6 +44,8 @@ async function bootData() {
     if (raw && raw.stocks) {
       STOCK_DATA = raw.stocks;
       DATA_UPDATED_AT = raw.updated_at || "";
+      DATA_MARKET_ASOF = raw.market_asof || {};
+      DATA_PX_ERROR = !!raw.px_error;
     } else {
       STOCK_DATA = raw;
     }
