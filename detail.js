@@ -786,7 +786,17 @@
       DetailCharts.setBenchData(r.points);
       paintBenchChip(b, r.covered ? null : r.anchorTime);   // 履歴が足りない分をラベルで明示（黙ってずらさない）
     }).catch((e) => {
-      if (gen !== benchGen) return;
+      // ⚠ .then と同じ着弾なので同じガードが要る（gen 一重だけだと非対称）。
+      //   navigateToDetail は currentTicker を getStock 解決前に同期更新する一方、遷移先の
+      //   applyBench（benchGen を進める唯一の経路）は getStock 解決後さらに150ms遅延で走るため、
+      //   「currentTicker は既に B・benchGen はまだ A」という空白期間が実在する。この間に A の
+      //   fetch が reject すると、gen 一重ガードは素通りして B 側の benchOn を無言で畳んでしまう
+      //   （B の画面で何もしていないのに OFF になり、A のラベルが一瞬乗る＝レビュー指摘の実害）。
+      //   benchOn は見ない：ここは「A で ON にしたつもりが失敗した」後始末（この fetch 自身の
+      //   後片付け）であり、その間にユーザーが B の画面で再度 ON にしていた場合に横から OFF へ
+      //   巻き込まないためにも gen+ticker の一致で十分（benchOn の値に関わらず、今の gen/ticker の
+      //   fetch が失敗したという事実は変わらない＝二重チェックにしても意味がない）。
+      if (gen !== benchGen || currentTicker !== ticker) return;
       console.error("bench fetch failed", e);
       DetailCharts.clearBench();
       benchOn = false; writeBench(false); paintBenchChip(b);   // 押下状態を残さない
