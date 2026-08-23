@@ -50,6 +50,57 @@ test("priceWindow: 0件は末尾200件フォールバック（filteredPrices は
   assert.equal(r.displayPrices[0].close, 50); // slice(-200) = index 50..249
 });
 
+// ── rollingWindow: ローリング窓（アンカーは wall-clock でなく prices の最終バー日）──
+const RW = [
+  { time: "2024-02-29", close: 1 }, { time: "2025-01-06", close: 2 },
+  { time: "2025-08-20", close: 3 }, { time: "2026-01-05", close: 4 },
+  { time: "2026-03-30", close: 5 }, { time: "2026-08-20", close: 6 },
+];
+
+test("rollingWindow: MAX は全件・startDate は先頭バー", () => {
+  const r = D.rollingWindow(RW, "MAX");
+  assert.equal(r.startDate, "2024-02-29");
+  assert.equal(r.endDate, "2026-08-20");
+  assert.equal(r.displayPrices.length, 6);
+  assert.equal(r.fallback, false);
+});
+
+test("rollingWindow: 1Y は最終バー日から1年（境界は含む）", () => {
+  const r = D.rollingWindow(RW, "1Y");
+  assert.equal(r.startDate, "2025-08-20");
+  assert.deepEqual(r.displayPrices.map((p) => p.time), ["2025-08-20", "2026-01-05", "2026-03-30", "2026-08-20"]);
+});
+
+test("rollingWindow: YTD は最終バーの年の 1/1 起点", () => {
+  const r = D.rollingWindow(RW, "YTD");
+  assert.equal(r.startDate, "2026-01-01");
+  assert.deepEqual(r.displayPrices.map((p) => p.time), ["2026-01-05", "2026-03-30", "2026-08-20"]);
+});
+
+test("rollingWindow: 月末クランプ（3/31 の1ヶ月前は 2/28・うるう年は 2/29）", () => {
+  const p2025 = [{ time: "2025-02-28", close: 1 }, { time: "2025-03-31", close: 2 }];
+  assert.equal(D.rollingWindow(p2025, "1M").startDate, "2025-02-28");
+  const p2024 = [{ time: "2024-02-29", close: 1 }, { time: "2024-03-31", close: 2 }];
+  assert.equal(D.rollingWindow(p2024, "1M").startDate, "2024-02-29");
+});
+
+test("rollingWindow: 窓が2本未満なら全件へフォールバックし fallback=true", () => {
+  const r = D.rollingWindow(RW, "1M");     // 2026-07-20 以降は 1 本しかない
+  assert.equal(r.fallback, true);
+  assert.equal(r.displayPrices.length, 6);
+  assert.equal(r.startDate, "2026-07-20");  // 起点は「求めた窓」を保持する（表示側が事情を説明できる）
+});
+
+test("rollingWindow: 空配列と未知キー", () => {
+  const e = D.rollingWindow([], "1Y");
+  assert.deepEqual(e.displayPrices, []);
+  assert.equal(e.startDate, null);
+  assert.equal(e.endDate, null);
+  const u = D.rollingWindow(RW, "7X");
+  assert.equal(u.displayPrices.length, 6);   // 未知キーは全件（壊さない）
+  assert.equal(u.startDate, null);
+});
+
 // ── fitLogicalRange: 少数バー時の中央寄せパディング（spec §9・LWC v4.2.3 に maxBarSpacing が無いための手実装）──
 test("fitLogicalRange: 十分な本数は素の fitContent（境界はちょうど幅一致も fit 側）", () => {
   assert.deepEqual(D.fitLogicalRange(300, 900), { fit: true });

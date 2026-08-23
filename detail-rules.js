@@ -490,6 +490,39 @@
     return { startDate, endDate, filteredPrices, displayPrices };
   }
 
+  // 月を引く（ISO 文字列 → ISO 文字列）。JS の Date は 3/31 の1ヶ月前を 3/3 に溢れさせるので、
+  //  溢れたら対象月の末日へクランプする（2026-03-31 の 1M 前 = 2026-02-28 / うるう年は 02-29）。
+  function _minusMonths(iso, months) {
+    const y = +iso.slice(0, 4), m = +iso.slice(5, 7), d = +iso.slice(8, 10);
+    let tm = m - months, ty = y;
+    while (tm <= 0) { tm += 12; ty -= 1; }
+    const last = new Date(Date.UTC(ty, tm, 0)).getUTCDate();   // 対象月の末日
+    const td = Math.min(d, last);
+    return `${String(ty).padStart(4, "0")}-${String(tm).padStart(2, "0")}-${String(td).padStart(2, "0")}`;
+  }
+
+  // ローリング窓（W2）。**アンカーは wall-clock ではなく prices の最終バー日**。
+  //  理由: ①ETL が止まってデータが stale でも窓が実データより先を指さない ②テストが決定論になる。
+  //  （detail-charts.js の normalizeForCompare は new Date() 基準だが、それは踏襲しない＝spec §4.1）
+  //  窓が2本未満なら全件へフォールバックする（空チャートを出さない）。startDate は求めた値を保持し、
+  //  表示側が「データ不足のため全期間」と説明できるようにする。
+  const ROLL_MONTHS = { "1M": 1, "3M": 3, "6M": 6, "1Y": 12, "5Y": 60 };
+  function rollingWindow(prices, periodKey) {
+    const src = Array.isArray(prices) ? prices : [];
+    if (!src.length) return { periodKey, startDate: null, endDate: null, displayPrices: [], fallback: false };
+    const endDate = src[src.length - 1].time;
+    if (periodKey === "MAX") {
+      return { periodKey, startDate: src[0].time, endDate, displayPrices: src.slice(), fallback: false };
+    }
+    let startDate;
+    if (periodKey === "YTD") startDate = `${endDate.slice(0, 4)}-01-01`;
+    else if (ROLL_MONTHS[periodKey]) startDate = _minusMonths(endDate, ROLL_MONTHS[periodKey]);
+    else return { periodKey, startDate: null, endDate, displayPrices: src.slice(), fallback: false };
+    const win = src.filter((p) => p.time >= startDate && p.time <= endDate);
+    const fallback = win.length < 2;
+    return { periodKey, startDate, endDate, displayPrices: fallback ? src.slice() : win, fallback };
+  }
+
   // 表示窓の logical range 決定（spec §9・D20）。LWC v4.2.3 に maxBarSpacing オプションが無いため
   //  「barCount×maxBarSpacing ≥ paneWidth なら素の fitContent／未満なら中央寄せパディング」を手実装する。
   //  無効入力（0本・幅0/負・spacing 0）は null＝呼び出し側は skip（非表示チャートの 0x0 罠ガードと同思想）。
@@ -1080,7 +1113,7 @@
     calcATR, calcADX, calcKeltner, calcOBV, calcVWAP, disciplineDigest,
     signalDigest, healthTrendSeries, dupontFactorSeries, fcfTrendSeries,
     // 財務ディスクリプタ純関数
-    priceWindow, fitLogicalRange, periodLabel, periodLabelParts, displayName, hasTickerSuffix, marketBasisFor, perStatus, pbrStatus,
+    priceWindow, rollingWindow, fitLogicalRange, periodLabel, periodLabelParts, displayName, hasTickerSuffix, marketBasisFor, perStatus, pbrStatus,
     equityRatioDesc, currentRatioDesc, yoyBadge, isFinancialPL, plSteps, cfFlowStatus, cfCompanyType, cfWaterfall, radarScores,
     sparklineSVG, dupontDescriptor, fcfQualityDescriptor,
     // 色/特例定数
