@@ -893,9 +893,15 @@
         //  （ポータル index.html:1980・cross-section-rules.js:90-91）に揃える＝3例目・同引数。
         const currentRatio = FinanceRules.ratioOrNull(fin, FinanceRules.currentRatio, ["current_assets", "current_liabilities"], ["current_liabilities"]);
 
+        // fix round2 Finding I-2: animateNumber は900ms間 rAF で innerText を書き続けキャンセル機構がない。
+        //  銘柄/年切替で旧ループが完走前に次の描画が始まると、下の静的書込み（マイナス／N/A）を旧ループの
+        //  最終フレームが後から上書きしてしまう（前銘柄の値が残像として固定される）。bumpAnimSeq(el) で
+        //  世代を進めてから書くことで、同一 el への in-flight animateNumber ループを自己停止させる。
         if (hasNegativeEquity) {
-          document.getElementById("equity-ratio").innerText = "マイナス";
-          document.getElementById("equity-ratio").style.color = "#ff5c7a";
+          const eqEl = document.getElementById("equity-ratio");
+          bumpAnimSeq(eqEl);
+          eqEl.innerText = "マイナス";
+          eqEl.style.color = "#ff5c7a";
           document.getElementById("desc-equity-ratio").innerText = "▶ 純資産マイナス（積極的な自社株買い等による）";
         } else {
           document.getElementById("equity-ratio").style.color = "#ffd60a";
@@ -904,6 +910,7 @@
         // ⚠ animateNumber(null) は (null*eased).toFixed(1) = "0.0%" を**無言表示**する（detail.js:189-199）＝分岐必須。
         const crEl = document.getElementById("current-ratio");
         if (currentRatio === null) {
+          bumpAnimSeq(crEl);
           crEl.innerText = "N/A";
           // detail.js:753（currentRatioDesc）が毎 render 先に書く→ここが後勝ち。非 null 年/銘柄では上書きしないため
           //  基準文言への復帰は detail.js 側の毎回書込で自動成立（追加の戻し処理は不要）。

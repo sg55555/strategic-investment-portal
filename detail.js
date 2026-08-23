@@ -187,16 +187,31 @@
     URL.revokeObjectURL(url);
   }
 
+  // fix round2 Finding I-2: animateNumber の rAF ループはキャンセル機構を持たず、900ms 間 el.innerText を
+  //  書き続ける。銘柄切替（navigateToDetail）が旧ループの完走前に次の描画を始めると、旧ループの最終フレームが
+  //  静的書込み（N/A・マイナス・"--" 等）を後から上書きし、前銘柄/前状態の値が固定表示される穴があった
+  //  （例: 7203.T の流動比率アニメ稼働中に 8306.T へ切替→N/A が書かれた直後に前者の最終フレームで潰される）。
+  //  世代トークン（el.__animSeq）で対処: 呼び出しごとに世代を進め、tick は自分の世代が最新でなければ自己停止する。
+  //  同一要素への通常の連続アニメーション（switchYear 等の正常系再描画）は毎回 animateNumber が世代を進める側にも
+  //  なるため、直前ループを止めつつ自分は最新世代として最後まで走り切る＝挙動不変。
   function animateNumber(el, endVal, suffix, decimals, duration) {
     if (!el) return;
+    const seq = (el.__animSeq = (el.__animSeq || 0) + 1);
     const start = performance.now();
     function tick(now) {
+      if (seq !== el.__animSeq) return; // 後発の呼び出し/静的書込みに世代を追い越された＝上書きせず自己停止
       const t = Math.min((now - start) / duration, 1);
       const eased = 1 - Math.pow(1 - t, 3);
       el.innerText = (endVal * eased).toFixed(decimals) + suffix;
       if (t < 1) requestAnimationFrame(tick);
     }
     requestAnimationFrame(tick);
+  }
+
+  // animateNumber を経由しない静的書込み（N/A・マイナス・"--" 等）側が呼ぶ世代更新ヘルパ。
+  //  同一 el への in-flight animateNumber ループを無効化してから静的テキストを書く（呼び出し順は呼び出し側の責務）。
+  function bumpAnimSeq(el) {
+    if (el) el.__animSeq = (el.__animSeq || 0) + 1;
   }
 
   function fmtBillion(val, currency) {
@@ -664,7 +679,7 @@
 
     const headerEl = document.getElementById("active-company-header");
     headerEl.innerHTML = `
-      <span class="company-title-main">${esc(data.company_name)}${data.company_name.includes(`(${currentTicker})`) ? "" : ` <span style="color:#475569;font-size:12px;">(${currentTicker})</span>`}</span>
+      <span class="company-title-main">${esc(data.company_name)}${DetailRules.hasTickerSuffix(data.company_name, currentTicker) ? "" : ` <span style="color:#475569;font-size:12px;">(${currentTicker})</span>`}</span>
       <span class="sector-badge">${esc(data.industry)}</span>${currBadgeHtml}
       <button class="detail-star-btn${isWatched(currentTicker) ? " watched" : ""}" id="detail-star-btn"
         onclick="toggleWatchlist('${currentTicker}')">${isWatched(currentTicker) ? ICO.starFill + " ウォッチ中" : ICO.starOutline + " ウォッチ"}</button>
@@ -727,12 +742,17 @@
     if (rawPer > 0) {
       animateNumber(document.getElementById("txt-per-val"), rawPer, "倍", 1, 900);
     } else {
-      document.getElementById("txt-per-val").innerText = "--";
+      // I-2: 静的書込み前に世代を進め、前銘柄の in-flight animateNumber ループの後勝ち上書きを防ぐ。
+      const perEl = document.getElementById("txt-per-val");
+      bumpAnimSeq(perEl);
+      perEl.innerText = "--";
     }
     if (rawPbr > 0) {
       animateNumber(document.getElementById("txt-pbr-val"), rawPbr, "倍", 1, 900);
     } else {
-      document.getElementById("txt-pbr-val").innerText = "--";
+      const pbrEl = document.getElementById("txt-pbr-val");
+      bumpAnimSeq(pbrEl);
+      pbrEl.innerText = "--";
     }
 
     // PER 評価カード: 計算は detail-rules.js（descriptor）、DOM 書込はここで適用（挙動不変）。
@@ -924,6 +944,8 @@
   //  free-var 参照する（Task2 で global 前提のまま relocate 済）。detail.js へ移した本体を window に露出し
   //  detail-charts.js 側の bare 参照を解決させる（純ヘルパゆえ状態 seam と異なり引数化でなく shared global）。
   window.animateNumber = animateNumber;
+  // I-2: 静的書込み側（detail-charts.js の equity-ratio/current-ratio 分岐）が world-seam 越しに呼ぶ世代更新ヘルパ。
+  window.bumpAnimSeq = bumpAnimSeq;
   window.renderRelativePosition = renderRelativePosition; // 相対ポジションカード（テスト/将来の手動再描画用）
   // 内部/将来用（switchYear は navigateToDetail 内 closure ゆえ bare 露出不要）。
   window.Detail = { navigateToDetail, updateFinancialViews, switchYear, termHelp, injectTermHelp, renderSignalDigest, renderRelativePosition, renderInsightCard, fetchInsight, probeInsightCap, initSubpanelUI, renderDisciplineCard };

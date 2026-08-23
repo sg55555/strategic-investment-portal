@@ -500,11 +500,19 @@
     return { fit: false, from: -pad, to: barCount - 1 + pad };
   }
 
+  // 社名に "(ticker)" が既に含まれるか（null 安全な述語・displayName とヘッダ表示(detail.js)の共通単一ソース）。
+  //  fix round2 Finding I-1: detail.js:667 が同じ判定をこの述語と別実装（生 company_name.includes）で持っていて
+  //  company_name が null（db/schema.sql:10 で nullable）だと TypeError で詳細ビューが白紙になる非対称があった。
+  //  述語をここへ一本化し、呼び出し側は必ずこの関数を経由させる。
+  function hasTickerSuffix(companyName, ticker) {
+    return String(companyName == null ? "" : companyName).includes(`(${ticker})`);
+  }
+
   // 社名表示（社名が既に "(ticker)" を含むなら付加を省略＝SPY 型の二重ティッカー防止・spec §6.1/D14）。
   //  QQQ/GOOGL の括弧連鎖（括弧内が ticker でない）は情報として維持し、社名整理はデータ側レーンで扱う。
   function displayName(companyName, ticker) {
     const name = String(companyName == null ? "" : companyName);
-    return name.includes(`(${ticker})`) ? name : `${name} (${ticker})`;
+    return hasTickerSuffix(companyName, ticker) ? name : `${name} (${ticker})`;
   }
 
   // stock-title 文言を main（社名＋時系列種別）と period（[...] 注記）に分離（spec §6.2/§6.3）。
@@ -1072,7 +1080,7 @@
     calcATR, calcADX, calcKeltner, calcOBV, calcVWAP, disciplineDigest,
     signalDigest, healthTrendSeries, dupontFactorSeries, fcfTrendSeries,
     // 財務ディスクリプタ純関数
-    priceWindow, fitLogicalRange, periodLabel, periodLabelParts, displayName, marketBasisFor, perStatus, pbrStatus,
+    priceWindow, fitLogicalRange, periodLabel, periodLabelParts, displayName, hasTickerSuffix, marketBasisFor, perStatus, pbrStatus,
     equityRatioDesc, currentRatioDesc, yoyBadge, isFinancialPL, plSteps, cfFlowStatus, cfCompanyType, cfWaterfall, radarScores,
     sparklineSVG, dupontDescriptor, fcfQualityDescriptor,
     // 色/特例定数
