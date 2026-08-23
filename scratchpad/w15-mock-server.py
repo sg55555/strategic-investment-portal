@@ -96,12 +96,18 @@ SCRIPT_TAG = '    <script src="/w15-variants.js"></script>\n  </body>'
 
 
 def patched_index() -> bytes:
+    """本実装の index.html にフックを注入して返す。
+
+    ⚠ 比較用モック（w15-variants.js＝案A/B/C の切替バー）の注入は**既定で無効**。
+      案の比較は 2026-08-23 に決着済み（案C採用）で、以後は本実装だけが見えている方が
+      実機サニティで迷わないため。比較モックを再び見たいときだけ W15_VARIANTS=1 を付ける。
+    """
     with open(os.path.join(ROOT, "index.html"), encoding="utf-8") as f:
         html = f.read()
-    for anchor, repl, label in (
-        (ANCHOR_HOOKS, HOOKS + ANCHOR_HOOKS, "hooks"),
-        (ANCHOR_SCRIPT, SCRIPT_TAG, "script"),
-    ):
+    steps = [(ANCHOR_HOOKS, HOOKS + ANCHOR_HOOKS, "hooks")]
+    if os.environ.get("W15_VARIANTS") == "1":
+        steps.append((ANCHOR_SCRIPT, SCRIPT_TAG, "script"))
+    for anchor, repl, label in steps:
         if html.count(anchor) != 1:
             raise SystemExit(f"[w15-mock] アンカー {label} が {html.count(anchor)} 箇所（1でない）＝注入中止")
         html = html.replace(anchor, repl, 1)
