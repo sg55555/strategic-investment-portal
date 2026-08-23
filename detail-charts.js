@@ -52,6 +52,7 @@
   let currentDisplayPrices = null;
   let currentAllPrices = null;
   let compareChart = null;
+  let benchSeries = null;          // W2: ベンチマーク重ね描き（銘柄・期間をまたいで1本を使い回す）
 
   // ── ネオン発光ヘルパ / Chart.js プラグイン（index.html から verbatim relocate）──
       // ── ネオン発光バー（漆黒に発光する世界観・べた塗り回避） ──
@@ -731,6 +732,20 @@
         priceChart.priceScale("vol").applyOptions({
           scaleMargins: { top: 0.82, bottom: 0 },
           visible: false,
+        });
+
+        // W2: ベンチマーク（TOPIX/S&P500）の重ね描き。右軸を共有するが **軸の範囲決定には参加させない**。
+        //  ⚠ autoscaleInfoProvider を外すと、ベンチ側の1本の異常値（例: 1306.T の分割未調整バー）で
+        //     軸が引き伸ばされ主銘柄のローソクが縦に潰れる（実測: 軸 -1325〜4209／ローソクは縦23%）。
+        //     null を返すとこの系列は autoscale に寄与しない（LWC v4.2.3 で実機確認済み）。
+        benchSeries = priceChart.addLineSeries({
+          color: "#8aa0ff",              // --ix-indigo-bright 相当（canvas は CSS 変数を読めないので値で管理）
+          lineWidth: 1,
+          lineStyle: LightweightCharts.LineStyle.Dotted,
+          priceLineVisible: false,
+          lastValueVisible: false,       // 右軸バッジを増やさない
+          crosshairMarkerVisible: false,
+          autoscaleInfoProvider: () => null,
         });
 
         ma5Series = priceChart.addLineSeries({
@@ -1456,6 +1471,13 @@
   function setCandleData(displayPrices) {
     if (candleSeries) candleSeries.setData(displayPrices);
   }
+  // W2: ベンチ系列の出し入れ（instance は closure 私有のまま・detail.js からは値だけ渡す）。
+  function setBenchData(points) {
+    if (benchSeries) benchSeries.setData(points || []);
+  }
+  function clearBench() {
+    if (benchSeries) benchSeries.setData([]);
+  }
   function resizePrice(w, h) {
     if (priceChart) priceChart.resize(w, h);
   }
@@ -1635,7 +1657,7 @@
     initPriceChart, updateMaAndVolume, setCandleData,
     renderBSChart, renderRadarChart, renderPLChart, renderCFChart, renderHealthTrend,
     renderDuPont, renderFCFTrend,
-    repaint, onWindowResize, renderCompareChart, resizePrice, getPriceVisibleRange,
+    repaint, onWindowResize, renderCompareChart, resizePrice, getPriceVisibleRange, setBenchData, clearBench,
     mountSubpanel, unmountSubpanel, isSubpanelMounted, activeSubpanels, refreshSubpanels, resizeSubpanels,
   };
 })();

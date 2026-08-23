@@ -37,11 +37,20 @@ _CT = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf
 ANCHOR_SCRIPT = "  </body>"
 SCRIPT_TAG = '    <script src="/scratchpad/w2-variants.js"></script>\n  </body>'
 
+INJECT_DEFAULT = os.environ.get("W2_INJECT", "1") != "0"
 
-def patched_index() -> bytes:
-    """本実装の index.html に </body> 直前の <script> 注入だけ行って返す（それ以外は無改変）。"""
+
+def patched_index(inject: bool = True) -> bytes:
+    """本実装の index.html を返す（inject=True のときだけ </body> 直前へ比較ハーネスを注入）。
+
+    本実装（Task 1-4 のコード）の受入・検証は W2_INJECT=0 か ?w2mock=off で起動する
+    （案A の比較ハーネス w2-variants.js が実装と二重に mount され、localStorage キー
+    sip_detail_period も奪い合うため）。
+    """
     with open(os.path.join(ROOT, "index.html"), encoding="utf-8") as f:
         html = f.read()
+    if not inject:
+        return html.encode("utf-8")
     if html.count(ANCHOR_SCRIPT) != 1:
         raise SystemExit(f"[w2-mock] アンカー </body> が {html.count(ANCHOR_SCRIPT)} 箇所（1でない）＝注入中止")
     html = html.replace(ANCHOR_SCRIPT, SCRIPT_TAG, 1)
@@ -53,7 +62,8 @@ class handler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         try:
             if path in ("/", "/index.html", "/index"):
-                return self._send(200, patched_index(), _CT[".html"])
+                inject = INJECT_DEFAULT and "w2mock=off" not in urlparse(self.path).query
+                return self._send(200, patched_index(inject), _CT[".html"])
             if path.startswith("/api/"):
                 return self._proxy()
             return self._file(os.path.join(ROOT, path.lstrip("/")))
