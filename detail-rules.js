@@ -568,6 +568,18 @@
     };
   }
 
+  // ローリング窓の見出し（W2）。FY は periodLabelParts のまま＝**この関数を通さない**（FY 文言は不変）。
+  //  main は FY と同じ（社名＋時系列種別）。period だけが窓の実体を語る。
+  const ROLL_NAME = { "1M": "直近1ヶ月", "3M": "直近3ヶ月", "6M": "直近6ヶ月", "YTD": "年初来", "1Y": "直近1年", "5Y": "直近5年", "MAX": "全期間" };
+  function rollingLabelParts(companyName, ticker, win, isEtf) {
+    const main = `${displayName(companyName, ticker)} - 歴史的ローソク足時系列`;
+    if (!win || !win.startDate || !win.endDate) return { main, period: "" };
+    if (win.fallback) return { main, period: `[${win.periodKey} のデータが不足のため全期間を表示]` };
+    const ym = (iso) => `${+iso.slice(0, 4)}年${+iso.slice(5, 7)}月`;
+    const name = ROLL_NAME[win.periodKey] || win.periodKey;
+    return { main, period: `[${name} ${ym(win.startDate)} 〜 ${ym(win.endDate)}]` };
+  }
+
   // 1行版（既存呼出し互換の薄いラッパ）。index.html 3814-3822 由来。
   function periodLabel(companyName, ticker, year, isUS, hasFiltered, isEtf) {
     const p = periodLabelParts(companyName, ticker, year, isUS, hasFiltered, isEtf);
@@ -1113,7 +1125,7 @@
     calcATR, calcADX, calcKeltner, calcOBV, calcVWAP, disciplineDigest,
     signalDigest, healthTrendSeries, dupontFactorSeries, fcfTrendSeries,
     // 財務ディスクリプタ純関数
-    priceWindow, rollingWindow, fitLogicalRange, periodLabel, periodLabelParts, displayName, hasTickerSuffix, marketBasisFor, perStatus, pbrStatus,
+    priceWindow, rollingWindow, fitLogicalRange, periodLabel, periodLabelParts, rollingLabelParts, displayName, hasTickerSuffix, marketBasisFor, perStatus, pbrStatus,
     equityRatioDesc, currentRatioDesc, yoyBadge, isFinancialPL, plSteps, cfFlowStatus, cfCompanyType, cfWaterfall, radarScores,
     sparklineSVG, dupontDescriptor, fcfQualityDescriptor,
     // 色/特例定数

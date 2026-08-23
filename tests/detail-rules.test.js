@@ -195,6 +195,31 @@ test("periodLabel: periodLabelParts の薄いラッパ（SPY 型でティッカ�
   );
 });
 
+// ── rollingLabelParts: ローリング窓の見出し（FY 用 periodLabelParts とは別関数）──
+test("rollingLabelParts: 1Y は「直近1年」と実期間を書く", () => {
+  const win = { periodKey: "1Y", startDate: "2025-08-20", endDate: "2026-08-20", displayPrices: [1, 2], fallback: false };
+  const r = D.rollingLabelParts("トヨタ自動車", "7203.T", win, false);
+  assert.equal(r.main, "トヨタ自動車 (7203.T) - 歴史的ローソク足時系列");
+  assert.equal(r.period, "[直近1年 2025年8月 〜 2026年8月]");
+});
+
+test("rollingLabelParts: YTD / MAX の呼び名", () => {
+  const ytd = { periodKey: "YTD", startDate: "2026-01-01", endDate: "2026-08-20", fallback: false };
+  assert.equal(D.rollingLabelParts("A", "A", ytd, false).period, "[年初来 2026年1月 〜 2026年8月]");
+  const max = { periodKey: "MAX", startDate: "2009-01-05", endDate: "2026-08-20", fallback: false };
+  assert.equal(D.rollingLabelParts("A", "A", max, false).period, "[全期間 2009年1月 〜 2026年8月]");
+});
+
+test("rollingLabelParts: fallback は理由を書く", () => {
+  const win = { periodKey: "1M", startDate: "2026-07-20", endDate: "2026-08-20", fallback: true };
+  assert.equal(D.rollingLabelParts("A", "A", win, false).period, "[1M のデータが不足のため全期間を表示]");
+});
+
+test("rollingLabelParts: 社名が (ticker) を含むなら二重にしない", () => {
+  const win = { periodKey: "1Y", startDate: "2025-08-20", endDate: "2026-08-20", fallback: false };
+  assert.equal(D.rollingLabelParts("S&P 500 ETF (SPY)", "SPY", win, true).main, "S&P 500 ETF (SPY) - 歴史的ローソク足時系列");
+});
+
 // ── marketBasisFor: 市場別バリュエーション基準（MARKET_BASIS 単一ソース）──
 test("marketBasisFor: US / JP の基準値", () => {
   assert.deepEqual(D.marketBasisFor(true),
