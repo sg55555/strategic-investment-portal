@@ -745,6 +745,32 @@
     //  ミニ解説カードは renderSignalDigest と同型（価格のみで成立・isEtf/!fin early-return より前で無条件描画・
     //  switchYear 等の再呼び出しでも冪等）で毎回再描画する。
     renderDisciplineCard(dp, prices);
+
+    paint52wBar(data);
+  }
+
+  // W2: 52週レンジバー。**数値は list API のサーバ計算値（px）をそのまま使い、JS で再計算しない**
+  //  （portal-price-rules.js 冒頭の D9 原則＝JS↔Py の鏡像パリティ義務を新設しない。ポータル一覧・
+  //   ヒートマップと同じ数字が出ることも同時に保証される）。**期間切替とは独立＝常に直近52週**。
+  function paint52wBar(data) {
+    const root = document.getElementById("w2-52w");
+    if (!root) return;
+    const px = data && data.px;
+    const ok = px && px.pos52 != null && px.hi52 != null && px.lo52 != null;
+    root.style.display = ok ? "" : "none";          // 新規上場等（_PX_MIN_52W_ROWS 未満）はバーごと非表示
+    if (!ok) return;
+    const cur = data.currency === "USD" ? "$" : "¥";
+    const set = (k, v) => { const el = root.querySelector(`[data-w2="${k}"]`); if (el) el.textContent = v; };
+    const fmt = (v) => (v >= 1000 ? Math.round(v).toLocaleString() : v.toFixed(2));
+    set("lo", cur + fmt(px.lo52));
+    set("hi", cur + fmt(px.hi52));
+    set("pos", Math.round(px.pos52) + "%");
+    set("dist", PortalPriceRules.fmtDistHigh(px.dh));      // dh は負が「高値より下」＝符号規約を自前で書かない
+    const marker = root.querySelector('[data-w2="marker"]');
+    if (marker) marker.style.left = PortalPriceRules.clampPos(px.pos52) + "%";
+    const market = PortalPriceRules.marketOf(currentTicker, data);
+    const stale = PortalPriceRules.isStale(px, DATA_MARKET_ASOF, market);
+    set("note", stale ? `終値 ${px.date}（更新待ち）` : "");
   }
 
   function updateFinancialViews() {
