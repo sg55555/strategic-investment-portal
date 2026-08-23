@@ -35,7 +35,12 @@ const range = (page) =>
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => {
     if (m.type() !== "error") return;
-    if (/_vercel\/insights|Failed to load resource/.test(m.text())) return;   // モック鯖は Analytics を配信しない
+    // モック鯖が配信しない _vercel/insights の 404 だけを無視する（AND 条件。旧版は OR で
+    // "Failed to load resource" を含む別の 404＝新しい JS/CSS 参照の typo 等まで無条件に握り潰していた）。
+    // ⚠ 対象 URL は m.text() には入らず m.location().url にしか出ない（実測で確認済み。
+    //   Chromium の "Failed to load resource" ログは本文に URL を含まない）。
+    const url = (m.location() && m.location().url) || "";
+    if (url.includes("_vercel/insights") && m.text().includes("Failed to load resource")) return;
     errors.push("console: " + m.text());
   });
 
@@ -108,20 +113,52 @@ const range = (page) =>
   await page.reload({ waitUntil: "domcontentloaded" });
   await open(page, "7203.T");
   await clickPeriod(page, "1Y"); await page.waitForTimeout(600);
+
+  // 着弾ガード（遅延レース）: 1306.T の ohlcv フェッチを意図的に 1.5秒遅延させ、
+  // 「ON の直後に OFF」→「遅れて ON 時の fetch が着弾」という、着弾ガードが本来守るべき順序を
+  // 確定的に作る（レビュー Critical 1）。⚠ ここでは 1306.T がまだ未キャッシュ（このリロード後
+  // 一度もベンチを ON にしていない）であることが重要 = 未キャッシュだからこそ route が実際に
+  // 発火する実ネットワーク経路になる。この直後の通常の ON→OFF 連打テスト（下）は 1306.T が
+  // キャッシュ済みになるため、2回目以降の ON は数十ms未満でキャッシュヒット即着弾してしまい、
+  // このガードが守る「実ネットワーク遅延の後発着弾」を再現できない（実測で確認済み）。
+  await page.route("**/api/market/ohlcv?ticker=1306.T", async (route) => {
+    await new Promise((r) => setTimeout(r, 1500));
+    await route.continue();
+  });
+  await page.evaluate(() => document.getElementById("w2-bench-btn").click());   // ON: fetch開始（遅延中・未着弾）
+  await page.waitForTimeout(300);
+  await page.evaluate(() => document.getElementById("w2-bench-btn").click());   // OFF: 着弾前に即取り消し
+  await page.waitForTimeout(2500);   // 遅延させた fetch の着弾を待つ
+  await page.unroute("**/api/market/ohlcv?ticker=1306.T");
+  const raceActive = await page.evaluate(() => document.getElementById("w2-bench-btn").classList.contains("active"));
+  const racePoints = await page.evaluate(() => window.DetailCharts.benchPointCount());
+  check(!raceActive, "遅延着弾レース: ON直後にOFFした後で遅れてfetchが着弾してもOFFが残る（ボタン表示）");
+  check(racePoints === 0,
+    `遅延着弾レース: ON直後にOFFした後で遅れてfetchが着弾してもOFFが残る（チャート実系列 benchPointCount=${racePoints}・線が復活していない）`);
+
   await page.evaluate(() => document.getElementById("w2-bench-btn").click());
   await page.waitForTimeout(3000);
-  check(await page.evaluate(() => document.getElementById("w2-bench-btn").classList.contains("active")), "ベンチ ON");
+  check(await page.evaluate(() => document.getElementById("w2-bench-btn").classList.contains("active")), "ベンチ ON（ボタン表示）");
+  // ボタンの CSS クラスは paintBenchChip が benchOn を見て毎回同期的に塗り直すだけなので、着弾ガードが
+  // 壊れて非同期の setBenchData が後から実データで線を復活させても、ボタン表示だけでは検知できない
+  // （レビュー Critical 1・上の遅延レースが本命の検証。ここは通常経路でも同じ形で確認する）。
+  check((await page.evaluate(() => window.DetailCharts.benchPointCount())) > 0, "ベンチ ON（チャート実系列に点が乗る）");
   const axis = await page.evaluate(() => {
     const w = DetailRules.rollingWindow(STOCK_DATA[currentTicker].prices, "1Y").displayPrices;
     return { lo: Math.min(...w.map((p) => p.low)) };
   });
   console.log(`   窓内最安値 ${axis.lo}（軸がこの 0.5 倍を下回らないこと）`);
+  // 通常のクリック連打（1306.T キャッシュ済み・即着弾）は上の遅延レースほど厳密ではないが、
+  // 連打してもクラッシュせず最終状態が OFF に収束する UX 上の健全性チェックとして残す。
   await page.evaluate(() => { document.getElementById("w2-bench-btn").click(); document.getElementById("w2-bench-btn").click(); });
   await page.waitForTimeout(200);
   await page.evaluate(() => document.getElementById("w2-bench-btn").click());
   await page.waitForTimeout(3000);
-  check(!(await page.evaluate(() => document.getElementById("w2-bench-btn").classList.contains("active"))),
-    "ON→即OFF を繰り返しても最後の OFF が残る（線が復活しない）");
+  const offActive = await page.evaluate(() => document.getElementById("w2-bench-btn").classList.contains("active"));
+  const offPoints = await page.evaluate(() => window.DetailCharts.benchPointCount());
+  check(!offActive, "ON→即OFF を繰り返しても最後の OFF が残る（ボタン表示）");
+  check(offPoints === 0,
+    `ON→即OFF を繰り返しても最後の OFF が残る（チャート実系列 benchPointCount=${offPoints}・線が復活していない）`);
   await page.evaluate(() => document.getElementById("w2-bench-btn").click());
   await page.waitForTimeout(2500);
   await clickPeriod(page, "MAX"); await page.waitForTimeout(3000);
@@ -134,12 +171,37 @@ const range = (page) =>
   console.log("=== 劣化経路 ===");
   await page.reload({ waitUntil: "domcontentloaded" });
   await open(page, "7203.T");
+  // dataClient.js の getStock は `_mktHydrated` 未登録のティッカーを開くたび必ず本番へ再フェッチして
+  // cur.prices を実データで上書きする。reload 直後にこの reload 内で一度も開いていない 6758.T へ
+  // いきなり prices=[] を仕込んでも、navigateToDetail 内の getStock がその場で実データに戻してしまい
+  // 「実は一度も空データを検査していなかった」空振りになる（実測で確認済み）。同一セッション内で
+  // 先に一度実データのまま開いて _mktHydrated に載せてから mutate すれば、以後の getStock は
+  // 早期 return で再フェッチをスキップし、mutate が最後まで残る。
+  await open(page, "6758.T");   // ハイドレートのためだけの捨て開き（このタイミングで 52週レンジ等は6758の実値に変わる）
+  // 7203.T へ戻し、DOM を「6758.T の値ではない既知の状態」に戻してから本番の検証に入る。
+  // ここで戻さないと、直前の捨て開きで52週レンジが既に6758の値に書き換わっており、次に6758を
+  // 再度開いたときバグで書き換えがスキップされても偶然同じ値のままになり見分けが付かない
+  // （実測でこの罠を踏んだ＝最初の実装は空振りだった）。
+  await open(page, "7203.T");
   const titleBefore = await page.evaluate(() => document.getElementById("stock-title").textContent);
+  // 52週レンジ（解析カード側の代表として）も前銘柄（7203.T）の値を控えておく。applyPriceWindow の
+  // 途中に early-return を挟むバグは setCandleData/paint52wBar 等その後ろの呼び出しを一律スキップ
+  // するため、「新しいティッカーの px は健全なのに旧ティッカーの表示が残る」形で顕在化する
+  // （レビュー Critical 2）。
+  const loBefore = await page.evaluate(() => document.querySelector('[data-w2="lo"]').textContent);
   await page.evaluate(() => { STOCK_DATA["6758.T"].prices = []; });
-  await open(page, "6758.T");
+  await open(page, "6758.T");   // 本番の検証対象（6758.T は既にハイドレート済みなので再フェッチされない）
   const titleAfter = await page.evaluate(() => document.getElementById("stock-title").textContent);
   check(titleAfter !== titleBefore && titleAfter.includes("6758.T"),
-    `価格ゼロの銘柄でも前銘柄の残像を残さない (${titleAfter.slice(0, 40)})`);
+    `価格ゼロの銘柄でも前銘柄の残像を残さない (タイトル: ${titleAfter.slice(0, 40)})`);
+  // タイトルだけでは検知できない残像（レビュー Critical 1 と同型の「表示は変わるが中身は旧のまま」）。
+  // ローソク足はチャートの実系列（candlePointCount）、解析カードは 52週レンジの実測値で見る。
+  const candleAfter = await page.evaluate(() => window.DetailCharts.candlePointCount());
+  check(candleAfter === 0,
+    `価格ゼロの銘柄でも前銘柄のローソク足が残らない（candlePointCount=${candleAfter}・空データで setCandleData された証拠）`);
+  const loAfter = await page.evaluate(() => document.querySelector('[data-w2="lo"]').textContent);
+  check(loAfter !== loBefore,
+    `価格ゼロの銘柄でも前銘柄の52週レンジ（解析カード）が残らない (52W lo: ${loBefore} → ${loAfter})`);
 
   console.log("=== レスポンシブ ===");
   await page.reload({ waitUntil: "domcontentloaded" });
@@ -149,7 +211,9 @@ const range = (page) =>
     minFont: Math.min(...[...document.querySelectorAll(".w2-rail *")].map((e) => parseFloat(getComputedStyle(e).fontSize)).filter(Boolean)),
   }));
   check(resp.overflow <= 1, `390px で横はみ出しなし (${resp.overflow}px)`);
-  check(resp.minFont >= 12, `390px でも文字床 12px を守る (${resp.minFont}px)`);
+  // Math.min(...[]) は Infinity を返す＝.w2-rail 配下に要素が1つも無くても >=12 が真になり緑のまま通ってしまう
+  // （空集合の空振りアサート）。Number.isFinite で「実際に何か測れたか」を先に確認する。
+  check(Number.isFinite(resp.minFont) && resp.minFont >= 12, `390px でも文字床 12px を守る (${resp.minFont}px)`);
 
   check(errors.length === 0, `pageerror ゼロ (${errors.length})`);
   if (errors.length) console.log("   " + errors.slice(0, 5).join("\n   "));

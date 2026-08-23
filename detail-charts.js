@@ -1468,15 +1468,22 @@
       }
 
   // ── 薄いラッパ（index.html 残置コードが private 化した instance を触れるように）──
+  var _candlePointCount = 0;   // #9 受入用: setCandleData に最後に渡した件数（getVisibleLogicalRange は
+                                //  空データを渡しても前回の索引範囲を保持したまま変化しない＝実測済みのため、
+                                //  「前銘柄のローソク足が残っていないか」は範囲でなく実際に渡された点数で見る）。
   function setCandleData(displayPrices) {
     if (candleSeries) candleSeries.setData(displayPrices);
+    _candlePointCount = (displayPrices && displayPrices.length) || 0;
   }
   // W2: ベンチ系列の出し入れ（instance は closure 私有のまま・detail.js からは値だけ渡す）。
+  var _benchPointCount = 0;   // #9 受入用: setBenchData に最後に渡した件数（getPriceVisibleRange と同型のデバッグ用途）
   function setBenchData(points) {
     if (benchSeries) benchSeries.setData(points || []);
+    _benchPointCount = (points && points.length) || 0;
   }
   function clearBench() {
     if (benchSeries) benchSeries.setData([]);
+    _benchPointCount = 0;
   }
   function resizePrice(w, h) {
     if (priceChart) priceChart.resize(w, h);
@@ -1485,6 +1492,16 @@
   //  detail-snapshot の WINDOW_API 17 名は window 直下のみ検査＝windowApi 15/17 は不変）。
   function getPriceVisibleRange() {
     return priceChart ? priceChart.timeScale().getVisibleLogicalRange() : null;
+  }
+  // #9 受入用の薄いデバッグゲッター（同上）。ベンチ系列が実データで復活していないかを外から検査するため
+  //  （ボタンの CSS クラスだけでは着弾ガードのバグを検知できない＝レビュー Critical 1 への対応）。
+  function benchPointCount() {
+    return _benchPointCount;
+  }
+  // #9 受入用の薄いデバッグゲッター（同上）。価格ゼロの銘柄へ遷移した直後にローソク足が
+  //  前銘柄の残像を残していないかを外から検査するため（レビュー Critical 2 への対応）。
+  function candlePointCount() {
+    return _candlePointCount;
   }
 
   // ── 財務健全性の推移（Feature#3・二軸 line）──────────────────────────
@@ -1657,7 +1674,7 @@
     initPriceChart, updateMaAndVolume, setCandleData,
     renderBSChart, renderRadarChart, renderPLChart, renderCFChart, renderHealthTrend,
     renderDuPont, renderFCFTrend,
-    repaint, onWindowResize, renderCompareChart, resizePrice, getPriceVisibleRange, setBenchData, clearBench,
+    repaint, onWindowResize, renderCompareChart, resizePrice, getPriceVisibleRange, setBenchData, clearBench, benchPointCount, candlePointCount,
     mountSubpanel, unmountSubpanel, isSubpanelMounted, activeSubpanels, refreshSubpanels, resizeSubpanels,
   };
 })();
