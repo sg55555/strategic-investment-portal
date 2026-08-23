@@ -10,6 +10,14 @@
 ⚠ モック3案（案①②③の実物比較）用だった IIFE フック注入（HOOKS）と
   </body> 直前の w1-variants.js <script> 注入は本実装スモークでは不要（本実装コードは
   index.html にそのまま組み込み済み・px は dump JSON 側にすでに乗っている）ため撤去済み。
+
+⚠ Ruling 7（W1.5 wave Task 7 コントローラ裁定）: scratchpad/w1-mock-data.json は
+  api/market/list.py に market_asof が入る前に採取された dump のため market_asof を持たない。
+  この鯖は元々それを逐語で返していたため、w1-smoke.js の鮮度アサーション（asofKeys）が
+  ドリフトした時点から常に赤（未検証）だった。dump 自体は実データの記録として不変に保ち、
+  レスポンス生成時だけ「dump が market_asof を持たない世代のときに限り」本番
+  api/market/list.py の _market_of/_market_asof と同じ規則で合成して差し込む
+  （w15-mock-server.py に入れた合成ロジックと同一・そちらは Task 4 で導入済み）。
 """
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
@@ -22,6 +30,46 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 DATA = os.path.join(ROOT, "scratchpad", "w1-mock-data.json")
 PROD = "https://strategic-investment-portal.vercel.app"
 PORT = int(os.environ.get("W1_PORT", "8210"))
+
+
+def _market_of(ticker, entry):
+    """api/market/list.py の _market_of と同一規則（country 優先・末尾 .T で JP）。"""
+    country = (entry or {}).get("country")
+    if country:
+        return country
+    return "JP" if str(ticker).endswith(".T") else "US"
+
+
+def _market_asof(stocks):
+    """api/market/list.py の _market_asof と同一規則。市場ごとの最新終値日（ISO文字列の辞書順=日付順で最大）。"""
+    asof = {}
+    for ticker, entry in (stocks or {}).items():
+        px = (entry or {}).get("px")
+        date = (px or {}).get("date")
+        if not date:
+            continue
+        market = _market_of(ticker, entry)
+        if date > asof.get(market, ""):
+            asof[market] = date
+    return asof
+
+
+_market_list_cache = None
+
+
+def market_list_body() -> bytes:
+    """DATA を読み、market_asof が無い/空なら本番と同じ規則で合成して差し込む（dump 自体は無改変）。"""
+    global _market_list_cache
+    if _market_list_cache is not None:
+        return _market_list_cache
+    with open(DATA, encoding="utf-8") as f:
+        raw = json.load(f)
+    if not raw.get("market_asof"):
+        raw["market_asof"] = _market_asof(raw.get("stocks"))
+        print(f"[w1-mock] dump に market_asof が無いため合成: {raw['market_asof']}")
+    _market_list_cache = json.dumps(raw).encode("utf-8")
+    return _market_list_cache
+
 
 _CT = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
        ".css": "text/css; charset=utf-8", ".json": "application/json; charset=utf-8",
@@ -41,8 +89,7 @@ class handler(BaseHTTPRequestHandler):
             if path in ("/", "/index.html", "/index"):
                 return self._send(200, patched_index(), _CT[".html"])
             if path == "/api/market/list":
-                with open(DATA, "rb") as f:
-                    return self._send(200, f.read(), _CT[".json"])
+                return self._send(200, market_list_body(), _CT[".json"])
             if path.startswith("/api/"):
                 return self._proxy()
             if path in ("/w1-variants.js", "/w1-mock-data.json"):
