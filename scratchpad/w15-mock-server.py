@@ -23,7 +23,9 @@ import sys
 import urllib.request
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-DATA = os.path.join(ROOT, "scratchpad", "w1-mock-data.json")
+# W15_DATA で差し替え可能（既定は W1 dump と同じ実データ）。相対パスは ROOT 起点。
+# ⚠ レスポンスはモジュール変数にキャッシュする（market_list_body）ため、差し替えは鯖の再起動が要る。
+DATA = os.path.abspath(os.path.join(ROOT, os.environ.get("W15_DATA", os.path.join("scratchpad", "w1-mock-data.json"))))
 PROD = "https://strategic-investment-portal.vercel.app"
 PORT = int(os.environ.get("W15_PORT", "8215"))
 
