@@ -2554,7 +2554,7 @@
         const asof = (typeof DATA_MARKET_ASOF !== "undefined" && DATA_MARKET_ASOF) || {};
         const m = PortalPriceRules.heatMetric(heatMetricKey);
         host.innerHTML = `
-          <div class="w15-head">市場の温度感　<b>${esc(m.label)}</b>　/　${items.length}銘柄を13の大分類で（クリックで中の銘柄を展開）</div>
+          <div class="w15-head">市場の温度感　<b>${esc(m.label)}</b>　/　${items.length}銘柄を大分類でまとめています（クリックで中の銘柄を展開）</div>
           <div class="w15-panel">
             <div class="w15-cols">
               ${_heatColumn("日本株", asof.JP, items.filter((it) => PortalPriceRules.marketOf(it.ticker, it) === "JP"))}
