@@ -580,6 +580,44 @@
     return { main, period: `[${name} ${ym(win.startDate)} 〜 ${ym(win.endDate)}]` };
   }
 
+  // ベンチマークを主銘柄の価格軸へリベースする（W2）。
+  //  ⚠ アンカーは「両者が揃う最初の日」。窓先頭の主銘柄終値に貼ると、ベンチの履歴が窓より短いとき
+  //     （MAX で 7203.T は 1999年〜／1306.T は 2009年〜）「2009年の TOPIX を1999年のトヨタ株価に
+  //     一致させた線」を描いてしまう。ずらしたことは covered=false で呼び出し側へ渡し、UI が明示する。
+  //  ⚠ 外れ値の除去はしない（無言でデータを捨てない＝spec D8）。異常値による軸の破壊は描画側の
+  //     autoscaleInfoProvider で防ぐ（spec D4）。
+  function benchRebase(benchPrices, mainWindow) {
+    const empty = { points: [], anchorTime: null, covered: false };
+    const bench = Array.isArray(benchPrices) ? benchPrices : [];
+    const main = Array.isArray(mainWindow) ? mainWindow : [];
+    if (bench.length < 2 || main.length < 2) return empty;
+    const s = main[0].time, e = main[main.length - 1].time;
+    const w = bench.filter((p) => p.time >= s && p.time <= e);
+    if (w.length < 2) return empty;
+    const anchorTime = w[0].time > s ? w[0].time : s;
+    const mainAnchor = main.find((p) => p.time >= anchorTime);
+    const benchAnchor = w.find((p) => p.time >= anchorTime);
+    if (!mainAnchor || !benchAnchor) return empty;
+    const base = benchAnchor.close, mainBase = mainAnchor.close;
+    if (!(base > 0) || !(mainBase > 0)) return empty;
+    return {
+      points: w.map((p) => ({ time: p.time, value: Math.round(mainBase * (p.close / base) * 10000) / 10000 })),
+      anchorTime,
+      covered: anchorTime === s,
+    };
+  }
+
+  // 銘柄に対応するベンチマーク（W2）。市場判定は PortalPriceRules.marketOf に委譲して規則を二重に書かない。
+  const BENCH_BY_MARKET = { JP: { ticker: "1306.T", label: "vs TOPIX" }, US: { ticker: "SPY", label: "vs S&P500" } };
+  function benchFor(ticker, entry) {
+    const market = (typeof PortalPriceRules !== "undefined" && PortalPriceRules.marketOf)
+      ? PortalPriceRules.marketOf(ticker, entry)
+      : (String(ticker).endsWith(".T") ? "JP" : "US");
+    const b = BENCH_BY_MARKET[market];
+    if (!b || b.ticker === ticker) return null;      // 未知市場・ベンチ自身は出さない
+    return b;
+  }
+
   // 1行版（既存呼出し互換の薄いラッパ）。index.html 3814-3822 由来。
   function periodLabel(companyName, ticker, year, isUS, hasFiltered, isEtf) {
     const p = periodLabelParts(companyName, ticker, year, isUS, hasFiltered, isEtf);
@@ -1125,7 +1163,7 @@
     calcATR, calcADX, calcKeltner, calcOBV, calcVWAP, disciplineDigest,
     signalDigest, healthTrendSeries, dupontFactorSeries, fcfTrendSeries,
     // 財務ディスクリプタ純関数
-    priceWindow, rollingWindow, fitLogicalRange, periodLabel, periodLabelParts, rollingLabelParts, displayName, hasTickerSuffix, marketBasisFor, perStatus, pbrStatus,
+    priceWindow, rollingWindow, fitLogicalRange, periodLabel, periodLabelParts, rollingLabelParts, benchRebase, benchFor, displayName, hasTickerSuffix, marketBasisFor, perStatus, pbrStatus,
     equityRatioDesc, currentRatioDesc, yoyBadge, isFinancialPL, plSteps, cfFlowStatus, cfCompanyType, cfWaterfall, radarScores,
     sparklineSVG, dupontDescriptor, fcfQualityDescriptor,
     // 色/特例定数

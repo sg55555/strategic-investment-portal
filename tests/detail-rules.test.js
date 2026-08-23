@@ -5,6 +5,9 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const FinanceRules = require("../finance-rules.js");
 global.FinanceRules = FinanceRules;
+// W2: benchFor が PortalPriceRules.marketOf に委譲するため、detail-rules.js より先に global へ注入する
+//（FinanceRules と同じ classic-script global 参照の作法）。
+global.PortalPriceRules = require("../portal-price-rules.js");
 const D = require("../detail-rules.js");
 const FORBIDDEN = require("./fixtures/forbidden_terms.js");
 const F = FinanceRules; // alias（束D Task5-9 の TOYOTA fixture 呼出用）
@@ -1226,4 +1229,71 @@ test("healthTrendSeries/fcfTrendSeries: 全ゼロFY行は全系列 null 欠測�
   assert.equal(fc.operatingCf[fzi], null);
   assert.equal(fc.investingCf[fzi], null);
   assert.notEqual(fc.fcf[fc.years.indexOf("2025")], null);
+});
+
+// ── benchRebase: ベンチを主銘柄の軸へリベース（アンカーは両者が揃う最初の日）──
+const MAIN = [
+  { time: "2026-01-05", close: 1000 }, { time: "2026-02-05", close: 1100 }, { time: "2026-03-05", close: 900 },
+];
+const BENCH = [
+  { time: "2026-01-05", close: 200 }, { time: "2026-02-05", close: 210 }, { time: "2026-03-05", close: 190 },
+];
+
+test("benchRebase: 窓先頭で揃うとき covered=true・先頭が主銘柄の終値に一致", () => {
+  const r = D.benchRebase(BENCH, MAIN);
+  assert.equal(r.covered, true);
+  assert.equal(r.anchorTime, "2026-01-05");
+  assert.equal(r.points[0].value, 1000);
+  assert.equal(r.points[1].value, 1050);        // 1000 * 210/200
+});
+
+test("benchRebase: ベンチの履歴が窓より短いとき、共通開始日へアンカーをずらし covered=false", () => {
+  const shortBench = [{ time: "2026-02-05", close: 210 }, { time: "2026-03-05", close: 190 }];
+  const r = D.benchRebase(shortBench, MAIN);
+  assert.equal(r.covered, false);
+  assert.equal(r.anchorTime, "2026-02-05");
+  assert.equal(r.points[0].value, 1100);        // 窓先頭(1000)ではなく共通開始日の主銘柄終値に貼る
+});
+
+test("benchRebase: 営業日がズレてもアンカー以降の最初のバー同士で貼る", () => {
+  const jpHoliday = [{ time: "2026-01-06", close: 200 }, { time: "2026-02-05", close: 220 }];
+  const r = D.benchRebase(jpHoliday, MAIN);
+  assert.equal(r.anchorTime, "2026-01-06");
+  assert.equal(r.points[0].value, 1100);        // 主銘柄は 01-06 以降の最初＝02-05 の 1100
+  assert.equal(r.covered, false);
+});
+
+test("benchRebase: 描けない入力は空を返す", () => {
+  for (const bad of [[], [{ time: "2026-01-05", close: 200 }], null]) {
+    const r = D.benchRebase(bad, MAIN);
+    assert.deepEqual(r.points, []);
+    assert.equal(r.covered, false);
+  }
+  assert.deepEqual(D.benchRebase(BENCH, [MAIN[0]]).points, []);          // 主銘柄が1本
+  assert.deepEqual(D.benchRebase([{ time: "2026-01-05", close: 0 }, { time: "2026-02-05", close: 1 }], MAIN).points, []);
+});
+
+test("benchRebase: 外れ値は落とさない（データを黙って捨てない＝軸側で守る）", () => {
+  const spiked = [
+    { time: "2026-01-05", close: 200 }, { time: "2026-02-05", close: 20 }, { time: "2026-03-05", close: 190 },
+  ];
+  const r = D.benchRebase(spiked, MAIN);
+  assert.equal(r.points.length, 3);
+  assert.equal(r.points[1].value, 100);         // 1000 * 20/200 ＝ 異常値がそのまま出る
+});
+
+// ── benchFor: 市場からベンチ銘柄を選ぶ ──
+test("benchFor: JP は TOPIX / US は S&P500", () => {
+  assert.deepEqual(D.benchFor("7203.T", { country: "JP" }), { ticker: "1306.T", label: "vs TOPIX" });
+  assert.deepEqual(D.benchFor("AAPL", { country: "US" }), { ticker: "SPY", label: "vs S&P500" });
+});
+
+test("benchFor: country 欠落は末尾 .T で判定（PortalPriceRules.marketOf に委譲）", () => {
+  assert.equal(D.benchFor("6758.T", {}).ticker, "1306.T");
+  assert.equal(D.benchFor("NVDA", {}).ticker, "SPY");
+});
+
+test("benchFor: ベンチ自身を開いているときは null", () => {
+  assert.equal(D.benchFor("1306.T", { country: "JP" }), null);
+  assert.equal(D.benchFor("SPY", { country: "US" }), null);
 });
