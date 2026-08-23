@@ -159,3 +159,30 @@ test("SECTOR_MAP: 現ユニバースの全業種が写像に載っている（�
   }
   assert.deepEqual([...unmapped], [], "写像に無い業種がある＝SECTOR_MAP に追記が必要");
 });
+
+test("HEAT_METRICS: 3指標・キーとフォールバック", () => {
+  assert.deepEqual(R.HEAT_METRICS.map((m) => m.key), ["c1", "c5", "pos52"]);
+  assert.equal(R.heatMetric("pos52").center, 50);
+  assert.equal(R.heatMetric("c5").span, 6);
+  assert.equal(R.heatMetric("知らないキー").key, "c1");   // 未知キーは既定へ
+});
+
+test("heatValue: 指標の取り出し・欠損は null", () => {
+  assert.equal(R.heatValue(px({ c1: 1.5 }), "c1"), 1.5);
+  assert.equal(R.heatValue(px({ pos52: 62 }), "pos52"), 62);
+  assert.equal(R.heatValue(px({ c5: null }), "c5"), null);
+  assert.equal(R.heatValue(null, "c1"), null);
+  assert.equal(R.heatValue(px({ c1: NaN }), "c1"), null);
+});
+
+test("heatStep: 中立帯・段・振り切り・null", () => {
+  assert.equal(R.heatStep(null, "c1"), null);
+  assert.deepEqual(R.heatStep(0, "c1"), { i: -1, up: true });        // 中立（|d| < 0.06）
+  assert.deepEqual(R.heatStep(0.15, "c1"), { i: -1, up: true });     // 0.15/3 = 0.05 → 中立
+  assert.deepEqual(R.heatStep(0.5, "c1"), { i: 0, up: true });       // 0.167 → 第1段
+  assert.deepEqual(R.heatStep(-3, "c1"), { i: 4, up: false });       // 振り切り（下）
+  assert.deepEqual(R.heatStep(99, "c1"), { i: 4, up: true });        // 範囲外でも最上段に丸める
+  assert.deepEqual(R.heatStep(50, "pos52"), { i: -1, up: true });    // pos52 は 50 が中立
+  assert.deepEqual(R.heatStep(100, "pos52"), { i: 4, up: true });
+  assert.deepEqual(R.heatStep(0, "pos52"), { i: 4, up: false });
+});

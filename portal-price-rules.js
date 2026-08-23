@@ -151,10 +151,47 @@
     return SECTOR_MAP[ind] || "その他";
   }
 
+  // ── W1.5 指標と色段（spec §4）──
+  // dh（52週高値からの距離）は片側にしか振れないので発散スケールに載せない＝pos52 を採る。
+  var HEAT_METRICS = [
+    { key: "c1", label: "1日", field: "c1", center: 0, span: 3, digits: 2, unit: "%", signed: true,
+      note: "前日比（±3%で振り切り）" },
+    { key: "c5", label: "5日", field: "c5", center: 0, span: 6, digits: 2, unit: "%", signed: true,
+      note: "5営業日騰落（±6%で振り切り）" },
+    { key: "pos52", label: "52週位置", field: "pos52", center: 50, span: 50, digits: 0, unit: "", signed: false,
+      note: "52週レンジ内の位置（0=安値 / 100=高値）" },
+  ];
+  var HEAT_METRIC_BY_KEY = {};
+  HEAT_METRICS.forEach(function (m) { HEAT_METRIC_BY_KEY[m.key] = m; });
+  function heatMetric(key) { return HEAT_METRIC_BY_KEY[key] || HEAT_METRICS[0]; }
+
+  function heatValue(px, metricKey) {
+    if (!px) return null;
+    var v = px[heatMetric(metricKey).field];
+    return _fin(v) ? v : null;
+  }
+
+  // 塗りと文字色の唯一の根拠。i=-1 が中立、0..4 が段（外側ほど濃い）。
+  var HEAT_STEPS = [0.20, 0.42, 0.62, 0.82, 1.0];
+  var HEAT_NEUTRAL_BAND = 0.06;
+  function heatStep(v, metricKey) {
+    if (!_fin(v)) return null;
+    var m = heatMetric(metricKey);
+    var d = (v - m.center) / m.span;
+    var t = Math.min(1, Math.abs(d));
+    if (t < HEAT_NEUTRAL_BAND) return { i: -1, up: d >= 0 };
+    for (var i = 0; i < HEAT_STEPS.length; i++) {
+      if (t <= HEAT_STEPS[i]) return { i: i, up: d >= 0 };
+    }
+    return { i: HEAT_STEPS.length - 1, up: d >= 0 };
+  }
+
   return {
     PRICE_KEYS: PRICE_KEYS, TABS: TABS, marketOf: marketOf, isStale: isStale,
     rankTop: rankTop, priceColumns: priceColumns, sparkGeometry: sparkGeometry,
     fmtSigned: fmtSigned, fmtVolRatio: fmtVolRatio, fmtDistHigh: fmtDistHigh, clampPos: clampPos,
     SECTOR_MAP: SECTOR_MAP, SECTOR_ORDER: SECTOR_ORDER, sectorOf: sectorOf,
+    HEAT_METRICS: HEAT_METRICS, heatMetric: heatMetric, heatValue: heatValue,
+    HEAT_STEPS: HEAT_STEPS, heatStep: heatStep,
   };
 });
