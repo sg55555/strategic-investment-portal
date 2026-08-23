@@ -680,6 +680,11 @@
       btn.onclick = () => setPeriod(key);          // closure 参照（window 公開面を増やさない）
       box.appendChild(btn);
     });
+    const chip = document.getElementById("w2-bench-btn");
+    if (chip && !chip.dataset.wired) {
+      chip.dataset.wired = "1";
+      chip.onclick = () => toggleBench();
+    }
   }
 
   function paintPeriodButtons() {
@@ -747,6 +752,51 @@
     renderDisciplineCard(dp, prices);
 
     paint52wBar(data);
+    applyBench(dp, data);
+  }
+
+  // W2: ベンチマーク（TOPIX/S&P500）の重ね描き。
+  const LS_BENCH = "sip_detail_bench";
+  function readBench() { try { return localStorage.getItem(LS_BENCH) === "1"; } catch (e) { return false; } }
+  function writeBench(v) { try { localStorage.setItem(LS_BENCH, v ? "1" : "0"); } catch (e) { /* noop */ } }
+  let benchOn = readBench();
+  let benchGen = 0;
+
+  function paintBenchChip(b, anchorTime) {
+    const chip = document.getElementById("w2-bench-btn");
+    if (!chip) return;
+    chip.style.display = b ? "" : "none";           // ベンチ自身を開いているときはチップごと消す
+    chip.classList.toggle("active", !!b && benchOn);
+    const label = chip.querySelector('[data-w2="benchLabel"]');
+    if (label && b) label.textContent = anchorTime ? `${b.label}（${anchorTime.slice(0, 4)}年〜）` : b.label;
+  }
+
+  // ⚠ 世代トークンは全経路の先頭で進める。「ON のときだけ進める」書き方だと
+  //   ①ON で fetch 開始(gen=1) ②すぐ OFF（gen は 1 のまま） ③着弾で gen 一致 → **消した線が復活する**。
+  //   着弾側では benchOn と currentTicker も見て三重に塞ぐ（別銘柄への描画は束D層2 で実際に踏んだ穴）。
+  function applyBench(displayPrices, data) {
+    const gen = ++benchGen;
+    const ticker = currentTicker;
+    const b = DetailRules.benchFor(currentTicker, data);
+    paintBenchChip(b);
+    if (!b || !benchOn || !displayPrices.length) { DetailCharts.clearBench(); return; }
+    Promise.resolve(typeof getStock === "function" ? getStock(b.ticker) : null).then((bd) => {
+      if (gen !== benchGen || currentTicker !== ticker || !benchOn) return;
+      const r = DetailRules.benchRebase((bd && bd.prices) || [], displayPrices);
+      DetailCharts.setBenchData(r.points);
+      paintBenchChip(b, r.covered ? null : r.anchorTime);   // 履歴が足りない分をラベルで明示（黙ってずらさない）
+    }).catch((e) => {
+      if (gen !== benchGen) return;
+      console.error("bench fetch failed", e);
+      DetailCharts.clearBench();
+      benchOn = false; writeBench(false); paintBenchChip(b);   // 押下状態を残さない
+    });
+  }
+
+  function toggleBench() {
+    benchOn = !benchOn;
+    writeBench(benchOn);
+    applyPriceWindow();       // 窓は変えずにベンチだけ張り直す（同じ入口を通す＝経路を増やさない）
   }
 
   // W2: 52週レンジバー。**数値は list API のサーバ計算値（px）をそのまま使い、JS で再計算しない**
