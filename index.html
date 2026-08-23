@@ -1058,8 +1058,10 @@
          8列が収まりにくい狭幅だけ横スクロールを許し、広幅では sticky ヘッダを活かす。 */
       @media (max-width: 1024px) { .portal-px-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; } }
       /* ⚠ .portal-table を付けない：既存の nth-child 列非表示（1024/768/480/375px）が別の列を消すため */
+      /* ⚠ overflow:hidden を付けない：付けると table 自身がスクロールコンテナになり th の position:sticky が
+         「表の中で固定」になって画面に残らない（W1 検証で実測 th.top=-738）。角丸2pxのクリップより sticky を優先。 */
       table.portal-px-table { width: 100%; border-collapse: collapse; background: var(--ix-surface-panel);
-                              border: 1px solid var(--ix-border-strong); border-radius: 2px; overflow: hidden; }
+                              border: 1px solid var(--ix-border-strong); border-radius: 2px; }
       table.portal-px-table th { position: sticky; top: 0; z-index: 2; background: var(--ix-surface-panel);
                                  font-size: 12px; color: var(--ix-text-dim); text-align: left; padding: 9px 8px;
                                  border-bottom: 1px solid var(--ix-border-strong); cursor: pointer; white-space: nowrap; }
@@ -2526,7 +2528,7 @@
             </div>
             <span class="pmode-hint">${hint}</span>
           </div>
-          ${px ? `<div class="pstrip-note" style="margin:0 0 10px">終値ベースの事実の並べ替えです（推奨・売買判断ではありません）。</div>` : ""}`;
+          ${px ? `<div class="pstrip-note" style="margin:0 0 10px">表の数値は各銘柄の最新終値ベースです（推奨・売買判断ではありません）。</div>` : ""}`;
         if (host.dataset.wired !== "1") {
           host.dataset.wired = "1";
           host.addEventListener("click", (e) => {
