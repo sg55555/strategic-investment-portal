@@ -2511,7 +2511,7 @@
       const HEAT_NEUTRAL_RGB = [35, 46, 56];    // パネルの地色に寄せた中立＝「動いていない業種は色がつかない」
       const HEAT_UP_RGB = [0, 200, 110];
       const HEAT_DOWN_RGB = [255, 70, 105];
-      let heatMetricKey = localStorage.getItem("sip_heat_metric") || "c1";
+      let heatMetricKey = PortalPriceRules.heatMetric(localStorage.getItem("sip_heat_metric")).key;
       let heatWeighted = localStorage.getItem("sip_heat_weight") === "cap";
       let heatOpenSector = null;                // 展開中の大分類（保存しない＝毎回閉じた状態で始まる）
       let heatOpenMarket = null;                // 展開中の市場（"JP"/"US"）。大分類名は市場間で重複するため対で持つ（Ruling 5）
@@ -2536,7 +2536,8 @@
         return m.signed ? PortalPriceRules.fmtSigned(v, m.digits, m.unit) : v.toFixed(m.digits);
       }
       function _heatTile(a, market) {
-        const pct = (a.up + a.down) ? Math.round((a.up / (a.up + a.down)) * 100) : 0;
+        const hasBar = (a.up + a.down) > 0;                          // 0のとき地の赤が満杯に見える＝バー自体を出さない
+        const pct = hasBar ? Math.round((a.up / (a.up + a.down)) * 100) : 0;
         const isOpen = heatOpenSector === a.key && heatOpenMarket === market;
         // (B) 表示している値の母数＝withPx（全件数の a.n ではない）。一部の銘柄で値が出ない指標
         // （52週位置など）に切り替えたとき「N社」と表示している平均が食い違わないようにする。
@@ -2546,7 +2547,7 @@
             title="${esc(a.key)} ${a.withPx}社 ${_heatFmt(a.v)}${note}">
             <span class="w15-t-name">${esc(a.key)}</span>
             <span class="w15-t-val">${_heatFmt(a.v)}</span>
-            <span class="w15-t-sub">${a.withPx}社　<i class="w15-bar"><i style="width:${pct}%"></i></i></span>
+            <span class="w15-t-sub">${a.withPx}社${hasBar ? `　<i class="w15-bar"><i style="width:${pct}%"></i></i>` : ""}</span>
           </button>`;
       }
       function _heatColumn(title, asofDate, items, market) {
@@ -2569,7 +2570,7 @@
         }
         return `<div class="w15-legend"><span>${m.signed ? "下落" : "安値圏"}</span>${sw.join("")}
           <span>${m.signed ? "上昇" : "高値圏"}</span>
-          <span class="w15-note">${esc(m.note)}　/　タイル下の細いバーは「その大分類のうち上昇した銘柄の割合」</span></div>`;
+          <span class="w15-note">${esc(m.note)}　/　タイル下の細いバーは「その大分類のうち${m.signed ? "上昇した銘柄の割合" : "52週レンジの上半分にいる銘柄の割合"}」</span></div>`;
       }
       function _heatControls() {
         const metrics = PortalPriceRules.HEAT_METRICS.map((m) =>
@@ -2685,7 +2686,7 @@
           <div class="pstrip-panel">
             <div class="pstrip-tabs">${tabsHtml}</div>
             ${body}
-            <div class="pstrip-note">終値ベースの事実の並べ替えです（推奨・売買判断ではありません）。出来高倍率＝当日出来高 ÷ 直近20営業日平均。</div>
+            <div class="pstrip-note">終値ベースの事実の集計・並べ替えです（推奨・売買判断ではありません）。出来高倍率＝当日出来高 ÷ 直近20営業日平均。</div>
           </div>`;
       }
 
