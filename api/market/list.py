@@ -20,6 +20,119 @@ _GRID_FIN_FIELDS = (
     "current_liabilities", "operating_income", "net_income",
 )
 
+# ── W1 価格集計（発掘4点セット＋30日スパークライン）──
+# 52週=252営業日 ≈ 365暦日。休場・データ欠損の余裕を見て 400暦日で境界を切る。
+# ⚠ この境界は必須：無制限の window 関数は ohlcv 235万行を舐めて 2.8〜3.8秒（コールド35秒）かかり、
+#    Vercel の10秒制限に対して危険。境界ありで 723〜904ms（2026-08-23 実測）。
+_PX_BOUND_DAYS = 400
+_PX_MIN_ROWS = 6        # これ未満の履歴（新規上場）は px を作らない
+_PX_MIN_52W_ROWS = 60   # 52週系(hi52/lo52/dh/pos52)を名乗れる最低件数
+_SPARK_N = 30
+
+_PX_SQL = f"""
+WITH bound AS (SELECT (MAX(date) - INTERVAL '{_PX_BOUND_DAYS} days')::date d FROM market.ohlcv),
+w AS (SELECT ticker, date, close, volume,
+             ROW_NUMBER() OVER (PARTITION BY ticker ORDER BY date DESC) rn
+      FROM market.ohlcv, bound WHERE date >= bound.d),
+c AS (SELECT ticker, COUNT(*) n FROM w GROUP BY ticker),
+y AS (SELECT ticker, MAX(close) hi52, MIN(close) lo52 FROM w WHERE rn <= 252 GROUP BY ticker),
+v AS (SELECT ticker, AVG(volume)::float avg20 FROM w WHERE rn BETWEEN 2 AND 21 GROUP BY ticker),
+s AS (SELECT ticker, array_agg(close ORDER BY date ASC) spark FROM w WHERE rn <= {_SPARK_N} GROUP BY ticker),
+p AS (SELECT ticker,
+        MAX(CASE WHEN rn=1 THEN close  END) last,
+        MAX(CASE WHEN rn=1 THEN date   END) last_date,
+        MAX(CASE WHEN rn=1 THEN volume END) last_vol,
+        MAX(CASE WHEN rn=2 THEN close  END) prev,
+        MAX(CASE WHEN rn=6 THEN close  END) base5
+      FROM w WHERE rn <= 6 GROUP BY ticker)
+SELECT p.ticker, p.last, p.last_date, p.prev, p.base5, p.last_vol,
+       v.avg20, y.hi52, y.lo52, s.spark, c.n
+FROM p JOIN c USING (ticker)
+       LEFT JOIN y USING (ticker) LEFT JOIN v USING (ticker) LEFT JOIN s USING (ticker)
+"""
+
+
+def _num(v):
+    """Decimal/None/数値 → float | None（NaN は None 扱い）。"""
+    if v is None:
+        return None
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    return None if f != f else f
+
+
+def _pct(numer, denom, digits=2):
+    """(numer/denom - 1) * 100。denom が None/0 なら None。"""
+    a, b = _num(numer), _num(denom)
+    if a is None or not b:
+        return None
+    return round((a / b - 1) * 100, digits)
+
+
+def _normalize_spark(closes):
+    """終値配列 → 0..100 の整数配列（形だけを送る＝転送量を抑える）。全点同値は 50 で水平線。"""
+    vals = [f for f in (_num(c) for c in (closes or [])) if f is not None]
+    if len(vals) < 2:
+        return None
+    lo, hi = min(vals), max(vals)
+    if hi == lo:
+        return [50] * len(vals)
+    return [round((v - lo) / (hi - lo) * 100) for v in vals]
+
+
+def _px_row(row):
+    """価格集計1行 → px dict。履歴が足りない銘柄は None（部分 null の px を作らない）。"""
+    (_ticker, last, last_date, prev, base5, last_vol, avg20, hi52, lo52, spark, n) = row
+    last = _num(last)
+    if last is None or (n or 0) < _PX_MIN_ROWS:
+        return None
+    avg20_f = _num(avg20)
+    vol = _num(last_vol)
+    hi, lo = _num(hi52), _num(lo52)
+    has_52w = (n or 0) >= _PX_MIN_52W_ROWS and hi is not None and lo is not None
+    if has_52w:
+        span = hi - lo
+        pos52 = 50 if span == 0 else round((last - lo) / span * 100)
+        dh = 0.0 if hi == 0 else round((last / hi - 1) * 100, 2)
+    else:
+        pos52 = dh = None
+    return {
+        "last": round(last, 2),
+        "date": last_date.isoformat() if last_date is not None else None,
+        "c1": _pct(last, prev),
+        "c5": _pct(last, base5),
+        "vr": None if (not avg20_f or vol is None) else round(vol / avg20_f, 2),
+        "dh": dh,
+        "hi52": round(hi, 2) if has_52w else None,
+        "lo52": round(lo, 2) if has_52w else None,
+        "pos52": pos52,
+        "spark": _normalize_spark(spark),
+    }
+
+
+def _market_of(ticker, entry):
+    """JP/US 判定。cross-section-rules.js の _market() と同一規約（country 優先・末尾 .T で JP）。"""
+    country = (entry or {}).get("country")
+    if country:
+        return country
+    return "JP" if str(ticker).endswith(".T") else "US"
+
+
+def _market_asof(stocks):
+    """市場ごとの最新終値日 {"JP": "2026-08-20", "US": "2026-08-21"}（ISO 文字列は辞書順=日付順）。"""
+    asof = {}
+    for ticker, entry in (stocks or {}).items():
+        px = (entry or {}).get("px")
+        date = (px or {}).get("date")
+        if not date:
+            continue
+        market = _market_of(ticker, entry)
+        if date > asof.get(market, ""):
+            asof[market] = date
+    return asof
+
 
 def _conn():
     url = os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL")
@@ -36,6 +149,7 @@ def fetch_list() -> dict:
     """
     out: dict[str, dict] = {}
     updated_at = ""
+    px_error = False
     with _conn() as conn, conn.cursor() as cur:
         cur.execute(
             "SELECT ticker, company_name, industry, currency, country, type, "
@@ -79,7 +193,30 @@ def fetch_list() -> dict:
         row = cur.fetchone()
         if row and row[0] is not None:
             updated_at = row[0].astimezone(_JST).strftime("%Y-%m-%d %H:%M")
-    return {"stocks": out, "updated_at": updated_at}
+
+        # W1: 価格集計。⚠ ここが落ちても list 本体（財務一覧）は 200 で返す＝
+        #     価格が取れないだけでアプリ全体が白画面になるのは退行。
+        try:
+            cur.execute(_PX_SQL)
+            for px_row in cur.fetchall():
+                entry = out.get(px_row[0])
+                if entry is None:
+                    continue
+                px = _px_row(px_row)
+                if px is not None:
+                    entry["px"] = px
+        except Exception:  # noqa: BLE001
+            px_error = True
+            try:
+                conn.rollback()      # 失敗した transaction を畳んでから抜ける
+            except Exception:        # noqa: BLE001
+                pass
+    return {
+        "stocks": out,
+        "updated_at": updated_at,
+        "market_asof": {} if px_error else _market_asof(out),
+        "px_error": px_error,
+    }
 
 
 class handler(BaseHTTPRequestHandler):
