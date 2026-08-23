@@ -853,14 +853,18 @@ function check(name, cond, extra) {
         tiles: document.querySelectorAll("#portal-heat .w15-tile").length,
         cols: document.querySelectorAll("#portal-heat .w15-col").length,
         legend: document.querySelectorAll("#portal-heat .w15-legend").length,
-        disclaimers: document.body.innerText.split("推奨・売買判断ではありません").length - 1,
+        // ⚠ 免責文は既存で最大2本ある（ストリップ末尾＝常時／モードバー＝値動きモード時のみ・文言は別）。
+        //    守る要件は「ヒートマップが免責文を増やさない」こと＝パネル内0件・画面全体は既存のまま。
+        heatDisc: (document.getElementById("portal-heat").innerText || "").split("推奨・売買判断ではありません").length - 1,
+        bodyDisc: document.body.innerText.split("推奨・売買判断ではありません").length - 1,
         docH: document.documentElement.scrollHeight,
         overflowX: document.documentElement.scrollWidth > document.documentElement.clientWidth,
       }));
       check(`[${v.name}/${metric}] タイルが出る`, m.tiles > 0, `${m.tiles}枚`);
       check(`[${v.name}/${metric}] 2カラム`, m.cols === 2);
       check(`[${v.name}/${metric}] 凡例1つ`, m.legend === 1);
-      check(`[${v.name}/${metric}] 免責文は画面に1つだけ`, m.disclaimers === 1, `${m.disclaimers}個`);
+      check(`[${v.name}/${metric}] ヒートマップは免責文を持たない`, m.heatDisc === 0, `${m.heatDisc}個`);
+      check(`[${v.name}/${metric}] 画面の免責文は既存のまま（1〜2本）`, m.bodyDisc >= 1 && m.bodyDisc <= 2, `${m.bodyDisc}個`);
       check(`[${v.name}/${metric}] 横スクロールなし`, !m.overflowX);
 
       // 展開（⚠ page.click() は要素を画面内へスクロールするので evaluate 経由で押す）
