@@ -20,7 +20,16 @@
   // ── 詳細ビューの内部状態（index.html から private 化・bare-global 解消）──
   //  currentTicker は portal/watchlist が読むため index.html global 維持（双方 free-var 参照）。
   let selectedYear = 2025;
-  let selectedPeriod = "FY";      // W2: Task 6 で LS 復元と UI を足す
+  // W2: 期間切替（FY＝決算年度と同期／1M〜MAX＝価格だけのローリング窓）。銘柄をまたいで保持する。
+  const PERIODS = ["FY", "1M", "3M", "6M", "YTD", "1Y", "5Y", "MAX"];
+  const LS_PERIOD = "sip_detail_period";
+  function readPeriod() {
+    let v = null;
+    try { v = localStorage.getItem(LS_PERIOD); } catch (e) { /* Safari プライベート等 */ }
+    return PERIODS.indexOf(v) >= 0 ? v : "FY";      // 未知値・壊れた値は必ず FY へ正規化
+  }
+  function writePeriod(v) { try { localStorage.setItem(LS_PERIOD, v); } catch (e) { /* noop */ } }
+  let selectedPeriod = readPeriod();
   // T3: navigateToDetail の多重起動ガード（await getStock 中の再クリックを no-op 化）。
   let navBusy = false;
 
@@ -658,11 +667,47 @@
     }
   }
 
+  // 期間バーのボタン列を1度だけ組む（銘柄をまたいで再利用＝冪等）。
+  function initPeriodBar() {
+    const box = document.getElementById("w2-period-box");
+    if (!box || box.childElementCount) return;
+    PERIODS.forEach((key) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "w2-p";
+      btn.dataset.p = key;
+      btn.innerText = key;
+      btn.onclick = () => setPeriod(key);          // closure 参照（window 公開面を増やさない）
+      box.appendChild(btn);
+    });
+  }
+
+  function paintPeriodButtons() {
+    document.querySelectorAll("#w2-period-box .w2-p").forEach((b) => {
+      b.classList.toggle("active", b.dataset.p === selectedPeriod);
+    });
+  }
+
+  // 期間ボタン：価格系だけを描き直す（財務3表・KPI・AI コメントには触らない）。
+  //  ⚠ repaint() は呼ばない（entrance アニメ対策で navigate 経路にだけ要る・連打で多重再描画になる）。
+  function setPeriod(key) {
+    if (PERIODS.indexOf(key) < 0) return;
+    selectedPeriod = key;
+    writePeriod(key);
+    paintPeriodButtons();
+    applyPriceWindow();
+  }
+
   function switchYear(year, event) {
     selectedYear = year;
     document.querySelectorAll(".time-btn").forEach((b) => b.classList.remove("active"));
     event.target.classList.add("active");
     document.getElementById("selected-year-display").innerText = year + " FY";
+    // W2: FY を押した＝「決算年度の窓で見る」宣言。期間バーも FY へ戻す（2つの入力の優先順位を
+    //  「最後に押した方」に一本化する。片方が無言で相手を上書きする状態を作らない）。
+    selectedPeriod = "FY";
+    writePeriod("FY");
+    paintPeriodButtons();
     updateFinancialViews();
   }
 
@@ -725,6 +770,8 @@
     document.getElementById("selected-year-display").innerText = selectedYear + " FY";
 
     const isUS = data.country === "US";     // 後段（marketBasisFor 等）が使うので残す
+    initPeriodBar();          // 冪等（1度だけ組む）
+    paintPeriodButtons();     // LS 復元した期間を UI に反映する
     applyPriceWindow();
 
     // ★FHD 初回ペイント黒面バグの正式修正（diag=redraw で全カード黒→正常を実証）：

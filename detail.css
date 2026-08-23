@@ -472,6 +472,141 @@
         .time-control-bar { padding: 10px 10px; }
       }
 
+      /* ── W2: 期間切替レール（案A CSS を移植・body[data-w2v] 接頭辞除去／クラス改名／12px床）── */
+      .w2-rail{
+        display:flex; align-items:center; flex-wrap:nowrap; gap:0;
+        padding:7px 0 6px; margin:0;
+        box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--ix-border) 70%, transparent);
+      }
+      .w2-rail-label{
+        flex:0 0 auto; margin-right:8px;
+        font-size:12px; font-weight:bold; letter-spacing:.8px; text-transform:uppercase;
+        color:var(--ix-slate); white-space:nowrap;
+      }
+      .w2-seg{
+        display:flex; align-items:center; gap:4px;
+        flex:0 1 auto; min-width:0;
+        overflow-x:auto; overflow-y:hidden; overscroll-behavior-x:contain;
+        scroll-snap-type:x proximity; scrollbar-width:none; -ms-overflow-style:none;
+      }
+      .w2-seg::-webkit-scrollbar{ display:none; }
+      .w2-p[data-p="FY"] { margin-right: 10px; } /* 区切り線の代わりに余白で表現（JSがsepスパンを生成しないため） */
+      .w2-p{
+        position:relative; flex:0 0 auto; scroll-snap-align:start;
+        min-height:24px; padding:3px 9px 3px 12px;
+        background:transparent; border:1px solid var(--ix-border-mid); border-radius:3px;
+        font-family:var(--ix-mono); font-size:12px; font-weight:bold; letter-spacing:.5px;
+        color:var(--ix-slate-line); white-space:nowrap; cursor:pointer;
+        transition:border-color .2s, color .2s, background .2s;
+      }
+      .w2-p::after{ content:""; position:absolute; inset:-6px 0; }
+      .w2-p:hover{ border-color:var(--ix-slate); color:var(--ix-text-dim); }
+      .w2-p:focus-visible{ outline:1px solid var(--ix-cyan); outline-offset:1px; }
+      .w2-p.active{
+        border-color:var(--ix-cyan); color:var(--ix-cyan);
+        background:color-mix(in srgb, var(--ix-cyan) 12%, transparent);
+      }
+      .w2-p[data-p="FY"]::before{
+        content:""; position:absolute; left:4px; top:50%; transform:translateY(-50%);
+        width:2px; height:10px; border-radius:1px; background:var(--ix-amber); opacity:.5;
+      }
+      .w2-p[data-p="FY"]:hover::before{ opacity:.8; }
+      .w2-p[data-p="FY"].active{
+        border-color:var(--ix-amber); color:var(--ix-amber);
+        background:color-mix(in srgb, var(--ix-amber) 12%, transparent);
+      }
+      .w2-p[data-p="FY"].active::before{ opacity:1; }
+      .w2-52w{
+        display:flex; align-items:center; gap:6px; flex:0 0 auto;
+        margin-left:10px; font-family:var(--ix-mono); line-height:1;
+      }
+      .w2-52w::before{
+        content:""; flex:0 0 auto; width:1px; height:16px; margin-right:10px;
+        background:var(--ix-border-strong);
+      }
+      .w2-52w-tag{ font-size:12px; letter-spacing:.6px; color:var(--ix-slate); }
+      .w2-52w-num{ font-size:12px; color:var(--ix-slate-line); white-space:nowrap; }
+      .w2-52w-track{
+        position:relative; flex:0 0 auto;
+        width:clamp(56px, 8vw, 104px); height:4px; border-radius:2px;
+        background:linear-gradient(90deg,
+          color-mix(in srgb, var(--ix-slate-line) 24%, transparent),
+          color-mix(in srgb, var(--ix-cyan) 34%, transparent));
+      }
+      .w2-52w-marker{
+        position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+        width:3px; height:12px; border-radius:1px;
+        background:var(--ix-cyan-bright2);
+        box-shadow:0 0 6px color-mix(in srgb, var(--ix-cyan) 55%, transparent);
+        transition:left .25s ease;
+      }
+      .w2-52w-pos{ font-size:13px; font-weight:bold; color:var(--ix-text); }
+      .w2-52w-dist{ font-size:12px; color:var(--ix-slate); white-space:nowrap; }
+      .w2-52w-note{ font-size:12px; color:var(--ix-amber); white-space:nowrap; }
+      .w2-52w-note:empty{ display:none; }
+      .w2-bench{
+        position:relative; flex:0 0 auto; margin-left:auto;
+        display:inline-flex; align-items:center; gap:6px;
+        min-height:24px; padding:3px 10px;
+        background:transparent; border:1px solid var(--ix-border-mid); border-radius:3px;
+        font-size:12px; font-weight:bold; letter-spacing:.5px;
+        color:var(--ix-slate-line); white-space:nowrap; cursor:pointer;
+        transition:border-color .2s, color .2s, background .2s;
+      }
+      .w2-bench::before{
+        content:""; flex:0 0 auto; width:12px; height:2px; border-radius:1px;
+        background:currentColor; opacity:.45;
+      }
+      .w2-bench::after{ content:""; position:absolute; inset:-6px 0; }
+      .w2-bench:hover{ border-color:var(--ix-slate); color:var(--ix-text-dim); }
+      .w2-bench:focus-visible{ outline:1px solid var(--ix-cyan); outline-offset:1px; }
+      .w2-bench.active{
+        border-color:var(--ix-indigo-bright); color:var(--ix-indigo-bright);
+        background:color-mix(in srgb, var(--ix-indigo-bright) 12%, transparent);
+      }
+      .w2-bench.active::before{ opacity:1; }
+
+      @media (max-width:768px){
+        .w2-rail{
+          display:grid; grid-template-columns:minmax(0,1fr) auto;
+          column-gap:8px; row-gap:4px; padding:6px 0 5px;
+        }
+        .w2-rail-label{ display:none; }
+        .w2-seg{
+          grid-column:1; grid-row:1; gap:5px;
+          -webkit-mask-image:linear-gradient(90deg, var(--ix-white) 0 88%, transparent 100%);
+          mask-image:linear-gradient(90deg, var(--ix-white) 0 88%, transparent 100%);
+        }
+        .w2-p{ min-height:36px; padding:0 11px 0 14px; font-size:.78rem; }
+        .w2-p::after{ inset:-5px 0; }
+        .w2-bench{
+          grid-column:2; grid-row:1; margin-left:0; min-height:36px; padding:0 10px;
+        }
+        .w2-bench::after{ inset:-5px 0; }
+        .w2-52w{
+          grid-column:1 / -1; grid-row:2; margin-left:0; height:16px;
+          display:grid; grid-template-columns:auto auto minmax(40px,1fr) auto auto auto;
+          align-items:center; gap:0 6px;
+        }
+        .w2-52w::before{ display:none; }
+        .w2-52w-track{ width:auto; }
+        .w2-52w-marker{ height:10px; }
+        .w2-52w-note{ grid-column:1 / -1; white-space:normal; }
+      }
+
+      @media (max-width:480px){
+        .w2-p{ padding:0 9px 0 12px; font-size:.75rem; }
+        /* 12px床（不変条件）: 原案の .7rem(≒11.2px) は床割れのため 12px に固定 */
+        .w2-bench{ padding:0 8px; gap:4px; font-size:12px; }
+        .w2-bench::before{ width:9px; }
+      }
+
+      @media (max-width:375px){
+        .w2-rail{ column-gap:6px; }
+        .w2-p{ padding:0 8px 0 11px; }
+        .w2-52w-tag{ display:none; }
+      }
+
       /* ── インジケーターコントロールバー ── */
       .ma-control-bar {
         display: flex;

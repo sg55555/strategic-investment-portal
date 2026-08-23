@@ -1352,6 +1352,20 @@
           <div class="card sig-digest-card" id="signal-digest-card" style="display:none"></div>
           <div class="card">
             <div class="card-title" id="stock-title">MARKET CHART</div>
+            <div class="w2-rail" role="group" aria-label="表示期間と52週レンジ">
+              <span class="w2-rail-label">期間</span>
+              <div class="w2-seg" id="w2-period-box" title="FY＝決算年度（財務3表と同期）／1M〜MAX＝価格・指標のみのローリング窓"></div>
+              <div class="w2-52w" id="w2-52w" title="直近52週レンジ内の現在地（期間切替とは独立）">
+                <span class="w2-52w-tag">52W</span>
+                <span class="w2-52w-num" data-w2="lo">—</span>
+                <span class="w2-52w-track"><span class="w2-52w-marker" data-w2="marker"></span></span>
+                <span class="w2-52w-num" data-w2="hi">—</span>
+                <span class="w2-52w-pos" data-w2="pos">—</span>
+                <span class="w2-52w-dist" data-w2="dist">—</span>
+                <span class="w2-52w-note" data-w2="note"></span>
+              </div>
+              <button class="w2-bench" id="w2-bench-btn" type="button"><span data-w2="benchLabel">vs TOPIX</span></button>
+            </div>
             <div class="ma-control-bar">
               <div class="ctrl-group">
                 <span class="ma-label" data-term="ma">移動平均</span>
