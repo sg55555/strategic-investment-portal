@@ -33,9 +33,24 @@ function check(name, ok) { console.log((ok ? "  ✅ " : "  ❌ ") + name); if (!
   await open("7203.T");
   const t7203 = await title();
   check("7203.T: 副題 span が存在", !!t7203.subText);
-  check("7203.T: 副題が [..] 注記（経営期間トレンド）", /^\[.*経営期間トレンド\]$/.test((t7203.subText || "").trim()));
   check("7203.T: 副題が block（wide でも2行化＝D27）", t7203.subDisplay === "block");
   check("7203.T: 社名が本文側に残る", /トヨタ|TOYOTA|\(7203\.T\)/.test(t7203.text || ""));
+
+  // W2: FY は従来の「経営期間トレンド」、ローリング窓は rollingLabelParts の文言に変わる。
+  //  ⚠ 正規表現を緩めて「どちらでも緑」にしてはいけない（それをやると「FY ボタンを押したら
+  //  期間バーも FY に戻る」という回帰が検知できなくなる）。期間を明示的に切り替え、その期間に
+  //  対応する文言だけを許すこと（前 wave 単発の「7203.T の FY 副題」アサートはこのループに吸収）。
+  const EXPECT = {
+    FY: /^\[.*経営期間トレンド\]$/,
+    "1Y": /^\[直近1年 \d{4}年\d{1,2}月 〜 \d{4}年\d{1,2}月\]$/,
+    MAX: /^\[全期間 \d{4}年\d{1,2}月 〜 \d{4}年\d{1,2}月\]$/,
+  };
+  for (const [key, re] of Object.entries(EXPECT)) {
+    await page.evaluate((k) => document.querySelector(`#w2-period-box .w2-p[data-p="${k}"]`).click(), key);
+    await page.waitForTimeout(700);
+    const sub = await page.evaluate(() => document.querySelector(".stock-title-sub").textContent);
+    check(`7203.T ${key} の副題: ${sub}`, re.test(sub));
+  }
 
   // ── 480px（narrow）──
   await page.setViewportSize({ width: 480, height: 900 });

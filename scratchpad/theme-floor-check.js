@@ -7,6 +7,10 @@ const css = fs.readFileSync("docs/superpowers/specs/assets/theme-a-tuning.css", 
 // ①⑧ブロック（L108-159）のセレクタ列挙を抽出（`{ font-size: 12px; }` の直前までのカンマ区切り）
 const m = css.match(/一括で12px化[\s\S]*?\*\/([\s\S]*?)\{\s*font-size:\s*12px;/);
 const selectors = m[1].split(",").map((s) => s.replace(/\/\*[\s\S]*?\*\//g, "").trim()).filter((s) => s && !s.startsWith("/*"));
+// W2（2026-08-23）で足したレールのセレクタ。theme-a-tuning.css には載っていないので明示的に足す
+//  （床チェックが「列挙されたものしか見ない」ため、新クラスは黙って素通りする）。
+selectors.push(".w2-rail-label", ".w2-52w-tag", ".w2-52w-num", ".w2-52w-pos", ".w2-52w-dist",
+               "#w2-period-box .w2-p", "#w2-bench-btn");
 (async () => {
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width, height: 900 } });
