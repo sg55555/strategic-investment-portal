@@ -49,6 +49,34 @@ const X = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y
     const d = chart.data.datasets.find((s) => /流動比率/.test(s.label));
     return d ? d.data.slice() : null;
   });
+  // fix round1 Finding1: レーダーラベルの canvas 外クリップ検出（満点=100 で外周に達する軸が、
+  //  放射 offset 分だけ canvas 境界の外にはみ出していないか）。$layout._box._rect は chart.width/height と
+  //  同じ座標系（px, 左上原点）＝矩形の全4辺が [0,width]×[0,height] に収まっているかで判定。
+  const readRadarLayout = () => page.evaluate(() => {
+    const chart = Chart.getChart(document.getElementById("radarChart"));
+    if (!chart) return null;
+    const ds = chart.data.datasets[0];
+    const items = chart.getDatasetMeta(0).data.map((el, i) => {
+      const lab = (el.$datalabels || [])[0];
+      const rect = (lab && lab.$layout && lab.$layout._visible && lab.$layout._box) ? lab.$layout._box._rect : null;
+      return { i: i, label: String(chart.data.labels[i]), value: ds.data[i], rect: rect ? { x: rect.x, y: rect.y, w: rect.w, h: rect.h } : null };
+    });
+    return { chartW: chart.width, chartH: chart.height, items: items };
+  });
+  const radarClipCount = (layout) => {
+    if (!layout) return Infinity;
+    return layout.items.filter((it) => {
+      if (!it.rect) return false;
+      const r = it.rect;
+      return r.x < 0 || r.y < 0 || (r.x + r.w) > layout.chartW || (r.y + r.h) > layout.chartH;
+    }).length;
+  };
+  const radarOverlapCount = (layout) => {
+    const rects = (layout ? layout.items : []).map((s) => s.rect).filter(Boolean);
+    let n = 0;
+    for (let i = 0; i < rects.length; i++) for (let j = i + 1; j < rects.length; j++) if (X(rects[i], rects[j])) n++;
+    return n;
+  };
 
   // ── 8306.T（銀行）: #4 表示・#7 側パネル・NEW 健全性トレンド・#6 レーダー ──
   await open("8306.T");
@@ -75,6 +103,17 @@ const X = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y
   check("9984.T: val=0 段は top 退避・offset 12（center 分岐の廃止）", zero9984.length > 0 && zero9984.every((s) => s.align === "top" && s.offset === 12));
   const op9984 = pl9984.items.find((s) => s.label === "営業利益");
   check("9984.T: 営業利益は持株会社 N/A のまま（銀行分岐に誤爆しない）", !!op9984 && op9984.text === "N/A\n(持株会社仕様)");
+  // fix round1 Finding1: 9984.T は ROE=100（満点＝上端軸）を含む＝レビュー指摘の見落とし穴（この銘柄は
+  //  従来 PL しか読んでいなかった）。レーダーのクリップ0・交差0 を追加でここに配線する。
+  const rl9984 = await readRadarLayout();
+  check(`9984.T: レーダーラベル canvas 外クリップ 0（ROE=100 含む・${rl9984 ? rl9984.items.length : 0}枚）`, radarClipCount(rl9984) === 0);
+  check(`9984.T: レーダーラベル相互交差 0（${rl9984 ? rl9984.items.length : 0}枚）`, radarOverlapCount(rl9984) === 0 && rl9984 && rl9984.items.length >= 5);
+
+  // ── 4519.T（全軸満点）: レーダー クリップ0（fix round1 Finding1 の再現銘柄） ──
+  await open("4519.T");
+  const rl4519 = await readRadarLayout();
+  check(`4519.T: レーダーラベル canvas 外クリップ 0（全軸100・${rl4519 ? rl4519.items.length : 0}枚）`, radarClipCount(rl4519) === 0);
+  check(`4519.T: レーダーラベル相互交差 0（${rl4519 ? rl4519.items.length : 0}枚）`, radarOverlapCount(rl4519) === 0 && rl4519 && rl4519.items.length >= 5);
 
   // ── 7201.T（低スコア）: レーダー放射分離 ──
   await open("7201.T");

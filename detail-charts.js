@@ -1152,6 +1152,11 @@
           options: {
             responsive: true,
             maintainAspectRatio: false,
+            // fix round1 Finding1: 満点(score=100)軸は r scale の外周＝chartArea 境界ちょうどに点が来るため、
+            //  datalabels offset(16) 分の描画領域が無いと canvas 外へ 6.6px クリップする（4519.T 全軸100・9984.T ROE=100 で実機再現）。
+            //  offset の値そのものを削ると低スコア側（#6 本題＝団子化）の分離が再び不足するため、offset は変えず
+            //  r scale 側にラベル分の余白を chart layout で明示的に確保する（レビュー提案どおり）。
+            layout: { padding: 20 },
             animation: { duration: 1500, easing: "easeOutQuart" },
             plugins: {
               legend: { display: false },
