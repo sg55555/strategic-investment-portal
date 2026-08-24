@@ -2126,7 +2126,7 @@
 
           // spec §5.4-5: 実質値のある年のみを母集合に（全ゼロFY行=ETL未確定を除外・hasFinSubstance 単一源）
           const substYears = Object.keys(company.financials_trend)
-            .filter((y) => FinanceRules.hasFinSubstance(company.financials_trend[y]))
+            .filter((y) => FinanceRules.hasFinSubstance(company.financials_trend[y], currency))
             .sort((a, b) => Number(b) - Number(a));
           const substTrend = {};
           substYears.forEach((y) => { substTrend[y] = company.financials_trend[y]; });

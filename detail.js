@@ -562,7 +562,7 @@
     const currency = data.currency || DEFAULT_CURRENCY;
     // spec §5.4-3: 全ゼロFY行（ETL未確定）はKPI比較ストリップから除去（D3＝年の存在提示は年ボタンが担う）
     const years = Object.keys(data.financials_trend)
-      .filter((y) => FinanceRules.hasFinSubstance(data.financials_trend[y]))
+      .filter((y) => FinanceRules.hasFinSubstance(data.financials_trend[y], currency))
       .sort((a, b) => Number(a) - Number(b));
     grid.innerHTML = "";
 
@@ -639,7 +639,8 @@
         (a, b) => b - a,
       );
       // spec §5.2: 既定年は「実質値のある最新年」（全ゼロFY行=ETL未確定はスキップ・FY2026ボタン自体は残す）
-      selectedYear = availableYears.find((y) => FinanceRules.hasFinSubstance(data.financials_trend[y]))
+      // 通貨も渡す＝USD 小型株の生単位漏れは JPY 側のしきい値では拾えない（finUnitSuspect）
+      selectedYear = availableYears.find((y) => FinanceRules.hasFinSubstance(data.financials_trend[y], data.currency))
         || availableYears[0] || 2025;
 
       const ctrlBox = document.getElementById("year-controller-box");
@@ -864,8 +865,9 @@
     if (!data) return;
 
     const rawFin = data.financials_trend[selectedYear];
-    // spec §5.3 合流方式: 全ゼロFY行は既存 !fin 経路へ合流（財務描画スキップ＋プレースホルダ）
-    const fin = FinanceRules.hasFinSubstance(rawFin) ? rawFin : null;
+    // spec §5.3 合流方式: 全ゼロFY行は既存 !fin 経路へ合流（財務描画スキップ＋プレースホルダ）。
+    //  単位不整合の行（生の円/ドルが百万単位のテーブルへ漏れた等）も同じ経路＝偽の数字を事実として描かない。
+    const fin = FinanceRules.hasFinSubstance(rawFin, data.currency) ? rawFin : null;
     // C1: ここで早期 return せず、価格チャート/PER/PBR/ETF 判定まで進める。
     //  ETF(financials_trend={})や財務欠損年でもローソク足は描画する（財務固有の描画のみ後段で fin ガード）。
 
@@ -978,10 +980,16 @@
       pendingNote = document.createElement("div");
       pendingNote.id = "fin-pending-note";
       pendingNote.className = "fin-pending-note";
-      pendingNote.textContent = "この年度は決算未確定です";
       kpiCard.parentNode.insertBefore(pendingNote, kpiCard);
     }
-    if (pendingNote) pendingNote.style.display = (!isEtf && !fin) ? "" : "none";
+    if (pendingNote) {
+      // 文言は毎回決め直す（要素は使い回すため）。単位不整合＝「未確定」ではなくデータ側の事故なので、
+      //  理由を明示して「決算がまだ」と誤読させない（2026-08-25: 生の円/ドルが百万単位のテーブルへ漏れた件）。
+      pendingNote.textContent = FinanceRules.finUnitSuspect(rawFin, data.currency)
+        ? "この年度の財務データは単位が不整合のため表示していません（データ要確認）"
+        : "この年度は決算未確定です";
+      pendingNote.style.display = (!isEtf && !fin) ? "" : "none";
+    }
     // ai-insight-card は常に既定 none を維持する（既存挙動保存・wireInsightCard の可視ゲートのみが表示する）
     var _aiInsightCard = document.getElementById("ai-insight-card");
     if (_aiInsightCard) _aiInsightCard.style.display = "none";

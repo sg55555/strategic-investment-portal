@@ -69,8 +69,35 @@
   // 「実質値のある財務行か」の判定（全ゼロFY行=ETL未確定行の防御・spec §5 全消費者の単一源）。
   //  主要3軸（売上/総資産/純資産）のいずれかに実質値があれば true。現DBでは
   //  「n(net_sales)===0 && totalAssets===0」の否定と等価（12銘柄FY2026行に過不足なく一致をSELECTで実証済）。
-  function hasFinSubstance(fin) {
+  // 財務行の金額列（DB は百万単位）。finUnitSuspect の走査対象＝ratio や件数の列は含めない。
+  var FIN_MONEY_COLS = [
+    "current_assets", "non_current_assets", "current_liabilities", "non_current_liabilities", "net_assets",
+    "net_sales", "gross_profit", "operating_income", "ordinary_income", "income_before_taxes", "net_income",
+    "operating_cf", "investing_cf", "financing_cf", "cf_cash_start", "cf_cash_end",
+  ];
+  // 「百万単位」の規約からあり得ないほど外れた行を検知する上限（百万単位）。
+  //  JPY 1e9＝1000兆円、USD 1e7＝10兆ドル。正当な最大級（MUFG 総資産≈4e8 百万円・JPMorgan≈4e6 百万ドル）
+  //  は必ず通し、生単位の漏れ（小型株でも JPY≥1e10・USD≥1e8）は必ず捕まえる位置。通貨不明は JPY 側（緩い方）。
+  //  ⚠ 2026-08-25: ETL（refresh_market.py）が yfinance の生の円/ドルを百万単位のテーブルへ書き、チャートが
+  //     「39918854.0兆円」を事実として描いた。ETL 側にも同じ趣旨の loud-fail を入れたが、復元スクリプトや手動
+  //     SQL など別経路で同じ事故が起きても「偽の数字を事実として出さない」ための表示側の最後の砦。
+  var UNIT_SANE_LIMIT = { JPY: 1e9, USD: 1e7 };
+  function finUnitSuspect(fin, currency) {
     if (!fin) return false;
+    var limit = UNIT_SANE_LIMIT[currency] || UNIT_SANE_LIMIT.JPY;
+    for (var i = 0; i < FIN_MONEY_COLS.length; i++) {
+      var v = fin[FIN_MONEY_COLS[i]];
+      if (typeof v === "number" && isFinite(v) && Math.abs(v) >= limit) return true;
+    }
+    return false;
+  }
+
+  // 「実質値のある行」＝全ゼロ（ETL未確定）でも単位不整合でもない。既定年の選択・KPI比較・横断比較の単一源。
+  //  currency は省略可（既存呼び出しの互換）。渡せる呼び出し側は必ず渡す＝USD の小型株の漏れは JPY 側の
+  //  しきい値では拾えないため。
+  function hasFinSubstance(fin, currency) {
+    if (!fin) return false;
+    if (finUnitSuspect(fin, currency)) return false;
     return n(fin.net_sales) > 0 || totalAssets(fin) > 0 || n(fin.net_assets) !== 0;
   }
 
@@ -273,6 +300,7 @@
     clampScore: clampScore,
     hasValue: hasValue,
     hasFinSubstance: hasFinSubstance,
+    finUnitSuspect: finUnitSuspect,
     unitWord: unitWord,
     fmtUnit: fmtUnit,
     fmtMagnitude: fmtMagnitude,

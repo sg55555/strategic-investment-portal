@@ -270,6 +270,40 @@ test("hasFinSubstance: 全ゼロFY行（ETL未確定）を欠測扱いにする�
   assert.equal(F.hasFinSubstance(negEquityOnly), true);  // 純資産のみ負値＝実質データあり
 });
 
+// ── finUnitSuspect: 桁が「百万単位」の規約からあり得ないほど外れた行を検知する ──
+//  2026-08-25 に ETL が yfinance の生の円/ドルを百万単位のテーブルへ書き（100万倍）、チャートが
+//  「39918854.0兆円」を事実として描いた。しきい値は通貨別（百万単位で JPY 1e9=1000兆円 / USD 1e7=10兆ドル）。
+//  正当な最大級（MUFG 総資産 ≈4e8 百万円・JPMorgan ≈4e6 百万ドル）を必ず通し、生単位の漏れ
+//  （小型株でも JPY ≥1e10・USD ≥1e8）を必ず捕まえる位置に置く。
+test("finUnitSuspect: 通貨別しきい値で生単位の漏れだけを拾う（正当な巨大企業は通す）", () => {
+  const toyotaRaw = { net_sales: 50684952000000, net_assets: 39918854000000, non_current_assets: 62698249000000 };
+  assert.equal(F.finUnitSuspect(toyotaRaw, "JPY"), true);      // 100万倍の漏れ（実際に起きた行）
+  const toyota = { net_sales: 50684952, net_assets: 39918854, non_current_assets: 62698249 };
+  assert.equal(F.finUnitSuspect(toyota, "JPY"), false);
+  const mufg = { net_sales: 6838439, non_current_assets: 413113501, net_assets: 18000000 };
+  assert.equal(F.finUnitSuspect(mufg, "JPY"), false);          // 413兆円の総資産は正当
+  const appleRaw = { net_sales: 416161000000, current_assets: 147957000000 };
+  assert.equal(F.finUnitSuspect(appleRaw, "USD"), true);
+  const apple = { net_sales: 416161, current_assets: 147957 };
+  assert.equal(F.finUnitSuspect(apple, "USD"), false);
+  const jpm = { non_current_assets: 4000000, net_assets: 330000 };
+  assert.equal(F.finUnitSuspect(jpm, "USD"), false);           // 4兆ドルの総資産は正当
+  const microcapRaw = { net_sales: 120000000, net_assets: 40000000 };
+  assert.equal(F.finUnitSuspect(microcapRaw, "USD"), true);    // 売上 $1.2億の生単位も捕まえる
+  assert.equal(F.finUnitSuspect(toyotaRaw, undefined), true);  // 通貨不明は JPY のしきい値（緩い側）で判定
+  assert.equal(F.finUnitSuspect(null, "JPY"), false);          // 行なしは「疑い」ではない（hasFinSubstance が担う）
+  assert.equal(F.finUnitSuspect({ net_sales: -50684952000000 }, "JPY"), true);   // 負値も絶対値で見る
+});
+
+test("hasFinSubstance: 単位不整合の行は実質値ありと見なさない（既定年の選択から外れる）", () => {
+  const toyotaRaw = { net_sales: 50684952000000, net_assets: 39918854000000 };
+  assert.equal(F.hasFinSubstance(toyotaRaw, "JPY"), false);
+  assert.equal(F.hasFinSubstance({ net_sales: 50684952, net_assets: 39918854 }, "JPY"), true);
+  // 通貨を渡さない既存呼び出しも壊れない（JPY しきい値で判定）
+  assert.equal(F.hasFinSubstance(toyotaRaw), false);
+  assert.equal(F.hasFinSubstance({ net_sales: 48036704, current_assets: 100, non_current_assets: 200, net_assets: 150 }), true);
+});
+
 test("fmtTickValue: 軸目盛は目盛間隔から小数桁を動的算出（0.1兆×4連の重複と桁不揃いを同時に防ぐ）", () => {
   var t = { div: 1000000, suffix: "兆ドル", dec: 1 };
   var ticks = [{ value: 0 }, { value: 20000 }, { value: 40000 }];   // step=0.02兆
