@@ -202,6 +202,12 @@ const range = (page) =>
   // するため、「新しいティッカーの px は健全なのに旧ティッカーの表示が残る」形で顕在化する
   // （レビュー Critical 2）。
   const loBefore = await page.evaluate(() => document.querySelector('[data-w2="lo"]').textContent);
+  // FINAL-I3: candlePointCount/52週レンジは「新しいティッカーの値が正しく出る」ことしか見ておらず、
+  //  detail-charts.js:579 の早期 return が持っていた「ローソク以外まるごと残る」（出来高/MA/BB/KC/VWAP/
+  //  S/R/T/R/サブパネル）は検知できなかった。出来高（volPointCount）を代表として、7203.T の実系列
+  //  件数を控えておく（0 でないことも前提として確認する＝空振りアサート対策）。
+  const volBefore = await page.evaluate(() => window.DetailCharts.volPointCount());
+  check(volBefore > 0, `(前提) 7203.T の出来高が実系列に乗っている (volPointCount=${volBefore})`);
   await page.evaluate(() => { STOCK_DATA["6758.T"].prices = []; });
   await open(page, "6758.T");   // 本番の検証対象（6758.T は既にハイドレート済みなので再フェッチされない）
   const titleAfter = await page.evaluate(() => document.getElementById("stock-title").textContent);
@@ -215,6 +221,11 @@ const range = (page) =>
   const loAfter = await page.evaluate(() => document.querySelector('[data-w2="lo"]').textContent);
   check(loAfter !== loBefore,
     `価格ゼロの銘柄でも前銘柄の52週レンジ（解析カード）が残らない (52W lo: ${loBefore} → ${loAfter})`);
+  // FINAL-I3 本体の検査: ローソク以外の系列（出来高）も空になったこと。修正前は updateMaAndVolume の
+  //  早期 return によりここが volBefore と同じ値のまま残る（実際に注入実験で確認する）。
+  const volAfter = await page.evaluate(() => window.DetailCharts.volPointCount());
+  check(volAfter === 0,
+    `価格ゼロの銘柄でも前銘柄の出来高（ローソク以外の系列の代表）が残らない（volPointCount=${volBefore}→${volAfter}）`);
 
   console.log("=== レスポンシブ ===");
   await page.reload({ waitUntil: "domcontentloaded" });

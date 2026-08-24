@@ -37,6 +37,7 @@
   let cfChartInstance = null;
   let ma5Series = null, ma25Series = null, ma75Series = null;
   let volumeSeries = null;
+  let _volPointCount = 0;   // FINAL-I2/I3 受入用: 出来高に最後に渡した件数（candlePointCount と同型）
   let maState = { 5: false, 25: false, 75: false };
   let bbUpperSeries = null, bbMidSeries = null, bbLowerSeries = null;
   let bbState = false;
@@ -576,7 +577,24 @@
         drawTRLines(currentDisplayPrices);
       }
       function updateMaAndVolume(displayPrices, allPrices) {
-        if (!displayPrices || displayPrices.length === 0) return;
+        if (!displayPrices || displayPrices.length === 0) {
+          // FINAL-I3: 価格ゼロの銘柄へ遷移した窓（displayPrices=[]）では、ここから下が displayPrices[0]
+          //  に触るため、従来は無言 return するしかなかった。しかしそれだと「ローソクだけ」が
+          //  setCandleData([]) で消え、この関数が持つ全系列（出来高・MA・BB・KC・VWAP・S/R・T/R・
+          //  サブパネル・グロー primitive が読む currentDisplayPrices）は前銘柄の値のまま残る
+          //  （実測: トヨタの BB/VWAP/ZigZag が Apple 画面に残留）。displayPrices を消費している
+          //  系列を漏れなく空データでクリアしてから return する。
+          volumeSeries.setData([]);
+          _volPointCount = 0;   // FINAL-I2/I3 受入用デバッグゲッター（candlePointCount と同型）
+          [ma5Series, ma25Series, ma75Series].forEach((s) => s?.setData([]));
+          [bbUpperSeries, bbMidSeries, bbLowerSeries].forEach((s) => s?.setData([]));
+          [kcUpperSeries, kcMidSeries, kcLowerSeries].forEach((s) => s?.setData([]));
+          vwapSeries?.setData([]);
+          applySRLines([]);          // 内部で !prices?.length を見て価格線を全除去する
+          drawTRLines([]);           // 内部で trSeries/trRangeBands を全除去する
+          refreshSubpanels([], []);  // currentDisplayPrices/currentAllPrices も含めて空へ揃える（グロー primitive 対策）
+          return;
+        }
         const startTime = displayPrices[0].time;
         const endTime = displayPrices[displayPrices.length - 1].time;
 
@@ -586,6 +604,7 @@
           color: p.close >= p.open ? "rgba(218,10,55,0.32)" : "rgba(20,80,215,0.32)",
         }));
         volumeSeries.setData(volData);
+        _volPointCount = volData.length;   // FINAL-I2/I3 受入用デバッグゲッター（candlePointCount と同型）
 
         const base = allPrices && allPrices.length >= 75 ? allPrices : displayPrices;
         [[5, ma5Series], [25, ma25Series], [75, ma75Series]].forEach(([period, series]) => {
@@ -1508,6 +1527,11 @@
   function candlePointCount() {
     return _candlePointCount;
   }
+  // FINAL-I3 受入用の薄いデバッグゲッター（同上）。ローソク以外の系列（出来高を代表として採用）が
+  //  価格ゼロの銘柄への遷移で前銘柄の残像を残していないかを外から検査するため。
+  function volPointCount() {
+    return _volPointCount;
+  }
 
   // ── 財務健全性の推移（Feature#3・二軸 line）──────────────────────────
   //  純計算は DetailRules.healthTrendSeries(欠測 null)。Chart.js line・**destroy 先行**・
@@ -1679,7 +1703,7 @@
     initPriceChart, updateMaAndVolume, setCandleData,
     renderBSChart, renderRadarChart, renderPLChart, renderCFChart, renderHealthTrend,
     renderDuPont, renderFCFTrend,
-    repaint, onWindowResize, renderCompareChart, resizePrice, getPriceVisibleRange, setBenchData, clearBench, benchPointCount, candlePointCount,
+    repaint, onWindowResize, renderCompareChart, resizePrice, getPriceVisibleRange, setBenchData, clearBench, benchPointCount, candlePointCount, volPointCount,
     mountSubpanel, unmountSubpanel, isSubpanelMounted, activeSubpanels, refreshSubpanels, resizeSubpanels,
   };
 })();
