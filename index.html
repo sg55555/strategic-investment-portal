@@ -1038,9 +1038,14 @@
                     text-overflow: ellipsis; max-width: 100%; }
       .w15-t-val { font-family: var(--ix-mono); font-size: 19px; font-weight: 700; line-height: 1.05; }
       .w15-t-sub { font-size: 11px; opacity: 0.78; display: flex; align-items: center; gap: 6px; }
+      /* バーは「その大分類のうち上昇した銘柄の割合」。⚠ 固定の赤/緑にしない。タイルの背景が既に
+         上昇/下落を表しているため、同じ意味の色を二重に使うと**濃い緑のタイルで緑のバーが、
+         濃い赤のタイルで赤い台が下地に溶けて読めなくなる**（実機で指摘・2026-08-25）。
+         currentColor は _heatInk が下地に対して可読な側（濃い上位2段は黒／それ以外は明色）を
+         既に選んでいるので、それに追従させれば背景色の段を将来変えても自動で読める側に付いてくる。 */
       .w15-bar { display: inline-block; width: 42px; height: 4px; border-radius: 2px;
-                 background: rgba(255, 80, 110, 0.55); overflow: hidden; }
-      .w15-bar > i { display: block; height: 100%; background: rgba(0, 214, 110, 0.95); }
+                 background: color-mix(in srgb, currentColor 22%, transparent); overflow: hidden; }
+      .w15-bar > i { display: block; height: 100%; background: currentColor; }
       .w15-empty { font-size: 12px; color: var(--ix-slate); padding: 8px 0; }
       .w15-legend { display: flex; align-items: center; gap: 3px; font-size: 11px;
                     color: var(--ix-text-dim); margin-top: 10px; flex-wrap: wrap; }

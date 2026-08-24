@@ -307,6 +307,37 @@ async function pxWithPxNoteTest(browser, view) {
     check(`[${v.name}] 0件でパネルが消える`, empty === 0);
 
     check(`[${v.name}] pageerror / console.error なし`, errors.length === 0, errors.join(" | "));
+
+    // (1.5) タイル内バーが下地から分離しているか（2026-08-25 実機指摘の回帰止め）。
+    //  ⚠ 固定の赤/緑に戻すと、濃い緑のタイルで緑のバーが、濃い赤のタイルで赤い台が下地に溶ける。
+    //   バーは currentColor 追従（= _heatInk が下地に対して選んだ可読な側）である前提を、
+    //   「バーの伸び色とタイル背景の輝度差」で機械的に確かめる。
+    //  閾値 0.12 は実測から決めた（当て推量にしない）:
+    //    固定の赤/緑に戻した場合の最悪値 = 0.068（ヘルスケア/JP・一般消費財/JP・不動産/JP＝指摘された緑タイル群）
+    //    currentColor 追従の最悪値       = 0.186（公益/US＝濃い赤タイルに黒いバー）
+    //  → 壊れた状態は確実に赤くなり、正しい状態には余裕がある位置に置く。
+    await gotoFresh(page);
+    await setLS(page, withVariantOff({}));
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitTiles(page);
+    const barSep = await page.evaluate(() => {
+      const lum = (c) => {
+        const m = c.match(/[\d.]+/g).map(Number);
+        const f = (x) => { x /= 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); };
+        return 0.2126 * f(m[0]) + 0.7152 * f(m[1]) + 0.0722 * f(m[2]);
+      };
+      let worst = { diff: 1, sector: null };
+      document.querySelectorAll(".w15-tile").forEach((t) => {
+        const fill = t.querySelector(".w15-bar > i");
+        if (!fill) return;
+        const d = Math.abs(lum(getComputedStyle(t).backgroundColor) - lum(getComputedStyle(fill).backgroundColor));
+        if (d < worst.diff) worst = { diff: +d.toFixed(3), sector: t.dataset.sec + "/" + t.dataset.market };
+      });
+      return worst;
+    });
+    check(`[${v.name}] 全タイルでバーが下地から分離している（最小の輝度差 ${barSep.diff} @ ${barSep.sector}）`,
+      barSep.diff >= 0.12, `閾値0.12 / 実測${barSep.diff}`);
+
     await ctx.close();
 
     // (2) 社数=withPx（別コンテキストで route 細工。メインの errors とは独立集計）

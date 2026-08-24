@@ -35,7 +35,11 @@ _CT = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf
        ".webmanifest": "application/manifest+json", ".txt": "text/plain; charset=utf-8"}
 
 ANCHOR_SCRIPT = "  </body>"
-SCRIPT_TAG = '    <script src="/scratchpad/w2-variants.js"></script>\n  </body>'
+# 注入するハーネスは差し替えられる（既定＝W2 のレイアウト3案比較）。
+#  例: W2_INJECT_FILE=w2-marker-variants.js python3 scratchpad/w2-mock-server.py
+#  ＝52週マーカーの配色比較。実物比較のたびに鯖を書き換えずに済むようにしている。
+INJECT_FILE = os.environ.get("W2_INJECT_FILE", "w2-variants.js")
+SCRIPT_TAG = f'    <script src="/scratchpad/{INJECT_FILE}"></script>\n  </body>'
 
 INJECT_DEFAULT = os.environ.get("W2_INJECT", "1") != "0"
 
