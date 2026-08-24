@@ -578,7 +578,10 @@ git commit -m "feat(w2): ベンチ系列を price chart に1本追加（autoscal
 - [ ] **Step 1: 抽出前のスナップショットを取る**
 
 ```bash
-ln -sfn ../../../data/investment.db data/investment.db     # worktree には gitignore された DB が無い
+# worktree には gitignore された DB が無い。⚠ この worktree は investment-portal/.claude/worktrees/<name>
+#  の**4階層**ネストなので `../../../` では dangling になる（実際に踏んだ）。張った直後に必ず実在確認する。
+ln -sfn ../../../../data/investment.db data/investment.db
+stat -L data/investment.db > /dev/null || { echo "❌ symlink が壊れている（この状態で snapshot を取ると『空 vs 空』で偽の MATCH が出る）"; exit 1; }
 python3 scratchpad/mock_prod_server.py &                   # :8200
 NODE_PATH=/home/shugo/node_modules node scratchpad/detail-snapshot.js capture
 ```
@@ -1033,7 +1036,9 @@ git commit -m "feat(w2): 52週レンジバー（px のサーバ計算値をそ�
       DetailCharts.setBenchData(r.points);
       paintBenchChip(b, r.covered ? null : r.anchorTime);   // 履歴が足りない分をラベルで明示（黙ってずらさない）
     }).catch((e) => {
-      if (gen !== benchGen) return;
+      // ⚠ .then と同じガードを掛ける。gen だけだと、銘柄遷移中の空白期間（currentTicker は新銘柄・
+      //  benchGen はまだ旧銘柄）に旧銘柄の fetch が失敗したとき、遷移先のベンチが無言で OFF になる。
+      if (gen !== benchGen || currentTicker !== ticker) return;
       console.error("bench fetch failed", e);
       DetailCharts.clearBench();
       benchOn = false; writeBench(false); paintBenchChip(b);   // 押下状態を残さない
@@ -1382,7 +1387,8 @@ cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ```bash
 # ⚠ worktree には gitignore された data/investment.db が無い。鯖は起動できるが全 API が 500 を返し、
 #   受入15本が「鯖は上がっているのに空」で落ちる。DB を symlink してから起動し、中身で判定する。
-[ -e data/investment.db ] || ln -sfn ../../../data/investment.db data/investment.db
+[ -e data/investment.db ] || ln -sfn ../../../../data/investment.db data/investment.db   # ⚠ 4階層（3だと dangling）
+stat -L data/investment.db > /dev/null || { echo "❌ data/investment.db の symlink が壊れている"; exit 1; }
 curl -sf "http://127.0.0.1:8200/api/market/list" | grep -q '"stocks"' || { echo "❌ mock 鯖が実データを返していない（data/investment.db を確認）"; exit 1; }
 ```
 

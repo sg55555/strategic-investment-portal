@@ -168,7 +168,13 @@ function applyPriceWindow() {
 > タイトル・ローソク・シグナルカードが残る**（別会社の画面に前の銘柄のチャートが出る）。
 > `data.prices` は `api/market/list.py:165` が全銘柄に `"prices": []` を入れており、`navigateToDetail`
 > は `getStock` の失敗を握って続行する（`detail.js:613`）ので、**ohlcv の通信エラー1回で到達する**。
-> `updateMaAndVolume` は自身が `detail-charts.js:578` で空を早期 return するので、そこは現状のままでよい。
+>
+> ⚠ **訂正（最終レビューで判明・2026-08-24）**: 当初ここには「`updateMaAndVolume` は自身が空を早期
+> return するので、そこは現状のままでよい」と書いていたが、**その早期 return（`detail-charts.js:579`）
+> こそが残像の本体**だった。空で return すると出来高・MA・BB・KC・VWAP・S/R 価格線・ZigZag・サブパネル・
+> `currentDisplayPrices` が一切更新されず、**「Apple」という見出しの下にトヨタの円建てチャートが出る**
+> （実測で再現）。W2 起因ではない既存欠陥だが、W2 の受入が「残像を残さない」と主張した以上、主張と実態を
+> 一致させる必要がある。→ 空入力では**全系列を空でクリアしてから return** する。
 
 `updateFinancialViews()` は該当ブロックを `applyPriceWindow()` の呼び出しに置き換える。**`repaint()`・
 `injectTermHelp()`・`initSubpanelUI()`・`renderRelativePosition()` は現在の位置のまま**（`repaint` は
@@ -258,17 +264,27 @@ function applyBench(displayPrices, data) {
     DetailCharts.setBenchData(r.points);
     paintBenchChip(b, r.covered ? null : r.anchorTime);   // 非カバー時は「（2009年〜）」を付ける
   }).catch(() => {
-    if (gen !== benchGen) return;
+    // ⚠ .then と同じガードを掛ける（gen だけだと下の★2の穴が開く）
+    if (gen !== benchGen || currentTicker !== ticker) return;
     DetailCharts.clearBench();
     benchOn = false; writeBench(false); paintBenchChip(b);   // 押下状態を残さない
   });
 }
 ```
 
-> ★**世代トークンは早期 return より前で進める**。`++benchGen` を「ON のときだけ」進める書き方にすると、
+> ★1 **世代トークンは早期 return より前で進める**。`++benchGen` を「ON のときだけ」進める書き方にすると、
 > ①ON にする → fetch 開始（gen=1）→ ②すぐ OFF（clearBench だけで gen は 1 のまま）→ ③fetch 着弾で
 > `gen === benchGen` が成立して**消したはずの線が復活する**。着弾側で `!benchOn` も見て二重に塞ぐ。
 > 銘柄をまたぐ取り違えは束D層2 で実際に踏んでいる（`cross-task-async-stale-response-guard`）。
+>
+> ★2 **`.catch` にも `.then` と同じガードを掛ける**（Task 8 のレビューで捕捉）。`navigateToDetail` は
+> `currentTicker` を `await getStock()` より**前**に同期更新する（`detail.js:622`）のに対し、遷移先の
+> `applyPriceWindow`（＝`benchGen` を進める唯一の経路）は `getStock` 解決後さらに 150ms 遅延で走る
+> （`detail.js:659-661`）。この間は **`currentTicker` は新銘柄・`benchGen` は旧銘柄のまま**という空白に
+> なる。ここで旧銘柄のベンチ fetch が reject すると、`gen` だけのガードは素通りし
+> `benchOn = false; writeBench(false)` が走って**遷移先の銘柄のベンチが、ユーザー操作なしに OFF になる**
+> （localStorage にも "0" が書かれて持続する）。`.then` と `.catch` はどちらも同じ非同期操作の着弾なので、
+> ガードを非対称にしない。
 
 - **世代トークン＋ticker 照合の二重ガードは必須**。束D層2 で「銘柄 A の非同期結果が銘柄 B の画面に描かれる」
   実バグを踏んでいる（`cross-task-async-stale-response-guard`）。ベンチは fetch を伴うので同じ穴が開く。
@@ -438,6 +454,13 @@ JP 銘柄は 6M/1Y/5Y と**既定の FY 窓**（JP は前年4月〜当年3月＝
 - **R5**: `navigateToDetail` は `resizePrice(container.clientWidth, 450)` の 450 を**ハードコード**しており
   CSS（`detail.css:53-56`）と二重管理。期間バーでカード構成は変わるが `#chart-container` の高さには触れない
   ため今回は無害。触らないこと。
+- **R9**（最終レビューで発見・要修正）: LWC v4.2.3 の **`minBarSpacing` 既定 0.5px/bar** が `fitContent()` を
+  クランプするため、**`ペイン幅 ÷ 0.5` 本より多い窓は先頭が切り捨てられる**。副題は窓の論理的な始点を
+  書くので、**表示と文言がずれる**（実測: 1440px で MAX は常に 2,555本＝7203.T の左端が 1999年でなく
+  2016-04-05／**390px では 5Y と MAX がどちらも 535本＝画面が1ピクセルも変わらない**のに別の期間を名乗る）。
+  → `timeScale` に `minBarSpacing: 0.02` を指定して解消（実測で全ケース主張どおりになることを確認）。
+  受入の単調性検査（`1M < 1Y < 5Y < MAX`）は 1440px でしか走っていなかったため検知できなかった＝
+  **390px でも回すこと**。
 - **R6**: LWC v4.2.3 は `maxBarSpacing` 非対応。少数バー（1M で薄い銘柄）のローソク幅は既存
   `DetailRules.fitLogicalRange` が吸収する（`updateMaAndVolume` 末尾で毎回再計算されるので追加改修不要）。
 - **R8**（Task 3 のレビューで発見・実装は現状のまま）: `covered: true` は「アンカーが窓先頭から動かなかった」
