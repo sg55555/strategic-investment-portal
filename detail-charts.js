@@ -701,7 +701,12 @@
             vertLine: { color: "rgba(92,240,255,0.5)", labelBackgroundColor: "#0a3a4a" },
             horzLine: { color: "rgba(92,240,255,0.5)", labelBackgroundColor: "#0a3a4a" },
           },
-          timeScale: { borderColor: "#2a3a44", lockVisibleTimeRangeOnResize: true },
+          // FINAL-C1: minBarSpacing 既定 0.5px/bar が fitContent() をクランプし、MAX（390px では 5Y も）が
+          //  副題の主張どおりの左端まで表示されない（実測: 7203.T MAX 1440px は 6,818本中 2,555本しか描かれず
+          //  左端が 1999-05-06 でなく 2016-04-05・390px は 5Y と MAX が両方 535本で画面が同一になる）。
+          //  0.02 まで下げれば全ケースで副題どおりの左端になる（副作用はMAXが0.04px/barの密な帯になるだけ＝
+          //  「全期間」の定義どおり）。
+          timeScale: { borderColor: "#2a3a44", lockVisibleTimeRangeOnResize: true, minBarSpacing: 0.02 },
           rightPriceScale: { borderColor: "#2a3a44", minimumWidth: 72 },
         });
 

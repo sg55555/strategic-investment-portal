@@ -69,6 +69,19 @@ const range = (page) =>
   console.log("   可視バー数:", JSON.stringify(bars));
   check(bars["1M"] < bars["1Y"] && bars["1Y"] < bars["5Y"] && bars["5Y"] < bars["MAX"], "1M < 1Y < 5Y < MAX");
 
+  // FINAL-C1: 単調性は 1440px 既定幅の open() でしか走っておらず、この bug（LWC v4.2.3 の
+  //  minBarSpacing 既定 0.5px/bar が fitContent() をクランプ）を検知できなかった。390px は
+  //  最も踏みやすい（1223本ペインでも 535本しか描かれず 5Y と MAX が完全に同じ画面になる）ため、
+  //  同じ検査をここでも回す＝この bug を検知できる唯一のアサート。
+  console.log("=== 期間バー（390px・FINAL-C1: minBarSpacing クランプの検知）===");
+  await open(page, "7203.T", 390);
+  const bars390 = {};
+  for (const k of ["1M", "1Y", "5Y", "MAX"]) { await clickPeriod(page, k); await page.waitForTimeout(800); bars390[k] = await range(page); }
+  console.log("   可視バー数(390px):", JSON.stringify(bars390));
+  check(bars390["1M"] < bars390["1Y"] && bars390["1Y"] < bars390["5Y"] && bars390["5Y"] < bars390["MAX"],
+    `390px でも 1M < 1Y < 5Y < MAX（修正前は 5Y=MAX=535 で完全一致していた・${JSON.stringify(bars390)}）`);
+  await open(page, "7203.T");   // 以降のセクションを壊さないよう既定幅(1440px)へ戻す
+
   console.log("=== FY 復帰（last-click-wins）===");
   await clickPeriod(page, "1Y"); await page.waitForTimeout(500);
   await page.evaluate(() => document.querySelectorAll("#year-controller-box .time-btn")[0].click());

@@ -15,8 +15,10 @@ function check(name, ok, extra) {
     /DetailRules\.fitLogicalRange\(displayPrices\.length, w\)/.test(src));
   check("配線: fit / setVisibleLogicalRange の分岐",
     /ts\.fitContent\(\) : ts\.setVisibleLogicalRange\(\{ from: r\.from, to: r\.to \}\)/.test(src));
-  check("lockVisibleTimeRangeOnResize: true",
-    /timeScale: \{ borderColor: "#2a3a44", lockVisibleTimeRangeOnResize: true \}/.test(src));
+  // FINAL-C1 で timeScale に minBarSpacing: 0.02 を追記した（MAX/5Y が副題どおりの左端まで表示されない
+  //  bug の修正・詳細は detail-charts.js の該当コメント）。既存の厳密一致に追記後の文字列を反映する。
+  check("lockVisibleTimeRangeOnResize: true ＋ FINAL-C1 minBarSpacing: 0.02",
+    /timeScale: \{ borderColor: "#2a3a44", lockVisibleTimeRangeOnResize: true, minBarSpacing: 0\.02 \}/.test(src));
   check("ゲッターは DetailCharts 名前空間のみ（window 直下公開なし）",
     /getPriceVisibleRange,/.test(src) && !/window\.getPriceVisibleRange/.test(src));
 
