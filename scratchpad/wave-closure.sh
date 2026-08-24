@@ -1,5 +1,18 @@
 #!/usr/bin/env bash
 # wave クロージャ C-2/C-3/C-4: 受入スクリプト全数＋snapshot を一度の mock 鯖起動で通す
+#
+# ⚠ このスクリプト単体では W2 の受入は完了しない（spec §11.3）。ここ（8200番・
+#   mock_prod_server.py の合成600本データ）は D2（ローリング窓選択中に年度ボタンを
+#   押すと期間バーが FY に戻る、という期間バー×年度ボタンの状態調停）や、W2 の
+#   52週レンジ／ベンチマークのレースコンディションを検知しない。それらは別サーバ・
+#   別ポート・本番プロキシデータ（合成データだと 5Y と MAX が同じ窓になり検知できない）
+#   の scratchpad/w2-smoke.js が担当。**両方が緑になって初めて wave 完了**：
+#
+#     W2_INJECT=0 python3 scratchpad/w2-mock-server.py &   # :8220（比較ハーネス無し）
+#     NODE_PATH=/home/shugo/node_modules node scratchpad/w2-smoke.js
+#
+#   このスクリプトへ w2-smoke.js を統合しない（別サーバ・別ポート・別データ源のため、
+#   混ぜると起動順序と PID 管理が壊れる＝spec の決定どおり分離を維持する）。
 set -u
 # ⚠ `git rev-parse --show-toplevel` は使わない。main チェックアウトから叩くと W2 を含まないツリーを
 #   検査して ALL GREEN を返してしまう（stale 参照を git 依存に置き換えると同種の罠が再発する）。
