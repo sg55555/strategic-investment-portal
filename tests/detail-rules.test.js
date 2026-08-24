@@ -213,9 +213,9 @@ test("rollingLabelParts: YTD / MAX の呼び名", () => {
   assert.equal(D.rollingLabelParts("A", "A", max, false).period, "[全期間 2009年1月 〜 2026年8月]");
 });
 
-test("rollingLabelParts: fallback は理由を書く", () => {
+test("rollingLabelParts: fallback は理由を書く（FINAL-m5: 英字キー生埋め禁止・ROLL_NAME で和名に引き直す）", () => {
   const win = { periodKey: "1M", startDate: "2026-07-20", endDate: "2026-08-20", fallback: true };
-  assert.equal(D.rollingLabelParts("A", "A", win, false).period, "[1M のデータが不足のため全期間を表示]");
+  assert.equal(D.rollingLabelParts("A", "A", win, false).period, "[直近1ヶ月のデータが不足のため全期間を表示]");
 });
 
 test("rollingLabelParts: 社名が (ticker) を含むなら二重にしない", () => {

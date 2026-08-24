@@ -574,7 +574,9 @@
   function rollingLabelParts(companyName, ticker, win, isEtf) {
     const main = `${displayName(companyName, ticker)} - 歴史的ローソク足時系列`;
     if (!win || !win.startDate || !win.endDate) return { main, period: "" };
-    if (win.fallback) return { main, period: `[${win.periodKey} のデータが不足のため全期間を表示]` };
+    // FINAL-m5: 英字キーを生で埋めると日本語UIに "[1M のデータが不足…]" と出る。ROLL_NAME で和名に引き直す
+    //  （下の通常系と同じ辞書を使い、fallback 時だけ和訳漏れが残らないようにする）。
+    if (win.fallback) return { main, period: `[${ROLL_NAME[win.periodKey] || win.periodKey}のデータが不足のため全期間を表示]` };
     const ym = (iso) => `${+iso.slice(0, 4)}年${+iso.slice(5, 7)}月`;
     const name = ROLL_NAME[win.periodKey] || win.periodKey;
     return { main, period: `[${name} ${ym(win.startDate)} 〜 ${ym(win.endDate)}]` };
