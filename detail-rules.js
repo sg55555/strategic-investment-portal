@@ -1163,7 +1163,7 @@
     calcATR, calcADX, calcKeltner, calcOBV, calcVWAP, disciplineDigest,
     signalDigest, healthTrendSeries, dupontFactorSeries, fcfTrendSeries,
     // 財務ディスクリプタ純関数
-    priceWindow, rollingWindow, fitLogicalRange, periodLabel, periodLabelParts, rollingLabelParts, benchRebase, benchFor, displayName, hasTickerSuffix, marketBasisFor, perStatus, pbrStatus,
+    priceWindow, rollingWindow, fitLogicalRange, periodLabel, periodLabelParts, rollingLabelParts, ROLL_NAME, benchRebase, benchFor, displayName, hasTickerSuffix, marketBasisFor, perStatus, pbrStatus,
     equityRatioDesc, currentRatioDesc, yoyBadge, isFinancialPL, plSteps, cfFlowStatus, cfCompanyType, cfWaterfall, radarScores,
     sparklineSVG, dupontDescriptor, fcfQualityDescriptor,
     // 色/特例定数

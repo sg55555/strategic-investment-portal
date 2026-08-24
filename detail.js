@@ -277,6 +277,16 @@
       .catch(function () { return { ok: false, insightEnabled: false }; });   // 失敗はキャッシュしない
   }
 
+  // FINAL-I4: 規律テクニカル/ダイジェストの判定は selectedPeriod の窓で反転しうる（9984.T は 1Y「通常」
+  //  →5Y「振れ大きめ」等）のに、見出しがどの窓の値かを名乗っていなかった。ROLL_NAME（detail-rules.js
+  //  単一源）を再利用し見出しへ「（◯◯ベース）」を付す。FY は反転の起点となる既定状態＝既存表記のまま
+  //  （selectedPeriod は applyPriceWindow と同じモジュールスコープ変数を直接読む＝呼び出し側を増やさない）。
+  function _periodBadge() {
+    if (selectedPeriod === "FY") return "";
+    const name = (window.DetailRules && window.DetailRules.ROLL_NAME && window.DetailRules.ROLL_NAME[selectedPeriod]) || selectedPeriod;
+    return `（${name}ベース）`;
+  }
+
   // ── テクニカル現在地サマリ signalDigest カード（Feature#2）──────────────────
   //  純計算は DetailRules.signalDigest（no-score 中立閉集合）。ここは DOM 書込のみ（window.esc でエスケープ）。
   //  固定 id カードへ innerHTML 置換＝冪等（switchYear/navigate で複数回呼ばれても増殖しない）。
@@ -298,7 +308,7 @@
         ro + note + "</div>";
     }).join("");
     card.innerHTML =
-      '<div class="card-title">テクニカル現在地サマリ' +
+      '<div class="card-title">テクニカル現在地サマリ' + _periodBadge() +
       (asOf ? ' <span class="sig-asof">（表示期間の最新：' + window.esc(asOf) + " 時点）</span>" : "") + "</div>" +
       '<div class="sig-body">' + rows + "</div>" +
       '<div class="sig-disclaimer">' + window.esc(disc) + "</div>";
@@ -487,7 +497,7 @@
     var volCls = d.vol === "振れ大きめ" ? "hot" : d.vol === "静穏" ? "calm" : "";
     card.style.display = "";
     card.innerHTML =
-      '<div class="disc-title">規律テクニカル 現在地</div>' +
+      '<div class="disc-title">規律テクニカル 現在地' + _periodBadge() + '</div>' +
       '<div class="disc-chip"><span class="k">トレンド強度</span><span class="v ' + trendCls + '" data-term="adx">' +
         window.esc(d.trend) + '（ADX ' + Math.round(d.adx) + '・' + window.esc(d.dir) + '）</span></div>' +
       '<div class="disc-chip"><span class="k">値幅</span><span class="v ' + volCls + '" data-term="atr">' +
