@@ -208,6 +208,16 @@ const range = (page) =>
   //  件数を控えておく（0 でないことも前提として確認する＝空振りアサート対策）。
   const volBefore = await page.evaluate(() => window.DetailCharts.volPointCount());
   check(volBefore > 0, `(前提) 7203.T の出来高が実系列に乗っている (volPointCount=${volBefore})`);
+  // FINAL-A: refreshSubpanels([], []) はサブパネル（RSI/MACD/ADX/ATR/OBV）まで届いても、各自の
+  //  __setData が持つ独立した早期 return（if (!display?.length) return;）に阻まれて中身が実際には
+  //  クリアされていなかった（volPointCount 等「ローソク以外」の代表指標では検知できていなかった別バグ）。
+  //  initSubpanelUI の既定展開＝ADX（3系列：ADX・+DI・-DI）と ATR（1系列＋中央値 priceLine＋見出し
+  //  バッジ文字列という副作用まで持つ最も残像リスクが高い2枠）は、追加のクリック操作なしに
+  //  navigateToDetail 直後から既にマウント済みなので、そのまま実データが乗っていることを確認する。
+  const adxBefore = await page.evaluate(() => window.DetailCharts.subpanelPointCount("adx"));
+  const atrBefore = await page.evaluate(() => window.DetailCharts.subpanelPointCount("atr"));
+  check(adxBefore > 0, `(前提) 7203.T の ADX サブパネルに実系列が乗っている (subpanelPointCount=${adxBefore})`);
+  check(atrBefore > 0, `(前提) 7203.T の ATR サブパネルに実系列が乗っている (subpanelPointCount=${atrBefore})`);
   await page.evaluate(() => { STOCK_DATA["6758.T"].prices = []; });
   await open(page, "6758.T");   // 本番の検証対象（6758.T は既にハイドレート済みなので再フェッチされない）
   const titleAfter = await page.evaluate(() => document.getElementById("stock-title").textContent);
@@ -226,6 +236,14 @@ const range = (page) =>
   const volAfter = await page.evaluate(() => window.DetailCharts.volPointCount());
   check(volAfter === 0,
     `価格ゼロの銘柄でも前銘柄の出来高（ローソク以外の系列の代表）が残らない（volPointCount=${volBefore}→${volAfter}）`);
+  // FINAL-A 本体の検査: サブパネルの系列（ADX/ATR）も空になったこと。修正前は各サブパネルの
+  //  __setData 内の早期 return によりここが adxBefore/atrBefore と同じ値のまま残る（注入実験で確認する）。
+  const adxAfter = await page.evaluate(() => window.DetailCharts.subpanelPointCount("adx"));
+  const atrAfter = await page.evaluate(() => window.DetailCharts.subpanelPointCount("atr"));
+  check(adxAfter === 0,
+    `価格ゼロの銘柄でも前銘柄の ADX サブパネル曲線が残らない（subpanelPointCount=${adxBefore}→${adxAfter}）`);
+  check(atrAfter === 0,
+    `価格ゼロの銘柄でも前銘柄の ATR サブパネル曲線が残らない（subpanelPointCount=${atrBefore}→${atrAfter}）`);
 
   console.log("=== レスポンシブ ===");
   await page.reload({ waitUntil: "domcontentloaded" });

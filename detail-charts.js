@@ -335,11 +335,16 @@
         series.createPriceLine({ price: 50, color: "rgba(148,163,184,0.2)", lineWidth: 1, lineStyle: 3, axisLabelVisible: false });
         series.createPriceLine({ price: 30, color: "rgba(52,245,207,0.5)",  lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: "30" });
         chart.__setData = (display, all) => {
-          if (!display?.length) return;
+          // FINAL-A: 空入力（価格ゼロの銘柄へ遷移）でも無言 return せず、自分の系列を空でクリアしてから
+          //  return する。refreshSubpanels([], []) はここまで届いても、素通りするだけでは前銘柄の
+          //  RSI カーブが残り続ける（このガード自体が残像の原因だった）。
+          if (!display?.length) { series.setData([]); chart.__pointCount = 0; return; }
           const startTime = display[0].time, endTime = display[display.length - 1].time;
           const calcBase = (all?.length > 50) ? all : display;
           const inRange = (d) => d.time >= startTime && d.time <= endTime;
-          series.setData(calcRSI(calcBase).filter(inRange));
+          const data = calcRSI(calcBase).filter(inRange);
+          series.setData(data);
+          chart.__pointCount = data.length;   // FINAL-A 受入用: subpanelPointCount() が読む代表点数
         };
       }
       // MACD（既存ロジック・hist＋MACD線 #ff5ca8＋シグナル #3aa6ff＋0線 を verbatim 移植）
@@ -355,14 +360,18 @@
         });
         hist.createPriceLine({ price: 0, color: "rgba(148,163,184,0.2)", lineWidth: 1, lineStyle: 0, axisLabelVisible: false });
         chart.__setData = (display, all) => {
-          if (!display?.length) return;
+          // FINAL-A: MACD は3系列（ヒストグラム・MACD線・シグナル線）を持つ。空入力では3つとも
+          //  空でクリアしてから return（1つでも漏らすと残像になる）。
+          if (!display?.length) { hist.setData([]); line.setData([]); signal.setData([]); chart.__pointCount = 0; return; }
           const startTime = display[0].time, endTime = display[display.length - 1].time;
           const calcBase = (all?.length > 50) ? all : display;
           const inRange = (d) => d.time >= startTime && d.time <= endTime;
           const { macdLine, signalLine, histogram } = calcMACD(calcBase);
-          hist.setData(histogram.filter(inRange));
-          line.setData(macdLine.filter(inRange));
-          signal.setData(signalLine.filter(inRange));
+          const h = histogram.filter(inRange), l = macdLine.filter(inRange), s = signalLine.filter(inRange);
+          hist.setData(h);
+          line.setData(l);
+          signal.setData(s);
+          chart.__pointCount = l.length;   // FINAL-A 受入用: subpanelPointCount() が読む代表点数
         };
       }
       // ADX/DMI（mock-engine.js buildSubpanel の adx 分岐を移植：ADX線 #5cf0ff＋+DI/−DI＋25 priceLine）
@@ -381,7 +390,11 @@
         });
         adxLine.createPriceLine({ price: 25, color: "rgba(255,216,77,0.5)", lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: "25" });
         chart.__setData = (display, all) => {
-          if (!display?.length || !calcADX) return;
+          // FINAL-A: ADX は3系列（ADX・+DI・-DI）を持つ。空入力では3つとも空でクリアしてから return。
+          //  calcADX 未提供（スクリプト未ロード）は別事情なので、空入力クリアとは独立した2段目の
+          //  ガードに分ける（空入力なら calcADX の有無に関わらずクリアする）。
+          if (!display?.length) { adxLine.setData([]); pdi.setData([]); mdi.setData([]); chart.__pointCount = 0; return; }
+          if (!calcADX) return;
           const startTime = display[0].time, endTime = display[display.length - 1].time;
           const calcBase = (all?.length > 50) ? all : display;
           const inRange = (d) => d.time >= startTime && d.time <= endTime;
@@ -389,6 +402,7 @@
           adxLine.setData(a.map((o) => ({ time: o.time, value: o.adx })));
           pdi.setData(a.map((o) => ({ time: o.time, value: o.plusDI })));
           mdi.setData(a.map((o) => ({ time: o.time, value: o.minusDI })));
+          chart.__pointCount = a.length;   // FINAL-A 受入用: subpanelPointCount() が読む代表点数
         };
       }
       // ATR%（mock-engine.js buildSubpanel の atr 分岐を移植：ATR%線 #ffb03a[RSIの#ffd84dと非衝突]＋表示窓中央値の破線）
@@ -399,12 +413,24 @@
         });
         let medLine = null;
         chart.__setData = (display, all) => {
-          if (!display?.length || !calcATR) return;
+          // FINAL-A: ATR% は折れ線本体に加え「表示窓中央値」の破線 priceLine とアコーディオン見出しの
+          //  バッジ文字列も前銘柄の値を持ち越す残像源。空入力では折れ線・priceLine・バッジ文字列の
+          //  3つとも消してから return する。
+          if (!display?.length) {
+            series.setData([]);
+            chart.__pointCount = 0;
+            if (medLine) { try { series.removePriceLine(medLine); } catch (e) {} medLine = null; }
+            const badge = chart.__host?.closest(".acc-item")?.querySelector(".acc-metric");
+            if (badge) badge.textContent = "";
+            return;
+          }
+          if (!calcATR) return;
           const startTime = display[0].time, endTime = display[display.length - 1].time;
           const calcBase = (all?.length > 50) ? all : display;
           const inRange = (d) => d.time >= startTime && d.time <= endTime;
           const at = calcATR(calcBase, 14).filter(inRange);
           series.setData(at.map((o) => ({ time: o.time, value: o.pct })));
+          chart.__pointCount = at.length;   // FINAL-A 受入用: subpanelPointCount() が読む代表点数
           const med = _subMedian(at.map((o) => o.pct));
           if (medLine) { try { series.removePriceLine(medLine); } catch (e) {} medLine = null; }
           medLine = series.createPriceLine({ price: +med.toFixed(2), color: "rgba(168,188,198,0.4)", lineWidth: 1, lineStyle: 3, axisLabelVisible: false, title: "中央 " + med.toFixed(1) + "%" });
@@ -421,7 +447,9 @@
         });
         series.createPriceLine({ price: 0, color: "rgba(148,163,184,0.25)", lineWidth: 1, lineStyle: 3, axisLabelVisible: false });
         chart.__setData = (display, all) => {
-          if (!display?.length || !calcOBV) return;
+          // FINAL-A: 空入力では自分の系列を空でクリアしてから return（calcOBV 未提供の場合と分離）。
+          if (!display?.length) { series.setData([]); chart.__pointCount = 0; return; }
+          if (!calcOBV) return;
           const startTime = display[0].time, endTime = display[display.length - 1].time;
           const calcBase = (all?.length > 50) ? all : display;   // 全履歴で累積し窓に filter
           const inRange = (d) => d.time >= startTime && d.time <= endTime;
@@ -429,6 +457,7 @@
           // 表示窓の先頭を 0 に再アンカー（OBV 絶対値は任意＝窓内の純増減を見る。0基準の破線が意味を持つ）。
           const anchor = win.length ? win[0].value : 0;
           series.setData(win.map((o) => ({ time: o.time, value: o.value - anchor })));
+          chart.__pointCount = win.length;   // FINAL-A 受入用: subpanelPointCount() が読む代表点数
         };
       }
       const SUBPANEL_REGISTRY = {
@@ -1532,6 +1561,13 @@
   function volPointCount() {
     return _volPointCount;
   }
+  // FINAL-A 受入用の薄いデバッグゲッター（candlePointCount/volPointCount と同型）。サブパネル
+  //  （RSI/MACD/ADX/ATR/OBV）の代表系列に最後に __setData で渡された点数を key 指定で読む。
+  //  chart instance は closure 私有のまま公開しない（key→点数のみ）。マウントされていない key は null。
+  function subpanelPointCount(key) {
+    const m = _subMounted[key];
+    return m ? (m.chart.__pointCount || 0) : null;
+  }
 
   // ── 財務健全性の推移（Feature#3・二軸 line）──────────────────────────
   //  純計算は DetailRules.healthTrendSeries(欠測 null)。Chart.js line・**destroy 先行**・
@@ -1704,6 +1740,6 @@
     renderBSChart, renderRadarChart, renderPLChart, renderCFChart, renderHealthTrend,
     renderDuPont, renderFCFTrend,
     repaint, onWindowResize, renderCompareChart, resizePrice, getPriceVisibleRange, setBenchData, clearBench, benchPointCount, candlePointCount, volPointCount,
-    mountSubpanel, unmountSubpanel, isSubpanelMounted, activeSubpanels, refreshSubpanels, resizeSubpanels,
+    mountSubpanel, unmountSubpanel, isSubpanelMounted, activeSubpanels, refreshSubpanels, resizeSubpanels, subpanelPointCount,
   };
 })();
