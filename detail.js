@@ -695,6 +695,22 @@
       chip.dataset.wired = "1";
       chip.onclick = () => toggleBench();
     }
+    // 期間バーのスクロール手掛かり（フェード）を「実際にはみ出している向き」にだけ出す。
+    //  scroll は passive（描画をブロックしない）。resize は window 単位で1度だけ張る。
+    box.addEventListener("scroll", updateSegScrollHints, { passive: true });
+    window.addEventListener("resize", updateSegScrollHints);
+    updateSegScrollHints();
+  }
+
+  // .w2-seg に is-more-left / is-more-right を付け外しする。
+  //  ⚠ フェードを常時掛けると、はみ出していない幅でも右端（＝MAX）が薄く欠けて見える（実機で指摘された）。
+  //   「隠れているかどうか」と「手掛かりを出すかどうか」の条件を一致させる。1px の余裕は小数幅の丸め対策。
+  function updateSegScrollHints() {
+    const box = document.getElementById("w2-period-box");
+    if (!box) return;
+    const max = box.scrollWidth - box.clientWidth;
+    box.classList.toggle("is-more-left", box.scrollLeft > 1);
+    box.classList.toggle("is-more-right", max > 1 && box.scrollLeft < max - 1);
   }
 
   function paintPeriodButtons() {

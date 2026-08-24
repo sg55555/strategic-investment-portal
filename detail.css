@@ -488,14 +488,23 @@
         flex:0 1 auto; min-width:0;
         overflow-x:auto; overflow-y:hidden; overscroll-behavior-x:contain;
         scroll-snap-type:x proximity; scrollbar-width:none; -ms-overflow-style:none;
-        /* FINAL-I2: 隠す(overflow-x:auto)は全幅で効くのに、見せる(フェード)は旧実装だと
-           @media(max-width:768px) 限定だった＝769〜約950px（52週にstale注記が付く銘柄は
-           約1100pxまで）でスクロールバーもフェードも無く 1Y/5Y/MAX が手掛かりゼロで消えていた。
-           幅で場合分けせず基底へ引き上げ、常に「まだ続きがある」ことを示す（全幅を実測して
-           overflowゼロ・床12pxは崩れないことを確認済み＝はみ出しなし銘柄では右端が薄くフェード
-           する程度の副作用に留まる）。 */
+      }
+      /* フェードは「本当にスクロールできる向き」にだけ出す（JS が is-more-* を付け外しする）。
+         ⚠ 経緯: FINAL-I2 で「769〜約950px でボタンが手掛かりゼロで消える」を直したとき、幅で場合分け
+         せず基底へ常時フェードを掛けた。その結果**はみ出していない時も右端が薄く欠ける**状態になり、
+         実機で MAX の右端が隠れて見えると指摘された（当時のコメントで「副作用に留まる」と書いた箇所が
+         まさに問題化した）。隠す(overflow-x:auto)と見せる(フェード)の条件を一致させるのが正しい。 */
+      .w2-seg.is-more-right{
         -webkit-mask-image:linear-gradient(90deg, var(--ix-white) 0 88%, transparent 100%);
         mask-image:linear-gradient(90deg, var(--ix-white) 0 88%, transparent 100%);
+      }
+      .w2-seg.is-more-left{
+        -webkit-mask-image:linear-gradient(90deg, transparent 0, var(--ix-white) 12%);
+        mask-image:linear-gradient(90deg, transparent 0, var(--ix-white) 12%);
+      }
+      .w2-seg.is-more-left.is-more-right{
+        -webkit-mask-image:linear-gradient(90deg, transparent 0, var(--ix-white) 12% 88%, transparent 100%);
+        mask-image:linear-gradient(90deg, transparent 0, var(--ix-white) 12% 88%, transparent 100%);
       }
       .w2-seg::-webkit-scrollbar{ display:none; }
       .w2-p[data-p="FY"] { margin-right: 10px; } /* 区切り線の代わりに余白で表現（JSがsepスパンを生成しないため） */

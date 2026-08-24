@@ -257,6 +257,47 @@ const range = (page) =>
   // （空集合の空振りアサート）。Number.isFinite で「実際に何か測れたか」を先に確認する。
   check(Number.isFinite(resp.minFont) && resp.minFont >= 12, `390px でも文字床 12px を守る (${resp.minFont}px)`);
 
+  // === 期間バーのスクロール手掛かり（フェード）===
+  // ⚠ 「隠す(overflow-x:auto)」と「見せる(フェード)」の条件が一致していることを見る。
+  //   フェードを常時掛けると、はみ出していない幅でも MAX の右端が薄く欠ける（実機で指摘された回帰）。
+  //   逆にフェードが一切出ないと、769〜約950px でボタン後半が手掛かりゼロで消える（FINAL-I2 の元の欠陥）。
+  console.log("=== 期間バーのフェード出し分け ===");
+  const segAt = (page) => page.evaluate(() => {
+    const box = document.getElementById("w2-period-box");
+    const maxBtn = box.querySelector('.w2-p[data-p="MAX"]');
+    const b = box.getBoundingClientRect(), m = maxBtn.getBoundingClientRect();
+    return {
+      overflowing: box.scrollWidth - box.clientWidth > 1,
+      right: box.classList.contains("is-more-right"),
+      left: box.classList.contains("is-more-left"),
+      masked: getComputedStyle(box).maskImage !== "none",
+      // MAX ボタンがバーの可視領域に収まりきっているか（右端が欠けていないか）
+      maxFullyVisible: m.right <= b.right + 1,
+    };
+  });
+
+  await open(page, "7203.T", 1440);
+  const wide = await segAt(page);
+  check(!wide.overflowing, `1440px では期間バーがはみ出さない (scroll差=${wide.overflowing ? ">1" : "0"})`);
+  check(!wide.masked && !wide.right && !wide.left,
+    `はみ出さない幅ではフェードを掛けない（masked=${wide.masked}／修正前は常時マスクで MAX の右端が欠けていた）`);
+  check(wide.maxFullyVisible, "1440px で MAX ボタンが右端まで完全に見える");
+
+  await open(page, "7203.T", 390);
+  const narrow = await segAt(page);
+  check(narrow.overflowing, "390px では期間バーがはみ出す（前提）");
+  check(narrow.right && narrow.masked, "はみ出す幅では右にフェードが出る（まだ続きがある手掛かり）");
+  check(!narrow.left, "左端にいる間は左フェードを出さない");
+  await page.evaluate(() => {
+    const box = document.getElementById("w2-period-box");
+    box.scrollLeft = box.scrollWidth;   // 右端まで送る
+  });
+  await page.waitForTimeout(300);
+  const scrolled = await segAt(page);
+  check(!scrolled.right, "右端まで送ったら右フェードが消える（MAX が欠けたまま残らない）");
+  check(scrolled.left, "右端まで送ったら左にフェードが出る（戻れる手掛かり）");
+  check(scrolled.maxFullyVisible, "390px でも送り切れば MAX ボタンが完全に見える");
+
   check(errors.length === 0, `pageerror ゼロ (${errors.length})`);
   if (errors.length) console.log("   " + errors.slice(0, 5).join("\n   "));
 
