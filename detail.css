@@ -488,6 +488,14 @@
         flex:0 1 auto; min-width:0;
         overflow-x:auto; overflow-y:hidden; overscroll-behavior-x:contain;
         scroll-snap-type:x proximity; scrollbar-width:none; -ms-overflow-style:none;
+        /* FINAL-I2: 隠す(overflow-x:auto)は全幅で効くのに、見せる(フェード)は旧実装だと
+           @media(max-width:768px) 限定だった＝769〜約950px（52週にstale注記が付く銘柄は
+           約1100pxまで）でスクロールバーもフェードも無く 1Y/5Y/MAX が手掛かりゼロで消えていた。
+           幅で場合分けせず基底へ引き上げ、常に「まだ続きがある」ことを示す（全幅を実測して
+           overflowゼロ・床12pxは崩れないことを確認済み＝はみ出しなし銘柄では右端が薄くフェード
+           する程度の副作用に留まる）。 */
+        -webkit-mask-image:linear-gradient(90deg, var(--ix-white) 0 88%, transparent 100%);
+        mask-image:linear-gradient(90deg, var(--ix-white) 0 88%, transparent 100%);
       }
       .w2-seg::-webkit-scrollbar{ display:none; }
       .w2-p[data-p="FY"] { margin-right: 10px; } /* 区切り線の代わりに余白で表現（JSがsepスパンを生成しないため） */
@@ -573,9 +581,8 @@
         }
         .w2-rail-label{ display:none; }
         .w2-seg{
+          /* mask-image は基底 .w2-seg へ移設済み（FINAL-I2）＝ここでは grid 配置と gap だけ上書き */
           grid-column:1; grid-row:1; gap:5px;
-          -webkit-mask-image:linear-gradient(90deg, var(--ix-white) 0 88%, transparent 100%);
-          mask-image:linear-gradient(90deg, var(--ix-white) 0 88%, transparent 100%);
         }
         .w2-p{ min-height:36px; padding:0 11px 0 14px; font-size:.78rem; }
         .w2-p::after{ inset:-5px 0; }
