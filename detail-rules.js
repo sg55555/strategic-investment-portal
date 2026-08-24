@@ -812,6 +812,16 @@
     var m = Math.floor(s.length / 2);
     return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
   }
+  // FINAL-B: 表示ウィンドウ（displayPrices）の実際の日付スパン（暦日数）。VWAP行の表示可否判定に使う。
+  //  selectedPeriod のキー文字列（"5Y"等）でなく実データの先頭〜末尾の日付差で見るのは、ルール層
+  //  （detail-rules.js）を UI の期間キー命名から独立させるため＝FY/YTD がどちらの窓由来でも同じ基準で
+  //  判定でき、呼び出し側が窓の作り方を変えてもここを直す必要がない。
+  function _windowSpanDays(dp) {
+    if (!dp || dp.length < 2) return null;
+    var t0 = new Date(dp[0].time), t1 = new Date(dp[dp.length - 1].time);
+    if (isNaN(t0.getTime()) || isNaN(t1.getTime())) return null;
+    return (t1 - t0) / 86400000;
+  }
   function signalDigest(displayPrices, allPrices) {
     var out = [];
     var dp = displayPrices || [];
@@ -962,7 +972,18 @@
     })();
 
     // 11) VWAP（表示期間の出来高加重平均・終値の上下）
+    //  FINAL-B（本人決定）: VWAP は「表示ウィンドウの先頭」を基準にする指標なので、窓が長いほど
+    //  乖離が指標として意味を持たなくなる（実測: 1Y −1.3%・5Y +25.3%・MAX +220.3%）。このアプリの
+    //  立て付け（事実の表示＝教育フレーム）上、意味を失った数値を他の行と同じ顔で並べるのは誤読を
+    //  招くため、窓が実質1年を超える場合は state を'データ不足'等でお茶を濁さず行自体を descriptor
+    //  から丸ごと省く（signalDigest は既に「買われ過ぎ」等の閾値判断を内包するルール層であり、
+    //  「この窓ではこの指標を出さない」も同じ層の判断＝detail.js 側に行数を数えさせて隠す設計にしない）。
+    //  判定は selectedPeriod のキー文字列（"5Y"等）でなく dp の実日付スパンで行う（_windowSpanDays）。
+    //  1Y/FY/YTD はいずれも設計上 span が高々366日に収まる（rollingWindow/priceWindow を参照）ため、
+    //  実際にこの行が消えるのは 5Y/MAX のみになる。
     (function () {
+      var spanDays = _windowSpanDays(dp);
+      if (spanDays != null && spanDays > 366) return;   // 1年超の窓では VWAP 行そのものを出さない
       var vw = calcVWAP(dp);   // 期間アンカー＝表示ウィンドウ dp（signalDigest の他ブロックと異なり ap でなく dp）
       var end = vw.length ? vw[vw.length - 1] : null;
       var state = 'データ不足', readout = '';

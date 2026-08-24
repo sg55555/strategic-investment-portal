@@ -549,6 +549,21 @@ test("signalDigest: 12 descriptors, no numeric score fields, state in closed enu
   }
 });
 
+// FINAL-B（本人決定）: VWAP は表示ウィンドウ先頭を基準にする指標のため、窓が1年を超えると乖離%が
+//  指標として意味を持たなくなる（実測: 1Y −1.3%・5Y +25.3%・MAX +220.3%）。「事実の表示」という
+//  立て付け上、意味を失った数値を他の行と同じ顔で並べない＝行自体を descriptor から省く。
+//  境界は displayPrices の実日付スパン（暦日）> 366 で判定（selectedPeriod の文字列に依存しない）。
+test("signalDigest: 窓の実日付スパンが1年(366日)を超えると VWAP 行を丸ごと省く（FINAL-B・本人決定）", () => {
+  const within = synthPrices(367);   // 連日366本 = 先頭〜末尾スパン366日（境界＝1Y相当・非表示にしない）
+  const over = synthPrices(368);     // 連日368本 = スパン367日（1Y超・非表示にする）
+  const dsWithin = D.signalDigest(within, within);
+  const dsOver = D.signalDigest(over, over);
+  assert.equal(dsWithin.length, 12);
+  assert.ok(dsWithin.some((d) => d.key === "vwap"), "366日以内は VWAP 行を出す");
+  assert.equal(dsOver.length, 11);
+  assert.ok(!dsOver.some((d) => d.key === "vwap"), "367日超は VWAP 行を出さない");
+});
+
 test("signalDigest: labels/states contain no trade/forecast words", () => {
   const all = synthPrices(300);
   const ds = D.signalDigest(all.slice(-120), all);
