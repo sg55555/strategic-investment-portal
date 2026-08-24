@@ -10,11 +10,18 @@ import os
 import sys
 
 # yfinance 財務ラベル → schema 列名（欠損はそのまま None）。
+# ⚠ ラベルは tests/fixtures/yf_financials_sample.json（実物の録音）と突き合わせること。
+#   2026-08-25 まで "Total Current Assets" 等の**存在しないラベル**を書いていて、流動資産・流動負債・
+#   固定負債が全 yfinance 行で null のまま1ヶ月気づかなかった（架空ラベルのテストは緑だった）。
+#   旧版 yfinance の "Total ..." 表記は版ずれの予備として残す（同じ列へ落ちる・両方来ることはない）。
 YF_TO_SCHEMA = {
-    "Total Current Assets": "current_assets",
+    "Current Assets": "current_assets",
+    "Total Current Assets": "current_assets",                                   # 旧ラベル
     "Total Non Current Assets": "non_current_assets",
-    "Total Current Liabilities": "current_liabilities",
-    "Total Non Current Liabilities": "non_current_liabilities",
+    "Current Liabilities": "current_liabilities",
+    "Total Current Liabilities": "current_liabilities",                         # 旧ラベル
+    "Total Non Current Liabilities Net Minority Interest": "non_current_liabilities",
+    "Total Non Current Liabilities": "non_current_liabilities",                 # 旧ラベル
     "Stockholders Equity": "net_assets",
     "Total Revenue": "net_sales",
     "Gross Profit": "gross_profit",
@@ -70,14 +77,28 @@ def map_info_fields(info: dict) -> dict:
     }
 
 
+# market.financials_annual は **百万単位**（百万円/百万ドル・investment.db financial_data_v2 と 1:1）。
+# yfinance は生の通貨単位（円/ドル）を返すので必ず割る。2026-08-25 までこの換算が無く、
+# 333行/146銘柄が100万倍で入りチャートが「39918854.0兆円」を描いた（表示側は単位規約どおり動いていた）。
+_MILLION = 1_000_000.0
+# 換算後の上限（百万単位）。1e9 百万＝1000兆円/1兆ドルはどの企業も到達しない＝超えていたら
+# 「生単位が漏れた」以外に説明がつかないので、書かずに落とす（loud-fail・該当銘柄は WARN で skip）。
+_RAW_LEAK_LIMIT = 1e9
+
+
 def map_financials_rows(ticker: str, fin: dict) -> list[tuple]:
     rows = []
     for fy, items in fin.items():
         vals = {col: None for col in _FIN_COLS}
         for label, v in items.items():
             col = YF_TO_SCHEMA.get(label)
-            if col:
-                vals[col] = _finite(v)
+            if not col:
+                continue
+            f = _finite(v)
+            vals[col] = None if f is None else f / _MILLION
+        leaked = [(c, x) for c, x in vals.items() if x is not None and abs(x) >= _RAW_LEAK_LIMIT]
+        if leaked:
+            raise ValueError(f"{ticker} FY{fy}: 百万換算後も桁違い（生単位の漏れ？）: {leaked[:3]}")
         rows.append((ticker, int(fy), "FY", *[vals[c] for c in _FIN_COLS], "yfinance"))
     return rows
 

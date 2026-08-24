@@ -24,22 +24,63 @@ def test_map_info_fields_per_fallback():
     assert map_info_fields({}) == {"market_cap": None, "per": None, "pbr": None}
 
 
-def test_map_financials_rows_maps_and_tags_source():
-    fin = {
-        2025: {"Total Revenue": 1000.0, "Gross Profit": 300.0, "Operating Income": 120.0,
-               "Net Income": 80.0, "Total Current Assets": 500.0, "Total Non Current Assets": 700.0,
-               "Total Current Liabilities": 200.0, "Total Non Current Liabilities": 300.0,
-               "Stockholders Equity": 700.0, "Operating Cash Flow": 150.0,
-               "Investing Cash Flow": -50.0, "Financing Cash Flow": -40.0,
-               "Beginning Cash Position": 400.0, "End Cash Position": 460.0},
-    }
-    rows = map_financials_rows("MSFT", fin)
-    assert len(rows) == 1
-    r = rows[0]
+import json
+from pathlib import Path
+
+# 実物の yfinance 出力（2026-08-25 録音・生の通貨単位・直近2期）。架空ラベルで書いたテストは
+# 本番で全滅していても緑になる（実際に流動資産が全行 null のまま1ヶ月気づかなかった）ので、
+# ラベルは必ずこの録音と突き合わせる。yfinance のラベルが変わったらこのファイルを録音し直す。
+_YF_SAMPLE = json.loads((Path(__file__).parent / "fixtures" / "yf_financials_sample.json").read_text())
+
+
+def _cols():
+    from scripts.refresh_market import _FIN_COLS
+    return {c: i + 3 for i, c in enumerate(_FIN_COLS)}   # (ticker, fy, period) の後に並ぶ
+
+
+def test_map_financials_rows_real_labels_and_million_units():
+    """実物ラベルが全部拾われ、値が百万単位に換算される（テーブル規約＝百万円/百万ドル）。"""
+    fin = {int(fy): items for fy, items in _YF_SAMPLE["tickers"]["7203.T"].items()}
+    rows = map_financials_rows("7203.T", fin)
+    by_fy = {r[1]: r for r in rows}
+    r, c = by_fy[2026], _cols()
+    assert r[c["net_sales"]] == 50684952.0             # 50,684,952,000,000 円 → 百万円
+    assert r[c["current_assets"]] == 42824081.0        # 旧ラベル "Total Current Assets" では拾えなかった列
+    assert r[c["current_liabilities"]] == 33605019.0
+    assert r[c["non_current_liabilities"]] == 30897244.0
+    assert r[c["non_current_assets"]] is not None and r[c["net_assets"]] is not None
+    assert r[c["operating_cf"]] == 5472920.0
+    assert r[c["ordinary_income"]] is None             # yfinance に経常利益は無い＝欠損は捏造しない
+    # 実物ラベル15本のうち欠損なく拾えた列数（US も同じ写像で通ること）
+    a = map_financials_rows("AAPL", {int(fy): it for fy, it in _YF_SAMPLE["tickers"]["AAPL"].items()})
+    ra = {r[1]: r for r in a}[2025]
+    assert ra[c["net_sales"]] == 416161.0 and ra[c["current_assets"]] == 147957.0
+    assert all(r[-1] == "yfinance" for r in rows)     # source タグ
+
+
+def test_map_financials_rows_accepts_legacy_labels():
+    """旧 yfinance のラベル（"Total Current Assets" 系）でも同じ列に落ちる（版ずれの予備）。"""
+    rows = map_financials_rows("X", {2025: {"Total Current Assets": 5e8, "Total Current Liabilities": 2e8,
+                                             "Total Non Current Liabilities": 3e8, "Total Revenue": 1e9}})
+    r, c = rows[0], _cols()
+    assert r[c["current_assets"]] == 500.0 and r[c["current_liabilities"]] == 200.0
+    assert r[c["non_current_liabilities"]] == 300.0 and r[c["net_sales"]] == 1000.0
+
+
+def test_map_financials_rows_rejects_raw_unit_leak():
+    """換算後もなお桁違い（百万単位で 1e9 以上＝1000兆円/1兆ドル超）なら書かずに落とす。
+    どの企業も到達しない水準なので、これは「生単位が漏れた」以外に説明がつかない。"""
+    with pytest.raises(ValueError):
+        map_financials_rows("X", {2025: {"Total Revenue": 5e16}})   # 換算後 5e10 百万
+
+
+def test_map_financials_rows_tags_source_and_keeps_none():
+    rows = map_financials_rows("MSFT", {2025: {"Total Revenue": 1e9, "Gross Profit": 3e8}})
+    r, c = rows[0], _cols()
     assert r[0] == "MSFT" and r[1] == 2025 and r[2] == "FY"
-    assert r[8] == 1000.0   # net_sales
-    assert r[9] == 300.0    # gross_profit
-    assert r[-1] == "yfinance"   # source タグ
+    assert r[c["net_sales"]] == 1000.0 and r[c["gross_profit"]] == 300.0
+    assert r[c["net_income"]] is None                   # 無いラベルは None のまま（0 で埋めない）
+    assert r[-1] == "yfinance"
 
 
 def test_run_prices_partial_failure(monkeypatch):
