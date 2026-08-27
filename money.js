@@ -655,14 +655,16 @@ window.MCC = (function () {
       // W3: 達成見込みの行（判定・計算は money-rules.js の goalOutlook・ここは文言整形のみ）。
       var o = (gol && gol[idx]) || null;
       var outlook = "";
-      if (o && !g.achieved) {
+      // 目標額が未設定（targetAmount=0）の目標は remaining=0 ＝ rules では "achieved"（vm の g.achieved は
+      // target>0 が条件なので false）。status 側でも弾かないと未知 status が noPace の文言に落ちる。
+      if (o && !g.achieved && o.status !== "achieved") {
         var eta = o.etaPeriod ? '達成見込み ' + esc(fmtAnchorMonth(o.etaPeriod)) + 'ごろ（現ペース 月 ' + R.yen(pace) + '）' : '';
         var txt = "", cls = "";
         if (o.status === "onTrack") txt = eta + '・期限に間に合う見込み（必要 月 ' + R.yen(o.requiredMonthly) + '）';
         else if (o.status === "behind") { cls = " behind"; txt = (eta || '現ペースでは見込みが立ちません') + '・期限（' + esc(fmtAnchorMonth(g.deadline)) + '）に間に合わせるには 月 ' + R.yen(o.requiredMonthly); }
         else if (o.status === "noDeadline") txt = eta;
         else if (o.status === "overdue") { cls = " overdue"; txt = '期限（' + esc(fmtAnchorMonth(g.deadline)) + '）を過ぎています・あと ' + R.yen(o.remaining); }
-        else txt = '現ペースでは見込みが立ちません（余剰が 0 の月が続いています）';
+        else if (o.status === "noPace") txt = '現ペースでは見込みが立ちません（余剰が 0 の月が続いています）';
         if (txt) outlook = '<div class="mcc-goal-outlook' + cls + '">' + txt + '</div>';
       }
       return '<div class="mcc-goal">' +

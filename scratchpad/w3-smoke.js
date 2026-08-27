@@ -46,16 +46,31 @@ async function openMoney(page) {
   await page.evaluate(() => MCC.show());
   await page.waitForSelector("#mcc-root .mcc-hero", { timeout: 15000 });
 }
-async function newPage(browser, viewport, fixedMs, loggedIn) {
+// over = { state, cashflow }（任意）。鯖の fixture を触らずに、この文脈だけ API の戻りを差し替える
+// （目標の期限切れ/目標額未設定/期限なし・収支なし＝余剰0 の分岐を DOM で踏むため）。
+async function newPage(browser, viewport, fixedMs, loggedIn, over) {
   const context = await browser.newContext({ viewport });
   if (fixedMs) await fixDate(context, fixedMs);
   if (!loggedIn) await context.route("**/api/auth/session", (route) => route.fulfill({ status: 401, contentType: "application/json", body: '{"error":"unauthorized"}' }));
+  if (over && over.state) {
+    await context.route("**/api/me/state", (route) => route.fulfill({ status: 200, contentType: "application/json",
+      body: route.request().method() === "GET" ? JSON.stringify({ state: over.state }) : '{"ok":true}' }));
+  }
+  if (over && over.cashflow) {
+    await context.route("**/api/me/cashflow", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ cashflow: over.cashflow }) }));
+  }
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.goto(BASE + "/?diag=off", { waitUntil: "domcontentloaded" });
   await openMoney(page);
-  if (loggedIn) await page.waitForFunction(() => !!document.querySelector("#mcc-sec-cashflow .mcc-cashflow"), null, { timeout: 15000 });
+  // 収支なしの文脈では .mcc-cashflow が出ないので、代わりに（既定 state には無い）目標カードの出現を待つ
+  // ＝どちらも「鯖 state が適用済み」の合図。
+  if (loggedIn && over && over.cashflow && over.cashflow.length === 0) {
+    await page.waitForFunction(() => !!document.querySelector("#mcc-sec-reserves-goals .mcc-goal"), null, { timeout: 15000 });
+  } else if (loggedIn) {
+    await page.waitForFunction(() => !!document.querySelector("#mcc-sec-cashflow .mcc-cashflow"), null, { timeout: 15000 });
+  }
   return { context, page, errors };
 }
 // fixture 由来の金額の literal（spec §10.2 偽陽性潰し①）。
@@ -252,43 +267,77 @@ async function main() {
       await sp.context.close();
     }
     // ---- S5 fold 内の行（goals/reserves/nisa）----
+    // 8月の fixture だけでは goal=onTrack/achieved・reserve=onTrack/complete の4分岐しか踏まない。
+    // 11月/12月（goal behind・reserve short/overdue）と、API の戻りを差し替えた2文脈
+    //   ・目標分岐: 期限切れ／目標額未設定（targetAmount=0）／期限なし ＝ overdue・achieved・noDeadline
+    //   ・収支なし: cashflow 0行 ＝ 余剰0 → goal noPace・reserve unknown
+    // を足して、fold 内の行の全分岐（文言と CSS クラス）を DOM で踏む。踏み漏れは末尾の網羅チェックが落とす。
     {
-      const cd = R.cashflowDerived(rows, eff, NOW_AUG);
-      const vm = R.viewModel(eff);
-      const gol = vm.goals.map((g) => R.goalOutlook(g, vm.totalAssets, cd.monthlySurplus, NOW_AUG));
-      const hasSurplusCtx = cd.available && cd.monthlySurplus > 0;
-      const rol = cd.reserveAlloc.map((ra) => R.reserveOutlook(ra, NOW_AUG, hasSurplusCtx));
-      const nrem = R.nisaReminder(R.nisaViewModel(eff, cd, NOW_AUG, []), NOW_AUG);
-      const { context, page, errors } = await newPage(browser, PC, NOW_AUG, true);
-      const f = await page.evaluate(() => ({
-        goals: Array.from(document.querySelectorAll(".mcc-goal")).map((g) => (g.querySelector(".mcc-goal-outlook")?.className || "") + "|" + (g.querySelector(".mcc-goal-outlook")?.textContent || "")),
-        rsv: Array.from(document.querySelectorAll(".mcc-rsv")).map((r) => (r.querySelector(".mcc-rsv-outlook")?.className || "") + "|" + (r.querySelector(".mcc-rsv-outlook")?.textContent || "")),
-        nisa: document.querySelector(".mcc-nisa-reminder")?.className + "|" + (document.querySelector(".mcc-nisa-reminder")?.textContent || ""),
-        nisaDigest: document.querySelector("#mcc-sec-nisa .mcc-fold-dg")?.textContent || "",
-      }));
-      gol.forEach((o, i) => {
-        const t = f.goals[i] || "";
-        if (o.status === "achieved") check("S5 goal[" + i + "] achieved は行なし", t === "|", t);
-        else if (o.status === "onTrack") check("S5 goal[" + i + "] onTrack", t.indexOf("期限に間に合う見込み") >= 0 && t.indexOf(R.yen(o.requiredMonthly)) >= 0, t);
-        else if (o.status === "behind") check("S5 goal[" + i + "] behind", t.indexOf("behind") >= 0 && t.indexOf("間に合わせるには 月 " + R.yen(o.requiredMonthly)) >= 0, t);
-        else if (o.status === "noDeadline") check("S5 goal[" + i + "] noDeadline", t.indexOf("達成見込み") >= 0 && t.indexOf("期限") < 0, t);
-        else if (o.status === "overdue") check("S5 goal[" + i + "] overdue", t.indexOf("overdue") >= 0 && t.indexOf("過ぎています") >= 0, t);
-        else check("S5 goal[" + i + "] noPace", t.indexOf("見込みが立ちません") >= 0, t);
-      });
-      rol.forEach((o, i) => {
-        const t = f.rsv[i] || "";
-        if (o.status === "short") check("S5 reserve[" + i + "] short", t.indexOf("short") >= 0 && t.indexOf(R.yen(o.projectedShortfall) + " 不足の見込み") >= 0, t);
-        else if (o.status === "onTrack") check("S5 reserve[" + i + "] onTrack", t.indexOf("確保できる見込み") >= 0, t);
-        else if (o.status === "overdue") check("S5 reserve[" + i + "] overdue", t.indexOf("overdue") >= 0, t);
-        else check("S5 reserve[" + i + "] " + o.status + " は行なし", t === "|", t);
-      });
-      if (nrem.level !== "none") {
-        check("S5 NISA 行のレベル", f.nisa.indexOf(nrem.level) >= 0, f.nisa);
-        check("S5 NISA 行の文言", f.nisa.indexOf("翌年に繰り越せません") >= 0 && f.nisa.indexOf(R.yen(nrem.remainingTotal)) >= 0 && f.nisa.indexOf("残 " + nrem.monthsLeft + "ヶ月") >= 0, f.nisa);
-        check("S5 NISA digest に残枠", f.nisaDigest.indexOf("残枠 " + R.yen(nrem.remainingTotal)) >= 0, f.nisaDigest);
-      }
-      check("S5 pageerror 0", errors.length === 0, errors.join(" / "));
-      await context.close();
+      const seenG = new Set(), seenR = new Set();
+      const foldChecks = async (tag, nowMs, over) => {
+        const st = (over && over.state) || state;
+        const rws = (over && over.cashflow) || rows;
+        const ef = R.effectiveState(R.migrate(st), rws, [], nowMs);
+        const cd = R.cashflowDerived(rws, ef, nowMs);
+        const vm = R.viewModel(ef);
+        const gol = vm.goals.map((g) => R.goalOutlook(g, vm.totalAssets, cd.monthlySurplus, nowMs));
+        const hasSurplusCtx = cd.available && cd.monthlySurplus > 0;
+        const rol = cd.reserveAlloc.map((ra) => R.reserveOutlook(ra, nowMs, hasSurplusCtx));
+        const nrem = R.nisaReminder(R.nisaViewModel(ef, cd, nowMs, []), nowMs);
+        const { context, page, errors } = await newPage(browser, PC, nowMs, true, over);
+        // 鯖 state（＝差し替え後の goals）が適用済みであることを、件数一致で待つ（描画途中を読まない）。
+        await page.waitForFunction((n) => document.querySelectorAll(".mcc-goal").length === n, vm.goals.length, { timeout: 15000 });
+        const f = await page.evaluate(() => ({
+          goals: Array.from(document.querySelectorAll(".mcc-goal")).map((g) => (g.querySelector(".mcc-goal-outlook")?.className || "") + "|" + (g.querySelector(".mcc-goal-outlook")?.textContent || "")),
+          rsv: Array.from(document.querySelectorAll(".mcc-rsv")).map((r) => (r.querySelector(".mcc-rsv-outlook")?.className || "") + "|" + (r.querySelector(".mcc-rsv-outlook")?.textContent || "")),
+          nisa: document.querySelector(".mcc-nisa-reminder")?.className + "|" + (document.querySelector(".mcc-nisa-reminder")?.textContent || ""),
+          nisaDigest: document.querySelector("#mcc-sec-nisa .mcc-fold-dg")?.textContent || "",
+        }));
+        const P = "S5[" + tag + "] ";
+        check(P + "目標カード数＝rules", f.goals.length === gol.length, f.goals.length + " / " + gol.length);
+        gol.forEach((o, i) => {
+          seenG.add(o.status);
+          const t = f.goals[i] || "";
+          if (o.status === "achieved") check(P + "goal[" + i + "] achieved は行なし", t === "|", t);
+          else if (o.status === "onTrack") check(P + "goal[" + i + "] onTrack", t.indexOf("期限に間に合う見込み") >= 0 && t.indexOf(R.yen(o.requiredMonthly)) >= 0, t);
+          else if (o.status === "behind") check(P + "goal[" + i + "] behind", t.indexOf("behind") >= 0 && t.indexOf("間に合わせるには 月 " + R.yen(o.requiredMonthly)) >= 0, t);
+          else if (o.status === "noDeadline") check(P + "goal[" + i + "] noDeadline", t.indexOf("達成見込み") >= 0 && t.indexOf("期限") < 0, t);
+          else if (o.status === "overdue") check(P + "goal[" + i + "] overdue", t.indexOf("overdue") >= 0 && t.indexOf("過ぎています") >= 0 && t.indexOf(R.yen(o.remaining)) >= 0, t);
+          else check(P + "goal[" + i + "] noPace", t.indexOf("見込みが立ちません（余剰が 0 の月が続いています）") >= 0 && t.indexOf("behind") < 0 && t.indexOf("overdue") < 0, t);
+        });
+        rol.forEach((o, i) => {
+          seenR.add(o.status);
+          const t = f.rsv[i] || "";
+          if (o.status === "short") check(P + "reserve[" + i + "] short", t.indexOf("short") >= 0 && t.indexOf(R.yen(o.projectedShortfall) + " 不足の見込み") >= 0, t);
+          else if (o.status === "onTrack") check(P + "reserve[" + i + "] onTrack", t.indexOf("確保できる見込み") >= 0, t);
+          else if (o.status === "overdue") check(P + "reserve[" + i + "] overdue", t.indexOf("overdue") >= 0 && t.indexOf("過ぎています") >= 0, t);
+          else check(P + "reserve[" + i + "] " + o.status + " は行なし", t === "|", t);
+        });
+        if (nrem.level !== "none") {
+          check(P + "NISA 行のレベル", f.nisa.indexOf(nrem.level) >= 0, f.nisa);
+          check(P + "NISA 行の文言", f.nisa.indexOf("翌年に繰り越せません") >= 0 && f.nisa.indexOf(R.yen(nrem.remainingTotal)) >= 0 && f.nisa.indexOf("残 " + nrem.monthsLeft + "ヶ月") >= 0, f.nisa);
+          check(P + "NISA digest に残枠", f.nisaDigest.indexOf("残枠 " + R.yen(nrem.remainingTotal)) >= 0, f.nisaDigest);
+        }
+        check(P + "pageerror 0", errors.length === 0, errors.join(" / "));
+        await context.close();
+      };
+      // 目標の分岐用 state（fixture は触らない＝S0 の literal と他シナリオに影響を与えない）。
+      const goalsVariant = JSON.parse(JSON.stringify(state));
+      goalsVariant.goals = goalsVariant.goals.concat([
+        { id: "goal-late", label: "旧目標（期限切れ）", targetAmount: 8000000, deadline: "2026-05-31" },
+        { id: "goal-noamt", label: "目標額が未設定", targetAmount: 0, deadline: "" },
+        { id: "goal-far", label: "期限なしの大目標", targetAmount: 10000000, deadline: "" },
+      ]);
+      await foldChecks("8月", NOW_AUG, null);
+      await foldChecks("11月", NOW_NOV, null);
+      await foldChecks("12月", NOW_DEC, null);
+      await foldChecks("目標分岐", NOW_AUG, { state: goalsVariant });
+      await foldChecks("収支なし", NOW_AUG, { cashflow: [] });
+      // 網羅チェック（条件付き assert が一度も走らない＝空振りの再発防止）。
+      ["onTrack", "achieved", "behind", "overdue", "noDeadline", "noPace"].forEach((st) =>
+        check("S5 goal 分岐 " + st + " を DOM で踏んだ", seenG.has(st), Array.from(seenG).join(",")));
+      ["onTrack", "complete", "short", "overdue", "unknown"].forEach((st) =>
+        check("S5 reserve 分岐 " + st + " を DOM で踏んだ", seenR.has(st), Array.from(seenR).join(",")));
     }
   } finally {
     if (browser) await browser.close();
