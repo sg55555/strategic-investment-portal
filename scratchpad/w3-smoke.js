@@ -131,8 +131,10 @@ async function main() {
         cap: document.querySelector(".mcc-series-cap")?.textContent || "",
         digest: document.querySelector("#mcc-sec-series .mcc-fold-dg")?.textContent || "",
         notes: Array.from(document.querySelectorAll(".mcc-series-note")).map((n) => n.textContent).join("|"),
+        vb: document.querySelector(".mcc-series-svg")?.getAttribute("data-vb"),
       }));
       check("S1 fold は既定 open", info.open === true);
+      check("S1 広幅 viewBox", info.vb === "640", info.vb);
       check("S1 既定期間は 1Y", info.pressed === "1Y", info.pressed);
       check("S1 1Y の確定点数", info.complete === win1y.filter((p) => p.isComplete).length, info.complete);
       check("S1 暫定点 1", info.live === 1, info.live);
@@ -188,9 +190,16 @@ async function main() {
     {
       const { context, page, errors } = await newPage(browser, SP, NOW_AUG, true);
       await page.waitForSelector("#mcc-sec-series svg.mcc-series-svg");
-      const w = await page.evaluate(() => ({ view: document.getElementById("money-view").scrollWidth, svg: document.querySelector(".mcc-series-svg").getBoundingClientRect().width }));
+      const w = await page.evaluate(() => ({
+        view: document.getElementById("money-view").scrollWidth,
+        svg: document.querySelector(".mcc-series-svg").getBoundingClientRect().width,
+        vb: document.querySelector(".mcc-series-svg").getAttribute("data-vb"),
+        ylblPx: document.querySelector(".mcc-series-ylbl").getScreenCTM().a * 11,
+      }));
       check("S2 横あふれなし", w.view <= 390, String(w.view));
       check("S2 SVG 幅追従", w.svg > 200 && w.svg <= 390, String(w.svg));
+      check("S2 狭幅 viewBox", w.vb === "360", w.vb);
+      check("S2 Y ラベルの実効フォントサイズ 9px 以上", w.ylblPx >= 9, String(Math.round(w.ylblPx * 100) / 100));
       const hits = await page.$$(".mcc-series-hit");
       const want = await hits[2].getAttribute("data-cap");
       await hits[2].dispatchEvent("touchstart");

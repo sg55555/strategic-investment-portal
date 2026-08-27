@@ -248,6 +248,7 @@ var rem    = R.reminders({ nisa: sync.loggedIn ? nrem : null,
   `.mcc-hero-gauge-row { flex-wrap: wrap }`（§6 注意7）。
 - `.mcc-rail`（`.mcc-fold` と同じ罫線色 `rgba(129,140,248,0.2)`・左 3px の色帯 warn=amber／urgent=danger）。
 - 390px: SVG は幅追従・期間バーは折返し・帯は縦積み（`.mcc-hero` の 860px ブレークポイントと同系）。
+  - 狭幅（`window.innerWidth < 640`）は viewBox を 360×200（padL 52・padR 10）で描き、X ラベルは3個（先頭・中央・末尾）。640 幅のまま縮小すると 11px の軸ラベルが実効 ~6px になって読めないため（実効 ~9.3px に回復）。
 - 面の光（radial/nebula）は足さない（グラス干渉の既知事故）。
 
 ## §6 推移カードの置き場（D8・モック実物比較で確定）

@@ -772,8 +772,11 @@ window.MCC = (function () {
     return fmtAnchorMonth(p.period) + "：総資産 " + R.yen(p.total) + "（現金 " + R.yen(p.cash) + "・投資 " + R.yen(p.invest) + "）" + (p.isComplete ? "" : "（当月・暫定）");
   }
   // 積み上げエリア（現金の上に投資）＋Y目盛＋X ラベル＋点＋アンカー線＋ヒット矩形。
-  function seriesSvg(pts) {
-    var W = 640, H = 220, padL = 60, padR = 14, padT = 14, padB = 26, n = pts.length;
+  // narrow=true（幅 640px 未満）は viewBox を 360×200 に縮めて描く。SVG は幅追従で縮小されるため、
+  // 640 幅のまま 390px に収めると 11px の軸ラベルが実効 ~6px になって読めない（spec §5「390px: SVG は幅追従」）。
+  function seriesSvg(pts, narrow) {
+    var W = narrow ? 360 : 640, H = narrow ? 200 : 220, padL = narrow ? 52 : 60, padR = narrow ? 10 : 14;
+    var padT = 14, padB = 26, n = pts.length;
     if (!n) return "";
     var maxV = 0, minV = 0;
     pts.forEach(function (p) { maxV = Math.max(maxV, p.total, p.cash); minV = Math.min(minV, p.cash); });
@@ -795,7 +798,9 @@ window.MCC = (function () {
     var cashArea = "M" + f(x(0)) + "," + base + " L" + cashTop.join(" L") + " L" + f(x(n - 1)) + "," + base + " Z";
     var investArea = "M" + cashTop.join(" L") + " L" + totalTop.slice().reverse().join(" L") + " Z";
     var xl = "";
-    var idx = n <= 4 ? pts.map(function (_, i) { return i; }) : [0, Math.round((n - 1) / 3), Math.round((n - 1) * 2 / 3), n - 1];
+    var maxL = narrow ? 3 : 4;
+    var idx = n <= maxL ? pts.map(function (_, i) { return i; })
+      : (narrow ? [0, Math.round((n - 1) / 2), n - 1] : [0, Math.round((n - 1) / 3), Math.round((n - 1) * 2 / 3), n - 1]);
     idx.forEach(function (i) {
       xl += '<text class="mcc-series-xlbl" x="' + f(x(i)) + '" y="' + (H - 8) + '" text-anchor="' + (i === 0 ? "start" : (i === n - 1 ? "end" : "middle")) + '">' +
         esc(pts[i].period.slice(0, 4) + "/" + pts[i].period.slice(5, 7)) + '</text>';
@@ -812,7 +817,7 @@ window.MCC = (function () {
       var x0 = i === 0 ? padL : f((x(i - 1) + x(i)) / 2), x1 = i === n - 1 ? (W - padR) : f((x(i) + x(i + 1)) / 2);
       hits += '<rect class="mcc-series-hit" data-i="' + i + '" data-cap="' + esc(_seriesCap(p)) + '" x="' + x0 + '" y="' + padT + '" width="' + f(x1 - x0) + '" height="' + ih + '"></rect>';
     });
-    return '<svg class="mcc-series-svg" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="資産の推移">' +
+    return '<svg class="mcc-series-svg" viewBox="0 0 ' + W + ' ' + H + '" data-vb="' + W + '" role="img" aria-label="資産の推移">' +
       grid + '<path class="mcc-series-cash" d="' + cashArea + '"></path>' + '<path class="mcc-series-invest" d="' + investArea + '"></path>' +
       '<polyline class="mcc-series-cashline" points="' + cashTop.join(" ") + '"></polyline>' +
       '<polyline class="mcc-series-totalline" points="' + totalTop.join(" ") + '"></polyline>' +
@@ -853,7 +858,9 @@ window.MCC = (function () {
       if (series.truncatedForward && last) {
         notes.push('<div class="mcc-series-note">' + esc(fmtAnchorMonth(last.period)) + 'より後は収支データが欠けているため表示していません（グラフと前月比は同月までの値です）</div>');
       }
-      body = '<div class="mcc-series">' + bar + seriesSvg(win) +
+      // 幅判定はここ1箇所だけ（render() 時点の幅で決める・リサイズ追従はしない）。
+      var narrow = (typeof window !== "undefined" && window.innerWidth > 0 && window.innerWidth < 640);
+      body = '<div class="mcc-series">' + bar + seriesSvg(win, narrow) +
         '<div class="mcc-series-cap">' + esc(_seriesCap(last)) + '</div>' +
         '<div class="mcc-series-legend"><span class="cash">■ 現金</span><span class="invest">■ 投資（現在値）</span><span class="live">○ 当月（暫定）</span></div>' +
         notes.join("") + '</div>';
