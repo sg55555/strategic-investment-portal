@@ -233,7 +233,12 @@ async function main() {
       const nov = await newPage(browser, PC, NOW_NOV, true);
       const railNov = await nov.page.evaluate(() => Array.from(document.querySelectorAll(".mcc-rail-item")).map((n) => n.className + "|" + n.dataset.key + "|" + n.dataset.id + "|" + n.textContent));
       check("S4 11月の帯の件数", railNov.length === remNov.length && remNov.some((it) => it.key === "nisa"), JSON.stringify(railNov));
-      remNov.forEach((it, i) => check("S4 11月 帯[" + i + "] 順序", (railNov[i] || "").indexOf(it.level + "|" + it.key + "|" + it.id) >= 0, railNov[i]));
+      // 帯の並び（level|key|id）を literal で固定（spec §10.2 偽陽性潰し②）。remNov（期待値）も railNov（DOM）も
+      // 同じ money-rules.js（モック鯖が static 配信する同一ファイル）から出るため、動的な remNov と突き合わせるだけでは
+      // reminders の rank ロジックが壊れても両側が同時に同じ順序へ壊れて緑のままになる＝ literal で固定して独立に検証する。
+      // fixture を意図的に変えたときだけ更新する。
+      const LIT_RAIL_NOV = ["warn|nisa|nisa", "warn|reserve|rsv-shaken"];
+      LIT_RAIL_NOV.forEach((want, i) => check("S4 11月 帯[" + i + "] 順序（literal）", (railNov[i] || "").indexOf(want) >= 0, railNov[i]));
       const nisaIt = remNov.find((it) => it.key === "nisa");
       if (nisaIt) check("S4 NISA warn の本文", railNov.some((t) => t.indexOf(R.yen(nisaIt.data.remainingTotal) + " 残っています") >= 0 && t.indexOf("翌年に繰り越せません") >= 0 && t.indexOf("→ NISA") >= 0), JSON.stringify(railNov));
       // 確保枠行の本文（11月は NISA warn ＋ 確保枠 short の2件＝ここでしか本文を見られない）。ガードを置かず、
@@ -254,6 +259,25 @@ async function main() {
       }
       check("S4 11月 pageerror 0", nov.errors.length === 0, nov.errors.join(" / "));
       await nov.context.close();
+      // 混在レベル(urgent+warn)の順序を DOM で実証（spec §10.2 シナリオ5「順序は urgent→warn」）。
+      // fixture の 11月 は nisa(warn)・reserve(warn) が両方 warn 止まりで、rank の urgent<warn 比較を一度も踏まない
+      // （reserve は state.reserves[0].deadline=2026-11-30 を過ぎるまで overdue=urgent にならない）。
+      // reserves[0].deadline を早めた state を差し替え、reserve=urgent と nisa=warn が同時に出る文脈を作って
+      // 実際に urgent→warn の並びを検証する（over.state は S5 と同じ方式）。
+      const stateMix = JSON.parse(JSON.stringify(state));
+      stateMix.reserves[0].deadline = "2026-09-30";
+      const effMix = R.effectiveState(R.migrate(stateMix), rows, [], NOW_AUG);
+      const cdMix = R.cashflowDerived(rows, effMix, NOW_NOV);
+      const remMix = R.reminders({ nisa: R.nisaReminder(R.nisaViewModel(effMix, cdMix, NOW_NOV, []), NOW_NOV),
+        reserves: cdMix.reserveAlloc.map((ra) => ({ id: ra.id, label: ra.label, deadline: ra.deadline, allocated: ra.allocated, outlook: R.reserveOutlook(ra, NOW_NOV, cdMix.available && cdMix.monthlySurplus > 0) })) });
+      const mix = await newPage(browser, PC, NOW_NOV, true, { state: stateMix });
+      const railMix = await mix.page.evaluate(() => Array.from(document.querySelectorAll(".mcc-rail-item")).map((n) => n.className + "|" + n.dataset.key + "|" + n.dataset.id));
+      check("S4 混在(urgent+warn) 件数＝2（reserve urgent・nisa warn）", railMix.length === 2 && remMix.length === 2, JSON.stringify(railMix) + " / rem=" + JSON.stringify(remMix.map((it) => it.level + "|" + it.key)));
+      // DOM 側は literal で固定（remMix と二重に同じファイルへ依存させない＝rank 破壊時に確実に赤くする）。
+      const LIT_RAIL_MIX = ["urgent|reserve|rsv-shaken", "warn|nisa|nisa"];
+      LIT_RAIL_MIX.forEach((want, i) => check("S4 混在 帯[" + i + "] urgent→warn 順（literal）", (railMix[i] || "").indexOf(want) >= 0, railMix[i]));
+      check("S4 混在 pageerror 0", mix.errors.length === 0, mix.errors.join(" / "));
+      await mix.context.close();
       // 12月: urgent
       const dec = await newPage(browser, PC, NOW_DEC, true);
       const railDec = await dec.page.evaluate(() => Array.from(document.querySelectorAll(".mcc-rail-item")).map((n) => n.className + "|" + n.textContent));
