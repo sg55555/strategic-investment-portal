@@ -56,6 +56,11 @@ async function newPage(browser, viewport, fixedMs, loggedIn, over) {
     await context.route("**/api/me/state", (route) => route.fulfill({ status: 200, contentType: "application/json",
       body: route.request().method() === "GET" ? JSON.stringify({ state: over.state }) : '{"ok":true}' }));
   }
+  // 未ログインでも「この端末に保存された state」は生きる（localStorage 限定層）＝NISA 設定済みで
+  // セッションだけ切れた状態を作るために使う。
+  if (over && over.localState) {
+    await context.addInitScript(([k, v]) => { try { localStorage.setItem(k, v); } catch (e) {} }, [R.STORAGE_KEY, JSON.stringify(over.localState)]);
+  }
   if (over && over.cashflow) {
     await context.route("**/api/me/cashflow", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ cashflow: over.cashflow }) }));
   }
@@ -146,6 +151,8 @@ async function main() {
       check("S1 digest の直近12ヶ月（literal）", info.digest.indexOf(LIT.span12) >= 0, info.digest);
       check("S1 注記: 投資分固定", info.notes.indexOf("現在値で固定") >= 0, info.notes);
       check("S1 注記: 逆算は窓内に前点がある時だけ", (info.notes.indexOf("逆算") >= 0) === win1y.some((p) => p.beforeAnchor && !p.isAnchor), info.notes);
+      // 打切っていない fixture では打切の注記を出さない（S6 の対の偽陽性チェック）。
+      check("S1 注記: 打切なしなら打切の注記は出ない", !series.truncatedForward && !series.truncatedBackward && info.notes.indexOf("表示していません") < 0, info.notes);
       // 期間切替 → 点数と LS
       await page.evaluate(() => document.querySelector(".mcc-series-btn[data-period='6M']").click());
       await page.waitForFunction(() => document.querySelector(".mcc-series-btn[aria-pressed='true']")?.dataset.period === "6M");
@@ -198,11 +205,25 @@ async function main() {
       check("S3 未ログインは案内文（ログイン）", e.empty.indexOf("ログイン") >= 0 && e.svg === 0, e.empty);
       check("S3 pageerror 0", errors.length === 0, errors.join(" / "));
       await context.close();
+      // 帯は未ログインでは1件も出さない（spec §8・§10.2 シナリオ7）。確保枠は cashflow 依存で自然に消えるが、NISA は
+      // ローカル state だけで成立する＝money.js render() の `nisa: sync.loggedIn ? nrem : null` が唯一の防波堤で、外すと
+      // 未ログイン画面に残枠の ¥ が出る。8月は NISA が info（元から帯に出ない）＝ゲートを外しても 0 件のままで空振りするので、
+      // **urgent になる 12月** で見る（ログイン時は 12月に urgent が1件出ることを S4 が実証済み＝この 0 件は有意）。
+      // ローカル state（NISA 設定済み）を seed する＝未ログインでも nisaReminder は urgent を返す文脈。
+      // seed しないと NISA 未設定で level:"none" になり、ゲートを外しても 0 件のまま＝この assert が空振りする。
+      const outDec = await newPage(browser, PC, NOW_DEC, false, { localState: state });
+      const d = await outDec.page.evaluate(() => ({ rail: document.querySelectorAll(".mcc-rail-item").length, railBox: document.querySelectorAll(".mcc-rail").length,
+        nisaSec: document.querySelectorAll("#mcc-sec-nisa").length }));
+      check("S3 12月・未ログインでも帯 0 件（NISA の ¥ を出さない）", d.rail === 0 && d.railBox === 0, "item=" + d.rail + " box=" + d.railBox + " nisaSec=" + d.nisaSec);
+      check("S3 12月・未ログイン pageerror 0", outDec.errors.length === 0, outDec.errors.join(" / "));
+      await outDec.context.close();
     }
     // ---- S4 ヒーロー（前月比・runway）＋リマインド帯 ----
     {
       const cd = R.cashflowDerived(rows, eff, NOW_AUG);
-      const hasSurplusCtx = cd.available && cd.monthlySurplus > 0;
+      // 実装（money.js render()）と同じ式にする。monthlySurplus は round(max(0,base))＝base>0 とは別式で、
+      // 実装側のゲートを差し替えても受入が赤くならない（整数 fixture では同値のため偽緑になる）。
+      const hasSurplusCtx = cd.available && cd.surplusPositive;
       const mom = R.momDelta(series.points), rw = R.runwayMonths(eff);
       // 8月: NISA は info（帯に出ない）。確保枠の short/overdue だけが帯に出る想定。
       const remAug = R.reminders({ nisa: R.nisaReminder(R.nisaViewModel(eff, cd, NOW_AUG, []), NOW_AUG),
@@ -229,7 +250,7 @@ async function main() {
       // 11月: NISA warn が加わる（urgent→warn 順）
       const cdN = R.cashflowDerived(rows, eff, NOW_NOV);
       const remNov = R.reminders({ nisa: R.nisaReminder(R.nisaViewModel(eff, cdN, NOW_NOV, []), NOW_NOV),
-        reserves: cdN.reserveAlloc.map((ra) => ({ id: ra.id, label: ra.label, deadline: ra.deadline, allocated: ra.allocated, outlook: R.reserveOutlook(ra, NOW_NOV, cdN.available && cdN.monthlySurplus > 0) })) });
+        reserves: cdN.reserveAlloc.map((ra) => ({ id: ra.id, label: ra.label, deadline: ra.deadline, allocated: ra.allocated, outlook: R.reserveOutlook(ra, NOW_NOV, cdN.available && cdN.surplusPositive) })) });
       const nov = await newPage(browser, PC, NOW_NOV, true);
       const railNov = await nov.page.evaluate(() => Array.from(document.querySelectorAll(".mcc-rail-item")).map((n) => n.className + "|" + n.dataset.key + "|" + n.dataset.id + "|" + n.textContent));
       check("S4 11月の帯の件数", railNov.length === remNov.length && remNov.some((it) => it.key === "nisa"), JSON.stringify(railNov));
@@ -269,7 +290,7 @@ async function main() {
       const effMix = R.effectiveState(R.migrate(stateMix), rows, [], NOW_AUG);
       const cdMix = R.cashflowDerived(rows, effMix, NOW_NOV);
       const remMix = R.reminders({ nisa: R.nisaReminder(R.nisaViewModel(effMix, cdMix, NOW_NOV, []), NOW_NOV),
-        reserves: cdMix.reserveAlloc.map((ra) => ({ id: ra.id, label: ra.label, deadline: ra.deadline, allocated: ra.allocated, outlook: R.reserveOutlook(ra, NOW_NOV, cdMix.available && cdMix.monthlySurplus > 0) })) });
+        reserves: cdMix.reserveAlloc.map((ra) => ({ id: ra.id, label: ra.label, deadline: ra.deadline, allocated: ra.allocated, outlook: R.reserveOutlook(ra, NOW_NOV, cdMix.available && cdMix.surplusPositive) })) });
       const mix = await newPage(browser, PC, NOW_NOV, true, { state: stateMix });
       const railMix = await mix.page.evaluate(() => Array.from(document.querySelectorAll(".mcc-rail-item")).map((n) => n.className + "|" + n.dataset.key + "|" + n.dataset.id));
       check("S4 混在(urgent+warn) 件数＝2（reserve urgent・nisa warn）", railMix.length === 2 && remMix.length === 2, JSON.stringify(railMix) + " / rem=" + JSON.stringify(remMix.map((it) => it.level + "|" + it.key)));
@@ -305,7 +326,7 @@ async function main() {
         const cd = R.cashflowDerived(rws, ef, nowMs);
         const vm = R.viewModel(ef);
         const gol = vm.goals.map((g) => R.goalOutlook(g, vm.totalAssets, cd.monthlySurplus, nowMs));
-        const hasSurplusCtx = cd.available && cd.monthlySurplus > 0;
+        const hasSurplusCtx = cd.available && cd.surplusPositive;   // money.js render() と同式（monthlySurplus>0 ではない）
         const rol = cd.reserveAlloc.map((ra) => R.reserveOutlook(ra, nowMs, hasSurplusCtx));
         const nrem = R.nisaReminder(R.nisaViewModel(ef, cd, nowMs, []), nowMs);
         const { context, page, errors } = await newPage(browser, PC, nowMs, true, over);
@@ -362,6 +383,29 @@ async function main() {
         check("S5 goal 分岐 " + st + " を DOM で踏んだ", seenG.has(st), Array.from(seenG).join(",")));
       ["onTrack", "complete", "short", "overdue", "unknown"].forEach((st) =>
         check("S5 reserve 分岐 " + st + " を DOM で踏んだ", seenR.has(st), Array.from(seenR).join(",")));
+    }
+    // ---- S6 前方打切の注記（spec §4.2 注記・§8「行の欠月」）----
+    // 欠月があると系列は連続部分で打ち切られる一方、ヒーローの確定額（cashDerived）は欠月より後の確定行も足す
+    // ＝注記が無いと「グラフだけ古い」が無音の不一致になる。2026-03 を抜いて実際にその状態を踏む。
+    {
+      const gapRows = rows.filter((r) => String(r.period).slice(0, 7) !== "2026-03");
+      const effGap = R.effectiveState(R.migrate(state), gapRows, [], NOW_AUG);
+      const sGap = R.assetSeries(effGap, gapRows, []);
+      const cdGap = R.cashDerived(gapRows, [], effGap.anchor, NOW_AUG);
+      const lastGap = sGap.points[sGap.points.length - 1];
+      check("S6 前提: 欠月で前方打切・最終点は 2026-02", sGap.truncatedForward === true && lastGap.period.slice(0, 7) === "2026-02", sGap.truncatedForward + " / " + (lastGap && lastGap.period));
+      check("S6 前提: ヒーロー確定額と系列最終点がずれる（注記の存在理由）", cdGap.derivedCash !== lastGap.cash, cdGap.derivedCash + " / " + lastGap.cash);
+      const { context, page, errors } = await newPage(browser, PC, NOW_AUG, true, { cashflow: gapRows });
+      await page.waitForSelector("#mcc-sec-series .mcc-series-note");
+      const g = await page.evaluate(() => ({
+        notes: Array.from(document.querySelectorAll(".mcc-series-note")).map((n) => n.textContent).join("|"),
+        amount: document.querySelector(".mcc-hero-amount")?.textContent || "",
+      }));
+      check("S6 前方打切の注記が出る", g.notes.indexOf("2026年2月より後は収支データが欠けているため表示していません") >= 0, g.notes);
+      check("S6 注記は前月比も同月止まりだと述べる", g.notes.indexOf("グラフと前月比は同月までの値です") >= 0, g.notes);
+      check("S6 ヒーローは欠月より後も足した確定額（＝注記が説明する差）", g.amount.trim() === R.yen(effGap.buckets.buffer.amount), g.amount + " / " + R.yen(effGap.buckets.buffer.amount));
+      check("S6 pageerror 0", errors.length === 0, errors.join(" / "));
+      await context.close();
     }
   } finally {
     if (browser) await browser.close();

@@ -847,6 +847,12 @@ window.MCC = (function () {
       if (series.truncatedBackward && win.length && win[0] === series.points[0]) {
         notes.push('<div class="mcc-series-note">' + esc(fmtAnchorMonth(series.points[0].period)) + '以前は収支データが無いため表示していません</div>');
       }
+      // 前方打切（spec §8「行の欠月」）。ヒーローの確定額は cashDerived＝欠月より後の確定行も足すため、
+      // 打切った系列の最終点とは一致しない。説明が無いと「グラフだけ古い」が無音の不一致に見えるので必ず出す
+      // （前月比バッジも series.points 由来＝同じ月で止まる）。win は末尾スライスゆえ最終点は常に窓内。
+      if (series.truncatedForward && last) {
+        notes.push('<div class="mcc-series-note">' + esc(fmtAnchorMonth(last.period)) + 'より後は収支データが欠けているため表示していません（グラフと前月比は同月までの値です）</div>');
+      }
       body = '<div class="mcc-series">' + bar + seriesSvg(win) +
         '<div class="mcc-series-cap">' + esc(_seriesCap(last)) + '</div>' +
         '<div class="mcc-series-legend"><span class="cash">■ 現金</span><span class="invest">■ 投資（現在値）</span><span class="live">○ 当月（暫定）</span></div>' +

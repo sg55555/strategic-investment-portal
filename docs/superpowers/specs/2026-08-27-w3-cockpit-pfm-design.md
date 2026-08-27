@@ -177,8 +177,13 @@ var gol    = vm.goals.map(g => R.goalOutlook(g, vm.totalAssets, cd.monthlySurplu
 var hasSurplusCtx = cv.available && cv.surplusPositive;
 var rol    = cd.reserveAlloc.map(ra => R.reserveOutlook(ra, now, hasSurplusCtx));
 var nrem   = R.nisaReminder(nvm, now);
-var rem    = R.reminders({ nisa: nrem, reserves: cd.reserveAlloc.map((ra,i) => ({ id: ra.id, label: ra.label, outlook: rol[i] })) });
+var rem    = R.reminders({ nisa: sync.loggedIn ? nrem : null,
+                          reserves: cd.reserveAlloc.map((ra,i) => ({ id: ra.id, label: ra.label, deadline: ra.deadline, allocated: ra.allocated, outlook: rol[i] })) });
 ```
+- **`nisa` は未ログインでは渡さない**（`sync.loggedIn ? nrem : null`）。確保枠は cashflow が無い＝`hasSurplusCtx=false` で自然に
+  `unknown` に落ちるが、NISA はローカル state だけで成立するため、素通しすると未ログイン画面に残枠の ¥ が出る（§8「未ログイン＝帯非表示」
+  と矛盾する）。受入は `w3-smoke.js` S3 の「未ログインは帯 0 件」。
+- `deadline`／`allocated` は帯の文言用の素通し（§3.3）。
 - `now` は既存の `render()` 内 1 回の `Date.now()` を共有（同一描画で時刻がずれない）。
 - 各セクションへは**引数で渡す**（module 変数を増やさない）。`heroSection(vm, cv, cd, mom, rw)`／`reminderRail(rem)`／
   `seriesSection(series, mom, periodKey)`／`goalsSection(vm, gol)`／`reservesSection(cv, cd, rol)`／`nisaSection(vm, nrem)`。
@@ -198,7 +203,10 @@ var rem    = R.reminders({ nisa: nrem, reserves: cd.reserveAlloc.map((ra,i) => (
   - キャプション書式: `2026年3月：総資産 ¥2,340,000（現金 ¥1,740,000・投資 ¥600,000）`／暫定点は末尾に「（当月・暫定）」。
 - 注記: 「投資分（コア＋サテライト）は現在値で固定・時価ではありません」（常時）／「基準（YYYY年M月）より前は収支から逆算」
   （**窓内にアンカーより前の点があるときだけ**・§6 注意2）／「◯年◯月以前は収支データが無いため表示していません」（`truncatedBackward` かつ
-  窓が系列の先頭を含むとき）。
+  窓が系列の先頭を含むとき）／
+  「◯年◯月より後は収支データが欠けているため表示していません（グラフと前月比は同月までの値です）」（`truncatedForward` のとき・
+  ◯年◯月＝系列の**最終点**の月）。**前方打切の注記は省略不可**＝ヒーローの確定額（`cashDerived`）は欠月より後の確定行も足すため
+  系列の最終点と一致せず、前月比バッジ（`momDelta(series.points)`）も打切った月で止まる。注記が無いと画面上で無音の不一致になる。
 - fold: `foldSection("mcc-sec-series", "mcc-fold-series", "資産の推移", digest, body)`。`_FOLD_DEFAULT_OPEN["mcc-sec-series"] = true`
   （§6 注意3）。`_JUMP_TARGETS` に `series: { id: "mcc-sec-series", tab: "dash" }` を追加（帯やガイドから参照できるように）。
 - 非 available 時（§8）: 案内文のみ（グラフ枠は出さない）。
@@ -296,10 +304,10 @@ var rem    = R.reminders({ nisa: nrem, reserves: cd.reserveAlloc.map((ra,i) => (
 
 | 状況 | 挙動 |
 |---|---|
-| 未ログイン | 推移＝案内文（ログイン）・バッジ／チップ／帯＝非表示（cashflow が無いので `series.available=false`・`rem=[]`）。runway は `bufferConfigured` なら出す（保存値ベース・既存ゲージと同じ扱い） |
+| 未ログイン | 推移＝案内文（ログイン）・バッジ／チップ／帯＝非表示（cashflow が無いので `series.available=false`、確保枠は `unknown`。**NISA だけはローカル state で成立するので render() が `nisa: sync.loggedIn ? nrem : null` で明示的に落とす**＝`rem=[]`）。runway は `bufferConfigured` なら出す（保存値ベース・既存ゲージと同じ扱い） |
 | ログイン済・アンカー未設定 | 推移＝案内文（貯蓄の基準へ）・バッジ非表示・帯は確保枠／NISA の分だけ出る |
 | rows はあるが確定行ゼロ（初月） | `reason:"noCompleteRows"`・案内文。暫定点だけの線は描かない |
-| 行の欠月 | 連続部分だけ描き、`truncated*` の注記。不変条件は `!truncatedForward` の時のみ主張 |
+| 行の欠月 | 連続部分だけ描き、`truncatedBackward`／`truncatedForward` の**両方**に注記を出す（§4.2）。不変条件は `!truncatedForward` の時のみ主張 |
 | USD | `reason:"currency"`（既存 `currencyMismatch` と同じ） |
 | `monthlyExpense = 0` | runway 非表示。goal/reserve は影響なし |
 | `monthlySurplus = 0` | goal=`noPace`／reserve=`unknown`（`hasSurplusCtx=false`）＝警告を出さない（既存 `shortfall` の扱いと同じ） |
@@ -310,7 +318,8 @@ var rem    = R.reminders({ nisa: nrem, reserves: cd.reserveAlloc.map((ra,i) => (
 
 ## §9 既存受入への影響
 
-- `scratchpad/cockpit-e2e.js`（235）: ヒーローの `.mcc-hero-amount` は**金額のみ**を維持（バッジは兄弟要素）。ゲージ行に
+- `scratchpad/cockpit-e2e.js`（**241**＝2026-08-27 実測。旧記載「235」は W2 以前からの陳腐化で、本 wave は `check(` 呼出を
+  base/head とも 212 で1件も増やしていない）: ヒーローの `.mcc-hero-amount` は**金額のみ**を維持（バッジは兄弟要素）。ゲージ行に
   チップが増えるが `.mcc-hero-gauge-pct` は不変。fixture（2026-07 の 1 確定行）では `momDelta.available=false`＝バッジ無し、
   `series.available=true` で点は 2（アンカー点＋7月）。**期待値の変更なし**で緑のはず＝実行して確認。
 - `scratchpad/portal-money-smoke.js`: 横断動線のみ＝影響なし（実行して確認）。
@@ -348,7 +357,7 @@ var rem    = R.reminders({ nisa: nrem, reserves: cd.reserveAlloc.map((ra,i) => (
      順序は urgent→warn／2026-12-15 で urgent／帯のリンクで fold が open してスクロール。
   6. goals／reserves／nisa の各行の文言（status ごと）。
   7. 未ログイン（session 401）で推移が案内文・帯なし・pageerror 0。
-  8. 既存 `cockpit-e2e.js`（235）・`portal-money-smoke.js` を同じ木で再実行して緑。
+  8. 既存 `cockpit-e2e.js`（241・実測）・`portal-money-smoke.js` を同じ木で再実行して緑。
 - **偽陽性の潰し**（W2 の型）: `assetSeries` の後方累積を故意に壊す／`reminders` の順序を壊す／`setSeriesPeriod` の LS 保存を外す、
   の3つで対応するアサートが**赤になる**ことを一度確認してから緑を主張する。
 
@@ -373,8 +382,16 @@ var rem    = R.reminders({ nisa: nrem, reserves: cd.reserveAlloc.map((ra,i) => (
   `/home/shugo/apps/investment-portal/.claude/CLAUDE.md` にのみ存在し、worktree からは `git add` できない（worktree に `.claude/`
   自体が存在しない）。先例＝`c64e6b6`（W1 パック時・`docs/superpowers/specs/2026-08-23-w1-portal-price-pack-design.md` §16 に
   同型の記録あり）。追記予定だった「W3 司令室PFMパック」の
-  恒久運用注意ブロックの原文は `task-7-report.md` にそのまま温存されているので、**main 統合（merge）を行うセッションが
-  `.claude/CLAUDE.md` の「お金の司令塔／司令室」節・`- **E2Eハーネス**＝…` bullet の直後へ追記する**こと。
+  恒久運用注意ブロックの原文は `task-7-report.md`（`.gitignore` の `.superpowers/` 配下＝worktree を消すと失われる）にしか無かったので、
+  **下に逐語で写して tracked にした**。**main 統合（merge）を行うセッションが `.claude/CLAUDE.md` の「お金の司令塔／司令室」節・
+  `- **E2Eハーネス**＝…` bullet の直後へ次のブロックを追記する**こと。
+  **同時に、その直前の `- **E2Eハーネス**＝…` bullet の「235アサート」を「241アサート」に直す**（2026-08-27 実測 241/241。
+  `check(` 呼出は base/head とも 212 で本 wave は 1 件も増やしていない＝235 は W2 以前からの陳腐化。直さないと着地直後から
+  誤った基準値が恒久ノートに載る）。
+
+  ```markdown
+    - **🆕 W3 司令室PFMパック（spec `docs/superpowers/specs/2026-08-27-w3-cockpit-pfm-design.md`）**：資産の推移（月次導出＝`R.assetSeries`・アンカー月初を固定点に前方+Σ/後方−Σ・invest は現在値固定・欠月で打切）／前月比 `momDelta`／runway `runwayMonths`／目標 `goalOutlook`／確保枠 `reserveOutlook`／NISA `nisaReminder`／帯 `reminders`。**全て UI 専用の純関数＝facts 非出力・advice.py 鏡像なし・state 不変**。グラフは inline SVG（`seriesSvg`・インスタンス管理なし）。期間は端末 LS `mcc_series_period`（クラウド非同梱）。⚠**不変条件**＝`assetSeries` の最後の確定点 cash === `cashDerived().derivedCash`（`tests/money-pfm.test.js` が機械証明・`cashDerived` の flow 定義を変えるなら両方同時に）。⚠`.mcc-hero-amount` の中身は金額のみ（前月比バッジは兄弟 `.mcc-hero-mom`）。⚠欠月があると系列だけ打ち切られヒーローの確定額とずれる＝`truncatedForward`／`truncatedBackward` の注記を消さない。受入＝`W3_VARIANTS=0 python3 scratchpad/w3-mock-server.py`（w3-smoke が自前起動）＋`NODE_PATH=/home/shugo/node_modules node scratchpad/w3-smoke.js`。
+  ```
 
 ## §12 変更するファイル
 
