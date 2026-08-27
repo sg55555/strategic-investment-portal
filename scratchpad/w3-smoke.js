@@ -198,6 +198,7 @@ async function main() {
         momText: document.querySelector(".mcc-hero-mom")?.textContent || "", momCls: document.querySelector(".mcc-hero-mom")?.className || "",
         rwText: document.querySelector(".mcc-hero-runway")?.textContent || "", rwCls: document.querySelector(".mcc-hero-runway")?.className || "",
         rail: Array.from(document.querySelectorAll(".mcc-rail-item")).map((n) => n.className + "|" + n.dataset.key + "|" + n.dataset.id + "|" + n.textContent),
+        railBox: document.querySelectorAll(".mcc-rail").length,
       }));
       check("S4 金額ノードは金額のみ", h.amount.trim() === R.yen(eff.buckets.buffer.amount), h.amount);
       check("S4 前月比バッジの文言", h.momText === "前月比 " + (function () { const v = Math.round(mom.delta); return (v > 0 ? "+" : (v < 0 ? "−" : "±")) + R.yen(Math.abs(v)); })() + (mom.pct === null ? "" : "（" + (mom.sign > 0 ? "+" : (mom.sign < 0 ? "−" : "")) + Math.abs(mom.pct).toFixed(1) + "%）"), h.momText);
@@ -205,16 +206,9 @@ async function main() {
       check("S4 runway チップ", h.rwText === "生活費 " + rw.months.toFixed(1) + "ヶ月分" && h.rwCls.indexOf(rw.low ? "low" : "ok") >= 0, h.rwText + " " + h.rwCls);
       check("S4 8月の帯の件数＝期待", h.rail.length === remAug.length, JSON.stringify(h.rail));
       remAug.forEach((it, i) => check("S4 帯[" + i + "] key/id/level", (h.rail[i] || "").indexOf(it.level + "|" + it.key + "|" + it.id) >= 0, h.rail[i]));
-      if (remAug.some((it) => it.key === "reserve" && it.level === "warn")) {
-        const it = remAug.find((x) => x.key === "reserve" && x.level === "warn");
-        check("S4 確保枠 short の本文", h.rail.some((t) => t.indexOf(R.yen(it.data.projectedShortfall) + " 不足の見込み") >= 0 && t.indexOf("→ 確保枠") >= 0), JSON.stringify(h.rail));
-      }
-      // 帯のリンクで fold が開く
-      if (h.rail.length) {
-        await page.evaluate(() => document.querySelector(".mcc-rail-item .mcc-jump").click());
-        await page.waitForTimeout(300);
-        check("S4 帯リンクで fold が open", await page.evaluate(() => document.getElementById("mcc-sec-reserves-goals")?.open === true || document.getElementById("mcc-sec-nisa")?.open === true));
-      }
+      // 0件なら DOM を作らない（spec §4.4）。8月の fixture は帯 0 件なので、ここが「.mcc-rail 自体が無い」の検証になる。
+      // 本文と導線（jumpLink→fold）は帯が 0 件の 8月では検証できない＝下の 11月ブロックで実行する。
+      check("S4 8月 帯 0件なら .mcc-rail 自体が無い", h.railBox === (remAug.length ? 1 : 0), h.railBox + " / rem=" + remAug.length);
       check("S4 pageerror 0", errors.length === 0, errors.join(" / "));
       await context.close();
       // 11月: NISA warn が加わる（urgent→warn 順）
@@ -227,6 +221,22 @@ async function main() {
       remNov.forEach((it, i) => check("S4 11月 帯[" + i + "] 順序", (railNov[i] || "").indexOf(it.level + "|" + it.key + "|" + it.id) >= 0, railNov[i]));
       const nisaIt = remNov.find((it) => it.key === "nisa");
       if (nisaIt) check("S4 NISA warn の本文", railNov.some((t) => t.indexOf(R.yen(nisaIt.data.remainingTotal) + " 残っています") >= 0 && t.indexOf("翌年に繰り越せません") >= 0 && t.indexOf("→ NISA") >= 0), JSON.stringify(railNov));
+      // 確保枠行の本文（11月は NISA warn ＋ 確保枠 short の2件＝ここでしか本文を見られない）。ガードを置かず、
+      // 期待側が空になったら落ちるようにする（8月ブロックの条件付き assert が一度も走らなかった再発防止）。
+      const rsvNov = remNov.find((x) => x.key === "reserve" && x.level === "warn");
+      check("S4 11月 確保枠 short の本文", !!rsvNov && railNov.some((t) => t.indexOf(R.yen(rsvNov.data.projectedShortfall) + " 不足の見込み") >= 0 && t.indexOf("→ 確保枠") >= 0), JSON.stringify(railNov));
+      // 帯のリンクで fold が開く（NISA 行・確保枠行の両方）。既定で open だと空振りするので、押す前に必ず閉じる。
+      for (const [key, secId, nm] of [["nisa", "mcc-sec-nisa", "NISA"], ["reserve", "mcc-sec-reserves-goals", "確保枠"]]) {
+        const clicked = await nov.page.evaluate(([k, s]) => {
+          const det = document.getElementById(s); if (det) det.open = false;
+          const a = document.querySelector('.mcc-rail-item[data-key="' + k + '"] .mcc-jump');
+          if (!a || !det || det.open) return false;
+          a.click(); return true;
+        }, [key, secId]);
+        await nov.page.waitForTimeout(300);
+        check("S4 11月 帯[" + nm + "]のリンクで fold が open",
+          clicked && (await nov.page.evaluate((s) => document.getElementById(s)?.open === true, secId)), "clicked=" + clicked);
+      }
       check("S4 11月 pageerror 0", nov.errors.length === 0, nov.errors.join(" / "));
       await nov.context.close();
       // 12月: urgent
