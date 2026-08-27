@@ -369,6 +369,12 @@ var rem    = R.reminders({ nisa: nrem, reserves: cd.reserveAlloc.map((ra,i) => (
 - **LS キー追加**: `mcc_series_period` は `_TAB_KEY` と同じく cloud 非同梱を守る（同梱すると他端末の期間が LWW で書き換わる）。
 - **f2-snapshot** の司令室 DOM 差分は想定内（§9）。次に f2 の基準を取り直す時は本 wave 後の DOM を capture する。
 - W3.5 送り: マンスリーレポート（月次まとめ）／予算 vs 実績（要 `budgets` フィールド設計＋kakeibo 費目→バケツの対応表）。
+- **`.claude/CLAUDE.md`（Task 7 Step 1）は本 wave では未実施**: このファイルは git 管理外かつ物理的に main チェックアウト配下
+  `/home/shugo/apps/investment-portal/.claude/CLAUDE.md` にのみ存在し、worktree からは `git add` できない（worktree に `.claude/`
+  自体が存在しない）。先例＝`c64e6b6`（W1 パック時・`docs/superpowers/specs/2026-08-23-w1-portal-price-pack-design.md` §16 に
+  同型の記録あり）。追記予定だった「W3 司令室PFMパック」の
+  恒久運用注意ブロックの原文は `task-7-report.md` にそのまま温存されているので、**main 統合（merge）を行うセッションが
+  `.claude/CLAUDE.md` の「お金の司令塔／司令室」節・`- **E2Eハーネス**＝…` bullet の直後へ追記する**こと。
 
 ## §12 変更するファイル
 
