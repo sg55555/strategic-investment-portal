@@ -120,7 +120,7 @@ total(m)  = cash(m) + invest(m)
 | `goalOutlook(goal, total, monthlySurplus, nowMs)` | `normalizeGoal` 済み goal, `totalAssets(eff)`, D7 のペース, epoch | 下記 | 目標1件の見通し |
 | `reserveOutlook(ra, nowMs, hasSurplusCtx)` | `cashflowDerived().reserveAlloc[i]`, epoch, `cv.available && cv.surplusPositive` | 下記 | 確保枠1件の見通し |
 | `nisaReminder(nvm, nowMs)` | `nisaViewModel()` の戻り, epoch | 下記 | 年内残枠のリマインド |
-| `reminders(input)` | `{nisa: nisaReminder結果, reserves: [{id,label,outlook}]}` | `[{key,id,level,jump,data}]` | 帯に出す項目（warn/urgent のみ・urgent→warn 順・同レベルは入力順） |
+| `reminders(input)` | `{nisa: nisaReminder結果, reserves: [{id,label,deadline,allocated,outlook}]}` | `[{key,id,label?,deadline?,allocated?,level,jump,data}]` | 帯に出す項目（warn/urgent のみ・urgent→warn 順・同レベルは入力順）。`deadline`／`allocated` は帯の文言用に素通し |
 
 **`goalOutlook`**
 ```
