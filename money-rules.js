@@ -1349,6 +1349,102 @@
     };
   }
 
+  // ==== W3 司令室PFMパック（spec docs/superpowers/specs/2026-08-27-w3-cockpit-pfm-design.md §3）====
+  // すべて UI 専用の純関数（facts 非出力＝advice.py 鏡像なし）。時刻は呼び元（render）が1回取った nowMs を受ける。
+
+  var SERIES_PERIODS = ["6M", "1Y", "2Y", "ALL"];
+  var _SERIES_POINTS = { "6M": 6, "1Y": 12, "2Y": 24 };
+  function normalizeSeriesPeriod(key) { return SERIES_PERIODS.indexOf(key) >= 0 ? key : "1Y"; }
+  function seriesWindow(points, key) {
+    var pts = Array.isArray(points) ? points : [];
+    var n = _SERIES_POINTS[normalizeSeriesPeriod(key)];
+    return n ? pts.slice(-n) : pts.slice();
+  }
+  // "YYYY-MM-01" を delta ヶ月ずらす（UTC 暦・純粋）。
+  function _shiftYM(period, delta) {
+    var y = parseInt(period.slice(0, 4), 10), m = parseInt(period.slice(5, 7), 10) - 1 + delta;
+    y += Math.floor(m / 12); m = ((m % 12) + 12) % 12;
+    return String(y) + "-" + ("0" + (m + 1)).slice(-2) + "-01";
+  }
+
+  // §3.2 月次系列。アンカー月初の現金 = anchor.amount を固定点に、cashDerived と同じ flow（balance + invest_cash_flow）を
+  // アンカー月以降は前方（+Σ）・アンカー月より前は後方（−Σ）に累積。連続月のみ（欠月で打切）。invest は現在値で固定。
+  function assetSeries(eff, cashflowRows_in, investmentRows_in) {
+    function empty(reason) {
+      return { available: false, reason: reason, anchorPeriod: "", points: [],
+        truncatedForward: false, truncatedBackward: false, latestCompleteIndex: -1, liveIndex: -1 };
+    }
+    if (!eff || typeof eff !== "object") return empty("noAnchor");
+    var a = normalizeAnchor(eff.anchor);
+    if (!a.date) return empty("noAnchor");
+    if (eff.currency === "USD") return empty("currency");
+    var rows = cashflowRows(cashflowRows_in);
+    if (!rows.length) return empty("noRows");
+    var byPeriod = {}, anyComplete = false;
+    rows.forEach(function (rr) { byPeriod[rr.period] = rr; if (rr.isComplete) anyComplete = true; });
+    if (!anyComplete) return empty("noCompleteRows");
+    var icf = {};
+    if (Array.isArray(investmentRows_in)) {
+      investmentRows_in.forEach(function (r) { if (r && typeof r.period === "string") icf[r.period] = cfNum(r.invest_cash_flow); });
+    }
+    function flow(p) { return byPeriod[p].balance + (icf[p] || 0); }
+    function pt(period, cash, isComplete, beforeAnchor, isAnchor) {
+      return { period: period, cash: cash, invest: inv, total: cash + inv, isComplete: isComplete, beforeAnchor: beforeAnchor, isAnchor: isAnchor };
+    }
+    var inv = investable(eff);
+    var anchorP = a.date, prevP = _shiftYM(anchorP, -1);
+    var firstPeriod = rows[0].period, lastPeriod = rows[rows.length - 1].period;
+
+    // 後方: P(prevP) = anchor.amount。P(p−1) = P(p) − flow(p)（行 p が確定なら）。
+    var back = [], cash = a.amount, p = prevP, truncatedBackward = false;
+    while (true) {
+      var br = byPeriod[p];
+      if (!br || !br.isComplete) { truncatedBackward = (p >= firstPeriod); break; }
+      cash = cash - flow(p);
+      p = _shiftYM(p, -1);
+      back.push(pt(p, cash, true, true, false));
+    }
+    back.reverse();
+    var points = back.concat([pt(prevP, a.amount, true, true, true)]);
+
+    // 前方: P(anchorP) = anchor.amount + flow(anchorP) …。暫定行は末尾の1件だけ許す。
+    var truncatedForward = false, liveIndex = -1;
+    cash = a.amount; p = anchorP;
+    while (true) {
+      var fr = byPeriod[p];
+      if (!fr) { truncatedForward = (p <= lastPeriod); break; }
+      if (!fr.isComplete && p !== lastPeriod) { truncatedForward = true; break; }
+      cash = cash + flow(p);
+      points.push(pt(p, cash, fr.isComplete, false, false));
+      if (!fr.isComplete) { liveIndex = points.length - 1; break; }
+      p = _shiftYM(p, 1);
+    }
+    var latestCompleteIndex = -1;
+    for (var i = points.length - 1; i >= 0; i--) { if (points[i].isComplete) { latestCompleteIndex = i; break; } }
+    return { available: true, reason: "", anchorPeriod: anchorP, points: points,
+      truncatedForward: truncatedForward, truncatedBackward: truncatedBackward,
+      latestCompleteIndex: latestCompleteIndex, liveIndex: liveIndex };
+  }
+
+  // §3.3 前月比＝直近2つの確定点の total 差。
+  function momDelta(points) {
+    var pts = (Array.isArray(points) ? points : []).filter(function (q) { return q && q.isComplete; });
+    if (pts.length < 2) return { available: false, prevPeriod: "", curPeriod: "", delta: 0, pct: null, sign: 0 };
+    var prev = pts[pts.length - 2], cur = pts[pts.length - 1];
+    var d = cur.total - prev.total;
+    return { available: true, prevPeriod: prev.period, curPeriod: cur.period, delta: d,
+      pct: prev.total !== 0 ? (d / prev.total) * 100 : null, sign: d > 0 ? 1 : (d < 0 ? -1 : 0) };
+  }
+  // §3.3 最新確定点と months 個前の点の total 差（fold digest の「直近12ヶ月」・選択窓に依存しない）。
+  function spanDelta(points, months) {
+    var pts = Array.isArray(points) ? points : [];
+    var n = Math.max(1, Math.floor(num(months)));
+    var ci = -1;
+    for (var i = pts.length - 1; i >= 0; i--) { if (pts[i] && pts[i].isComplete) { ci = i; break; } }
+    if (ci < 0 || ci - n < 0) return { available: false, delta: 0, fromPeriod: "", toPeriod: "" };
+    return { available: true, delta: pts[ci].total - pts[ci - n].total, fromPeriod: pts[ci - n].period, toPeriod: pts[ci].period };
+  }
+
   return {
     STORAGE_KEY: STORAGE_KEY, CURRENT_VERSION: CURRENT_VERSION,
     NEXT_TARGETS: NEXT_TARGETS, FACTS_SCHEMA_VERSION: FACTS_SCHEMA_VERSION,
@@ -1390,5 +1486,8 @@
     nisaFacts: nisaFacts, nisaRaw: nisaRaw,
     nisaViewModel: nisaViewModel,
     nisaAvailableYears: nisaAvailableYears,
+    // W3 司令室PFMパック（UI 専用・facts 非出力）
+    SERIES_PERIODS: SERIES_PERIODS, normalizeSeriesPeriod: normalizeSeriesPeriod, seriesWindow: seriesWindow,
+    assetSeries: assetSeries, momDelta: momDelta, spanDelta: spanDelta,
   };
 });
