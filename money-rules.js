@@ -1445,6 +1445,99 @@
     return { available: true, delta: pts[ci].total - pts[ci - n].total, fromPeriod: pts[ci - n].period, toPeriod: pts[ci].period };
   }
 
+  // §3.3 期限月 − 今月（UTC 暦・reserveMonthly と同じ式・不正は null）。reserveMonthly 自体は無改変。
+  function monthsBetweenYM(nowMs, ymd) {
+    if (typeof ymd !== "string" || !/^\d{4}-\d{2}/.test(ymd) || !(num(nowMs) > 0)) return null;
+    var nd = new Date(num(nowMs));
+    if (!isFinite(nd.getTime())) return null;
+    var cy = nd.getUTCFullYear();
+    if (cy < 1 || cy > 9999) return null;
+    var nowYM = cy * 12 + nd.getUTCMonth();
+    var dlYM = parseInt(ymd.slice(0, 4), 10) * 12 + (parseInt(ymd.slice(5, 7), 10) - 1);
+    return dlYM - nowYM;
+  }
+  // §3.3 runway＝バッファ ÷ 月の生活費（小数1桁）。
+  function runwayMonths(eff) {
+    var exp = num(eff && eff.monthlyExpense), target = num(eff && eff.bufferMonths);
+    if (exp <= 0) return { available: false, months: 0, target: target, low: false };
+    var buf = num(eff.buckets && eff.buckets.buffer && eff.buckets.buffer.amount);
+    var m = Math.round(buf / exp * 10) / 10;
+    return { available: true, months: m, target: target, low: m < target };
+  }
+  // §3.3 目標の見通し。pace（monthlySurplus）は roadmap.milestones と同じ単一源（D7）。
+  function goalOutlook(goal, total, monthlySurplus, nowMs) {
+    var target = num(goal && goal.targetAmount), t = num(total), pace = num(monthlySurplus);
+    var remaining = Math.max(0, target - t);
+    var deadline = (goal && typeof goal.deadline === "string" && _DATE_RE.test(goal.deadline)) ? goal.deadline : "";
+    var etaMonths = remaining > 0 ? projectMonths(remaining, pace) : 0;
+    var etaPeriod = "";
+    if (etaMonths !== null && num(nowMs) > 0) {
+      var nd = new Date(num(nowMs));
+      if (isFinite(nd.getTime())) {
+        var nowP = nd.getUTCFullYear() + "-" + ("0" + (nd.getUTCMonth() + 1)).slice(-2) + "-01";
+        etaPeriod = _shiftYM(nowP, etaMonths).slice(0, 7);
+      }
+    }
+    var monthsLeft = deadline ? monthsBetweenYM(nowMs, deadline) : null;
+    var requiredMonthly = (deadline && monthsLeft !== null) ? Math.ceil(remaining / Math.max(1, monthsLeft)) : null;
+    var status;
+    if (remaining === 0) status = "achieved";
+    else if (deadline && monthsLeft !== null && monthsLeft < 0) status = "overdue";
+    else if (deadline && monthsLeft !== null) status = (pace > 0 && requiredMonthly <= pace) ? "onTrack" : "behind";
+    else status = pace > 0 ? "noDeadline" : "noPace";
+    return { remaining: remaining, etaMonths: etaMonths, etaPeriod: etaPeriod, monthsLeft: monthsLeft, requiredMonthly: requiredMonthly, status: status };
+  }
+  // §3.3 確保枠の見通し。ra は cashflowDerived().reserveAlloc[i]。hasSurplusCtx=false は語らない（unknown）。
+  function reserveOutlook(ra, nowMs, hasSurplusCtx) {
+    var target = num(ra && ra.target), saved = num(ra && ra.saved), allocated = num(ra && ra.allocated);
+    var deadline = (ra && typeof ra.deadline === "string" && _DATE_RE.test(ra.deadline)) ? ra.deadline : "";
+    var monthsLeft = deadline ? monthsBetweenYM(nowMs, deadline) : null;
+    var out = { monthsLeft: monthsLeft, projectedSaved: saved, projectedShortfall: Math.max(0, target - saved), status: "unknown" };
+    if (!hasSurplusCtx) return out;
+    if (ra && ra.complete) { out.status = "complete"; out.projectedShortfall = 0; return out; }
+    if (!deadline || monthsLeft === null) { out.status = "noDeadline"; return out; }
+    if (monthsLeft < 0) { out.status = "overdue"; return out; }
+    var projectedSaved = saved + allocated * Math.max(1, monthsLeft);
+    var shortfall = Math.max(0, target - projectedSaved);
+    return { monthsLeft: monthsLeft, projectedSaved: projectedSaved, projectedShortfall: shortfall, status: shortfall > 0 ? "short" : "onTrack" };
+  }
+  // §3.3 NISA 年内残枠のリマインド（月 1-9 info / 10-11 warn / 12 urgent・残枠>0 のみ）。
+  function nisaReminder(nvm, nowMs) {
+    var none = { level: "none", year: 0, monthsLeft: 0, remainingTotal: 0, remainingTsumitate: 0, remainingGrowth: 0,
+      monthlyToFillTotal: 0, monthlyToFillTsumitate: 0, monthlyToFillGrowth: 0 };
+    if (!nvm || !nvm.configured || !nvm.annual || !nvm.annual.total) return none;
+    var now = nisaNow(nowMs);
+    if (!now.valid) return none;
+    var remaining = num(nvm.annual.total.remaining);
+    if (remaining <= 0) return none;
+    var monthsLeft = num(nvm.monthsLeft);
+    var level = now.monthIndex <= 8 ? "info" : (now.monthIndex <= 10 ? "warn" : "urgent");
+    return { level: level, year: now.year, monthsLeft: monthsLeft, remainingTotal: remaining,
+      remainingTsumitate: num(nvm.annual.tsumitate && nvm.annual.tsumitate.remaining),
+      remainingGrowth: num(nvm.annual.growth && nvm.annual.growth.remaining),
+      monthlyToFillTotal: monthsLeft > 0 ? Math.ceil(remaining / monthsLeft) : 0,
+      monthlyToFillTsumitate: num(nvm.monthlyToFillTsumitate), monthlyToFillGrowth: num(nvm.monthlyToFillGrowth) };
+  }
+  // §3.3 リマインド帯の項目（warn/urgent のみ・urgent→warn・同レベルは入力順・目標は含めない）。
+  function reminders(input) {
+    var out = [];
+    var nisa = input && input.nisa;
+    if (nisa && (nisa.level === "warn" || nisa.level === "urgent")) {
+      out.push({ key: "nisa", id: "nisa", level: nisa.level, jump: "nisa", data: nisa });
+    }
+    var rs = (input && Array.isArray(input.reserves)) ? input.reserves : [];
+    rs.forEach(function (rv) {
+      var st = rv && rv.outlook && rv.outlook.status;
+      if (st !== "short" && st !== "overdue") return;
+      out.push({ key: "reserve", id: rv.id, label: rv.label, deadline: rv.deadline, allocated: num(rv.allocated),
+        level: st === "overdue" ? "urgent" : "warn", jump: "reserves", data: rv.outlook });
+    });
+    var rank = { urgent: 0, warn: 1 };
+    return out.map(function (it, i) { return { it: it, i: i }; })
+      .sort(function (x, y) { return (rank[x.it.level] - rank[y.it.level]) || (x.i - y.i); })
+      .map(function (w) { return w.it; });
+  }
+
   return {
     STORAGE_KEY: STORAGE_KEY, CURRENT_VERSION: CURRENT_VERSION,
     NEXT_TARGETS: NEXT_TARGETS, FACTS_SCHEMA_VERSION: FACTS_SCHEMA_VERSION,
@@ -1489,5 +1582,7 @@
     // W3 司令室PFMパック（UI 専用・facts 非出力）
     SERIES_PERIODS: SERIES_PERIODS, normalizeSeriesPeriod: normalizeSeriesPeriod, seriesWindow: seriesWindow,
     assetSeries: assetSeries, momDelta: momDelta, spanDelta: spanDelta,
+    monthsBetweenYM: monthsBetweenYM, runwayMonths: runwayMonths, goalOutlook: goalOutlook,
+    reserveOutlook: reserveOutlook, nisaReminder: nisaReminder, reminders: reminders,
   };
 });
