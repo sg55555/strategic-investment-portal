@@ -110,8 +110,13 @@ test("seriesWindow / normalizeSeriesPeriod", () => {
   assert.deepEqual(R.SERIES_PERIODS, ["6M", "1Y", "2Y", "ALL"]);
   assert.equal(R.seriesWindow(s.points, "6M").length, 6);
   assert.equal(R.seriesWindow(s.points, "1Y").length, 12);
-  assert.equal(R.seriesWindow(s.points, "2Y").length, s.points.length);  // 23点 < 24
+  assert.equal(R.seriesWindow(s.points, "2Y").length, s.points.length);  // 23点 < 24 なので ALL と同じ長さになる（下の合成30点配列で24点切出しを別途検証）
   assert.equal(R.seriesWindow(s.points, "ALL").length, s.points.length);
+  // 2Y の24点切出し自体を検証（fixture は23点しかなく上のアサーションだけでは ALL と区別できないため、合成30点配列で確認）
+  const synth = Array.from({ length: 30 }, (_, i) => ({ period: "synth-" + i }));
+  assert.equal(R.seriesWindow(synth, "2Y").length, 24);
+  assert.equal(R.seriesWindow(synth, "2Y")[0].period, synth[6].period);
+  assert.equal(R.seriesWindow(synth, "2Y")[23].period, synth[29].period);
   assert.equal(R.seriesWindow(s.points, "6M")[5].period, s.points[s.points.length - 1].period);
   assert.equal(R.normalizeSeriesPeriod("bogus"), "1Y");
   assert.equal(R.normalizeSeriesPeriod(null), "1Y");
