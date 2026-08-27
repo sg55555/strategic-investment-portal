@@ -217,8 +217,10 @@ class Handler(SimpleHTTPRequestHandler):
     def _send_index(self):
         with open(os.path.join(ROOT, "index.html"), "rb") as f:
             html = f.read().decode("utf-8")
-        i = html.rfind("</body>")
-        html = (html[:i] + "  " + INJECT_TAG + "\n" + html[i:]) if i >= 0 else (html + INJECT_TAG)
+        # W3_VARIANTS=0 なら比較用オーバーレイ（w3-variants.js）を注入しない＝本実装の money.js だけを検証する（受入用）。
+        if os.environ.get("W3_VARIANTS", "1") != "0":
+            i = html.rfind("</body>")
+            html = (html[:i] + "  " + INJECT_TAG + "\n" + html[i:]) if i >= 0 else (html + INJECT_TAG)
         raw = html.encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")

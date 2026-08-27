@@ -723,6 +723,129 @@ window.MCC = (function () {
       '</div>');
   }
 
+  // ==== W3 司令室PFMパック: 推移カード（spec §4.2）。業務値は R.assetSeries の points をそのまま描く（表示幾何のみ）====
+  var _SERIES_KEY = "mcc_series_period";   // 端末ローカル（mcc_tab と同じ扱い・クラウド state に混ぜない）
+  function _loadSeriesPeriod() {
+    try { return R.normalizeSeriesPeriod(localStorage.getItem(_SERIES_KEY)); } catch (e) { return R.normalizeSeriesPeriod(null); }
+  }
+  var _seriesPeriod = _loadSeriesPeriod();
+  function setSeriesPeriod(key) {
+    _seriesPeriod = R.normalizeSeriesPeriod(key);
+    try { localStorage.setItem(_SERIES_KEY, _seriesPeriod); } catch (e) { /* 保存不可でもセッション内は保持 */ }
+    render();
+  }
+  // 符号付き¥（前月比・差分表示用）。マイナスは U+2212。0 は ±¥0。
+  function fmtDeltaYen(n) {
+    var v = Math.round(Number(n) || 0);
+    return (v > 0 ? "+" : (v < 0 ? "−" : "±")) + R.yen(Math.abs(v));
+  }
+  // 軸ラベル用の短縮¥（120万／1.2億）。
+  function fmtYenShort(n) {
+    var v = Math.round(Number(n) || 0), a = Math.abs(v), s = v < 0 ? "−" : "";
+    if (a >= 100000000) return s + (Math.round(a / 10000000) / 10).toLocaleString("ja-JP") + "億";
+    if (a >= 10000) return s + Math.round(a / 10000).toLocaleString("ja-JP") + "万";
+    return s + a.toLocaleString("ja-JP");
+  }
+  function _niceStep(raw) {
+    if (!(raw > 0)) return 1;
+    var p = Math.pow(10, Math.floor(Math.log(raw) / Math.LN10)), f = raw / p;
+    return (f <= 1 ? 1 : (f <= 2 ? 2 : (f <= 5 ? 5 : 10))) * p;
+  }
+  function _seriesCap(p) {
+    return fmtAnchorMonth(p.period) + "：総資産 " + R.yen(p.total) + "（現金 " + R.yen(p.cash) + "・投資 " + R.yen(p.invest) + "）" + (p.isComplete ? "" : "（当月・暫定）");
+  }
+  // 積み上げエリア（現金の上に投資）＋Y目盛＋X ラベル＋点＋アンカー線＋ヒット矩形。
+  function seriesSvg(pts) {
+    var W = 640, H = 220, padL = 60, padR = 14, padT = 14, padB = 26, n = pts.length;
+    if (!n) return "";
+    var maxV = 0, minV = 0;
+    pts.forEach(function (p) { maxV = Math.max(maxV, p.total, p.cash); minV = Math.min(minV, p.cash); });
+    var step = _niceStep(Math.max(1, maxV - minV) / 3);
+    var top = step * Math.ceil(Math.max(1, maxV) / step), lo = step * Math.floor(minV / step);
+    if (top === lo) top = lo + step;
+    var iw = W - padL - padR, ih = H - padT - padB;
+    function x(i) { return n > 1 ? padL + iw * i / (n - 1) : padL + iw / 2; }
+    function y(v) { return padT + ih * (1 - (v - lo) / (top - lo)); }
+    function f(v) { return Math.round(v * 10) / 10; }
+    var grid = "";
+    for (var g = lo; g <= top + 1e-9; g += step) {
+      grid += '<line class="mcc-series-grid" x1="' + padL + '" y1="' + f(y(g)) + '" x2="' + (W - padR) + '" y2="' + f(y(g)) + '"></line>' +
+        '<text class="mcc-series-ylbl" x="' + (padL - 6) + '" y="' + f(y(g) + 4) + '" text-anchor="end">' + esc(fmtYenShort(g)) + '</text>';
+    }
+    var cashTop = pts.map(function (p, i) { return f(x(i)) + "," + f(y(p.cash)); });
+    var totalTop = pts.map(function (p, i) { return f(x(i)) + "," + f(y(p.total)); });
+    var base = f(y(Math.max(lo, 0)));
+    var cashArea = "M" + f(x(0)) + "," + base + " L" + cashTop.join(" L") + " L" + f(x(n - 1)) + "," + base + " Z";
+    var investArea = "M" + cashTop.join(" L") + " L" + totalTop.slice().reverse().join(" L") + " Z";
+    var xl = "";
+    var idx = n <= 4 ? pts.map(function (_, i) { return i; }) : [0, Math.round((n - 1) / 3), Math.round((n - 1) * 2 / 3), n - 1];
+    idx.forEach(function (i) {
+      xl += '<text class="mcc-series-xlbl" x="' + f(x(i)) + '" y="' + (H - 8) + '" text-anchor="' + (i === 0 ? "start" : (i === n - 1 ? "end" : "middle")) + '">' +
+        esc(pts[i].period.slice(0, 4) + "/" + pts[i].period.slice(5, 7)) + '</text>';
+    });
+    var anchor = "";
+    pts.forEach(function (p, i) {
+      if (!p.isAnchor) return;
+      anchor += '<line class="mcc-series-anchor" x1="' + f(x(i)) + '" y1="' + padT + '" x2="' + f(x(i)) + '" y2="' + (H - padB) + '"></line>';
+      if (i > 0) anchor += '<text class="mcc-series-anchor-lbl" x="' + f(x(i) + 4) + '" y="' + (padT + 10) + '">基準</text>';
+    });
+    var dots = "", hits = "";
+    pts.forEach(function (p, i) {
+      dots += '<circle class="mcc-series-pt ' + (p.isComplete ? "complete" : "live") + '" cx="' + f(x(i)) + '" cy="' + f(y(p.total)) + '" r="2.8"></circle>';
+      var x0 = i === 0 ? padL : f((x(i - 1) + x(i)) / 2), x1 = i === n - 1 ? (W - padR) : f((x(i) + x(i + 1)) / 2);
+      hits += '<rect class="mcc-series-hit" data-i="' + i + '" data-cap="' + esc(_seriesCap(p)) + '" x="' + x0 + '" y="' + padT + '" width="' + f(x1 - x0) + '" height="' + ih + '"></rect>';
+    });
+    return '<svg class="mcc-series-svg" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="資産の推移">' +
+      grid + '<path class="mcc-series-cash" d="' + cashArea + '"></path>' + '<path class="mcc-series-invest" d="' + investArea + '"></path>' +
+      '<polyline class="mcc-series-cashline" points="' + cashTop.join(" ") + '"></polyline>' +
+      '<polyline class="mcc-series-totalline" points="' + totalTop.join(" ") + '"></polyline>' +
+      anchor + xl + dots + hits + '</svg>';
+  }
+  // 推移カード本体。series=R.assetSeries／mom=R.momDelta／span=R.spanDelta(points,12)／periodKey=_seriesPeriod。
+  function seriesSection(series, mom, span, periodKey) {
+    var digest, body;
+    if (!series || !series.available) {
+      var msg;
+      if (!sync.loggedIn) msg = 'ログインすると推移が表示されます → ' + jumpLink("sync", "ログイン");
+      else if (series && series.reason === "noAnchor") msg = jumpLink("anchor", "「貯蓄の基準」") + 'で基準（アンカー）を設定すると推移が表示されます';
+      else if (series && series.reason === "currency") msg = 'JPY 以外の通貨には対応していません';
+      else msg = '収支データが連携されると推移が表示されます';
+      digest = '<b>未表示</b>';
+      body = '<div class="mcc-series"><div class="mcc-series-empty">' + msg + '</div></div>';
+    } else {
+      var key = R.normalizeSeriesPeriod(periodKey);
+      var win = R.seriesWindow(series.points, key);
+      var parts = [];
+      if (mom && mom.available) parts.push('前月比 <b class="' + (mom.sign > 0 ? "pos" : (mom.sign < 0 ? "neg" : "")) + '">' + esc(fmtDeltaYen(mom.delta)) + '</b>');
+      if (span && span.available) parts.push('直近12ヶ月 <b>' + esc(fmtDeltaYen(span.delta)) + '</b>');
+      digest = parts.length ? parts.join("・") : '推移を表示';
+      var bar = '<div class="mcc-series-bar"><span class="mcc-series-bar-lbl">期間</span>' + R.SERIES_PERIODS.map(function (k) {
+        return '<button type="button" class="mcc-series-btn" data-period="' + k + '" aria-pressed="' + (k === key ? "true" : "false") + '" onclick="MCC.setSeriesPeriod(\'' + k + '\')">' + k + '</button>';
+      }).join("") + '</div>';
+      var last = win[win.length - 1];
+      var notes = ['<div class="mcc-series-note">投資分（コア＋サテライト）は現在値で固定・時価ではありません</div>'];
+      if (win.some(function (p) { return p.beforeAnchor && !p.isAnchor; })) {
+        notes.push('<div class="mcc-series-note">基準（' + esc(fmtAnchorMonth(series.anchorPeriod)) + '）より前は収支から逆算</div>');
+      }
+      if (series.truncatedBackward && win.length && win[0] === series.points[0]) {
+        notes.push('<div class="mcc-series-note">' + esc(fmtAnchorMonth(series.points[0].period)) + '以前は収支データが無いため表示していません</div>');
+      }
+      body = '<div class="mcc-series">' + bar + seriesSvg(win) +
+        '<div class="mcc-series-cap">' + esc(_seriesCap(last)) + '</div>' +
+        '<div class="mcc-series-legend"><span class="cash">■ 現金</span><span class="invest">■ 投資（現在値）</span><span class="live">○ 当月（暫定）</span></div>' +
+        notes.join("") + '</div>';
+    }
+    return foldSection("mcc-sec-series", "mcc-fold-series", "資産の推移", digest, body);
+  }
+  // hover/tap/focus で最寄り列のキャプションを差し替える（data-cap のコピーのみ・math なし）。
+  function _onRootSeriesPoint(e) {
+    var t = e.target;
+    if (!t || !t.classList || !t.classList.contains("mcc-series-hit")) return;
+    var host = t.closest ? t.closest(".mcc-series") : null;
+    var cap = host ? host.querySelector(".mcc-series-cap") : null;
+    if (cap) cap.textContent = t.getAttribute("data-cap") || "";
+  }
+
   // 収支推移のスパークライン（balance バー・正=緑/負=赤・当月は半透明）。isolated SVG＝Chart.js を持ち込まない。
   function sparkline(history) {
     if (!history || history.length < 2) return "";
@@ -1826,7 +1949,7 @@ window.MCC = (function () {
   var _FOLD_KEY = "mcc_details";
   // 保存された開閉が**無いとき**の既定 open。ダッシュボードは収支だけ（毎日見る筆頭）＝開幕から縦に長くしない。
   // 設定タブの入力 details は開いておく（入力するために開いた面で、さらに1クリック要求しない）。
-  var _FOLD_DEFAULT_OPEN = { "mcc-sec-cashflow": true, "mcc-sec-settings": true, "mcc-ac-input": true, "mcc-nisa-input": true };
+  var _FOLD_DEFAULT_OPEN = { "mcc-sec-cashflow": true, "mcc-sec-series": true, "mcc-sec-settings": true, "mcc-ac-input": true, "mcc-nisa-input": true };
   function _loadFolds() {
     try {
       var v = JSON.parse(localStorage.getItem(_FOLD_KEY) || "{}");
@@ -1961,6 +2084,7 @@ window.MCC = (function () {
     reserves:    { id: "mcc-sec-reserves-goals", tab: "dash" },
     assets:      { id: "mcc-sec-assets",         tab: "dash" },
     nisa:        { id: "mcc-sec-nisa",           tab: "dash" },
+    series:      { id: "mcc-sec-series",         tab: "dash" },
   };
   // 収支セクションは未ログインだと描画されない（認証データ）。連携にはログインが前提なので login 欄へフォールバック。
   // 基準（アンカー）カードも同じゲート（収支連携が前提の設定）＝未ログインではログイン欄へ倒す。
@@ -2072,6 +2196,10 @@ window.MCC = (function () {
     // （旧: 各セクションが個別に R.cashDerived を呼んでいた＝同一入力の2重算出）。anchor は eff.anchor
     // （effectiveState は buckets のみ差し替えるため eff.anchor === state.anchor だが、参照元を eff に統一する）。
     var cdMain = R.cashDerived(_cashflowRows, _investmentRows, (eff && eff.anchor) || {}, now);
+    // W3: 推移カードの VM（全て純関数・facts 非出力）。
+    var series = R.assetSeries(eff, _cashflowRows, _investmentRows);
+    var mom = R.momDelta(series.points);
+    var span = R.spanDelta(series.points, 12);
 
     // D3: 旧 .mcc-gauge-card（バッファ達成率の独立カード）は廃止＝ヒーロー右カラムのゲージへ一本化。
     // 同じ達成率・同じ金額・同じ「設定」導線を縦に2枚並べると、どちらが最新かを読む作業が増えるだけで
@@ -2177,6 +2305,7 @@ window.MCC = (function () {
     // タブ移動で失われない。display は CSS 側（.mcc-pane[hidden]）に委ねる。
     var nvm = R.nisaViewModel(eff, cd, now, _investmentRows);
     var dashHtml = syncBar() + saveWarn + stepperSection(ob) + heroSection(vm, cv, cdMain) +
+      seriesSection(series, mom, span, _seriesPeriod) +
       cashflowSection(cv) + roadmapSection(rm, sync.loggedIn) + nisaSection(nvm) +
       assetClassSection(vm) + reservesGoalsSection(vm, cv, cdMain) + adviceSection(vm);
     // review fix 2: saveWarn は**両ペインの先頭**に出す。設定タブは入力の面（保存が最も走る場所）で、
@@ -2252,6 +2381,9 @@ window.MCC = (function () {
     var root = document.getElementById("mcc-root");
     if (root) root.addEventListener("focusout", _onRootFocusOut);
     if (root) root.addEventListener("toggle", _onRootToggle, true);   // D3: 折りたたみ開閉の即時保存（capture＝toggle は非バブル）
+    if (root) root.addEventListener("mousemove", _onRootSeriesPoint);                      // W3: 推移カードのキャプション差替
+    if (root) root.addEventListener("touchstart", _onRootSeriesPoint, { passive: true });
+    if (root) root.addEventListener("focusin", _onRootSeriesPoint);
     render();  // localStorage で即描画（セッション確認は司令室を開いた初回に遅延）
   }
 
@@ -2275,6 +2407,7 @@ window.MCC = (function () {
     requestAdvice: requestAdvice, requestNisaAdvice: requestNisaAdvice, applySurplus: applySurplus,
     saveAnchor: saveAnchor, editAnchor: editAnchor, refreshData: refreshData, jumpTo: jumpTo, adoptAvgExpense: adoptAvgExpense,
     switchTab: switchTab,
+    setSeriesPeriod: setSeriesPeriod,
     addReserve: addReserve, removeReserve: removeReserve, fundReserve: fundReserve, setReserveField: setReserveField,
     acSetScope: acSetScope, acFillCashOnly: acFillCashOnly,
     setNisaSource: setNisaSource, addNisaYear: addNisaYear,

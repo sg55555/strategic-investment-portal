@@ -1298,3 +1298,33 @@
   letter-spacing: 0;
   line-height: 1.65;
 }
+
+/* ==== W3 司令室PFMパック: 推移カード（spec §5）==== */
+.mcc-fold-series > summary .mcc-fold-mk { color: var(--c-cyan-bright); }
+.mcc-series { display: block; }
+.mcc-series-empty { color: var(--c-text-dim); font-size: 0.8rem; padding: 6px 0 4px; line-height: 1.6; }
+.mcc-series-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 8px; }
+.mcc-series-bar-lbl { color: var(--c-text-dim); font-size: 12px; letter-spacing: 1px; margin-right: 4px; }
+.mcc-series-btn {
+  background: rgba(0,0,0,0.3); border: 1px solid rgba(129,140,248,0.3); color: var(--c-text-dim);
+  border-radius: 3px; padding: 3px 9px; font-size: 12px; font-weight: 700; letter-spacing: 1px; cursor: pointer;
+}
+.mcc-series-btn:hover { color: var(--c-cyan-pale); }
+.mcc-series-btn[aria-pressed="true"] { color: var(--c-cyan-bright); border-color: var(--c-cyan); box-shadow: 0 0 8px -2px var(--c-cyan); }
+.mcc-series-svg { display: block; width: 100%; height: auto; }
+.mcc-series-grid { stroke: rgba(255,255,255,0.08); stroke-width: 1; }
+.mcc-series-ylbl, .mcc-series-xlbl { fill: var(--c-text-mute); font-size: 11px; font-family: var(--ix-mono, monospace); }
+.mcc-series-cash { fill: rgba(56,189,248,0.22); }
+.mcc-series-invest { fill: rgba(129,140,248,0.25); }
+.mcc-series-cashline { fill: none; stroke: var(--c-cyan); stroke-width: 1.5; }
+.mcc-series-totalline { fill: none; stroke: var(--c-indigo-bright); stroke-width: 1.2; }
+.mcc-series-anchor { stroke: var(--c-cyan-pale); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0.7; }
+.mcc-series-anchor-lbl { fill: var(--c-cyan-pale); font-size: 11px; }
+.mcc-series-pt.complete { fill: var(--c-indigo-pale); }
+.mcc-series-pt.live { fill: var(--c-surface-solid); stroke: var(--c-cyan-bright); stroke-width: 1.5; }
+.mcc-series-hit { fill: transparent; cursor: crosshair; }
+.mcc-series-hit:hover { fill: rgba(255,255,255,0.03); }
+.mcc-series-cap { color: var(--c-text-bright); font-size: 12px; margin-top: 6px; min-height: 1.4em; }
+.mcc-series-legend { display: flex; flex-wrap: wrap; gap: 12px; color: var(--c-text-dim); font-size: 12px; margin-top: 4px; }
+.mcc-series-legend .cash { color: var(--c-cyan); } .mcc-series-legend .invest { color: var(--c-indigo-bright); } .mcc-series-legend .live { color: var(--c-cyan-bright); }
+.mcc-series-note { color: var(--c-text-faint); font-size: 12px; line-height: 1.5; margin-top: 4px; font-family: var(--ix-sans); letter-spacing: 0; }
