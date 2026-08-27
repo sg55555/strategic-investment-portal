@@ -184,7 +184,64 @@ async function main() {
       check("S3 pageerror 0", errors.length === 0, errors.join(" / "));
       await context.close();
     }
-    // ---- 後続 Task がここにシナリオを追加（S4 ヒーロー/帯・S5 fold 内の行）----
+    // ---- S4 ヒーロー（前月比・runway）＋リマインド帯 ----
+    {
+      const cd = R.cashflowDerived(rows, eff, NOW_AUG);
+      const hasSurplusCtx = cd.available && cd.monthlySurplus > 0;
+      const mom = R.momDelta(series.points), rw = R.runwayMonths(eff);
+      // 8月: NISA は info（帯に出ない）。確保枠の short/overdue だけが帯に出る想定。
+      const remAug = R.reminders({ nisa: R.nisaReminder(R.nisaViewModel(eff, cd, NOW_AUG, []), NOW_AUG),
+        reserves: cd.reserveAlloc.map((ra) => ({ id: ra.id, label: ra.label, deadline: ra.deadline, allocated: ra.allocated, outlook: R.reserveOutlook(ra, NOW_AUG, hasSurplusCtx) })) });
+      const { context, page, errors } = await newPage(browser, PC, NOW_AUG, true);
+      const h = await page.evaluate(() => ({
+        amount: document.querySelector(".mcc-hero-amount")?.textContent || "",
+        momText: document.querySelector(".mcc-hero-mom")?.textContent || "", momCls: document.querySelector(".mcc-hero-mom")?.className || "",
+        rwText: document.querySelector(".mcc-hero-runway")?.textContent || "", rwCls: document.querySelector(".mcc-hero-runway")?.className || "",
+        rail: Array.from(document.querySelectorAll(".mcc-rail-item")).map((n) => n.className + "|" + n.dataset.key + "|" + n.dataset.id + "|" + n.textContent),
+      }));
+      check("S4 金額ノードは金額のみ", h.amount.trim() === R.yen(eff.buckets.buffer.amount), h.amount);
+      check("S4 前月比バッジの文言", h.momText === "前月比 " + (function () { const v = Math.round(mom.delta); return (v > 0 ? "+" : (v < 0 ? "−" : "±")) + R.yen(Math.abs(v)); })() + (mom.pct === null ? "" : "（" + (mom.sign > 0 ? "+" : (mom.sign < 0 ? "−" : "")) + Math.abs(mom.pct).toFixed(1) + "%）"), h.momText);
+      check("S4 前月比バッジの色クラス", h.momCls.indexOf(mom.sign > 0 ? "pos" : (mom.sign < 0 ? "neg" : "flat")) >= 0, h.momCls);
+      check("S4 runway チップ", h.rwText === "生活費 " + rw.months.toFixed(1) + "ヶ月分" && h.rwCls.indexOf(rw.low ? "low" : "ok") >= 0, h.rwText + " " + h.rwCls);
+      check("S4 8月の帯の件数＝期待", h.rail.length === remAug.length, JSON.stringify(h.rail));
+      remAug.forEach((it, i) => check("S4 帯[" + i + "] key/id/level", (h.rail[i] || "").indexOf(it.level + "|" + it.key + "|" + it.id) >= 0, h.rail[i]));
+      if (remAug.some((it) => it.key === "reserve" && it.level === "warn")) {
+        const it = remAug.find((x) => x.key === "reserve" && x.level === "warn");
+        check("S4 確保枠 short の本文", h.rail.some((t) => t.indexOf(R.yen(it.data.projectedShortfall) + " 不足の見込み") >= 0 && t.indexOf("→ 確保枠") >= 0), JSON.stringify(h.rail));
+      }
+      // 帯のリンクで fold が開く
+      if (h.rail.length) {
+        await page.evaluate(() => document.querySelector(".mcc-rail-item .mcc-jump").click());
+        await page.waitForTimeout(300);
+        check("S4 帯リンクで fold が open", await page.evaluate(() => document.getElementById("mcc-sec-reserves-goals")?.open === true || document.getElementById("mcc-sec-nisa")?.open === true));
+      }
+      check("S4 pageerror 0", errors.length === 0, errors.join(" / "));
+      await context.close();
+      // 11月: NISA warn が加わる（urgent→warn 順）
+      const cdN = R.cashflowDerived(rows, eff, NOW_NOV);
+      const remNov = R.reminders({ nisa: R.nisaReminder(R.nisaViewModel(eff, cdN, NOW_NOV, []), NOW_NOV),
+        reserves: cdN.reserveAlloc.map((ra) => ({ id: ra.id, label: ra.label, deadline: ra.deadline, allocated: ra.allocated, outlook: R.reserveOutlook(ra, NOW_NOV, cdN.available && cdN.monthlySurplus > 0) })) });
+      const nov = await newPage(browser, PC, NOW_NOV, true);
+      const railNov = await nov.page.evaluate(() => Array.from(document.querySelectorAll(".mcc-rail-item")).map((n) => n.className + "|" + n.dataset.key + "|" + n.dataset.id + "|" + n.textContent));
+      check("S4 11月の帯の件数", railNov.length === remNov.length && remNov.some((it) => it.key === "nisa"), JSON.stringify(railNov));
+      remNov.forEach((it, i) => check("S4 11月 帯[" + i + "] 順序", (railNov[i] || "").indexOf(it.level + "|" + it.key + "|" + it.id) >= 0, railNov[i]));
+      const nisaIt = remNov.find((it) => it.key === "nisa");
+      if (nisaIt) check("S4 NISA warn の本文", railNov.some((t) => t.indexOf(R.yen(nisaIt.data.remainingTotal) + " 残っています") >= 0 && t.indexOf("翌年に繰り越せません") >= 0 && t.indexOf("→ NISA") >= 0), JSON.stringify(railNov));
+      check("S4 11月 pageerror 0", nov.errors.length === 0, nov.errors.join(" / "));
+      await nov.context.close();
+      // 12月: urgent
+      const dec = await newPage(browser, PC, NOW_DEC, true);
+      const railDec = await dec.page.evaluate(() => Array.from(document.querySelectorAll(".mcc-rail-item")).map((n) => n.className + "|" + n.textContent));
+      check("S4 12月は NISA urgent", railDec.some((t) => t.indexOf("urgent") >= 0 && t.indexOf("今月が最後") >= 0), JSON.stringify(railDec));
+      check("S4 12月 pageerror 0", dec.errors.length === 0, dec.errors.join(" / "));
+      await dec.context.close();
+      // 390px: ゲージ行が折り返して溢れない
+      const sp = await newPage(browser, SP, NOW_AUG, true);
+      const ov = await sp.page.evaluate(() => ({ view: document.getElementById("money-view").scrollWidth, row: document.querySelector(".mcc-hero-gauge-row").scrollWidth, rowW: document.querySelector(".mcc-hero-gauge-row").clientWidth }));
+      check("S4 390px 横あふれなし", ov.view <= 390 && ov.row <= ov.rowW + 1, JSON.stringify(ov));
+      await sp.context.close();
+    }
+    // ---- 後続 Task がここにシナリオを追加（S5 fold 内の行）----
   } finally {
     if (browser) await browser.close();
     server.kill();

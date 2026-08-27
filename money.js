@@ -837,6 +837,29 @@ window.MCC = (function () {
     }
     return foldSection("mcc-sec-series", "mcc-fold-series", "資産の推移", digest, body);
   }
+  // W3: リマインド帯（spec §4.4・§7）。rem=R.reminders(...)。0件なら DOM を作らない。
+  function reminderRail(rem) {
+    if (!rem || !rem.length) return "";
+    var items = rem.map(function (it) {
+      var text, jumpLabel;
+      if (it.key === "nisa") {
+        var d = it.data;
+        text = it.level === "urgent"
+          ? '今年の NISA 非課税枠 ' + R.yen(d.remainingTotal) + ' が未使用です（今月が最後・翌年に繰り越せません）。'
+          : '今年の NISA 非課税枠が ' + R.yen(d.remainingTotal) + ' 残っています（月 ' + R.yen(d.monthlyToFillTotal) + ' で年内満額・残 ' + d.monthsLeft + 'ヶ月）。年内に使わなかった枠は翌年に繰り越せません。';
+        jumpLabel = "→ NISA";
+      } else {
+        var o = it.data, nm = '「' + esc(it.label || "（無題）") + '」', dl = '期日（' + esc(fmtAnchorMonth(it.deadline)) + '）';
+        text = it.level === "urgent"
+          ? nm + 'は' + dl + 'を過ぎていますが ' + R.yen(o.projectedShortfall) + ' 未達です。'
+          : nm + 'は' + dl + 'までに ' + R.yen(o.projectedShortfall) + ' 不足の見込みです（今のペース 月 ' + R.yen(it.allocated) + '）。';
+        jumpLabel = "→ 確保枠";
+      }
+      return '<div class="mcc-rail-item ' + it.level + '" data-key="' + esc(it.key) + '" data-id="' + esc(String(it.id)) + '">' +
+        '<span class="mcc-rail-ico">●</span><span class="mcc-rail-text">' + text + '</span>' + jumpLink(it.jump, jumpLabel) + '</div>';
+    });
+    return '<div class="mcc-rail" role="status">' + items.join("") + '</div>';
+  }
   // hover/tap/focus で最寄り列のキャプションを差し替える（data-cap のコピーのみ・math なし）。
   function _onRootSeriesPoint(e) {
     var t = e.target;
@@ -901,7 +924,7 @@ window.MCC = (function () {
   //   ③ 鮮度行    … cashflowSection 下端から移設（id=mcc-cf-fetchnote は移設先でも1個だけ）
   // 業務 math は持たない＝vm(viewModel)/cv(cashflowViewModel)/cd(cashDerived) が出した値を描くだけ。
   // 引数: vm=R.viewModel(eff) / cv=R.cashflowViewModel(rows, eff, now) / cd=R.cashDerived(...)（render が算出）。
-  function heroSection(vm, cv, cd) {
+  function heroSection(vm, cv, cd, mom, rw) {
     // 連動判定は _anchorLinked の1点のみ（R.effectiveState が no-op か否か＝money.js 側で条件を再実装しない）。
     var linked = _anchorLinked;
 
@@ -909,6 +932,17 @@ window.MCC = (function () {
     var label = linked ? "いまの貯蓄額（確定）" : "バッファ（現金）";
     var chip = linked ? '<span class="mcc-hero-chip-live">自動算出</span>' : "";
     var amount = linked ? cv.fmt(cd.derivedCash) : vm.fmt(vm.bufferAmount);
+    // W3: 前月比バッジ（確定月ベース）。.mcc-hero-amount の**兄弟**に置く（金額ノードの中身は金額のみ＝既存 E2E 契約）。
+    var momHtml = "";
+    if (linked && mom && mom.available) {
+      var momCls = mom.sign > 0 ? "pos" : (mom.sign < 0 ? "neg" : "flat");
+      var pctTxt = mom.pct === null ? "" : "（" + (mom.sign > 0 ? "+" : (mom.sign < 0 ? "−" : "")) + Math.abs(mom.pct).toFixed(1) + "%）";
+      momHtml = '<span class="mcc-hero-mom ' + momCls + '">前月比 ' + esc(fmtDeltaYen(mom.delta)) + esc(pctTxt) + '</span>';
+    }
+    // W3: runway チップ（バッファ ÷ 月の生活費）。
+    var runwayHtml = (vm.bufferConfigured && rw && rw.available)
+      ? '<span class="mcc-hero-runway ' + (rw.low ? "low" : "ok") + '" title="目標 ' + esc(String(vm.bufferMonths)) + 'ヶ月分">生活費 ' + esc(rw.months.toFixed(1)) + 'ヶ月分</span>'
+      : "";
 
     var basis;
     if (linked) {
@@ -970,7 +1004,7 @@ window.MCC = (function () {
     return '<div class="mcc-hero">' +
       '<div class="mcc-hero-main">' +
         '<div class="mcc-hero-label">' + esc(label) + termHelp("バッファ") + chip + '</div>' +
-        '<div class="mcc-hero-amount">' + amount + '</div>' +
+        '<div class="mcc-hero-amount-row"><div class="mcc-hero-amount">' + amount + '</div>' + momHtml + '</div>' +
         '<div class="mcc-hero-basis">' + basis + '</div>' +
         ref +
       '</div>' +
@@ -979,7 +1013,7 @@ window.MCC = (function () {
           '<div class="mcc-hero-side-label">バッファ目標（生活防衛資金）' + autoBadge + '</div>' +
           '<div class="mcc-hero-gauge-row">' +
             '<div class="mcc-hero-gauge-track"><div class="mcc-hero-gauge-fill" style="width:' + gaugePct + '%"></div></div>' +
-            '<span class="mcc-hero-gauge-pct">' + gaugePct + '%</span>' + doneBadge +
+            '<span class="mcc-hero-gauge-pct">' + gaugePct + '%</span>' + doneBadge + runwayHtml +
           '</div>' +
           '<div class="mcc-hero-ref-note">' + gaugeNote + '</div>' +
         '</div>' +
@@ -2192,6 +2226,9 @@ window.MCC = (function () {
     // （reserveAlloc 等のキー名が cv とは異なるため、cv を渡さず別途算出＝R.roadmap の想定形状に一致させる）。
     var cd = R.cashflowDerived(_cashflowRows, eff, now);
     var rm = R.roadmap(eff, cd, now);
+    // W3: nvm（NISA VM）は nisaSection だけでなくリマインド帯（nisaReminder）も参照するため、
+    // dashHtml 直前ではなく他の VM と同じ位置で1回だけ算出する（式・引数は移動前と同一）。
+    var nvm = R.nisaViewModel(eff, cd, now, _investmentRows);
     // データ基盤Phase1: 導出現金は render で1回だけ算出し、cashflowSection / reservesSection へ引数で配る
     // （旧: 各セクションが個別に R.cashDerived を呼んでいた＝同一入力の2重算出）。anchor は eff.anchor
     // （effectiveState は buckets のみ差し替えるため eff.anchor === state.anchor だが、参照元を eff に統一する）。
@@ -2200,6 +2237,13 @@ window.MCC = (function () {
     var series = R.assetSeries(eff, _cashflowRows, _investmentRows);
     var mom = R.momDelta(series.points);
     var span = R.spanDelta(series.points, 12);
+    // W3: ヒーローの runway チップ・リマインド帯の VM（全て純関数・facts 非出力）。
+    var rw = R.runwayMonths(eff);
+    var nrem = R.nisaReminder(nvm, now);
+    var hasSurplusCtx = cv.available && cv.surplusPositive;
+    var rol = cd.reserveAlloc.map(function (ra) { return R.reserveOutlook(ra, now, hasSurplusCtx); });
+    var rem = R.reminders({ nisa: sync.loggedIn ? nrem : null,
+      reserves: cd.reserveAlloc.map(function (ra, i) { return { id: ra.id, label: ra.label, deadline: ra.deadline, allocated: ra.allocated, outlook: rol[i] }; }) });
 
     // D3: 旧 .mcc-gauge-card（バッファ達成率の独立カード）は廃止＝ヒーロー右カラムのゲージへ一本化。
     // 同じ達成率・同じ金額・同じ「設定」導線を縦に2枚並べると、どちらが最新かを読む作業が増えるだけで
@@ -2303,9 +2347,8 @@ window.MCC = (function () {
     // （未ログインだと収支・AIが丸ごと出ない＝原因が画面から読めなくなる）、jumpTo("sync") の着地点でもある。
     // 非アクティブ側も **DOM には残す**（hidden 属性のみ）＝details の開閉/入力値/イベント配線が
     // タブ移動で失われない。display は CSS 側（.mcc-pane[hidden]）に委ねる。
-    var nvm = R.nisaViewModel(eff, cd, now, _investmentRows);
-    var dashHtml = syncBar() + saveWarn + stepperSection(ob) + heroSection(vm, cv, cdMain) +
-      seriesSection(series, mom, span, _seriesPeriod) +
+    var dashHtml = syncBar() + saveWarn + stepperSection(ob) + heroSection(vm, cv, cdMain, mom, rw) +
+      reminderRail(rem) + seriesSection(series, mom, span, _seriesPeriod) +
       cashflowSection(cv) + roadmapSection(rm, sync.loggedIn) + nisaSection(nvm) +
       assetClassSection(vm) + reservesGoalsSection(vm, cv, cdMain) + adviceSection(vm);
     // review fix 2: saveWarn は**両ペインの先頭**に出す。設定タブは入力の面（保存が最も走る場所）で、
