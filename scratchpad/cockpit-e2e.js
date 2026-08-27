@@ -421,7 +421,9 @@ function check(name, cond, detail) {
     await pageA.evaluate(() => MCC.setField("nisa.tsumitateThisYear", "400000"));
     await pageA.waitForTimeout(250);
     const aNisa = await snapshot(pageA);
-    check("A9_digest_nisa_with_data", aNisa.folds["mcc-sec-nisa"].digest === "生涯残 ¥18,000,000・つみたて 33%",
+    // W3: digest 末尾に年内残枠を追記した（spec §6・当年残＝1,200,000+2,400,000−400,000＝3,200,000）。
+    // 残枠は暦月に依らず同額（月で変わるのは帯/行のレベルだけ）＝ここは exact 比較のまま。
+    check("A9_digest_nisa_with_data", aNisa.folds["mcc-sec-nisa"].digest === "生涯残 ¥18,000,000・つみたて 33%・残枠 ¥3,200,000",
       aNisa.folds["mcc-sec-nisa"].digest);
     // 入力は config 側（dash の NISA fold には入力欄が生えていない）＝配置の回帰検出
     check("A9_nisa_input_still_only_in_config",

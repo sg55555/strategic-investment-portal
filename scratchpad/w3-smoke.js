@@ -251,7 +251,45 @@ async function main() {
       check("S4 390px 横あふれなし", ov.view <= 390 && ov.row <= ov.rowW + 1, JSON.stringify(ov));
       await sp.context.close();
     }
-    // ---- 後続 Task がここにシナリオを追加（S5 fold 内の行）----
+    // ---- S5 fold 内の行（goals/reserves/nisa）----
+    {
+      const cd = R.cashflowDerived(rows, eff, NOW_AUG);
+      const vm = R.viewModel(eff);
+      const gol = vm.goals.map((g) => R.goalOutlook(g, vm.totalAssets, cd.monthlySurplus, NOW_AUG));
+      const hasSurplusCtx = cd.available && cd.monthlySurplus > 0;
+      const rol = cd.reserveAlloc.map((ra) => R.reserveOutlook(ra, NOW_AUG, hasSurplusCtx));
+      const nrem = R.nisaReminder(R.nisaViewModel(eff, cd, NOW_AUG, []), NOW_AUG);
+      const { context, page, errors } = await newPage(browser, PC, NOW_AUG, true);
+      const f = await page.evaluate(() => ({
+        goals: Array.from(document.querySelectorAll(".mcc-goal")).map((g) => (g.querySelector(".mcc-goal-outlook")?.className || "") + "|" + (g.querySelector(".mcc-goal-outlook")?.textContent || "")),
+        rsv: Array.from(document.querySelectorAll(".mcc-rsv")).map((r) => (r.querySelector(".mcc-rsv-outlook")?.className || "") + "|" + (r.querySelector(".mcc-rsv-outlook")?.textContent || "")),
+        nisa: document.querySelector(".mcc-nisa-reminder")?.className + "|" + (document.querySelector(".mcc-nisa-reminder")?.textContent || ""),
+        nisaDigest: document.querySelector("#mcc-sec-nisa .mcc-fold-dg")?.textContent || "",
+      }));
+      gol.forEach((o, i) => {
+        const t = f.goals[i] || "";
+        if (o.status === "achieved") check("S5 goal[" + i + "] achieved は行なし", t === "|", t);
+        else if (o.status === "onTrack") check("S5 goal[" + i + "] onTrack", t.indexOf("期限に間に合う見込み") >= 0 && t.indexOf(R.yen(o.requiredMonthly)) >= 0, t);
+        else if (o.status === "behind") check("S5 goal[" + i + "] behind", t.indexOf("behind") >= 0 && t.indexOf("間に合わせるには 月 " + R.yen(o.requiredMonthly)) >= 0, t);
+        else if (o.status === "noDeadline") check("S5 goal[" + i + "] noDeadline", t.indexOf("達成見込み") >= 0 && t.indexOf("期限") < 0, t);
+        else if (o.status === "overdue") check("S5 goal[" + i + "] overdue", t.indexOf("overdue") >= 0 && t.indexOf("過ぎています") >= 0, t);
+        else check("S5 goal[" + i + "] noPace", t.indexOf("見込みが立ちません") >= 0, t);
+      });
+      rol.forEach((o, i) => {
+        const t = f.rsv[i] || "";
+        if (o.status === "short") check("S5 reserve[" + i + "] short", t.indexOf("short") >= 0 && t.indexOf(R.yen(o.projectedShortfall) + " 不足の見込み") >= 0, t);
+        else if (o.status === "onTrack") check("S5 reserve[" + i + "] onTrack", t.indexOf("確保できる見込み") >= 0, t);
+        else if (o.status === "overdue") check("S5 reserve[" + i + "] overdue", t.indexOf("overdue") >= 0, t);
+        else check("S5 reserve[" + i + "] " + o.status + " は行なし", t === "|", t);
+      });
+      if (nrem.level !== "none") {
+        check("S5 NISA 行のレベル", f.nisa.indexOf(nrem.level) >= 0, f.nisa);
+        check("S5 NISA 行の文言", f.nisa.indexOf("翌年に繰り越せません") >= 0 && f.nisa.indexOf(R.yen(nrem.remainingTotal)) >= 0 && f.nisa.indexOf("残 " + nrem.monthsLeft + "ヶ月") >= 0, f.nisa);
+        check("S5 NISA digest に残枠", f.nisaDigest.indexOf("残枠 " + R.yen(nrem.remainingTotal)) >= 0, f.nisaDigest);
+      }
+      check("S5 pageerror 0", errors.length === 0, errors.join(" / "));
+      await context.close();
+    }
   } finally {
     if (browser) await browser.close();
     server.kill();

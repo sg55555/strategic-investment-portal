@@ -644,18 +644,33 @@ window.MCC = (function () {
 
   // D3: 資産目標＝**表示部のみ**（ダッシュボードの折りたたみ⑤に統合表示）。追加フォームは
   // 設定・ガイドタブの reservesGoalsAddCard へ移設した（毎日見る面に空フォームを常設しない）。
-  function goalsSection(vm) {
-    var items = vm.goals.map(function (g) {
+  // W3: gol = render() が1回だけ算出する R.goalOutlook の配列（vm.goals と同じ並び）、pace = cd.monthlySurplus。
+  function goalsSection(vm, gol, pace) {
+    var items = vm.goals.map(function (g, idx) {
       var badge = g.achieved ? '<span class="mcc-goal-done">達成 ✓</span>' : '';
       var dl = g.deadline ? '<span class="mcc-goal-dl">期限 ' + esc(g.deadline) + '</span>' : '';
       var sub = g.targetAmount > 0
         ? vm.fmt(vm.totalAssets) + ' / ' + vm.fmt(g.targetAmount) + (g.achieved ? '' : '・あと ' + vm.fmt(g.remaining))
         : '目標額が未設定';
+      // W3: 達成見込みの行（判定・計算は money-rules.js の goalOutlook・ここは文言整形のみ）。
+      var o = (gol && gol[idx]) || null;
+      var outlook = "";
+      if (o && !g.achieved) {
+        var eta = o.etaPeriod ? '達成見込み ' + esc(fmtAnchorMonth(o.etaPeriod)) + 'ごろ（現ペース 月 ' + R.yen(pace) + '）' : '';
+        var txt = "", cls = "";
+        if (o.status === "onTrack") txt = eta + '・期限に間に合う見込み（必要 月 ' + R.yen(o.requiredMonthly) + '）';
+        else if (o.status === "behind") { cls = " behind"; txt = (eta || '現ペースでは見込みが立ちません') + '・期限（' + esc(fmtAnchorMonth(g.deadline)) + '）に間に合わせるには 月 ' + R.yen(o.requiredMonthly); }
+        else if (o.status === "noDeadline") txt = eta;
+        else if (o.status === "overdue") { cls = " overdue"; txt = '期限（' + esc(fmtAnchorMonth(g.deadline)) + '）を過ぎています・あと ' + R.yen(o.remaining); }
+        else txt = '現ペースでは見込みが立ちません（余剰が 0 の月が続いています）';
+        if (txt) outlook = '<div class="mcc-goal-outlook' + cls + '">' + txt + '</div>';
+      }
       return '<div class="mcc-goal">' +
         '<div class="mcc-goal-head"><span class="mcc-goal-label">' + esc(g.label || "（無題）") + '</span>' + badge +
           '<button class="mcc-goal-del" title="削除" onclick="MCC.removeGoal(\'' + esc(g.id) + '\')">×</button></div>' +
         '<div class="mcc-goal-bar"><div class="mcc-goal-fill' + (g.achieved ? ' done' : '') + '" style="width:' + g.progressPct + '%"></div></div>' +
         '<div class="mcc-goal-stat">' + sub + (dl ? ' ' + dl : '') + '</div>' +
+        outlook +
       '</div>';
     }).join("");
     var empty = '<div class="mcc-goals-empty">総資産（' + vm.fmt(vm.totalAssets) + '）に対する資産目標は ' +
@@ -1148,9 +1163,10 @@ window.MCC = (function () {
   // Slice4.5: 確保枠（目的別の取り置き）。cv.reserves（reserveAlloc・純関数算出）を描くのみ。
   // 規律＝投資余力（コア）より先に確保。期日逆算で月額提案、満額確保で手元分を一括。未ログインでもローカル state で表示。
   // cd = R.cashDerived(...) の戻り（render() が1回だけ算出して渡す＝cashflowSection と同一値を共有）。
-  function reservesSection(cv, cd) {
+  // W3: rol = render() が1回だけ算出する R.reserveOutlook の配列（cd.reserveAlloc＝cv.reserves と同じ並び）。
+  function reservesSection(cv, cd, rol) {
     var rs = cv.reserves || [];
-    var cards = rs.map(function (rv) {
+    var cards = rs.map(function (rv, idx) {
       var pct = Math.round((rv.progress || 0) * 100);
       var done = rv.complete;
       var dl = rv.deadline ? '<span class="mcc-rsv-dl">期日 ' + esc(rv.deadline) + '</span>' : '';
@@ -1167,6 +1183,12 @@ window.MCC = (function () {
         monthly = '<span class="mcc-rsv-monthly muted">期日/月額 未設定 — 満額確保で入金</span>';
       }
       var alloc = rv.allocated > 0 ? '<span class="mcc-rsv-alloc">今回反映 +' + cv.fmt(rv.allocated) + '</span>' : '';
+      // W3: 期日までの見通しの行（判定・計算は money-rules.js の reserveOutlook・unknown/noDeadline/complete は語らない）。
+      var o = (rol && rol[idx]) || null;
+      var outlook = "";
+      if (o && o.status === "short") outlook = '<div class="mcc-rsv-outlook short">期日までに ' + cv.fmt(o.projectedShortfall) + ' 不足の見込み（今のペース 月 ' + cv.fmt(rv.allocated) + '）</div>';
+      else if (o && o.status === "overdue") outlook = '<div class="mcc-rsv-outlook overdue">期日（' + esc(fmtAnchorMonth(rv.deadline)) + '）を過ぎていますが ' + cv.fmt(o.projectedShortfall) + ' 未達です</div>';
+      else if (o && o.status === "onTrack") outlook = '<div class="mcc-rsv-outlook ok">期日までに確保できる見込み</div>';
       // D3「details 全id化」: 編集ボックスにも id を与える（確定のたびに走る全再描画で開いていた編集が
       // 閉じてしまうのを防ぐ＝_captureDetails/_restoreDetails の対象に載せる）。id は枠 id 由来で一意。
       var edit =
@@ -1187,6 +1209,7 @@ window.MCC = (function () {
         '<div class="mcc-rsv-bar"><div class="mcc-rsv-fill' + (done ? ' done' : '') + '" style="width:' + pct + '%"></div></div>' +
         '<div class="mcc-rsv-stat">' + cv.fmt(rv.saved) + ' / ' + cv.fmt(rv.target) + '・' + pct + '%' + (dl ? ' ' + dl : '') + '</div>' +
         '<div class="mcc-rsv-sub">' + monthly + alloc + '</div>' +
+        outlook +
         '<div class="mcc-rsv-actions">' +
           (done ? '' : '<button class="mcc-rsv-fund" onclick="MCC.fundReserve(\'' + esc(rv.id) + '\')">満額確保（手元にある分を一括）</button>') +
           edit +
@@ -1223,7 +1246,7 @@ window.MCC = (function () {
   // D3: ダッシュボードの折りたたみ⑤＝確保枠＋資産目標の統合カード（どちらも「目的のためのお金」で、
   // 別カードに分けると総資産との関係が2画面に割れる）。ダイジェストは先頭の枠/目標の進捗（VM 由来の
   // progress/progressPct）だけを出す＝新しい集計は作らない。
-  function reservesGoalsSection(vm, cv, cd) {
+  function reservesGoalsSection(vm, cv, cd, gol, rol, pace) {
     var rs = cv.reserves || [];
     var parts = [];
     if (rs.length) {
@@ -1237,7 +1260,7 @@ window.MCC = (function () {
       ? parts.join("・") + (rest > 0 ? '・他' + rest + '件' : '')
       : '<b>未設定</b>・設定タブで追加できます';
     return foldSection("mcc-sec-reserves-goals", "mcc-fold-rg", "確保枠・資産目標", digest,
-      reservesSection(cv, cd) + goalsSection(vm));
+      reservesSection(cv, cd, rol) + goalsSection(vm, gol, pace));
   }
 
   // 確保枠・資産目標の追加フォーム2つ（設定・ガイドタブ）。id="mcc-sec-goals"＝jumpTo("goals") の着地点。
@@ -1736,7 +1759,8 @@ window.MCC = (function () {
 
   // D3: ダッシュボードの折りたたみ③＝**表示部のみ**（使用状況の入力 details は設定・ガイドタブの
   // nisaInputCard へ移設）。ダイジェスト＝生涯枠の残り（¥は loggedIn のみ・未ログインは%）＋当年つみたて消化%。
-  function nisaSection(vm) {
+  // W3: nrem = render() が1回だけ算出する R.nisaReminder の戻り（リマインド帯と同一値を共有）。
+  function nisaSection(vm, nrem) {
     if (!vm) return "";
     var loggedIn = sync.loggedIn;
 
@@ -1833,14 +1857,24 @@ window.MCC = (function () {
       bodyHtml = hud + heroHtml + grid2Html + chipsHtml;
     }
 
+    // W3: 年内残枠の行（¥はログイン時のみ＝既存の表示方針と同じ）。
+    var remHtml = "";
+    if (nrem && nrem.level !== "none" && loggedIn) {
+      remHtml = '<div class="mcc-nisa-reminder ' + esc(nrem.level) + '">今年の非課税枠は翌年に繰り越せません。残り ' + R.yen(nrem.remainingTotal) +
+        '（つみたて ' + R.yen(nrem.remainingTsumitate) + '・成長 ' + R.yen(nrem.remainingGrowth) + '）・月 ' + R.yen(nrem.monthlyToFillTotal) +
+        ' で年内満額（残 ' + nrem.monthsLeft + 'ヶ月）</div>';
+    }
+
     var digest = !vm.configured
       ? '<b>未入力</b>・設定タブで入力できます'
       : ('生涯残 <b>' + esc(loggedIn ? R.yen(vm.lifetime.remaining) : vm.lifetime.remainingPct + "%") + '</b>' +
          '・つみたて <b>' + vm.annual.tsumitate.usedPct + '%</b>');
+    if (nrem && nrem.level !== "none" && loggedIn) digest += '・残枠 <b>' + esc(R.yen(nrem.remainingTotal)) + '</b>';
 
     return foldSection("mcc-sec-nisa", "mcc-fold-nisa", "NISA", digest,
       '<div class="mcc-nisa">' +
         '<div class="mcc-section-desc">課税を避けられる「枠」の消化。バケツ（いつ）・資産クラス（何を）と直交する「どの口座で持つか」の軸。' + termHelp("NISA枠") + '</div>' +
+        remHtml +
         bodyHtml +
         '<div class="mcc-nisa-gate">使用状況の入力は ' + jumpLink("nisaInput", "「NISA入力」") + '（設定・ガイドタブ）から。¥はログイン時のみ表示（未ログインは%のみ）。</div>' +
         nisaAdviceCard(vm) +
@@ -2244,6 +2278,8 @@ window.MCC = (function () {
     var rol = cd.reserveAlloc.map(function (ra) { return R.reserveOutlook(ra, now, hasSurplusCtx); });
     var rem = R.reminders({ nisa: sync.loggedIn ? nrem : null,
       reserves: cd.reserveAlloc.map(function (ra, i) { return { id: ra.id, label: ra.label, deadline: ra.deadline, allocated: ra.allocated, outlook: rol[i] }; }) });
+    // W3: 目標の見通し（fold 内の行専用＝帯には出さない・pace は roadmap と同じ cd.monthlySurplus）。
+    var gol = vm.goals.map(function (g) { return R.goalOutlook(g, vm.totalAssets, cd.monthlySurplus, now); });
 
     // D3: 旧 .mcc-gauge-card（バッファ達成率の独立カード）は廃止＝ヒーロー右カラムのゲージへ一本化。
     // 同じ達成率・同じ金額・同じ「設定」導線を縦に2枚並べると、どちらが最新かを読む作業が増えるだけで
@@ -2349,8 +2385,8 @@ window.MCC = (function () {
     // タブ移動で失われない。display は CSS 側（.mcc-pane[hidden]）に委ねる。
     var dashHtml = syncBar() + saveWarn + stepperSection(ob) + heroSection(vm, cv, cdMain, mom, rw) +
       reminderRail(rem) + seriesSection(series, mom, span, _seriesPeriod) +
-      cashflowSection(cv) + roadmapSection(rm, sync.loggedIn) + nisaSection(nvm) +
-      assetClassSection(vm) + reservesGoalsSection(vm, cv, cdMain) + adviceSection(vm);
+      cashflowSection(cv) + roadmapSection(rm, sync.loggedIn) + nisaSection(nvm, nrem) +
+      assetClassSection(vm) + reservesGoalsSection(vm, cv, cdMain, gol, rol, cd.monthlySurplus) + adviceSection(vm);
     // review fix 2: saveWarn は**両ペインの先頭**に出す。設定タブは入力の面（保存が最も走る場所）で、
     // dash 限定にすると「編集しているタブでは保存失敗の警告が見えない」＝最悪の位置になる。
     // id を持たない純警告 HTML ゆえ二重描画しても DOM 上の衝突は無い（同一文言・同一クラス）。
