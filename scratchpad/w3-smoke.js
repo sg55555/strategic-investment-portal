@@ -58,6 +58,18 @@ async function newPage(browser, viewport, fixedMs, loggedIn) {
   if (loggedIn) await page.waitForFunction(() => !!document.querySelector("#mcc-sec-cashflow .mcc-cashflow"), null, { timeout: 15000 });
   return { context, page, errors };
 }
+// fixture 由来の金額の literal（spec §10.2 偽陽性潰し①）。
+// w3-mock-server.py の fixture は決定論（LCG seed 20260827／FIRST_YM 2024-03・LAST_YM 2026-08・ANCHOR 2025-09 ¥1,450,000）
+// なので金額は毎回同じ。DOM 側と期待値側の両方を money-rules.js から出すと assetSeries の後方累積や total が
+// 壊れたときに両側が同時に壊れて緑のままになる＝金額だけは literal で固定し、rules 側／DOM 側の両方をこれに突き合わせる。
+// fixture を意図的に変えたときだけ、この値も更新する（勝手に合わせない）。
+const LIT = {
+  total1Y: "¥3,250,000",   // 1Y 窓の最新点（2026-08・当月/暫定）の総資産
+  cash1Y: "¥2,650,000",    // 同・現金
+  invest1Y: "¥600,000",    // 同・投資（現在値で固定）
+  mom: "¥110,000",         // 前月比（2026-06 → 2026-07）の絶対値
+  span12: "¥1,205,000",    // 直近12ヶ月（2025-07 → 2026-07）の絶対値
+};
 const PC = { width: 1440, height: 900 }, SP = { width: 390, height: 844 };
 const NOW_AUG = Date.UTC(2026, 7, 15, 3), NOW_NOV = Date.UTC(2026, 10, 15, 3), NOW_DEC = Date.UTC(2026, 11, 15, 3);
 
@@ -72,6 +84,16 @@ async function main() {
     const eff = R.effectiveState(R.migrate(state), rows, [], NOW_AUG);
     const series = R.assetSeries(eff, rows, []);
     const completeN = series.points.filter((p) => p.isComplete).length;
+    const win1y = R.seriesWindow(series.points, "1Y");
+    const last = win1y[win1y.length - 1];
+    const mom = R.momDelta(series.points), span = R.spanDelta(series.points, 12);
+
+    // ---- S0 fixture の金額を literal で固定（rules 側の回帰を DOM と独立に検出する）----
+    check("S0 fixture 不変: 1Y 最新点の総資産", R.yen(last.total) === LIT.total1Y, R.yen(last.total));
+    check("S0 fixture 不変: 1Y 最新点の現金", R.yen(last.cash) === LIT.cash1Y, R.yen(last.cash));
+    check("S0 fixture 不変: 1Y 最新点の投資", R.yen(last.invest) === LIT.invest1Y, R.yen(last.invest));
+    check("S0 fixture 不変: 前月比", mom.available && R.yen(Math.abs(mom.delta)) === LIT.mom, R.yen(Math.abs(mom.delta)));
+    check("S0 fixture 不変: 直近12ヶ月", span.available && R.yen(Math.abs(span.delta)) === LIT.span12, R.yen(Math.abs(span.delta)));
     browser = await chromium.launch();
 
     // ---- S1 推移カード（PC・ログイン済）----
@@ -92,7 +114,6 @@ async function main() {
       }));
       check("S1 fold は既定 open", info.open === true);
       check("S1 既定期間は 1Y", info.pressed === "1Y", info.pressed);
-      const win1y = R.seriesWindow(series.points, "1Y");
       check("S1 1Y の確定点数", info.complete === win1y.filter((p) => p.isComplete).length, info.complete);
       check("S1 暫定点 1", info.live === 1, info.live);
       check("S1 ヒット矩形＝点数", info.hits === win1y.length, info.hits);
@@ -100,11 +121,14 @@ async function main() {
       const aIdx = win1y.findIndex((p) => p.isAnchor);
       check("S1 アンカー線（窓内なら1本）", info.anchorLine === (aIdx >= 0 ? 1 : 0), info.anchorLine);
       check("S1 アンカーラベル（先頭なら省略）", info.anchorLbl === (aIdx > 0 ? 1 : 0), info.anchorLbl);
-      const last = win1y[win1y.length - 1];
       check("S1 初期キャプション＝最新点", info.cap.indexOf(R.yen(last.total)) >= 0 && info.cap.indexOf("暫定") >= 0, info.cap);
-      const mom = R.momDelta(series.points), span = R.spanDelta(series.points, 12);
+      // DOM 側は literal に突き合わせる（rules 側と同時に壊れても落ちる）。
+      check("S1 キャプションの金額（literal）",
+        info.cap.indexOf(LIT.total1Y) >= 0 && info.cap.indexOf(LIT.cash1Y) >= 0 && info.cap.indexOf(LIT.invest1Y) >= 0, info.cap);
       check("S1 digest に前月比", info.digest.indexOf(R.yen(Math.abs(mom.delta))) >= 0, info.digest);
+      check("S1 digest の前月比（literal）", info.digest.indexOf(LIT.mom) >= 0, info.digest);
       check("S1 digest に直近12ヶ月", !span.available || info.digest.indexOf(R.yen(Math.abs(span.delta))) >= 0, info.digest);
+      check("S1 digest の直近12ヶ月（literal）", info.digest.indexOf(LIT.span12) >= 0, info.digest);
       check("S1 注記: 投資分固定", info.notes.indexOf("現在値で固定") >= 0, info.notes);
       check("S1 注記: 逆算は窓内に前点がある時だけ", (info.notes.indexOf("逆算") >= 0) === win1y.some((p) => p.beforeAnchor && !p.isAnchor), info.notes);
       // 期間切替 → 点数と LS
