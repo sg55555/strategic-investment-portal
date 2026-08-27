@@ -1475,7 +1475,9 @@
       var nd = new Date(num(nowMs));
       if (isFinite(nd.getTime())) {
         var nowP = nd.getUTCFullYear() + "-" + ("0" + (nd.getUTCMonth() + 1)).slice(-2) + "-01";
-        etaPeriod = _shiftYM(nowP, etaMonths).slice(0, 7);
+        var etaFull = _shiftYM(nowP, etaMonths);
+        var etaY = parseInt(etaFull.slice(0, etaFull.length - 6), 10);
+        if (etaY >= 1 && etaY <= 9999) etaPeriod = etaFull.slice(0, etaFull.length - 3);
       }
     }
     var monthsLeft = deadline ? monthsBetweenYM(nowMs, deadline) : null;

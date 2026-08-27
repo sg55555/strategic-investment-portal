@@ -162,6 +162,7 @@ test("monthsBetweenYM: 同月0・翌月1・前月−1・年跨ぎ・不正null�
   assert.equal(R.monthsBetweenYM(NOW_AUG, "bogus"), null);
   assert.equal(R.monthsBetweenYM(0, "2026-11-30"), null);
   assert.equal(R.monthsBetweenYM(NaN, "2026-11-30"), null);
+  assert.equal(R.monthsBetweenYM(Date.UTC(10000, 0, 1), "2026-11-30"), null);   // spec §10.1: 年 >9999=null
   // reserveMonthly（無改変）との一致: ceil(残額 / max(1, 月差))
   ["2026-11-30", "2026-08-31", "2027-06-30"].forEach((dl) => {
     const rv = R.normalizeReserve({ target: 300000, saved: 120000, deadline: dl }, 0);
@@ -196,6 +197,10 @@ test("goalOutlook: 各 status と eta/requiredMonthly", () => {
   assert.equal(bz.status, "behind"); assert.equal(bz.requiredMonthly, 100000); assert.equal(bz.etaMonths, null);
   // 年跨ぎの etaPeriod
   assert.equal(R.goalOutlook(g(1000000, ""), 400000, 100000, Date.UTC(2026, 10, 1)).etaPeriod, "2027-05");
+  // 巨大な残額 × 微小ペース → 到達年が9999超＝"YYYY-MM" を逸脱するので etaPeriod は空（etaMonths 自体は出す）
+  const huge = R.goalOutlook(g(100000000, ""), 0, 1000, NOW_AUG);
+  assert.equal(huge.etaMonths, 100000);
+  assert.equal(huge.etaPeriod, "");
 });
 
 test("reserveOutlook: unknown/complete/noDeadline/overdue/short/onTrack・monthsLeft=0", () => {
