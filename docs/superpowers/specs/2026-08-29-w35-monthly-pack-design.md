@@ -95,6 +95,7 @@ normName(v) = typeof v === "string" ? v.replace(/["'\\\u0000-\u001f]/g, "").repl
 | `elapsedFraction(period, nowMs)` | `YYYY-MM-01`, epoch → 0..1 \| null | `period` の月と `nowMs`（UTC）の月を比較。過去月→1／未来月→0／同月→`clamp(day / _daysInMonth(y,m), 0, 1)`。`period` 不正・`nowMs` 非有限 → null |
 | `latestRow(rows_in)` | API 生 rows → `cashflowRows()` の末尾行 \| null | fold「今月の予算」の対象行（末尾が `isComplete=false` なら進行中、確定なら「進行中の月はまだありません」） |
 | `budgetProgress(budgets, row, nowMs)` | 正規化前後どちらの budgets でも可, `cashflowRows()` の 1 行 \| null, epoch → 下記 | その行に対する消化 |
+| `budgetTotals(budgets)` | budgets → `{total, sumItems, count, itemsPct \| null, overTotal}` | 設定カードの注記「費目の合計 ¥X（合計予算の Y%）」の源（rows 非依存＝未ログインでも出せる・`itemsPct = total>0 ? round(sumItems/total*100) : null`・`overTotal = max(0, sumItems−total)`） |
 | `budgetCategoryStats(rows_in, months)` | rows, 窓（既定 12）→ `{window, stats:[…]}` | 設定カードの費目一覧の源 |
 | `reportNav(rows_in, period)` | rows, 選択月 → `{available, period, prev, next, latestComplete, isLatestComplete, isPartial}` | 選択月の正規化と前後移動 |
 | `monthlyReport(eff, rows_in, investmentRows_in, period, nowMs)` | → 下記 | レポート本体の VM |
@@ -107,9 +108,9 @@ if (!row) → { available:false, reason:"noRow", configured }
 elapsed    = row.isComplete ? 1 : (elapsedFraction(row.period, nowMs) ?? 1)     // 進行中でも period 不正なら満月扱い
 elapsedPct = Math.round(elapsed * 100)
 cats       = row.breakdown && Array.isArray(row.breakdown.categories)
-             ? categories.filter(c => c && typeof c.name==="string" && normName(c.name)).map(c => ({name: normName(c.name), amount: cfNum(c.amount)}))
+             ? categories.filter(c => c && typeof c.name==="string" && normName(c.name)).map(c => ({name: normName(c.name), amount: num(c.amount)}))
              : []
-actualByName = 同名は合算（cfNum の負値は 0 扱い＝num）
+actualByName = 同名は合算（amount は num()＝負値/非有限/文字列ゴミは 0）
 statusOf(actual, budget) = budget<=0 ? "none"
                          : actual > budget ? "over"
                          : (!row.isComplete && actual < budget && (pct > elapsedPct + 10 || pct >= 90)) ? "watch"
@@ -131,7 +132,8 @@ hasBreakdown = cats.length > 0
 breakdownMismatch = hasBreakdown && |Σcats.amount − row.totalExpense| > max(1000, row.totalExpense*0.01)
                   // ETL は見出し（月別集計DB）と内訳（生取引）を別 DB から取る＝ずれ得る。エラーにせず注記フラグ
 return { available:true, configured, period:row.period, isComplete:row.isComplete, elapsed, elapsedPct, total, items,
-         unbudgeted, unbudgetedTotal, sumBudgeted, sumActualBudgeted, overCount, watchCount, hasBreakdown, breakdownMismatch }
+         unbudgeted, unbudgetedTotal, sumBudgeted, sumActualBudgeted, overCount, watchCount, hasBreakdown, breakdownMismatch,
+         catsTotal }                                    // catsTotal = Σcats.amount（不一致注記の「内訳の合計（¥X）」用）
 ```
 
 **`budgetCategoryStats(rows_in, months=12)`**
@@ -146,7 +148,8 @@ return { window: win.length, stats }          // win.length===0 → { window:0, 
 
 **`reportNav(rows_in, period)`**
 ```
-rows = cashflowRows(rows_in); if (!rows.length) → { available:false }
+rows = cashflowRows(rows_in)
+if (!rows.length) → { available:false, period:"", prev:null, next:null, latestComplete:"", isLatestComplete:false, isPartial:false }   // 固定形状
 latestComplete = 末尾から最初の isComplete 行の period（無ければ ""）
 sel = (period が YYYY-MM-01 で rows に実在) ? period : (latestComplete || rows[rows.length−1].period)
 idx = rows.findIndex(period===sel); prev = rows[idx−1]?.period ?? null; next = rows[idx+1]?.period ?? null
@@ -163,8 +166,10 @@ income = row.totalIncome, salary = row.salaryIncome, misc = row.miscIncome, expe
 fixed = row.fixedExpense, variable = row.variableExpense, balance = row.balance,
 savingsRatePct = income > 0 ? Math.round(balance / income * 100) : 0        // cashflowViewModel の monthSavings と同式（不変条件①）
 delta(cur, prev) = { delta: cur−prev, pct: prev !== 0 ? round1((cur−prev) / |prev| * 100) : null }
-mom = prevRow ? { available:true, period:prevRow.period, income:delta(..), expense:delta(..), balance:delta(..) } : { available:false }
-yoy = yoyRow  ? 同上 : { available:false }
+mom = prevRow ? { available:true, period:prevRow.period, income:delta(..), expense:delta(..), balance:delta(..),
+                  savingsRatePct: { delta: savingsRatePct − savingsRatePct(prevRow), pct:null } }        // 貯蓄率は pt（§6 注意5）
+              : { available:false, period:"", income:null, expense:null, balance:null, savingsRatePct:null }   // 固定形状
+yoy = yoyRow  ? 同上 : 同上（available:false の固定形状）
 cats = budgetProgress と同じ正規化・同名合算 → amount 降順→name
 categories = { hasBreakdown, count: cats.length,
                top: cats.slice(0,8).map(c => ({ name, amount, sharePct: expense>0 ? Math.round(amount/expense*100) : 0,
@@ -217,7 +222,7 @@ var rep     = R.monthlyReport(eff, _cashflowRows, _investmentRows, _reportPeriod
   を **「設定」カード（`mcc-sec-settings` を含む `settings`）の直後**に置く（`configHtml` の連結順を変えるだけ）。
 - body:
   1. 合計行 `.mcc-bud-total`: `moneyInput("月の支出予算（合計）", "budgets.total", state.budgets.total)`（既存 `setField` で足りる・
-     `data-mcc-focus="budgets.total"`）＋ 読み出し `実支出の平均は ¥X/月（直近3ヶ月）`（`cv.avgExpense`・`cv.available` のときだけ）＋
+     `data-mcc-focus="budgets.total"`）＋ 読み出し `実支出の平均は ¥X/月（直近3ヶ月・確定月のみ）`（`cv.avgExpense`・`cv.available` のときだけ）＋
      ボタン「平均を採用」（`MCC.adoptBudgetTotalAvg()`・既存 `adoptAvgExpense` と同型）。一致時は「✓ 設定と一致」。
   2. 費目テーブル `.mcc-bud-table`（`stats = R.budgetCategoryStats(_cashflowRows, 12)`）: 行＝`stats.stats`（平均額順）∪
      `state.budgets.items` にあって stats に無い費目（末尾・`.mcc-bud-nodata`「直近12ヶ月に実績なし」）。
@@ -225,7 +230,7 @@ var rep     = R.monthlyReport(eff, _cashflowRows, _investmentRows, _reportPeriod
      data-mcc-focus="budgets.item:<name>" onchange="MCC.setBudgetItem('<name>', this.value)">`／「平均を採用」
      （`MCC.adoptBudgetItemAvg('<name>')`・`avg3>0` のときだけ）。**0 を入れると予算を消す**（注記に明記）。
      ≤600px は NISA 年別表と同じ `data-label` 方式で 1 行 1 カード化。
-  3. 注記 `.mcc-bud-note`: `費目の合計 ¥X（合計予算の Y%）`（`total>0` のとき。X>total なら「（合計予算を ¥Z 上回っています）」を
+  3. 注記 `.mcc-bud-note`（`R.budgetTotals(state.budgets)` 由来）: `費目の合計 ¥X（合計予算の Y%）`（`total>0` のとき。X>total なら「（合計予算を ¥Z 上回っています）」を
      事実として付ける）。`stats.window===0`（未ログイン/未連携）は「収支を連携すると、直近12ヶ月に使った費目が自動で並びます」。
 - ゲート: 入力欄は readout gate ではない＝未ログインでも編集可（NISA 入力と同じ規律・state はローカル）。¥の読み出し
   （平均・実績）は `cv.available` のときだけ。
@@ -355,10 +360,11 @@ var rep     = R.monthlyReport(eff, _cashflowRows, _investmentRows, _reportPeriod
 | タブ | `01 ダッシュボード`／`02 月次レポート`／`03 設定・ガイド`・≤600px は `ダッシュボード`／`レポート`／`設定` |
 | ナビ | `◀`（aria-label `前の月`）`2026年7月` `▶`（`次の月`）チップ `最新` バッジ `確定`／`暫定（進行中）` |
 | 前月比 | `前月比 +¥12,000（+3.4%）`／`前年同月比 −¥5,000（−1.2%）`／`前月比 —`（− は U+2212・W3 §7 と同じ）。貯蓄率は `前月比 −35.0pt`（小数 1 桁・pt） |
-| 資産 | `総資産 ¥3,120,000` `前月比 +¥52,000（+1.7%）` `現金 ¥1,920,000・投資 ¥1,200,000`／`資産の推移は基準（アンカー）設定後に表示されます`／`この月は資産の系列に含まれません（収支データの欠けた月があります）` |
+| 資産 | `総資産 ¥3,120,000` `前月比 +¥52,000（+1.7%）` `現金 ¥1,920,000・投資 ¥1,200,000`／`noAnchor`→`資産の推移は基準（アンカー）設定後に表示されます`／`currency`→`JPY 以外の通貨には対応していません`（既存 seriesSection と同文）／`noPoint`・その他→`この月は資産の系列に含まれません（収支データの欠けた月があります）` |
+| 注記 | 暫定＝既存文言 `今月の収支は月末締め後（翌月初の自動更新）に反映されます。` を流用／欠月 `前月のデータがありません`・`前年同月のデータがありません`（禁則語なし） |
 | 費目 | `食費 ¥45,000（18%）` `前月比 +¥2,000`／`その他 ¥23,000`／`この月は内訳がありません。` |
 | 現在地 | `NISA 年内 使用 ¥300,000 / ¥3,600,000（残 ¥3,300,000）`／`住宅の頭金 24%` |
-| 設定カード | `月の支出予算（合計）`／`実支出の平均は ¥X/月（直近3ヶ月）`／`平均を採用`／`✓ 設定と一致`／`0 を入れると予算を消します`／`直近12ヶ月に実績なし`／`費目の合計 ¥X（合計予算の Y%）`／`収支を連携すると、直近12ヶ月に使った費目が自動で並びます` |
+| 設定カード | `月の支出予算（合計）`／`実支出の平均は ¥X/月（直近3ヶ月・確定月のみ）`／`平均を採用`／`✓ 設定と一致`／`0 を入れると予算を消します`／`直近12ヶ月に実績なし`／`費目の合計 ¥X（合計予算の Y%）`／`収支を連携すると、直近12ヶ月に使った費目が自動で並びます` |
 
 - **禁則**（新設部分・受入で機械確認）: `節約`／`使いすぎ`／`見直し`／`おすすめ`／`しましょう`／`べき` を含まない。
   （既存 `cashflowSection` の「支出の見直しを優先しましょう」は既存文言＝本 wave の対象外・無改変）
@@ -380,7 +386,8 @@ var rep     = R.monthlyReport(eff, _cashflowRows, _investmentRows, _reportPeriod
 
 ## §9 既存受入への影響
 
-- `scratchpad/cockpit-e2e.js`（241）: ダッシュボードの fold 一覧に `mcc-sec-budget-live`（案B なら `mcc-sec-report` も）が増える／
+- `scratchpad/cockpit-e2e.js`（241）: `FOLD_IDS`（全スナップショットで「必ず存在」を要求）には `mcc-sec-budget-live` を**足さない**（予算 fold は
+  未ログイン/未連携で非描画＝足すと既存アサートが壊れる）。代わりに専用スナップショットキー `budgetLive`＋新規アサート（ログイン時あり・未ログイン時なし・digest 逐語）で検証／
   設定タブの input 数が増える（`configHoldingInputs`・`configNisaInputs` は接頭辞一致で不変・`dashInputCount` は 0 のまま）／
   タブ 3 本（`#mcc-tab-report` の hidden 切替・`aria-selected`）。**期待値を意図的に更新し新基準値（件数）を spec §11 と CLAUDE.md 追記に記録**。
 - `scratchpad/w3-smoke.js`（128）: 推移 fold は無改変・DOM 順（hero → rail → series → cashflow → **budget-live** → …）は series より後ろに
@@ -417,8 +424,9 @@ var rep     = R.monthlyReport(eff, _cashflowRows, _investmentRows, _reportPeriod
   S4 レポート：既定 2026年7月＋`最新`＋`確定`・◀ で 2026年6月（`最新` 消える・前月比/前年同月比の逐語）・▶▶ で 2026年8月
   `暫定（進行中）`・端で disabled／S5 資産増減が推移カードの同月点と一致（DOM 同士の突合）／S6 未ログイン（鯖 `W35_AUTH=0`）→
   fold なし・¥ゼロ（本文に `¥` が出ない）／S7 禁則語（§7）が新設セクションに 0 件／S8 fold 開閉が再描画後も保持／
-  S9 タブ 3 本＝切替が非再描画（`#mcc-root` の子ノード参照が同一・fold の開閉が残る）・390px で `.mcc-tabbar` の高さが 43px（wrap なし）・
-  短いラベルの逐語／S10 pageerror・console.error 0（KNOWN_NOISE 除く）。
+  S9 タブ 3 本＝切替が非再描画（`#mcc-root` の子ノード参照が同一・fold の開閉が残る）・390px で `.mcc-tabbar` が wrap しない（バー高＝
+  ボタン高を主アサート・px の実測値は緑になってから記録）・短いラベルの逐語／S10 pageerror・console.error 0（KNOWN_NOISE 除く）。
+- 同額タイの並び（fixture の 保険／車・ガソリン 各 ¥12,000）は `localeCompare`＝ICU 依存なので、チップ類は**集合と合計**で assert し順序に依存させない。
 
 ### 10.3 既存スイート
 
