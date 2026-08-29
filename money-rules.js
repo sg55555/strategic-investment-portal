@@ -1551,9 +1551,11 @@
 
   // §3.1 費目名の正規化。属性セレクタ（data-mcc-focus="budgets.item:<name>"）と inline handler
   // MCC.setBudgetItem('<name>') を壊す文字（" ' \ 制御文字）を落とす。出力時はさらに esc() を通す。
+  // slice の後にもう一度 trim：40字目がちょうど畳み済み空白だと slice だけでは末尾空白が残り、
+  // 2周目の normName でその空白が trim されて長さが変わる（不変条件④の冪等性が破れる）ため。
   function normName(v) {
     if (typeof v !== "string") return "";
-    return v.replace(/["'\\\u0000-\u001f]/g, "").replace(/\s+/g, " ").trim().slice(0, BUDGET_NAME_MAX);
+    return v.replace(/["'\\\u0000-\u001f]/g, "").replace(/\s+/g, " ").trim().slice(0, BUDGET_NAME_MAX).trim();
   }
 
   // §3.1 予算の安全正規化（純粋・冪等）。migrate と money.js の書込経路の両方が通る唯一の入口。

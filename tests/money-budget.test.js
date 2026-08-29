@@ -79,6 +79,9 @@ test("不変条件④: normalizeBudgets は冪等", () => {
   const raws = [
     null, { total: 260000, items: [{ name: " 食 費 ", amount: "45000" }, { name: "x", amount: 0 }] },
     { total: "abc", items: [{ name: '"a"', amount: 1 }, { name: "a", amount: 2 }] },
+    // 40字境界: 40字目が畳み済み空白（元41字）だと slice だけでは末尾に空白が残り、
+    // 2周目の trim で長さが 40→39 に変わって冪等性が破れる（レビュー所見の実測ケース）
+    { total: 1, items: [{ name: "a".repeat(39) + " " + "b", amount: 100 }] },
   ];
   raws.forEach((raw) => {
     const once = R.normalizeBudgets(raw);
