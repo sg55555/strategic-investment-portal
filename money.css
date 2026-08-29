@@ -73,12 +73,13 @@
 .mcc-hero-main { padding: 20px 24px 16px; border-right: 1px solid rgba(129,140,248,0.2); min-width: 0; }
 .mcc-hero-side { padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; justify-content: center; min-width: 0; }
 .mcc-hero-label { color: var(--c-text-dim); font-size: 12px; letter-spacing: 2px; }
-.mcc-hero-chip-live, .mcc-hero-chip-prov, .mcc-hero-badge-done, .mcc-hero-badge-auto {
+.mcc-hero-chip-live, .mcc-hero-chip-prov, .mcc-hero-badge-done, .mcc-hero-badge-auto,
+.mcc-rep-chip-live, .mcc-rep-chip-prov {
   display: inline-block; margin-left: 8px; padding: 0 7px; border-radius: 5px;
   font-size: 12px; letter-spacing: 1px; vertical-align: 1px; white-space: nowrap;
 }
-.mcc-hero-chip-live { border: 1px solid rgba(16,185,129,0.5); color: var(--c-emerald-soft); }
-.mcc-hero-chip-prov { border: 1px solid rgba(251,191,36,0.5); color: var(--c-amber-pale); }
+.mcc-hero-chip-live, .mcc-rep-chip-live { border: 1px solid rgba(16,185,129,0.5); color: var(--c-emerald-soft); }
+.mcc-hero-chip-prov, .mcc-rep-chip-prov { border: 1px solid rgba(251,191,36,0.5); color: var(--c-amber-pale); }
 .mcc-hero-badge-done { border: 1px solid rgba(16,185,129,0.5); color: var(--c-emerald-soft); margin-left: 0; }
 .mcc-hero-badge-auto { border: 1px dashed rgba(56,189,248,0.45); color: var(--c-cyan-pale); margin-left: 6px; }
 .mcc-hero-amount {
@@ -840,10 +841,10 @@
   font-family: var(--mcc-mono); color: var(--c-cyan-bright);
   text-shadow: 0 0 18px rgba(0,229,255,0.55), 0 0 4px rgba(0,229,255,0.4);
 }
-[data-theme="D"] #money-view .mcc-hero-chip-live {
+[data-theme="D"] #money-view .mcc-hero-chip-live, [data-theme="D"] #money-view .mcc-rep-chip-live {
   border-color: rgba(0,230,118,0.5); border-radius: 2px; color: var(--c-emerald-soft); box-shadow: 0 0 8px rgba(0,230,118,0.18);
 }
-[data-theme="D"] #money-view .mcc-hero-chip-prov {
+[data-theme="D"] #money-view .mcc-hero-chip-prov, [data-theme="D"] #money-view .mcc-rep-chip-prov {
   border-color: rgba(255,179,0,0.5); border-radius: 2px; color: var(--c-amber-pale); box-shadow: 0 0 8px rgba(255,179,0,0.18);
 }
 [data-theme="D"] #money-view .mcc-hero-badge-done { border-color: rgba(0,230,118,0.5); border-radius: 2px; color: var(--c-emerald-soft); }

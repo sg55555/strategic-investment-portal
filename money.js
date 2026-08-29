@@ -1007,7 +1007,7 @@ window.MCC = (function () {
       '<button type="button" class="mcc-rep-navbtn" aria-label="次の月"' +
         (nav.next ? ' onclick="MCC.setReportPeriod(\'' + nav.next + '\')"' : ' disabled') + '>▶</button>' +
       (nav.isLatestComplete ? '<span class="mcc-rep-chip">最新</span>' : '') +
-      (rep.isComplete ? '<span class="mcc-hero-chip-live">確定</span>' : '<span class="mcc-hero-chip-prov">暫定（進行中）</span>') +
+      (rep.isComplete ? '<span class="mcc-rep-chip-live">確定</span>' : '<span class="mcc-rep-chip-prov">暫定（進行中）</span>') +
     '</div>';
 
     var kpi = '<div class="mcc-cf-stats">' +
