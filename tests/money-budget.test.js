@@ -259,4 +259,158 @@ test("budgetTotals: 費目予算の合計・合計予算比・超過（money.js 
   assert.deepEqual(R.budgetTotals(null), { total: 0, sumItems: 0, count: 0, itemsPct: null, overTotal: 0 });
 });
 
+// ---- W3.5 §3.2 レポートの純関数 ----
+// 2026-03 〜 2026-08（末尾のみ暫定）。費目は毎月同じ3つ＋7月だけ「旅行」。
+function repRows() {
+  const cats = (f) => [["食費", 40000 + f], ["外食費", 20000 + f], ["光熱費", 10000 + f]];
+  return [
+    mkRow("2025-07-01", { income: 350000, expense: 250000, fixed: 140000, cats: cats(0) }),
+    mkRow("2026-03-01", { income: 300000, expense: 240000, fixed: 140000, cats: cats(1000) }),
+    mkRow("2026-04-01", { income: 300000, expense: 250000, fixed: 140000, cats: cats(2000) }),
+    mkRow("2026-05-01", { income: 300000, expense: 260000, fixed: 140000, cats: cats(3000) }),
+    mkRow("2026-06-01", { income: 400000, misc: 100000, expense: 270000, fixed: 140000, cats: cats(4000) }),
+    mkRow("2026-07-01", { income: 350000, expense: 280000, fixed: 140000, cats: cats(5000).concat([["旅行", 50000]]) }),
+    mkRow("2026-08-01", { partial: true, income: 350000, expense: 120000, fixed: 60000, cats: cats(0) }),
+  ];
+}
+const REP_ROWS = repRows();
+const REP_EFF = mkState({ anchor: { date: "2026-03-01", amount: 1000000 }, budgets: { total: 260000, items: [{ name: "食費", amount: 45000 }] } });
+
+test("budgetCategoryStats: 窓の月数が分母・avg3・出現月数・末尾値・未確定行は除外", () => {
+  const st = R.budgetCategoryStats(REP_ROWS, 12);
+  assert.equal(st.window, 6);                                  // 確定 6 行（2026-08 は除外）
+  assert.deepEqual(st.stats.map((s) => s.name), ["食費", "外食費", "光熱費", "旅行"]);   // avg12 降順
+  const shoku = st.stats[0];
+  assert.equal(shoku.months, 6);
+  assert.equal(shoku.last, 45000);                             // 窓末尾（2026-07）の額
+  assert.equal(shoku.avg12, Math.floor((40000 * 6 + 15000) / 6 + 0.5));
+  assert.equal(shoku.avg3, Math.floor((43000 + 44000 + 45000) / 3 + 0.5));
+  const ryoko = st.stats[3];
+  assert.equal(ryoko.months, 1);                               // 1回だけ出た費目も「月あたり」に均す
+  assert.equal(ryoko.avg12, Math.floor(50000 / 6 + 0.5));
+  assert.equal(ryoko.avg3, Math.floor(50000 / 3 + 0.5));
+  assert.equal(R.budgetCategoryStats(REP_ROWS, 3).window, 3);
+  assert.equal(R.budgetCategoryStats(REP_ROWS).window, 6);     // months 省略＝12
+  assert.deepEqual(R.budgetCategoryStats([], 12), { window: 0, stats: [] });
+  assert.deepEqual(R.budgetCategoryStats([mkRow("2026-08-01", { partial: true })], 12), { window: 0, stats: [] });
+});
+
+test("reportNav: 不正 period は最新確定月／確定ゼロは末尾行／prev・next の端／isPartial", () => {
+  const n = R.reportNav(REP_ROWS, "");
+  assert.equal(n.available, true);
+  assert.equal(n.period, "2026-07-01");
+  assert.equal(n.latestComplete, "2026-07-01");
+  assert.equal(n.isLatestComplete, true);
+  assert.equal(n.isPartial, false);
+  assert.equal(n.prev, "2026-06-01");
+  assert.equal(n.next, "2026-08-01");
+  assert.equal(R.reportNav(REP_ROWS, "2099-01-01").period, "2026-07-01");   // rows に無い＝最新確定月へ
+  assert.equal(R.reportNav(REP_ROWS, "bogus").period, "2026-07-01");
+  const first = R.reportNav(REP_ROWS, "2025-07-01");
+  assert.equal(first.prev, null);                                            // 端（行の並びで前後・欠月は飛ばす）
+  assert.equal(first.next, "2026-03-01");
+  const last = R.reportNav(REP_ROWS, "2026-08-01");
+  assert.equal(last.next, null);
+  assert.equal(last.isPartial, true);
+  assert.equal(last.isLatestComplete, false);
+  const onlyPartial = R.reportNav([mkRow("2026-08-01", { partial: true })], "");
+  assert.equal(onlyPartial.period, "2026-08-01");
+  assert.equal(onlyPartial.latestComplete, "");
+  assert.equal(R.reportNav([], "").available, false);
+});
+
+test("monthlyReport: 不変条件① 収支 fold と同じ balance / savingsRatePct", () => {
+  const rep = R.monthlyReport(REP_EFF, REP_ROWS, [], "", NOW_AUG29);
+  const cv = R.cashflowViewModel(REP_ROWS, REP_EFF, NOW_AUG29);
+  assert.equal(rep.period, "2026-07-01");
+  assert.equal(rep.balance, cv.balance);
+  assert.equal(rep.savingsRatePct, cv.savingsRatePct);
+  assert.equal(rep.income, 350000);
+  assert.equal(rep.expense, 280000);
+  assert.equal(rep.fixed, 140000);
+  assert.equal(rep.variable, 140000);
+  assert.equal(rep.savingsRatePct, Math.round(70000 / 350000 * 100));
+});
+
+test("monthlyReport: 不変条件② assets は assetSeries の同月点と一致（推移カードと同じ数字）", () => {
+  const rep = R.monthlyReport(REP_EFF, REP_ROWS, [], "", NOW_AUG29);
+  const s = R.assetSeries(REP_EFF, REP_ROWS, []);
+  const p = s.points.find((q) => q.period === "2026-07-01");
+  const prev = s.points.find((q) => q.period === "2026-06-01");
+  assert.equal(rep.assets.available, true);
+  assert.equal(rep.assets.total, p.total);
+  assert.equal(rep.assets.cash, p.cash);
+  assert.equal(rep.assets.invest, p.invest);
+  assert.equal(rep.assets.delta, p.total - prev.total);
+  assert.equal(rep.assets.pct, Math.round((p.total - prev.total) / Math.abs(prev.total) * 1000) / 10);
+});
+
+test("monthlyReport: mom / yoy（欠月は available:false・pct null・貯蓄率は pt）", () => {
+  const rep = R.monthlyReport(REP_EFF, REP_ROWS, [], "", NOW_AUG29);
+  assert.equal(rep.mom.available, true);
+  assert.equal(rep.mom.period, "2026-06-01");
+  assert.deepEqual(rep.mom.income, { delta: -50000, pct: -12.5 });
+  assert.deepEqual(rep.mom.expense, { delta: 10000, pct: 3.7 });
+  assert.deepEqual(rep.mom.balance, { delta: -60000, pct: -46.2 });
+  assert.deepEqual(rep.mom.savingsRatePct, { delta: 20 - 33, pct: null });   // 20% − 33%
+  assert.equal(rep.yoy.available, true);                                      // 12 ヶ月前＝2025-07-01 が実在
+  assert.equal(rep.yoy.period, "2025-07-01");
+  assert.deepEqual(rep.yoy.expense, { delta: 30000, pct: 12 });
+  assert.deepEqual(rep.yoy.income, { delta: 0, pct: 0 });
+  const march = R.monthlyReport(REP_EFF, REP_ROWS, [], "2026-03-01", NOW_AUG29);
+  assert.equal(march.mom.available, false);                                   // 2026-02 は無い（欠月）
+  assert.equal(march.mom.income, null);
+  assert.equal(march.yoy.available, false);
+  // prev が 0 のとき pct は null
+  const zeroRows = [mkRow("2026-06-01", { income: 100000, expense: 100000 }), mkRow("2026-07-01", { income: 100000, expense: 90000 })];
+  const z = R.monthlyReport(REP_EFF, zeroRows, [], "2026-07-01", NOW_AUG29);
+  assert.equal(z.mom.balance.pct, null);
+  assert.equal(z.mom.balance.delta, 10000);
+});
+
+test("monthlyReport: categories は上位8＋その他・構成比・前月比（前月内訳なしは null）", () => {
+  const rep = R.monthlyReport(REP_EFF, REP_ROWS, [], "2026-07-01", NOW_AUG29);
+  assert.equal(rep.categories.hasBreakdown, true);
+  assert.equal(rep.categories.count, 4);
+  assert.deepEqual(rep.categories.top.map((c) => c.name), ["旅行", "食費", "外食費", "光熱費"]);
+  assert.equal(rep.categories.top[1].amount, 45000);
+  assert.equal(rep.categories.top[1].sharePct, Math.round(45000 / 280000 * 100));
+  assert.equal(rep.categories.top[1].delta, 1000);      // 45,000 − 44,000
+  assert.equal(rep.categories.top[0].delta, 50000);     // 前月に無い費目＝0 からの差
+  assert.equal(rep.categories.othersAmount, 0);
+  // 9費目なら 8 行＋その他
+  const many = [];
+  for (let i = 0; i < 9; i++) many.push(["c" + i, 10000 - i * 100]);
+  const wide = R.monthlyReport(REP_EFF, [mkRow("2026-07-01", { expense: 200000, cats: many })], [], "2026-07-01", NOW_AUG29);
+  assert.equal(wide.categories.top.length, 8);
+  assert.equal(wide.categories.othersAmount, 9200);
+  assert.equal(wide.categories.top[0].delta, null);     // 前月行なし
+  // 内訳なしの月
+  const bare = R.monthlyReport(REP_EFF, [mkRow("2026-07-01", { expense: 200000 })], [], "2026-07-01", NOW_AUG29);
+  assert.equal(bare.categories.hasBreakdown, false);
+  assert.deepEqual(bare.categories.top, []);
+});
+
+test("monthlyReport: assets の非 available（noAnchor / noPoint / beforeAnchor）と rows 0", () => {
+  const noAnchor = R.monthlyReport(mkState({ anchor: null }), REP_ROWS, [], "", NOW_AUG29);
+  assert.deepEqual(noAnchor.assets, { available: false, reason: "noAnchor" });
+  // アンカーより前の月＝逆算（beforeAnchor）
+  const back = R.monthlyReport(REP_EFF, REP_ROWS, [], "2025-07-01", NOW_AUG29);
+  assert.equal(back.assets.available, false);          // 欠月で後方打切＝系列に含まれない
+  assert.equal(back.assets.reason, "noPoint");
+  const near = R.monthlyReport(mkState({ anchor: { date: "2026-06-01", amount: 1000000 } }), REP_ROWS, [], "2026-05-01", NOW_AUG29);
+  assert.equal(near.assets.available, true);
+  assert.equal(near.assets.beforeAnchor, true);
+  const noRows = R.monthlyReport(REP_EFF, [], [], "", NOW_AUG29);
+  assert.equal(noRows.available, false);
+  assert.equal(noRows.reason, "noRows");
+});
+
+test("monthlyReport: budget は budgetProgress と同値（選択月の行に対して）", () => {
+  const rep = R.monthlyReport(REP_EFF, REP_ROWS, [], "2026-07-01", NOW_AUG29);
+  const direct = R.budgetProgress(REP_EFF.budgets, R.latestRow(REP_ROWS.filter((r) => r.period === "2026-07-01")), NOW_AUG29);
+  assert.deepEqual(rep.budget, direct);
+  assert.equal(rep.budget.isComplete, true);
+});
+
 module.exports = { mkRow, mkState };

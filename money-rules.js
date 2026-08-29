@@ -1688,6 +1688,125 @@
       overTotal: b.total > 0 ? Math.max(0, sumItems - b.total) : 0 };
   }
 
+  // §3.2 設定カードの費目一覧の源。平均の分母は**窓の月数**（出現しない月＝0）＝年1回の費目も「月あたり」に均す。
+  // 確定月のみ（進行中月を混ぜると過小・§6 注意6）。
+  function budgetCategoryStats(rows_in, months) {
+    var n = num(months) > 0 ? Math.floor(num(months)) : 12;
+    var complete = cashflowRows(rows_in).filter(function (rr) { return rr.isComplete; });
+    var win = complete.slice(-n);
+    if (!win.length) return { window: 0, stats: [] };
+    var lastPeriod = win[win.length - 1].period;
+    var last3 = {};
+    win.slice(-3).forEach(function (rr) { last3["p:" + rr.period] = true; });
+    var acc = {}, order = [];
+    win.forEach(function (rr) {
+      var inLast3 = Object.prototype.hasOwnProperty.call(last3, "p:" + rr.period);
+      _budgetActualByName(rr).list.forEach(function (c) {
+        var key = "k:" + c.name;
+        if (!Object.prototype.hasOwnProperty.call(acc, key)) {
+          acc[key] = { name: c.name, sum12: 0, sum3: 0, present: 0, last: 0 };
+          order.push(key);
+        }
+        var a = acc[key];
+        a.sum12 += c.amount;
+        if (inLast3) a.sum3 += c.amount;
+        if (c.amount > 0) a.present += 1;
+        if (rr.period === lastPeriod) a.last = c.amount;
+      });
+    });
+    var denom3 = Math.min(3, win.length);
+    var stats = order.map(function (key) {
+      var a = acc[key];
+      return { name: a.name, avg12: r(a.sum12 / win.length), avg3: r(a.sum3 / denom3), months: a.present, last: a.last };
+    });
+    stats.sort(function (x, y) { return (y.avg12 - x.avg12) || x.name.localeCompare(y.name); });
+    return { window: win.length, stats: stats };
+  }
+
+  // §3.2 選択月の正規化と前後移動。前後は**行の並び**（欠月は飛ばす）。前月比/前年同月比は暦（_shiftYM）で引く。
+  function reportNav(rows_in, period) {
+    var rows = cashflowRows(rows_in);
+    if (!rows.length) {
+      return { available: false, period: "", prev: null, next: null, latestComplete: "", isLatestComplete: false, isPartial: false };
+    }
+    var latestComplete = "";
+    for (var i = rows.length - 1; i >= 0; i--) { if (rows[i].isComplete) { latestComplete = rows[i].period; break; } }
+    var idx = -1, j;
+    if (typeof period === "string" && _DATE_RE.test(period)) {
+      for (j = 0; j < rows.length; j++) { if (rows[j].period === period) { idx = j; break; } }
+    }
+    if (idx < 0) {
+      var sel = latestComplete || rows[rows.length - 1].period;
+      for (j = 0; j < rows.length; j++) { if (rows[j].period === sel) { idx = j; break; } }
+    }
+    return { available: true, period: rows[idx].period,
+      prev: idx > 0 ? rows[idx - 1].period : null,
+      next: idx < rows.length - 1 ? rows[idx + 1].period : null,
+      latestComplete: latestComplete, isLatestComplete: rows[idx].period === latestComplete,
+      isPartial: !rows[idx].isComplete };
+  }
+
+  function _round1(x) { return Math.round(x * 10) / 10; }
+  function _repDelta(cur, prev) {
+    var d = cur - prev;
+    return { delta: d, pct: prev !== 0 ? _round1(d / Math.abs(prev) * 100) : null };
+  }
+  // 単月の貯蓄率（cashflowViewModel の monthSavings と同式＝不変条件①）。
+  function _repSavingsPct(row) { return row.totalIncome > 0 ? Math.round(row.balance / row.totalIncome * 100) : 0; }
+
+  // §3.2 月次レポート本体の VM。eff は effectiveState 済み（eff.budgets === state.budgets）。
+  function monthlyReport(eff, rows_in, investmentRows_in, period, nowMs) {
+    var nav = reportNav(rows_in, period);
+    if (!nav.available) return { available: false, reason: "noRows", nav: nav };
+    var rows = cashflowRows(rows_in), byPeriod = {};
+    rows.forEach(function (rr) { byPeriod["p:" + rr.period] = rr; });
+    var row = byPeriod["p:" + nav.period];
+    var prevP = _shiftYM(nav.period, -1);
+    var prevRow = byPeriod["p:" + prevP] || null;
+    var yoyRow = byPeriod["p:" + _shiftYM(nav.period, -12)] || null;
+    var savingsRatePct = _repSavingsPct(row);
+    function cmp(other) {
+      if (!other) return { available: false, period: "", income: null, expense: null, balance: null, savingsRatePct: null };
+      return { available: true, period: other.period,
+        income: _repDelta(row.totalIncome, other.totalIncome),
+        expense: _repDelta(row.totalExpense, other.totalExpense),
+        balance: _repDelta(row.balance, other.balance),
+        savingsRatePct: { delta: savingsRatePct - _repSavingsPct(other), pct: null } };   // 貯蓄率は pt（§6 注意5）
+    }
+    var acc = _budgetActualByName(row);
+    var cats = acc.list.slice().sort(function (x, y) { return (y.amount - x.amount) || x.name.localeCompare(y.name); });
+    var prevAcc = prevRow ? _budgetActualByName(prevRow) : null;
+    var prevHas = !!(prevAcc && prevAcc.list.length);
+    var expense = row.totalExpense;
+    var top = cats.slice(0, 8).map(function (c) {
+      var pk = "k:" + c.name;
+      return { name: c.name, amount: c.amount,
+        sharePct: expense > 0 ? Math.round(c.amount / expense * 100) : 0,
+        delta: prevHas ? c.amount - (Object.prototype.hasOwnProperty.call(prevAcc.byKey, pk) ? prevAcc.byKey[pk].amount : 0) : null };
+    });
+    var othersAmount = 0;
+    cats.slice(8).forEach(function (c) { othersAmount += c.amount; });
+    var series = assetSeries(eff, rows_in, investmentRows_in);
+    var point = null, prevPoint = null;
+    series.points.forEach(function (p) {
+      if (p.period === nav.period) point = p;
+      if (p.period === prevP) prevPoint = p;
+    });
+    var assets;
+    if (!series.available) assets = { available: false, reason: series.reason };
+    else if (!point) assets = { available: false, reason: "noPoint" };   // 打切の外・アンカー前の逆算不能月
+    else assets = { available: true, reason: "", total: point.total, cash: point.cash, invest: point.invest,
+      isComplete: point.isComplete, beforeAnchor: point.beforeAnchor,
+      delta: prevPoint ? point.total - prevPoint.total : null,
+      pct: (prevPoint && prevPoint.total !== 0) ? _round1((point.total - prevPoint.total) / Math.abs(prevPoint.total) * 100) : null };
+    return { available: true, reason: "", period: nav.period, isComplete: row.isComplete, nav: nav,
+      income: row.totalIncome, salary: row.salaryIncome, misc: row.miscIncome, expense: expense,
+      fixed: row.fixedExpense, variable: row.variableExpense, balance: row.balance, savingsRatePct: savingsRatePct,
+      mom: cmp(prevRow), yoy: cmp(yoyRow),
+      categories: { hasBreakdown: cats.length > 0, count: cats.length, top: top, othersAmount: othersAmount },
+      budget: budgetProgress(eff && eff.budgets, row, nowMs), assets: assets };
+  }
+
   return {
     STORAGE_KEY: STORAGE_KEY, CURRENT_VERSION: CURRENT_VERSION,
     NEXT_TARGETS: NEXT_TARGETS, FACTS_SCHEMA_VERSION: FACTS_SCHEMA_VERSION,
@@ -1737,5 +1856,6 @@
     // W3.5 月次パック（UI 専用・facts 非出力）
     normName: normName, normalizeBudgets: normalizeBudgets, budgetTotals: budgetTotals,
     elapsedFraction: elapsedFraction, latestRow: latestRow, budgetProgress: budgetProgress,
+    budgetCategoryStats: budgetCategoryStats, reportNav: reportNav, monthlyReport: monthlyReport,
   };
 });
