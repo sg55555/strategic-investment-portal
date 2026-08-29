@@ -614,12 +614,17 @@ window.MCC = (function () {
     render();
   }
 
-  // 設定の「月の生活費」に実支出の平均をワンタップ採用（連携済みのみ・手動確定＝規律フレーム維持）。
-  function adoptAvgExpense() {
+  // 実支出の平均を指定フィールドへワンタップ採用する共通ゲート（連携済みのみ・手動確定＝規律フレーム維持）。
+  // ゲート（loggedIn / hasData / avgExpense>0）を単一源化＝adoptAvgExpense と adoptBudgetTotalAvg（budgets.total）で共有。
+  function adoptAvgTo(path) {
     if (!sync.loggedIn) return;
     var cv = R.cashflowViewModel(_cashflowRows, state, Date.now());
     if (!cv.hasData || !(cv.avgExpense > 0)) return;
-    setField("monthlyExpense", cv.avgExpense); // save() 込み・描画は focusout 経路が無いため setField 内の次tickフォールバックで確実に反映（バッファ目標も即再計算）
+    setField(path, cv.avgExpense); // save() 込み・描画は focusout 経路が無いため setField 内の次tickフォールバックで確実に反映（バッファ目標も即再計算）
+  }
+  // 設定の「月の生活費」に実支出の平均をワンタップ採用。
+  function adoptAvgExpense() {
+    adoptAvgTo("monthlyExpense");
   }
 
   // ==== W3.5 月次パック（spec §4）: 月の予算。数値・並び・状態は全て R.* 由来（money.js に業務 math を書かない）====
@@ -653,12 +658,9 @@ window.MCC = (function () {
       if (stats[i].name === n) { if (stats[i].avg3 > 0) setBudgetItem(n, stats[i].avg3); return; }
     }
   }
-  // 合計予算に実支出の平均を採用（adoptAvgExpense と同型・既存 setField で足りる）。
+  // 合計予算に実支出の平均を採用（adoptAvgExpense と同型・ゲートは adoptAvgTo に一本化）。
   function adoptBudgetTotalAvg() {
-    if (!sync.loggedIn) return;
-    var cv = R.cashflowViewModel(_cashflowRows, state, Date.now());
-    if (!cv.hasData || !(cv.avgExpense > 0)) return;
-    setField("budgets.total", cv.avgExpense);
+    adoptAvgTo("budgets.total");
   }
 
   // ---- 描画 ----
