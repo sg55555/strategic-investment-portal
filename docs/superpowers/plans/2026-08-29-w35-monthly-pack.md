@@ -2195,6 +2195,6 @@ git commit -m "docs(w35): spec §9/§11 の件数を実測へ更新・plan に�
 
 1. **`.claude/CLAUDE.md` への追記は main 直下で行う**（git 管理外＝worktree からは編集不能・W3 §11 と同じ）。追記先＝「お金の司令塔／司令室」節の `🆕 W3` bullet の直後。貼る文面は **spec §11 の追記ブロック（Task 8 で `N` を実測へ置換済み）をそのままコピー**する。
 2. **Obsidian への昇格も統合時**（並行セッション記憶2層ルールの層2）。書く先＝`Projects/investment-portal.md`「🎨 UIUX刷新スレッド」に W3.5 の完了と次の起点、`Projects/wealth-cockpit-v2.md` に `state.budgets` の存在と「予算＝意図は司令室／実績は kakeibo 由来」の役割分担、`MEMORY.md` の investment-portal 行に「W3.5 月次パック ✅」。
-3. **新基準値**: `cockpit-e2e.js` = N asserts（W3 時点 241）／`node --test tests/*.test.js` = M（W3 時点 418・W3.5 で +22）。次 wave はこの値から動かす。
+3. **新基準値**: `cockpit-e2e.js` = 252 asserts（W3 時点 241）／`node --test tests/*.test.js` = 440（W3 時点 418・W3.5 で +22）。次 wave はこの値から動かす。
 4. **別レーンの持ち越し（本 wave の対象外）**: 既存の 390px 横溢れ（設定タブの `.mcc-field` 幅 209px が fullPage 幅 471px を作る・`overflow-x: clip` で画面には出ない）＝spec §11。直すなら別 wave。
 5. **将来 wave の入口**: `budgets` を AI に渡すときは `advice.py _migrate`／`_normalize_budgets` 鏡像＋coarsen（費目名は production で出さない）＋`FACTS_SCHEMA_VERSION` 7＋fixture 追加が必要。本 wave は入口を作っていない（`tests/money-budget.test.js` の不変条件⑤がそれを機械で守る）。

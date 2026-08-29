@@ -386,7 +386,7 @@ var rep     = R.monthlyReport(eff, _cashflowRows, _investmentRows, _reportPeriod
 
 ## §9 既存受入への影響
 
-- `scratchpad/cockpit-e2e.js`（241）: `FOLD_IDS`（全スナップショットで「必ず存在」を要求）には `mcc-sec-budget-live` を**足さない**（予算 fold は
+- `scratchpad/cockpit-e2e.js`（241 → 更新後 252）: `FOLD_IDS`（全スナップショットで「必ず存在」を要求）には `mcc-sec-budget-live` を**足さない**（予算 fold は
   未ログイン/未連携で非描画＝足すと既存アサートが壊れる）。代わりに専用スナップショットキー `budgetLive`＋新規アサート（ログイン時あり・未ログイン時なし・digest 逐語）で検証／
   設定タブの input 数が増える（`configHoldingInputs`・`configNisaInputs` は接頭辞一致で不変・`dashInputCount` は 0 のまま）／
   タブ 3 本（`#mcc-tab-report` の hidden 切替・`aria-selected`）。**期待値を意図的に更新し新基準値（件数）を spec §11 と CLAUDE.md 追記に記録**。
@@ -430,7 +430,7 @@ var rep     = R.monthlyReport(eff, _cashflowRows, _investmentRows, _reportPeriod
 
 ### 10.3 既存スイート
 
-- `node --test tests/*.test.js`（418 → 新規分だけ増える）／`pytest tests/`（106 不変）／`cockpit-e2e.js`（241 → 更新後の新基準値）／
+- `node --test tests/*.test.js`（418 → 440）／`pytest tests/`（106 不変）／`cockpit-e2e.js`（241 → 252）／
   `w3-smoke.js` 128／`portal-money-smoke.js`／`git diff --stat -- api/ tests/fixtures/ index.html`＝空。
 
 ## §11 リスクと申し送り
@@ -450,7 +450,7 @@ var rep     = R.monthlyReport(eff, _cashflowRows, _investmentRows, _reportPeriod
   「お金の司令塔／司令室」節の `🆕 W3` bullet の直後へ次を追記すること（cockpit-e2e の新基準値は実装後に確定して差し替える）。
 
   ```markdown
-    - **🆕 W3.5 月次パック（spec `docs/superpowers/specs/2026-08-29-w35-monthly-pack-design.md`）**：予算 vs 実績（`state.budgets={total,items[{name,amount}]}`＝kakeibo 費目そのまま・`normalizeBudgets`／`budgetProgress`／`budgetCategoryStats`）＋月次レポート（`reportNav`／`monthlyReport`・選択月は `_reportPeriod`＝非永続）。**`budgets` は UI 専用＝facts 非出力・advice.py 鏡像なし（`modeAFacts` 出力は budgets の有無で deepEqual＝`tests/money-budget.test.js`）**。⚠`normalizeBudgets` は amount 0 を「削除」と解釈する（0 を保存しない）。⚠経過率は UTC・進行中行（`is_complete=false`）を対象＝末尾行が確定なら「進行中の月はまだありません」注記を消さない。⚠内訳（生取引）と見出し（月別集計）は別源＝`breakdownMismatch` を注記で見せる（直さない）。受入＝`NODE_PATH=/home/shugo/node_modules node scratchpad/w35-smoke.js`（`W35_VARIANTS=0` のモック鯖を自前起動）＋ cockpit-e2e（新基準値 N）。
+    - **🆕 W3.5 月次パック（spec `docs/superpowers/specs/2026-08-29-w35-monthly-pack-design.md`）**：予算 vs 実績（`state.budgets={total,items[{name,amount}]}`＝kakeibo 費目そのまま・`normalizeBudgets`／`budgetProgress`／`budgetCategoryStats`）＋月次レポート（`reportNav`／`monthlyReport`・選択月は `_reportPeriod`＝非永続）。**`budgets` は UI 専用＝facts 非出力・advice.py 鏡像なし（`modeAFacts` 出力は budgets の有無で deepEqual＝`tests/money-budget.test.js`）**。⚠`normalizeBudgets` は amount 0 を「削除」と解釈する（0 を保存しない）。⚠経過率は UTC・進行中行（`is_complete=false`）を対象＝末尾行が確定なら「進行中の月はまだありません」注記を消さない。⚠内訳（生取引）と見出し（月別集計）は別源＝`breakdownMismatch` を注記で見せる（直さない）。受入＝`NODE_PATH=/home/shugo/node_modules node scratchpad/w35-smoke.js`（`W35_VARIANTS=0` のモック鯖を自前起動）＋ cockpit-e2e（新基準値 252）。
   ```
 
 ## §12 変更するファイル
