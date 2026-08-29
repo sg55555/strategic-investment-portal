@@ -202,7 +202,7 @@ def build_cashflow_rows(pulled_at):
 
 
 def build_state():
-    return {
+    st = {
         "version": STATE_VERSION,
         "currency": "JPY",
         "monthlyExpense": MONTHLY_EXPENSE,
@@ -250,6 +250,10 @@ def build_state():
         "history": [],
         "updatedAt": 2000000000000,   # 2033年＝ローカル既定(0)より必ず新しい→reconcile で cloud 採用
     }
+    # 受入 S1（未設定）用: W35_BUDGETS=0 なら予算を空にする（state の他フィールドは触らない）。
+    if os.environ.get("W35_BUDGETS", "1") == "0":
+        st["budgets"] = {"total": 0, "items": []}
+    return st
 
 
 PULLED_AT = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
@@ -356,6 +360,11 @@ class Handler(SimpleHTTPRequestHandler):
         if path.startswith("/api/market/"):
             self._drain_body()
             self._json({"stocks": {}, "updated_at": ""})
+            return True
+        # 受入 S6（未ログイン）用: W35_AUTH=0 ならセッションと /api/me/* を 401 にする。
+        if os.environ.get("W35_AUTH", "1") == "0" and (path == "/api/auth/session" or path.startswith("/api/me/")):
+            self._drain_body()
+            self._json({"error": "unauthorized"}, status=401)
             return True
         if path == "/api/auth/session" and method == "GET":
             self._json({"ok": True, "insightEnabled": False, "nisaAdviceEnabled": False})

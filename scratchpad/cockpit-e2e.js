@@ -172,6 +172,17 @@ async function snapshot(page) {
       // D3: ゲージ独立カードは廃止（ヒーロー右カラムへ一本化）＝「消えたこと」を正のアサートで固定する
       gaugeCardExists: !!q(".mcc-gauge-card"),
       folds: folds,
+      // W3.5: 予算 fold（収支データがある文脈でだけ描かれる＝FOLD_IDS には入れない）
+      budgetLive: (() => {
+        const el = document.getElementById("mcc-sec-budget-live");
+        return el ? {
+          tag: el.tagName, isFold: /\bmcc-fold\b/.test(el.className), open: !!el.open,
+          digest: (() => { const d = el.querySelector(".mcc-fold-dg"); return d ? d.textContent.trim() : null; })(),
+          inDash: !!document.querySelector("#mcc-tab-dash #mcc-sec-budget-live"),
+          yenInputs: el.querySelectorAll("input").length,
+        } : null;
+      })(),
+      budgetCardInConfig: !!document.querySelector("#mcc-tab-config #mcc-sec-budget-card"),
       // D3: 入力系の配置（dash＝読む面に入力を残さない／config＝入力はすべてここ）
       placement: {
         dashHoldingInputs: document.querySelectorAll('#mcc-tab-dash input[data-mcc-focus^="assetHoldings."]').length,
@@ -338,6 +349,15 @@ function check(name, cond, detail) {
       JSON.stringify(Object.keys(F).map((k) => k + ":" + F[k].open)));
     check("D3_digest_cashflow", F["mcc-sec-cashflow"].digest === "2026年7月 +¥70,000・貯蓄率 14%",
       F["mcc-sec-cashflow"].digest);
+    // --- W3.5: 予算 fold と設定カード（新設の期待値）---
+    check("W35_budget_fold_present_in_dash",
+      !!a.budgetLive && a.budgetLive.tag === "DETAILS" && a.budgetLive.isFold && a.budgetLive.inDash,
+      JSON.stringify(a.budgetLive));
+    check("W35_budget_fold_default_open", !!a.budgetLive && a.budgetLive.open === true, JSON.stringify(a.budgetLive));
+    check("W35_budget_fold_digest_unset", !!a.budgetLive && a.budgetLive.digest === "未設定", a.budgetLive && a.budgetLive.digest);
+    check("W35_budget_fold_has_no_input", !!a.budgetLive && a.budgetLive.yenInputs === 0, a.budgetLive && a.budgetLive.yenInputs);
+    check("W35_budget_card_in_config", a.budgetCardInConfig === true, a.budgetCardInConfig);
+    check("W35_dash_still_has_no_input", a.placement.dashInputCount === 0, a.placement.dashInputCount);
     check("D3_digest_roadmap", F["mcc-sec-roadmap"].digest === "育てる（長期投資）・いまここ",
       F["mcc-sec-roadmap"].digest);
     // NISA/資産クラスはこのフィクスチャでは未入力＝「—」相当の安全表示になる（データ有りの digest は下の A9 で）
@@ -824,6 +844,9 @@ function check(name, cond, detail) {
       dashSelected: document.getElementById("mcc-tab-btn-dash").getAttribute("aria-selected"),
       configSelected: document.getElementById("mcc-tab-btn-config").getAttribute("aria-selected"),
       storedTab: (() => { try { return localStorage.getItem("mcc_tab"); } catch (e) { return null; } })(),
+      reportHidden: document.getElementById("mcc-tab-report").hidden,
+      reportSelected: document.getElementById("mcc-tab-btn-report").getAttribute("aria-selected"),
+      reportHasBody: !!document.querySelector("#mcc-tab-report #mcc-tab-report-body"),
       dashHasSync: !!document.querySelector("#mcc-tab-dash #mcc-sec-sync"),
       dashHasNisa: !!document.querySelector("#mcc-tab-dash #mcc-sec-nisa"),
       dashHasCashflow: !!document.querySelector("#mcc-tab-dash #mcc-sec-cashflow"),
@@ -846,6 +869,8 @@ function check(name, cond, detail) {
     // --- G1: 既定は dash（localStorage 未設定）---
     const g1 = await tabState();
     check("G1_default_tab_is_dash", g1.dashHidden === false && g1.configHidden === true, JSON.stringify(g1));
+    check("W35_G1_report_pane_hidden_by_default", g1.reportHidden === true && g1.reportSelected === "false", JSON.stringify(g1));
+    check("W35_G1_report_body_exists", g1.reportHasBody === true, JSON.stringify(g1));
     check("G1_default_aria_selected", g1.dashSelected === "true" && g1.configSelected === "false", JSON.stringify(g1));
     check("G1_dash_content_visible_config_not", g1.cashflowVisible === true && g1.bucketsVisible === false, JSON.stringify(g1));
 
@@ -870,6 +895,18 @@ function check(name, cond, detail) {
     check("G3_click_config_swaps_aria", g3.dashSelected === "false" && g3.configSelected === "true", JSON.stringify(g3));
     check("G3_click_config_persists_localstorage", g3.storedTab === "config", g3.storedTab);
     check("G3_click_config_swaps_visibility", g3.bucketsVisible === true && g3.cashflowVisible === false, JSON.stringify(g3));
+
+    // --- W3.5: レポートタブの実クリック（Ruling A7＝G3_click_config_swaps_visibility の直後）---
+    await pageG.click("#mcc-tab-btn-report");
+    await pageG.waitForTimeout(80);
+    const g3r = await tabState();
+    check("W35_G3_click_report_swaps_hidden",
+      g3r.dashHidden === true && g3r.configHidden === true && g3r.reportHidden === false, JSON.stringify(g3r));
+    check("W35_G3_click_report_swaps_aria",
+      g3r.reportSelected === "true" && g3r.dashSelected === "false" && g3r.configSelected === "false", JSON.stringify(g3r));
+    check("W35_G3_report_tab_stored", g3r.storedTab === "report", g3r.storedTab);
+    await pageG.click("#mcc-tab-btn-config");   // 後続シナリオのために config へ戻す
+    await pageG.waitForTimeout(80);
 
     // --- G4: 非アクティブ面は DOM から消えない（details 開閉・未確定入力値が切替で失われない）---
     await pageG.evaluate(() => {
