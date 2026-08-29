@@ -1376,3 +1376,24 @@
 .mcc-bud-adopt:hover { background: rgba(56,189,248,0.24); }
 .mcc-bud-nodata-tag { color: var(--c-text-faint); font-size: 12px; margin-left: 6px; font-family: var(--ix-sans); letter-spacing: 0; }
 .mcc-bud-note { color: var(--c-text-faint); font-size: 12px; line-height: 1.5; margin-top: 8px; font-family: var(--ix-sans); letter-spacing: 0; }
+
+/* ==== W3.5: ダッシュボード fold「今月の予算」（spec §5）==== */
+.mcc-fold-budget > summary .mcc-fold-mk { color: var(--c-amber-bright); }
+.mcc-budget { display: block; }
+.mcc-bud-cta { color: var(--c-text-dim); font-size: 0.8rem; line-height: 1.6; padding: 2px 0 6px; font-family: var(--ix-sans); letter-spacing: 0; }
+.mcc-bud-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.mcc-bud-period { color: var(--c-text-bright); font-size: 0.94rem; font-weight: 700; }
+.mcc-bud-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; margin: 8px 0; }
+.mcc-bud-lbl { color: var(--c-text); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.mcc-bud-val { color: var(--c-text-dim); font-size: 12px; white-space: nowrap; text-align: right; }
+.mcc-bud-over { color: var(--c-danger-soft); margin-left: 8px; }
+.mcc-bud-rem { color: var(--c-slate); margin-left: 8px; }
+.mcc-bud-bar { position: relative; height: 10px; background: rgba(255,255,255,0.06); border-radius: 6px; overflow: hidden; grid-column: 1 / -1; }
+.mcc-bud-fill { display: block; height: 100%; background: var(--c-cyan); }
+.mcc-bud-fill.watch { background: var(--c-amber); }
+.mcc-bud-fill.over { background: var(--c-danger); }
+.mcc-bud-fill.none { background: var(--c-slate); }
+.mcc-bud-tick { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--c-text-dim); opacity: 0.85; }
+.mcc-bud-row-total .mcc-bud-lbl { color: var(--c-text-bright); font-weight: 700; }
+.mcc-bud-unbud { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 10px; color: var(--c-text-dim); font-size: 12px; }
+.mcc-bud-chip { color: var(--c-text-dim); font-size: 12px; padding: 2px 7px; border-radius: 5px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); }

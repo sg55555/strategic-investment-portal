@@ -908,6 +908,63 @@ window.MCC = (function () {
     }
     return foldSection("mcc-sec-series", "mcc-fold-series", "資産の推移", digest, body);
   }
+  // §4.5 予算バー（合計＋費目）。数値・並び・状態は bp 由来＝ここは幅%と文言だけを組む（業務 math 禁）。
+  function budgetBars(bp, opts) {
+    opts = opts || {};
+    function bar(cls, label, it, tick) {
+      var noData = (it.hasData === false);
+      var val = noData ? '実績なし'
+        : (it.budget > 0 ? R.yen(it.actual) + ' / ' + R.yen(it.budget) + '（' + it.pct + '%）' : R.yen(it.actual));
+      var right = (noData || !(it.budget > 0)) ? ''
+        : (it.over > 0 ? '<span class="mcc-bud-over">超過 ' + R.yen(it.over) + '</span>'
+                       : '<span class="mcc-bud-rem">残り ' + R.yen(it.remaining) + '</span>');
+      var w = (noData || !(it.budget > 0)) ? 0 : Math.min(100, it.pct);
+      return '<div class="mcc-bud-row ' + cls + '">' +
+        '<span class="mcc-bud-lbl">' + esc(label) + '</span>' +
+        '<span class="mcc-bud-val">' + val + right + '</span>' +
+        '<span class="mcc-bud-bar"><span class="mcc-bud-fill ' + it.status + '" style="width:' + w + '%"></span>' +
+          (tick ? '<span class="mcc-bud-tick" style="left:' + bp.elapsedPct + '%"></span>' : '') +
+        '</span>' +
+      '</div>';
+    }
+    var tick = !!opts.tick;
+    var out = "";
+    if (bp.total && bp.total.budget > 0) out += bar("mcc-bud-row-total", "支出 合計", bp.total, tick);
+    out += bp.items.map(function (it) { return bar("mcc-bud-row-item", it.name, it, tick); }).join("");
+    if (opts.compareNote) out += '<div class="mcc-bud-note">現在の予算で比較しています</div>';
+    return out;
+  }
+
+  // §4.3 ダッシュボード fold「今月の予算」。描画ゲート＝ログイン済み＋収支あり（未連携 CTA は収支 fold に一本化）。
+  function budgetLiveSection(bp, cv) {
+    if (!sync.loggedIn || !cv.available || !bp || !bp.available) return "";
+    var chips = bp.unbudgeted.map(function (c) {
+      return '<span class="mcc-bud-chip">' + esc(c.name) + ' ' + R.yen(c.amount) + '</span>';
+    }).join("");
+    if (!bp.configured) {
+      return foldSection("mcc-sec-budget-live", "mcc-fold-budget", "今月の予算", '<b>未設定</b>',
+        '<div class="mcc-budget">' +
+          '<div class="mcc-bud-cta">費目ごとの月額を設定すると、今月の消化がここに出ます。' + jumpLink("budget", "「月の予算」") + '</div>' +
+          (chips ? '<div class="mcc-bud-unbud">' + chips + '</div>' : '') +
+        '</div>');
+    }
+    var head = '<div class="mcc-bud-head"><span class="mcc-bud-period">' + esc(fmtAnchorMonth(bp.period)) + '</span>' +
+      (bp.isComplete ? '<span class="mcc-cf-latest">（確定）</span>'
+                     : '<span class="mcc-cf-partial">（進行中・月の ' + bp.elapsedPct + '% 経過）</span>') + '</div>' +
+      (bp.isComplete ? '<div class="mcc-bud-note">進行中の月のデータはまだありません（最新の確定月を表示）</div>' : '');
+    var unbud = bp.unbudgeted.length
+      ? '<div class="mcc-bud-unbud">予算なしの費目 ' + R.yen(bp.unbudgetedTotal) + '：' + chips +
+        jumpLink("budget", "「月の予算」で設定") + '</div>'
+      : '';
+    var mism = bp.breakdownMismatch
+      ? '<div class="mcc-bud-note">内訳の合計（' + R.yen(bp.catsTotal) + '）と支出合計（' + R.yen(bp.total.actual) + '）が一致していません</div>'
+      : '';
+    var digest = (bp.total.budget > 0 ? '消化 <b>' + bp.total.pct + '%</b>' : '費目 <b>' + bp.items.length + '件</b>') +
+      (bp.isComplete ? '（確定）' : '・月 ' + bp.elapsedPct + '% 経過') +
+      (bp.overCount > 0 ? '・超過 ' + bp.overCount + '費目' : '');
+    return foldSection("mcc-sec-budget-live", "mcc-fold-budget", "今月の予算", digest,
+      '<div class="mcc-budget">' + head + budgetBars(bp, { tick: !bp.isComplete }) + unbud + mism + '</div>');
+  }
   // W3: リマインド帯（spec §4.4・§7）。rem=R.reminders(...)。0件なら DOM を作らない。
   function reminderRail(rem) {
     if (!rem || !rem.length) return "";
@@ -2073,7 +2130,8 @@ window.MCC = (function () {
   var _FOLD_KEY = "mcc_details";
   // 保存された開閉が**無いとき**の既定 open。ダッシュボードは収支だけ（毎日見る筆頭）＝開幕から縦に長くしない。
   // 設定タブの入力 details は開いておく（入力するために開いた面で、さらに1クリック要求しない）。
-  var _FOLD_DEFAULT_OPEN = { "mcc-sec-cashflow": true, "mcc-sec-series": true, "mcc-sec-settings": true, "mcc-ac-input": true, "mcc-nisa-input": true };
+  var _FOLD_DEFAULT_OPEN = { "mcc-sec-cashflow": true, "mcc-sec-series": true, "mcc-sec-budget-live": true,
+    "mcc-sec-settings": true, "mcc-ac-input": true, "mcc-nisa-input": true };
   function _loadFolds() {
     try {
       var v = JSON.parse(localStorage.getItem(_FOLD_KEY) || "{}");
@@ -2271,6 +2329,7 @@ window.MCC = (function () {
     nisa:        { id: "mcc-sec-nisa",           tab: "dash" },
     series:      { id: "mcc-sec-series",         tab: "dash" },
     budget:      { id: "mcc-sec-budget-card",    tab: "config" },
+    budgetLive:  { id: "mcc-sec-budget-live",    tab: "dash" },
   };
   // 収支セクションは未ログインだと描画されない（認証データ）。連携にはログインが前提なので login 欄へフォールバック。
   // 基準（アンカー）カードも同じゲート（収支連携が前提の設定）＝未ログインではログイン欄へ倒す。
@@ -2400,6 +2459,8 @@ window.MCC = (function () {
     var gol = vm.goals.map(function (g) { return R.goalOutlook(g, vm.totalAssets, cd.monthlySurplus, now); });
     // W3.5: 予算 vs 実績・月次レポートの VM（全て純関数・facts 非出力）。
     var bstats = R.budgetCategoryStats(_cashflowRows, 12);
+    var liveRow = R.latestRow(_cashflowRows);
+    var bp = R.budgetProgress(eff.budgets, liveRow, now);
 
     // D3: 旧 .mcc-gauge-card（バッファ達成率の独立カード）は廃止＝ヒーロー右カラムのゲージへ一本化。
     // 同じ達成率・同じ金額・同じ「設定」導線を縦に2枚並べると、どちらが最新かを読む作業が増えるだけで
@@ -2505,7 +2566,7 @@ window.MCC = (function () {
     // タブ移動で失われない。display は CSS 側（.mcc-pane[hidden]）に委ねる。
     var dashHtml = syncBar() + saveWarn + stepperSection(ob) + heroSection(vm, cv, cdMain, mom, rw) +
       reminderRail(rem) + seriesSection(series, mom, span, _seriesPeriod) +
-      cashflowSection(cv) + roadmapSection(rm, sync.loggedIn) + nisaSection(nvm, nrem) +
+      cashflowSection(cv) + budgetLiveSection(bp, cv) + roadmapSection(rm, sync.loggedIn) + nisaSection(nvm, nrem) +
       assetClassSection(vm) + reservesGoalsSection(vm, cv, cdMain, gol, rol, cd.monthlySurplus) + adviceSection(vm);
     // review fix 2: saveWarn は**両ペインの先頭**に出す。設定タブは入力の面（保存が最も走る場所）で、
     // dash 限定にすると「編集しているタブでは保存失敗の警告が見えない」＝最悪の位置になる。
