@@ -619,7 +619,9 @@ window.MCC = (function () {
   function adoptAvgTo(path) {
     if (!sync.loggedIn) return;
     var cv = R.cashflowViewModel(_cashflowRows, state, Date.now());
-    if (!cv.hasData || !(cv.avgExpense > 0)) return;
+    // I-1（Ruling D1）の同根 fix: ゲートを描画側と同じ cv.available（hasData かつ !currencyMismatch）に揃える。
+    // 旧 cv.hasData のみだと USD 時にこのハンドラ経由で非 JPY の平均が ¥ フィールドへ入ってしまう。
+    if (!cv.available || !(cv.avgExpense > 0)) return;
     setField(path, cv.avgExpense); // save() 込み・描画は focusout 経路が無いため setField 内の次tickフォールバックで確実に反映（バッファ目標も即再計算）
   }
   // 設定の「月の生活費」に実支出の平均をワンタップ採用。
@@ -989,7 +991,7 @@ window.MCC = (function () {
   // §4.4 月次レポート（3 タブ目 mcc-tab-report＝D9）。rep=R.monthlyReport／vm=R.viewModel／nvm=R.nisaViewModel。
   // anchorPeriod=render() で算出済みの R.assetSeries(...).anchorPeriod（Ruling A9(b)：seriesSection と同じ
   // fmtAnchorMonth 表示にするため引数で受け取る＝money.js で再算出しない）。
-  function reportSection(rep, vm, nvm, loggedIn, anchorPeriod) {
+  function reportSection(rep, vm, nvm, loggedIn, anchorPeriod, cv) {
     var desc = '<div class="mcc-section-desc">月ごとの収入・支出・収支・貯蓄率と、予算に対する実績をまとめた面です。月は ◀ ▶ で移動します。</div>';
     if (!loggedIn) {
       return desc + '<div id="mcc-tab-report-body"><div class="mcc-rep-empty">ログインすると月次レポートが表示されます。</div></div>';
@@ -998,6 +1000,13 @@ window.MCC = (function () {
       // Ruling A9(a)：既存の他セクションの未連携表示と同型（jumpLink("cashflow", …) を足す）。
       return desc + '<div id="mcc-tab-report-body"><div class="mcc-rep-empty">収支データが未連携です。' +
         jumpLink("cashflow", "家計（kakeibo）を連携") + '</div></div>';
+    }
+    // I-1（Ruling D1）: spec §8 の劣化表どおり、USD（cv.currencyMismatch）では収支 fold・予算 fold と同じ cv.available
+    // ゲートで畳む（既存 cashflowSection の通貨注記と同型の 1 行のみ・¥ を出さない）。rep.available が true の時点で
+    // hasData は既に true（reportNav と cashflowDerived は同じ _cashflowRows を cashflowRows() で読む）ので、ここに
+    // 到達して cv.available が false になるのは currencyMismatch のときだけ＝「収支データが未連携です」と競合しない。
+    if (!cv || !cv.available) {
+      return desc + '<div id="mcc-tab-report-body"><div class="mcc-rep-empty">通貨が JPY 以外のため月次レポートは表示しません（収支連携は JPY 前提）。</div></div>';
     }
     var nav = rep.nav;
     var navHtml = '<div class="mcc-rep-nav">' +
@@ -2247,7 +2256,7 @@ window.MCC = (function () {
   // 既存の「render 直前に開いている details[id] を拾い、直後に開き直す」機構（全再描画でアコーディオンが
   // 閉じるのを防ぐ）を、そのまま localStorage 永続に格上げした＝リロードしても開閉が戻る。
   var _FOLD_KEY = "mcc_details";
-  // 保存された開閉が**無いとき**の既定 open。ダッシュボードは収支だけ（毎日見る筆頭）＝開幕から縦に長くしない。
+  // 保存された開閉が**無いとき**の既定 open。ダッシュボードは収支／推移／今月の予算の3本（毎日見る筆頭）だけ開く＝開幕から縦に長くしない。
   // 設定タブの入力 details は開いておく（入力するために開いた面で、さらに1クリック要求しない）。
   var _FOLD_DEFAULT_OPEN = { "mcc-sec-cashflow": true, "mcc-sec-series": true, "mcc-sec-budget-live": true,
     "mcc-sec-settings": true, "mcc-ac-input": true, "mcc-nisa-input": true };
@@ -2704,7 +2713,7 @@ window.MCC = (function () {
       '<div class="mcc-pane" id="mcc-tab-dash" role="tabpanel" aria-labelledby="mcc-tab-btn-dash"' +
         (_activeTab === "dash" ? "" : " hidden") + '>' + dashHtml + '</div>' +
       '<div class="mcc-pane" id="mcc-tab-report" role="tabpanel" aria-labelledby="mcc-tab-btn-report"' +
-        (_activeTab === "report" ? "" : " hidden") + '>' + saveWarn + reportSection(rep, vm, nvm, sync.loggedIn, series.anchorPeriod) + '</div>' +
+        (_activeTab === "report" ? "" : " hidden") + '>' + saveWarn + reportSection(rep, vm, nvm, sync.loggedIn, series.anchorPeriod, cv) + '</div>' +
       '<div class="mcc-pane" id="mcc-tab-config" role="tabpanel" aria-labelledby="mcc-tab-btn-config"' +
         (_activeTab === "config" ? "" : " hidden") + '>' + configHtml + '</div>';
 
