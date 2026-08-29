@@ -205,7 +205,8 @@ async function main() {
         const i = document.querySelector('#mcc-sec-budget-card input[data-mcc-focus="budgets.item:食費"]');
         return !!i && i.value === want;
       }, LIT.shokuhiAvg3, { timeout: 5000 });
-      check("S3 平均を採用で avg3 が入る", true);
+      const shokuhiVal = await page.evaluate(() => document.querySelector('#mcc-sec-budget-card input[data-mcc-focus="budgets.item:食費"]').value);
+      check("S3 平均を採用で avg3 が入る", shokuhiVal === LIT.shokuhiAvg3, shokuhiVal);
       // 入力欄に触ってから Enter 確定＝フォーカスが同じ欄に戻る
       const focused = await page.evaluate(async () => {
         const inp = document.querySelector('#mcc-sec-budget-card input[data-mcc-focus="budgets.item:外食費"]');
