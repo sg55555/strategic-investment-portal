@@ -297,6 +297,7 @@
       assetHoldings: normalizeAssetHoldings(null), // B#2: 3バケツ×7クラス完全骨格（全0）
       assetSource: "manual", // B#2 二軸: "ledger"=投資台帳ETL派生 / "manual"=直入力（既定=後方互換）
       nisa: normalizeNisa(null), // B#3 NISA枠：非課税枠トラッキング（Stage1手入力・全0骨格）
+      budgets: normalizeBudgets(null), // W3.5 月の支出予算（UI 専用・facts 非出力・LWW 同期）
     };
   }
 
@@ -348,6 +349,7 @@
       assetHoldings: normalizeAssetHoldings(raw.assetHoldings),
       assetSource: raw.assetSource === "ledger" ? "ledger" : "manual",
       nisa: normalizeNisa(raw.nisa), // B#3 NISA枠（前方互換・normalizeで固定形状）
+      budgets: normalizeBudgets(raw.budgets), // W3.5（未知キー同様に既定へ落ちる＝既存 fixture は不変）
     };
   }
 
@@ -1540,6 +1542,40 @@
       .map(function (w) { return w.it; });
   }
 
+  // ==== W3.5 月次パック（spec docs/superpowers/specs/2026-08-29-w35-monthly-pack-design.md §3）====
+  // すべて UI 専用の純関数（facts 非出力＝advice.py 鏡像なし・D2）。時刻は呼び元（render）が1回取った nowMs を受ける。
+  // 関数宣言は巻き上げられるため、defaultState/migrate より後ろに置いても両者から呼べる。
+
+  var BUDGET_ITEMS_MAX = 40;   // reserves 50 件と同型の上限（黙って切る）
+  var BUDGET_NAME_MAX = 40;
+
+  // §3.1 費目名の正規化。属性セレクタ（data-mcc-focus="budgets.item:<name>"）と inline handler
+  // MCC.setBudgetItem('<name>') を壊す文字（" ' \ 制御文字）を落とす。出力時はさらに esc() を通す。
+  function normName(v) {
+    if (typeof v !== "string") return "";
+    return v.replace(/["'\\\u0000-\u001f]/g, "").replace(/\s+/g, " ").trim().slice(0, BUDGET_NAME_MAX);
+  }
+
+  // §3.1 予算の安全正規化（純粋・冪等）。migrate と money.js の書込経路の両方が通る唯一の入口。
+  // amount 0 は「予算なし」＝要素ごと除去（＝0 を保存しない）。同名は先勝ち。
+  function normalizeBudgets(raw) {
+    var src = (raw && typeof raw === "object" && !Array.isArray(raw)) ? raw : {};
+    var list = Array.isArray(src.items) ? src.items : [];
+    var seen = {}, out = [];
+    for (var i = 0; i < list.length; i++) {
+      var it = list[i];
+      if (!it || typeof it !== "object" || Array.isArray(it)) continue;
+      var name = normName(it.name), amount = num(it.amount);
+      if (!name.length || !(amount > 0)) continue;
+      var key = "k:" + name;                                   // "__proto__" 等でも安全なキー空間
+      if (Object.prototype.hasOwnProperty.call(seen, key)) continue;
+      seen[key] = true;
+      out.push({ name: name, amount: amount });
+      if (out.length >= BUDGET_ITEMS_MAX) break;
+    }
+    return { total: num(src.total), items: out };
+  }
+
   return {
     STORAGE_KEY: STORAGE_KEY, CURRENT_VERSION: CURRENT_VERSION,
     NEXT_TARGETS: NEXT_TARGETS, FACTS_SCHEMA_VERSION: FACTS_SCHEMA_VERSION,
@@ -1586,5 +1622,7 @@
     assetSeries: assetSeries, momDelta: momDelta, spanDelta: spanDelta,
     monthsBetweenYM: monthsBetweenYM, runwayMonths: runwayMonths, goalOutlook: goalOutlook,
     reserveOutlook: reserveOutlook, nisaReminder: nisaReminder, reminders: reminders,
+    // W3.5 月次パック（UI 専用・facts 非出力）
+    normName: normName, normalizeBudgets: normalizeBudgets,
   };
 });
