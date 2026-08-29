@@ -724,21 +724,22 @@
 .mcc-nisa-srcbtn.on { color: var(--c-text-bright); border-color: var(--c-violet); }
 .mcc-nisa-srcbtn[disabled] { opacity: .45; cursor: not-allowed; }
 .mcc-nisa-srcnote { font-size: 12px; opacity: .7; align-self: center; margin-left: .5rem; }
-.mcc-nisa-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
-.mcc-nisa-table th, .mcc-nisa-table td { padding: 4px 6px; text-align: right; }
-.mcc-nisa-table thead th { color: var(--c-text-dim); font-weight: normal; font-size: 12px; }
-.mcc-nisa-table tbody th { text-align: left; color: var(--c-text-bright); }
-.mcc-nisa-table input { width: 100%; min-width: 72px; background: rgba(0,0,0,0.3);
+.mcc-nisa-table, .mcc-bud-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
+.mcc-nisa-table th, .mcc-nisa-table td, .mcc-bud-table th, .mcc-bud-table td { padding: 4px 6px; text-align: right; }
+.mcc-nisa-table thead th, .mcc-bud-table thead th { color: var(--c-text-dim); font-weight: normal; font-size: 12px; }
+.mcc-nisa-table tbody th, .mcc-bud-table tbody th { text-align: left; color: var(--c-text-bright); }
+.mcc-nisa-table input, .mcc-bud-table input { width: 100%; min-width: 72px; background: rgba(0,0,0,0.3);
   border: 1px solid rgba(129,140,248,0.3); color: #fff; border-radius: 6px; padding: 5px 7px; font-size: 0.8rem; }
 .mcc-nisa-addrow { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
 .mcc-nisa-addrow.muted { color: var(--c-text-faint); font-size: 12px; }
 .mcc-nisa-rowdel { background: none; border: none; color: var(--c-text-faint); cursor: pointer; font-size: 12px; }
 .mcc-nisa-recon { margin-top: 10px; font-size: 12px; }
 @media (max-width: 600px) {
-  .mcc-nisa-table, .mcc-nisa-table tbody, .mcc-nisa-table tr, .mcc-nisa-table td, .mcc-nisa-table th { display: block; }
-  .mcc-nisa-table thead { display: none; }
-  .mcc-nisa-table tr { border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 8px; margin-bottom: 8px; }
-  .mcc-nisa-table td::before { content: attr(data-label); float: left; color: var(--c-text-dim); font-size: 12px; }
+  .mcc-nisa-table, .mcc-nisa-table tbody, .mcc-nisa-table tr, .mcc-nisa-table td, .mcc-nisa-table th,
+  .mcc-bud-table, .mcc-bud-table tbody, .mcc-bud-table tr, .mcc-bud-table td, .mcc-bud-table th { display: block; }
+  .mcc-nisa-table thead, .mcc-bud-table thead { display: none; }
+  .mcc-nisa-table tr, .mcc-bud-table tr { border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 8px; margin-bottom: 8px; }
+  .mcc-nisa-table td::before, .mcc-bud-table td::before { content: attr(data-label); float: left; color: var(--c-text-dim); font-size: 12px; }
 }
 
 
@@ -1360,3 +1361,18 @@
 .mcc-nisa-reminder.info { border-left-color: var(--c-cyan); }
 .mcc-nisa-reminder.warn { border-left-color: var(--c-amber); }
 .mcc-nisa-reminder.urgent { border-left-color: var(--c-danger-soft); background: rgba(255,0,61,0.08); }
+
+/* ==== W3.5 月次パック: 設定タブ「月の予算」カード（spec §5）====
+   Ruling A6: 表本体（構造/寸法）は既存 .mcc-nisa-table 系セレクタへ .mcc-bud-table を併記して共有
+   （新たに生 hex の複製ブロックを作らない）。ここは .mcc-bud-* 固有分のみ。 */
+.mcc-bud-total { margin-bottom: 12px; }
+.mcc-bud-readout { color: var(--c-text-dim); font-size: 12px; margin-top: 6px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.mcc-bud-readout strong { color: var(--c-text); font-weight: 700; }
+.mcc-bud-applied { color: var(--c-emerald-soft); font-size: 12px; font-weight: 700; }
+.mcc-bud-adopt {
+  background: rgba(56,189,248,0.14); border: 1px solid rgba(56,189,248,0.38); color: var(--c-cyan-pale);
+  padding: 3px 9px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 700;
+}
+.mcc-bud-adopt:hover { background: rgba(56,189,248,0.24); }
+.mcc-bud-nodata-tag { color: var(--c-text-faint); font-size: 12px; margin-left: 6px; font-family: var(--ix-sans); letter-spacing: 0; }
+.mcc-bud-note { color: var(--c-text-faint); font-size: 12px; line-height: 1.5; margin-top: 8px; font-family: var(--ix-sans); letter-spacing: 0; }

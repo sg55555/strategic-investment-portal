@@ -622,6 +622,45 @@ window.MCC = (function () {
     setField("monthlyExpense", cv.avgExpense); // save() 込み・描画は focusout 経路が無いため setField 内の次tickフォールバックで確実に反映（バッファ目標も即再計算）
   }
 
+  // ==== W3.5 月次パック（spec §4）: 月の予算。数値・並び・状態は全て R.* 由来（money.js に業務 math を書かない）====
+  // 費目の予算を設定/更新/削除（0 を入れると削除＝normalizeBudgets の規約）。正規化は rules に一本化する。
+  function setBudgetItem(name, value) {
+    if (!state) load();
+    var b = R.normalizeBudgets(state.budgets);
+    var n = R.normName(name);
+    if (!n) return;
+    var amount = Number(value) >= 0 ? Number(value) : 0;
+    var items = [], replaced = false;
+    for (var i = 0; i < b.items.length; i++) {
+      if (b.items[i].name === n) {
+        replaced = true;
+        if (amount > 0) items.push({ name: n, amount: amount });   // 0 は積まない＝要素ごと消える
+      } else {
+        items.push({ name: b.items[i].name, amount: b.items[i].amount });
+      }
+    }
+    if (!replaced && amount > 0) items.push({ name: n, amount: amount });
+    state.budgets = R.normalizeBudgets({ total: b.total, items: items });
+    save();
+    _renderAfterEdit();   // setField と同じ再描画経路（data-mcc-focus="budgets.item:<name>" でフォーカス復元）
+  }
+  // 費目の予算に「直近3ヶ月平均（確定月のみ）」を採用。平均は R.budgetCategoryStats 由来（ここで平均を作らない）。
+  function adoptBudgetItemAvg(name) {
+    var n = R.normName(name);
+    if (!n) return;
+    var stats = R.budgetCategoryStats(_cashflowRows, 12).stats;
+    for (var i = 0; i < stats.length; i++) {
+      if (stats[i].name === n) { if (stats[i].avg3 > 0) setBudgetItem(n, stats[i].avg3); return; }
+    }
+  }
+  // 合計予算に実支出の平均を採用（adoptAvgExpense と同型・既存 setField で足りる）。
+  function adoptBudgetTotalAvg() {
+    if (!sync.loggedIn) return;
+    var cv = R.cashflowViewModel(_cashflowRows, state, Date.now());
+    if (!cv.hasData || !(cv.avgExpense > 0)) return;
+    setField("budgets.total", cv.avgExpense);
+  }
+
   // ---- 描画 ----
   function syncBar() {
     if (sync.loggedIn) {
@@ -2098,6 +2137,67 @@ window.MCC = (function () {
     '</div>';
   }
 
+  // §4.2 設定・ガイドタブ「月の予算」カード。stats=R.budgetCategoryStats(_cashflowRows, 12)／cv=R.cashflowViewModel。
+  // 入力欄は readout gate ではない＝未ログインでも編集可（NISA 入力と同じ規律）。¥の読み出しは cv.available のときだけ。
+  function budgetCard(stats, cv) {
+    var b = R.normalizeBudgets(state.budgets);
+    var bt = R.budgetTotals(state.budgets);
+    var byName = {}, seen = {};
+    b.items.forEach(function (it) { byName["k:" + it.name] = it.amount; });
+
+    // ① 合計行
+    var totalRead = "";
+    if (cv.available && cv.avgExpense > 0) {
+      totalRead = '<div class="mcc-bud-readout">実支出の平均は <strong>' + R.yen(cv.avgExpense) + '/月</strong>（直近3ヶ月・確定月のみ）' +
+        (bt.total === cv.avgExpense
+          ? '<span class="mcc-bud-applied">✓ 設定と一致</span>'
+          : '<button type="button" class="mcc-bud-adopt" onclick="MCC.adoptBudgetTotalAvg()">平均を採用</button>') +
+        '</div>';
+    }
+    var totalRow = '<div class="mcc-bud-total">' + moneyInput("月の支出予算（合計）", "budgets.total", bt.total) + totalRead + '</div>';
+
+    // ② 費目テーブル（stats の平均額順 ∪ stats に無い設定済み費目＝末尾）
+    var rows = stats.stats.map(function (s) {
+      seen["k:" + s.name] = true;
+      return { name: s.name, avg3: s.avg3, budget: byName["k:" + s.name] || 0, noData: false };
+    });
+    b.items.forEach(function (it) {
+      if (!Object.prototype.hasOwnProperty.call(seen, "k:" + it.name)) {
+        rows.push({ name: it.name, avg3: 0, budget: it.amount, noData: true });
+      }
+    });
+    var trs = rows.map(function (rw) {
+      var nm = esc(rw.name);
+      return '<tr' + (rw.noData ? ' class="mcc-bud-nodata"' : '') + '>' +
+        '<th scope="row">' + nm + (rw.noData ? '<span class="mcc-bud-nodata-tag">直近12ヶ月に実績なし</span>' : '') + '</th>' +
+        '<td data-label="直近3ヶ月平均">' + ((cv.available && rw.avg3 > 0) ? R.yen(rw.avg3) : '—') + '</td>' +
+        '<td data-label="予算"><input type="number" min="0" step="1000" value="' + rw.budget + '" ' +
+          'data-mcc-focus="budgets.item:' + nm + '" onchange="MCC.setBudgetItem(\'' + nm + '\', this.value)"></td>' +
+        '<td data-label="平均を採用">' + ((cv.available && rw.avg3 > 0)
+          ? '<button type="button" class="mcc-bud-adopt" onclick="MCC.adoptBudgetItemAvg(\'' + nm + '\')">平均を採用</button>'
+          : '') + '</td>' +
+      '</tr>';
+    }).join("");
+    var table = rows.length
+      ? '<table class="mcc-bud-table"><thead><tr><th>費目</th><th>直近3ヶ月平均</th><th>予算</th><th></th></tr></thead>' +
+        '<tbody>' + trs + '</tbody></table>' +
+        '<div class="mcc-bud-note">0 を入れると予算を消します</div>'
+      : '';
+
+    // ③ 注記
+    var notes = "";
+    if (stats.window === 0) {
+      notes += '<div class="mcc-bud-note">収支を連携すると、直近12ヶ月に使った費目が自動で並びます</div>';
+    }
+    if (bt.total > 0) {
+      notes += '<div class="mcc-bud-note">費目の合計 ' + R.yen(bt.sumItems) + '（合計予算の ' + bt.itemsPct + '%）' +
+        (bt.overTotal > 0 ? '（合計予算を ' + R.yen(bt.overTotal) + ' 上回っています）' : '') + '</div>';
+    }
+    return cfgCard("mcc-sec-budget-card", "月の予算",
+      'kakeibo の費目ごとの月額と合計。ダッシュボードの「今月の予算」と月次レポートの予算 vs 実績に使います。',
+      totalRow + table + notes);
+  }
+
   // ---- D1: #mcc-root 内 2タブ（01 ダッシュボード / 02 設定・ガイド）----
   // 中央ルーター（index.html の showView・#money ハッシュ・show()/backToPortal()）は無改造。タブは
   // 司令室内部の状態に閉じる（URL に出さない＝ブラウザの「戻る」の意味を変えない）。
@@ -2168,6 +2268,7 @@ window.MCC = (function () {
     assets:      { id: "mcc-sec-assets",         tab: "dash" },
     nisa:        { id: "mcc-sec-nisa",           tab: "dash" },
     series:      { id: "mcc-sec-series",         tab: "dash" },
+    budget:      { id: "mcc-sec-budget-card",    tab: "config" },
   };
   // 収支セクションは未ログインだと描画されない（認証データ）。連携にはログインが前提なので login 欄へフォールバック。
   // 基準（アンカー）カードも同じゲート（収支連携が前提の設定）＝未ログインではログイン欄へ倒す。
@@ -2295,6 +2396,8 @@ window.MCC = (function () {
       reserves: cd.reserveAlloc.map(function (ra, i) { return { id: ra.id, label: ra.label, deadline: ra.deadline, allocated: ra.allocated, outlook: rol[i] }; }) });
     // W3: 目標の見通し（fold 内の行専用＝帯には出さない・pace は roadmap と同じ cd.monthlySurplus）。
     var gol = vm.goals.map(function (g) { return R.goalOutlook(g, vm.totalAssets, cd.monthlySurplus, now); });
+    // W3.5: 予算 vs 実績・月次レポートの VM（全て純関数・facts 非出力）。
+    var bstats = R.budgetCategoryStats(_cashflowRows, 12);
 
     // D3: 旧 .mcc-gauge-card（バッファ達成率の独立カード）は廃止＝ヒーロー右カラムのゲージへ一本化。
     // 同じ達成率・同じ金額・同じ「設定」導線を縦に2枚並べると、どちらが最新かを読む作業が増えるだけで
@@ -2405,7 +2508,7 @@ window.MCC = (function () {
     // review fix 2: saveWarn は**両ペインの先頭**に出す。設定タブは入力の面（保存が最も走る場所）で、
     // dash 限定にすると「編集しているタブでは保存失敗の警告が見えない」＝最悪の位置になる。
     // id を持たない純警告 HTML ゆえ二重描画しても DOM 上の衝突は無い（同一文言・同一クラス）。
-    var configHtml = saveWarn + anchorCard(cv, cdMain) + settings + buckets +
+    var configHtml = saveWarn + anchorCard(cv, cdMain) + settings + budgetCard(bstats, cv) + buckets +
       assetInputCard() + nisaInputCard(nvm) + reservesGoalsAddCard(vm) + tools + guideSection();
     root.innerHTML = tabBar() +
       '<div class="mcc-pane" id="mcc-tab-dash" role="tabpanel" aria-labelledby="mcc-tab-btn-dash"' +
@@ -2502,6 +2605,7 @@ window.MCC = (function () {
     saveAnchor: saveAnchor, editAnchor: editAnchor, refreshData: refreshData, jumpTo: jumpTo, adoptAvgExpense: adoptAvgExpense,
     switchTab: switchTab,
     setSeriesPeriod: setSeriesPeriod,
+    setBudgetItem: setBudgetItem, adoptBudgetItemAvg: adoptBudgetItemAvg, adoptBudgetTotalAvg: adoptBudgetTotalAvg,
     addReserve: addReserve, removeReserve: removeReserve, fundReserve: fundReserve, setReserveField: setReserveField,
     acSetScope: acSetScope, acFillCashOnly: acFillCashOnly,
     setNisaSource: setNisaSource, addNisaYear: addNisaYear,
