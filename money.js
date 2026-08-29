@@ -965,6 +965,125 @@ window.MCC = (function () {
     return foldSection("mcc-sec-budget-live", "mcc-fold-budget", "今月の予算", digest,
       '<div class="mcc-budget">' + head + budgetBars(bp, { tick: !bp.isComplete }) + unbud + mism + '</div>');
   }
+  // §4.6 レポートの選択月。localStorage にも cloud state にも入れない（D5・リロードで最新の確定月へ戻る）。
+  var _reportPeriod = "";
+  function setReportPeriod(period) {
+    _reportPeriod = (typeof period === "string") ? period : "";
+    render();   // W3 setSeriesPeriod と同じ全再描画（reportNav が不正値を最新へ戻す）
+  }
+  // 符号付き小数1桁（マイナスは U+2212・fmtDeltaYen と同じ規約）。単位は呼び元が付ける（% / pt）。
+  function fmtDeltaPct1(n) {
+    var v = Math.round((Number(n) || 0) * 10) / 10;
+    return (v > 0 ? "+" : (v < 0 ? "−" : "±")) + Math.abs(v).toFixed(1);
+  }
+  // 前月比/前年同月比の1行。cmp=rep.mom|rep.yoy／key="income"|"expense"|"balance"|"savingsRatePct"。
+  // unit="pt" は貯蓄率（%ポイント差・§6 注意5）。欠月は「—」。
+  function repDeltaLine(label, cmp, key, unit) {
+    if (!cmp || !cmp.available || !cmp[key]) return '<div class="mcc-rep-delta">' + label + ' —</div>';
+    var d = cmp[key];
+    var txt = (unit === "pt")
+      ? fmtDeltaPct1(d.delta) + "pt"
+      : fmtDeltaYen(d.delta) + (d.pct === null ? "" : "（" + fmtDeltaPct1(d.pct) + "%）");
+    return '<div class="mcc-rep-delta">' + label + ' ' + esc(txt) + '</div>';
+  }
+  // §4.4 月次レポート（3 タブ目 mcc-tab-report＝D9）。rep=R.monthlyReport／vm=R.viewModel／nvm=R.nisaViewModel。
+  // anchorPeriod=render() で算出済みの R.assetSeries(...).anchorPeriod（Ruling A9(b)：seriesSection と同じ
+  // fmtAnchorMonth 表示にするため引数で受け取る＝money.js で再算出しない）。
+  function reportSection(rep, vm, nvm, loggedIn, anchorPeriod) {
+    var desc = '<div class="mcc-section-desc">月ごとの収入・支出・収支・貯蓄率と、予算に対する実績をまとめた面です。月は ◀ ▶ で移動します。</div>';
+    if (!loggedIn) {
+      return desc + '<div id="mcc-tab-report-body"><div class="mcc-rep-empty">ログインすると月次レポートが表示されます。</div></div>';
+    }
+    if (!rep || !rep.available) {
+      // Ruling A9(a)：既存の他セクションの未連携表示と同型（jumpLink("cashflow", …) を足す）。
+      return desc + '<div id="mcc-tab-report-body"><div class="mcc-rep-empty">収支データが未連携です。' +
+        jumpLink("cashflow", "家計（kakeibo）を連携") + '</div></div>';
+    }
+    var nav = rep.nav;
+    var navHtml = '<div class="mcc-rep-nav">' +
+      '<button type="button" class="mcc-rep-navbtn" aria-label="前の月"' +
+        (nav.prev ? ' onclick="MCC.setReportPeriod(\'' + nav.prev + '\')"' : ' disabled') + '>◀</button>' +
+      '<span class="mcc-rep-month">' + esc(fmtAnchorMonth(rep.period)) + '</span>' +
+      '<button type="button" class="mcc-rep-navbtn" aria-label="次の月"' +
+        (nav.next ? ' onclick="MCC.setReportPeriod(\'' + nav.next + '\')"' : ' disabled') + '>▶</button>' +
+      (nav.isLatestComplete ? '<span class="mcc-rep-chip">最新</span>' : '') +
+      (rep.isComplete ? '<span class="mcc-hero-chip-live">確定</span>' : '<span class="mcc-hero-chip-prov">暫定（進行中）</span>') +
+    '</div>';
+
+    var kpi = '<div class="mcc-cf-stats">' +
+      '<div class="mcc-cf-stat"><span>収入</span><strong>' + R.yen(rep.income) + '</strong>' +
+        repDeltaLine("前月比", rep.mom, "income") + repDeltaLine("前年同月比", rep.yoy, "income") + '</div>' +
+      '<div class="mcc-cf-stat"><span>支出</span><strong>' + R.yen(rep.expense) + '</strong>' +
+        repDeltaLine("前月比", rep.mom, "expense") + repDeltaLine("前年同月比", rep.yoy, "expense") + '</div>' +
+      '<div class="mcc-cf-stat"><span>収支</span><strong class="' + (rep.balance < 0 ? "neg" : "pos") + '">' + R.yenSigned(rep.balance) + '</strong>' +
+        repDeltaLine("前月比", rep.mom, "balance") + repDeltaLine("前年同月比", rep.yoy, "balance") + '</div>' +
+      '<div class="mcc-cf-stat"><span>貯蓄率</span><strong>' + rep.savingsRatePct + '%</strong>' +
+        repDeltaLine("前月比", rep.mom, "savingsRatePct", "pt") + repDeltaLine("前年同月比", rep.yoy, "savingsRatePct", "pt") + '</div>' +
+    '</div>';
+
+    var a = rep.assets, assetsHtml;
+    if (a.available) {
+      var aDelta = (a.delta === null) ? "—" : fmtDeltaYen(a.delta) + (a.pct === null ? "" : "（" + fmtDeltaPct1(a.pct) + "%）");
+      assetsHtml = '<div class="mcc-rep-assets">' +
+        '<div class="mcc-rep-assets-main">総資産 <strong>' + R.yen(a.total) + '</strong>' +
+          '<span class="mcc-rep-delta">前月比 ' + esc(aDelta) + '</span></div>' +
+        '<div class="mcc-rep-assets-sub">現金 ' + R.yen(a.cash) + '・投資 ' + R.yen(a.invest) + '</div>' +
+        (a.beforeAnchor ? '<div class="mcc-rep-note">基準（' + esc(fmtAnchorMonth(anchorPeriod)) + '）より前は収支から逆算</div>' : '') +
+      '</div>';
+    } else {
+      var amsg = (a.reason === "noAnchor") ? '資産の推移は基準（アンカー）設定後に表示されます'
+        : (a.reason === "currency") ? 'JPY 以外の通貨には対応していません'
+        : 'この月は資産の系列に含まれません（収支データの欠けた月があります）';
+      assetsHtml = '<div class="mcc-rep-assets"><div class="mcc-rep-note">' + amsg + '</div></div>';
+    }
+
+    var budgetHtml = '<div class="mcc-rep-budget"><div class="mcc-rep-h">予算 vs 実績</div>' +
+      (rep.budget.configured
+        ? budgetBars(rep.budget, { tick: !rep.isComplete, compareNote: rep.isComplete })
+        : '<div class="mcc-bud-cta">予算は未設定です。' + jumpLink("budget", "「月の予算」") + '</div>') +
+    '</div>';
+
+    var catsHtml;
+    if (rep.categories.hasBreakdown) {
+      var lines = rep.categories.top.map(function (c) {
+        return '<div class="mcc-rep-cat">' +
+          '<span class="mcc-rep-cat-nm">' + esc(c.name) + ' ' + R.yen(c.amount) + '（' + c.sharePct + '%）</span>' +
+          (c.delta === null ? '' : '<span class="mcc-rep-cat-d">前月比 ' + esc(fmtDeltaYen(c.delta)) + '</span>') +
+          '<span class="mcc-bud-bar"><span class="mcc-bud-fill ok" style="width:' + Math.min(100, c.sharePct) + '%"></span></span>' +
+        '</div>';
+      }).join("");
+      catsHtml = '<div class="mcc-rep-cats"><div class="mcc-rep-h">費目</div>' + lines +
+        (rep.categories.othersAmount > 0 ? '<div class="mcc-rep-cat"><span class="mcc-rep-cat-nm">その他 ' + R.yen(rep.categories.othersAmount) + '</span></div>' : '') +
+      '</div>';
+    } else {
+      catsHtml = '<div class="mcc-rep-cats"><div class="mcc-rep-h">費目</div><div class="mcc-rep-note">この月は内訳がありません。</div></div>';
+    }
+
+    // D6: NISA・目標は月に紐づかない「現在地」＝最新の確定月を表示中のみ（新規 math なし）。
+    var nowHtml = "";
+    if (nav.isLatestComplete) {
+      var nowRows = "";
+      if (nvm && nvm.configured) {
+        nowRows += '<div class="mcc-rep-now-row">NISA 年内 使用 ' + R.yen(nvm.annual.total.used) + ' / ' + R.yen(nvm.annual.total.cap) +
+          '（残 ' + R.yen(nvm.annual.total.remaining) + '）</div>';
+      }
+      (vm.goals || []).slice(0, 3).forEach(function (g) {
+        nowRows += '<div class="mcc-rep-now-row">' + esc(g.label || "（無題）") + ' ' + g.progressPct + '%</div>';
+      });
+      if (nowRows) nowHtml = '<div class="mcc-rep-now"><div class="mcc-rep-h">現在地</div>' + nowRows + '</div>';
+    }
+
+    var notes = "";
+    if (!rep.isComplete) notes += '<div class="mcc-rep-note">今月の収支は月末締め後（翌月初の自動更新）に反映されます。</div>';
+    if (rep.budget.available && rep.budget.breakdownMismatch) {
+      notes += '<div class="mcc-rep-note">内訳の合計（' + R.yen(rep.budget.catsTotal) + '）と支出合計（' + R.yen(rep.expense) + '）が一致していません</div>';
+    }
+    if (!rep.mom.available) notes += '<div class="mcc-rep-note">前月のデータがありません</div>';
+    if (!rep.yoy.available) notes += '<div class="mcc-rep-note">前年同月のデータがありません</div>';
+    var notesHtml = notes ? '<div class="mcc-rep-notes">' + notes + '</div>' : '';
+
+    return desc + '<div id="mcc-tab-report-body">' + navHtml + kpi + assetsHtml + budgetHtml + catsHtml + nowHtml + notesHtml + '</div>';
+  }
   // W3: リマインド帯（spec §4.4・§7）。rem=R.reminders(...)。0件なら DOM を作らない。
   function reminderRail(rem) {
     if (!rem || !rem.length) return "";
@@ -2264,10 +2383,14 @@ window.MCC = (function () {
   // 保持は localStorage("mcc_tab") のみ（クラウド state に入れない＝端末ごとの見た目の都合であって
   // 家計データではない。cloud に混ぜると LWW の対象になり他端末の表示タブを勝手に動かす）。
   var _TAB_KEY = "mcc_tab";
-  var _TABS = ["dash", "config"];
-  var _TAB_LABELS = { dash: { num: "01", label: "ダッシュボード" }, config: { num: "02", label: "設定・ガイド" } };
+  var _TABS = ["dash", "report", "config"];
+  var _TAB_LABELS = {
+    dash: { num: "01", label: "ダッシュボード", short: "ダッシュボード" },
+    report: { num: "02", label: "月次レポート", short: "レポート" },
+    config: { num: "03", label: "設定・ガイド", short: "設定" },
+  };
   function _loadTab() {
-    try { var v = localStorage.getItem(_TAB_KEY); return v === "config" ? "config" : "dash"; }
+    try { var v = localStorage.getItem(_TAB_KEY); return _TABS.indexOf(v) >= 0 ? v : "dash"; }
     catch (e) { return "dash"; }   // プライベートブラウズ等は既定タブ
   }
   var _activeTab = _loadTab();
@@ -2277,7 +2400,7 @@ window.MCC = (function () {
   // 失われない／jumpTo が掴んでいる要素参照が切替で detach しない（render() だと innerHTML ごと
   // 作り直され、切替直後に触る要素が「画面に無い古いノード」になる）。
   function switchTab(name) {
-    var tab = name === "config" ? "config" : "dash";   // 不明値は既定（dash）へ倒す
+    var tab = _TABS.indexOf(name) >= 0 ? name : "dash";   // 不明値は既定（dash）へ倒す
     _activeTab = tab;
     try { localStorage.setItem(_TAB_KEY, tab); } catch (e) { /* 保存不可でもセッション内は _activeTab が保持 */ }
     for (var i = 0; i < _TABS.length; i++) {
@@ -2302,7 +2425,9 @@ window.MCC = (function () {
         '<button type="button" class="mcc-tab" id="mcc-tab-btn-' + t + '" data-tab="' + t + '" role="tab"' +
           ' aria-selected="' + (_activeTab === t ? "true" : "false") + '" aria-controls="mcc-tab-' + t + '"' +
           ' onmousedown="MCC.switchTab(\'' + t + '\')" onclick="MCC.switchTab(\'' + t + '\')">' +
-          '<span class="mcc-tab-num">' + _TAB_LABELS[t].num + '</span>' + esc(_TAB_LABELS[t].label) +
+          '<span class="mcc-tab-num">' + _TAB_LABELS[t].num + '</span>' +
+          '<span class="mcc-tab-lbl">' + esc(_TAB_LABELS[t].label) + '</span>' +
+          '<span class="mcc-tab-lbl-s">' + esc(_TAB_LABELS[t].short) + '</span>' +
         '</button>';
     }
     return '<div class="mcc-tabbar-outer"><nav class="mcc-tabbar" role="tablist" aria-label="司令室のタブ">' +
@@ -2330,6 +2455,7 @@ window.MCC = (function () {
     series:      { id: "mcc-sec-series",         tab: "dash" },
     budget:      { id: "mcc-sec-budget-card",    tab: "config" },
     budgetLive:  { id: "mcc-sec-budget-live",    tab: "dash" },
+    report:      { id: "mcc-tab-report-body",    tab: "report" },
   };
   // 収支セクションは未ログインだと描画されない（認証データ）。連携にはログインが前提なので login 欄へフォールバック。
   // 基準（アンカー）カードも同じゲート（収支連携が前提の設定）＝未ログインではログイン欄へ倒す。
@@ -2461,6 +2587,7 @@ window.MCC = (function () {
     var bstats = R.budgetCategoryStats(_cashflowRows, 12);
     var liveRow = R.latestRow(_cashflowRows);
     var bp = R.budgetProgress(eff.budgets, liveRow, now);
+    var rep = R.monthlyReport(eff, _cashflowRows, _investmentRows, _reportPeriod, now);
 
     // D3: 旧 .mcc-gauge-card（バッファ達成率の独立カード）は廃止＝ヒーロー右カラムのゲージへ一本化。
     // 同じ達成率・同じ金額・同じ「設定」導線を縦に2枚並べると、どちらが最新かを読む作業が増えるだけで
@@ -2576,6 +2703,8 @@ window.MCC = (function () {
     root.innerHTML = tabBar() +
       '<div class="mcc-pane" id="mcc-tab-dash" role="tabpanel" aria-labelledby="mcc-tab-btn-dash"' +
         (_activeTab === "dash" ? "" : " hidden") + '>' + dashHtml + '</div>' +
+      '<div class="mcc-pane" id="mcc-tab-report" role="tabpanel" aria-labelledby="mcc-tab-btn-report"' +
+        (_activeTab === "report" ? "" : " hidden") + '>' + saveWarn + reportSection(rep, vm, nvm, sync.loggedIn, series.anchorPeriod) + '</div>' +
       '<div class="mcc-pane" id="mcc-tab-config" role="tabpanel" aria-labelledby="mcc-tab-btn-config"' +
         (_activeTab === "config" ? "" : " hidden") + '>' + configHtml + '</div>';
 
@@ -2669,6 +2798,7 @@ window.MCC = (function () {
     switchTab: switchTab,
     setSeriesPeriod: setSeriesPeriod,
     setBudgetItem: setBudgetItem, adoptBudgetItemAvg: adoptBudgetItemAvg, adoptBudgetTotalAvg: adoptBudgetTotalAvg,
+    setReportPeriod: setReportPeriod,
     addReserve: addReserve, removeReserve: removeReserve, fundReserve: fundReserve, setReserveField: setReserveField,
     acSetScope: acSetScope, acFillCashOnly: acFillCashOnly,
     setNisaSource: setNisaSource, addNisaYear: addNisaYear,

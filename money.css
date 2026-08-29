@@ -1397,3 +1397,35 @@
 .mcc-bud-row-total .mcc-bud-lbl { color: var(--c-text-bright); font-weight: 700; }
 .mcc-bud-unbud { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 10px; color: var(--c-text-dim); font-size: 12px; }
 .mcc-bud-chip { color: var(--c-text-dim); font-size: 12px; padding: 2px 7px; border-radius: 5px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); }
+
+/* ==== W3.5: タブ3本の短ラベル（390px で 1 行に収める・§5/§6 注意2）==== */
+.mcc-tab-lbl-s { display: none; }
+@media (max-width: 600px) {
+  .mcc-tab-num, .mcc-tab-lbl { display: none; }
+  .mcc-tab-lbl-s { display: inline; }
+  .mcc-tab { padding: 12px 8px; letter-spacing: 0.5px; }
+}
+
+/* ==== W3.5: 月次レポート（spec §5）==== */
+.mcc-rep-empty { color: var(--c-text-dim); font-size: 0.8rem; padding: 6px 0 4px; line-height: 1.6; font-family: var(--ix-sans); letter-spacing: 0; }
+.mcc-rep-nav { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 6px 0 14px; }
+.mcc-rep-navbtn {
+  background: rgba(0,0,0,0.3); border: 1px solid rgba(129,140,248,0.3); color: var(--c-text-dim);
+  border-radius: 6px; padding: 3px 11px; font-size: 0.9rem; cursor: pointer;
+}
+.mcc-rep-navbtn:hover { color: var(--c-cyan-pale); }
+.mcc-rep-navbtn[disabled] { opacity: 0.45; cursor: not-allowed; }
+.mcc-rep-month { color: var(--c-text-bright); font-size: 1.0rem; font-weight: 700; }
+.mcc-rep-chip { color: var(--c-cyan-pale); font-size: 12px; font-weight: 700; border: 1px solid rgba(56,189,248,0.45); border-radius: 4px; padding: 1px 7px; }
+.mcc-rep-delta { color: var(--c-text-dim); font-size: 12px; margin-top: 2px; }
+.mcc-rep-h { color: var(--c-text-dim); font-size: 12px; font-weight: 700; letter-spacing: 1px; margin: 16px 0 6px; }
+.mcc-rep-assets { margin-top: 14px; padding: 10px 12px; border-radius: 8px; background: rgba(56,189,248,0.08); border-left: 3px solid var(--c-cyan); }
+.mcc-rep-assets-main { color: var(--c-text); font-size: 0.8rem; display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; }
+.mcc-rep-assets-main strong { color: var(--c-cyan-pale); font-size: 1.0rem; }
+.mcc-rep-assets-sub { color: var(--c-text-dim); font-size: 12px; margin-top: 4px; }
+.mcc-rep-cat { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 10px; align-items: center; margin: 8px 0; }
+.mcc-rep-cat-nm { color: var(--c-text); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.mcc-rep-cat-d { color: var(--c-text-dim); font-size: 12px; white-space: nowrap; }
+.mcc-rep-cat .mcc-bud-bar { grid-column: 1 / -1; }
+.mcc-rep-now-row { color: var(--c-text-dim); font-size: 12px; line-height: 1.6; }
+.mcc-rep-note, .mcc-rep-notes .mcc-rep-note { color: var(--c-text-faint); font-size: 12px; line-height: 1.5; margin-top: 6px; font-family: var(--ix-sans); letter-spacing: 0; }
