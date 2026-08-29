@@ -1242,7 +1242,7 @@ git commit -m "feat(w35): ダッシュボード fold「今月の予算」（合�
 
 **Interfaces:**
 - Consumes: `R.monthlyReport`／`R.yen`／`R.yenSigned`／`budgetBars`（Task 5）／`fmtDeltaYen`（W3）／既存 `jumpLink`／`fmtAnchorMonth`／`esc`。
-- Produces: `MCC.setReportPeriod(period)`、DOM: `#mcc-tab-report`（pane）＞ `#mcc-tab-report-body` ＞ `.mcc-rep-nav`（`button[aria-label="前の月"|"次の月"]`・`.mcc-rep-month`・`.mcc-rep-chip`・`.mcc-hero-chip-live|-prov`）／`.mcc-cf-stats`（KPI 4）＋`.mcc-rep-delta`／`.mcc-rep-assets`／`.mcc-rep-budget`／`.mcc-rep-cats`／`.mcc-rep-now`／`.mcc-rep-notes`。タブ: `#mcc-tab-btn-report`・`.mcc-tab-lbl`／`.mcc-tab-lbl-s`。`_JUMP_TARGETS.report`。
+- Produces: `MCC.setReportPeriod(period)`、DOM: `#mcc-tab-report`（pane）＞ `#mcc-tab-report-body` ＞ `.mcc-rep-nav`（`button[aria-label="前の月"|"次の月"]`・`.mcc-rep-month`・`.mcc-rep-chip`・`.mcc-rep-chip-live|-prov`）／`.mcc-cf-stats`（KPI 4）＋`.mcc-rep-delta`／`.mcc-rep-assets`／`.mcc-rep-budget`／`.mcc-rep-cats`／`.mcc-rep-now`／`.mcc-rep-notes`。タブ: `#mcc-tab-btn-report`・`.mcc-tab-lbl`／`.mcc-tab-lbl-s`。`_JUMP_TARGETS.report`。
 
 - [ ] **Step 1: タブ機構を 3 本にする（`money.js`・4箇所）**
 
@@ -1321,7 +1321,7 @@ git commit -m "feat(w35): ダッシュボード fold「今月の予算」（合�
       '<button type="button" class="mcc-rep-navbtn" aria-label="次の月"' +
         (nav.next ? ' onclick="MCC.setReportPeriod(\'' + nav.next + '\')"' : ' disabled') + '>▶</button>' +
       (nav.isLatestComplete ? '<span class="mcc-rep-chip">最新</span>' : '') +
-      (rep.isComplete ? '<span class="mcc-hero-chip-live">確定</span>' : '<span class="mcc-hero-chip-prov">暫定（進行中）</span>') +
+      (rep.isComplete ? '<span class="mcc-rep-chip-live">確定</span>' : '<span class="mcc-rep-chip-prov">暫定（進行中）</span>') +
     '</div>';
 
     var kpi = '<div class="mcc-cf-stats">' +
@@ -1760,7 +1760,7 @@ async function main() {
       const snap = () => page.evaluate(() => ({
         month: document.querySelector(".mcc-rep-month").textContent.trim(),
         chip: (document.querySelector(".mcc-rep-chip") || {}).textContent || "",
-        badge: (document.querySelector(".mcc-hero-chip-live, .mcc-hero-chip-prov") || {}).textContent || "",
+        badge: (document.querySelector("#mcc-tab-report-body .mcc-rep-chip-live, #mcc-tab-report-body .mcc-rep-chip-prov") || {}).textContent || "",
         kpis: Array.from(document.querySelectorAll("#mcc-tab-report-body .mcc-cf-stat")).map((s) => s.textContent.replace(/\s+/g, " ").trim()),
         assets: (document.querySelector(".mcc-rep-assets") || {}).textContent.replace(/\s+/g, " ").trim(),
         now: (document.querySelector(".mcc-rep-now") || {}).textContent || "",
@@ -2198,3 +2198,8 @@ git commit -m "docs(w35): spec §9/§11 の件数を実測へ更新・plan に�
 3. **新基準値**: `cockpit-e2e.js` = 252 asserts（W3 時点 241）／`node --test tests/*.test.js` = 440（W3 時点 418・W3.5 で +22）。次 wave はこの値から動かす。
 4. **別レーンの持ち越し（本 wave の対象外）**: 既存の 390px 横溢れ（設定タブの `.mcc-field` 幅 209px が fullPage 幅 471px を作る・`overflow-x: clip` で画面には出ない）＝spec §11。直すなら別 wave。
 5. **将来 wave の入口**: `budgets` を AI に渡すときは `advice.py _migrate`／`_normalize_budgets` 鏡像＋coarsen（費目名は production で出さない）＋`FACTS_SCHEMA_VERSION` 7＋fixture 追加が必要。本 wave は入口を作っていない（`tests/money-budget.test.js` の不変条件⑤がそれを機械で守る）。
+6. **（A7）`cockpit-e2e.js` のヒーロー系スナップショット（215-230）と `tabState` の 2 値判定（932 付近）は本 wave では無改修**。両方とも document-wide の `querySelector` で `.mcc-hero-*` を掴むため、`.mcc-hero-*` を dash 以外の pane で再利用すると誤検出（他 pane の同名 class を dash のスナップとして拾う）が再発する構造が残っている。恒久対策は `#mcc-tab-dash` 配下に限定したセレクタへ書き換えること（本 wave はレポート月ナビの `.mcc-rep-chip-live/-prov` 専用 class 分離＝Ruling C1 でこの穴を避けただけ）。
+7. **（A6）`.mcc-bud-table` は `.mcc-nisa-table` と CSS 規則を共有**（`money.css` の W3.5 ブロック冒頭に Ruling A6 の根拠コメントあり・生 hex を新設していない・同型表なのでスタイル結合は許容）。表構造を変えるなら両方を見ること。
+8. **w35-smoke の `KNOWN_NOISE` に `/bootData returned empty STOCK_DATA/` を追加済み**（`index.html:2058` のポータル由来のノイズ＝`money.js` 無関係。money.js 側の受入とは切り離して良い）。
+9. **`scratchpad/w35-real-shots/`（PNG 6 枚）は untracked のまま**（Ruling C2＝リポ慣例で scratchpad の画像/JSON は untracked のまま残す運用・main にも同種の untracked が20件超ある）。統合セッションが本人確認後に削除してよい。
+10. **`LIT.tabbarH = 42`**（W3 期の 43 から実測更新・Ruling A2）。390px タブバーの高さを扱う受入・スクショ突合はこの値を基準にすること。

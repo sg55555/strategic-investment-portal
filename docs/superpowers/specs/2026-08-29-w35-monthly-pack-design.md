@@ -77,7 +77,7 @@ items = Array.isArray(raw.items) ? raw.items : []
   .map(it => ({ name: normName(it.name), amount: num(it.amount) }))
   .filter(it => it.name.length > 0 && it.amount > 0)            // amount 0 ＝「予算なし」＝要素ごと消す
   dedupe by name（先勝ち）→ slice(0, 40)
-normName(v) = typeof v === "string" ? v.replace(/["'\\\u0000-\u001f]/g, "").replace(/\s+/g, " ").trim().slice(0, 40) : ""
+normName(v) = typeof v === "string" ? v.replace(/["'\\\u0000-\u001f]/g, "").replace(/\s+/g, " ").trim().slice(0, 40).trim() : ""
 ```
 - `"`／`'`／`\`／制御文字（U+0000〜001F）を落とすのは `data-mcc-focus="budgets.item:<name>"` の属性セレクタ復元（§4.6）と inline handler
   `MCC.setBudgetItem('<name>', …)` を壊さないため（出力時はさらに `esc()` を通す）。kakeibo の費目名（`系統`）は日本語・「・」・英数のみ＝実データでは何も落ちない。
@@ -95,7 +95,7 @@ normName(v) = typeof v === "string" ? v.replace(/["'\\\u0000-\u001f]/g, "").repl
 | `elapsedFraction(period, nowMs)` | `YYYY-MM-01`, epoch → 0..1 \| null | `period` の月と `nowMs`（UTC）の月を比較。過去月→1／未来月→0／同月→`clamp(day / _daysInMonth(y,m), 0, 1)`。`period` 不正・`nowMs` 非有限 → null |
 | `latestRow(rows_in)` | API 生 rows → `cashflowRows()` の末尾行 \| null | fold「今月の予算」の対象行（末尾が `isComplete=false` なら進行中、確定なら「進行中の月はまだありません」） |
 | `budgetProgress(budgets, row, nowMs)` | 正規化前後どちらの budgets でも可, `cashflowRows()` の 1 行 \| null, epoch → 下記 | その行に対する消化 |
-| `budgetTotals(budgets)` | budgets → `{total, sumItems, count, itemsPct \| null, overTotal}` | 設定カードの注記「費目の合計 ¥X（合計予算の Y%）」の源（rows 非依存＝未ログインでも出せる・`itemsPct = total>0 ? round(sumItems/total*100) : null`・`overTotal = max(0, sumItems−total)`） |
+| `budgetTotals(budgets)` | budgets → `{total, sumItems, count, itemsPct \| null, overTotal}` | 設定カードの注記「費目の合計 ¥X（合計予算の Y%）」の源（rows 非依存＝未ログインでも出せる・`itemsPct = total>0 ? round(sumItems/total*100) : null`・`overTotal = total>0 ? max(0, sumItems−total) : 0`＝合計未設定なら超過表示を出さない・Ruling B2） |
 | `budgetCategoryStats(rows_in, months)` | rows, 窓（既定 12）→ `{window, stats:[…]}` | 設定カードの費目一覧の源 |
 | `reportNav(rows_in, period)` | rows, 選択月 → `{available, period, prev, next, latestComplete, isLatestComplete, isPartial}` | 選択月の正規化と前後移動 |
 | `monthlyReport(eff, rows_in, investmentRows_in, period, nowMs)` | → 下記 | レポート本体の VM |
@@ -131,15 +131,15 @@ overCount = items.filter(status==="over").length／watchCount 同様
 hasBreakdown = cats.length > 0
 breakdownMismatch = hasBreakdown && |Σcats.amount − row.totalExpense| > max(1000, row.totalExpense*0.01)
                   // ETL は見出し（月別集計DB）と内訳（生取引）を別 DB から取る＝ずれ得る。エラーにせず注記フラグ
-return { available:true, configured, period:row.period, isComplete:row.isComplete, elapsed, elapsedPct, total, items,
+return { available:true, reason:"", configured, period:row.period, isComplete:row.isComplete, elapsed, elapsedPct, total, items,
          unbudgeted, unbudgetedTotal, sumBudgeted, sumActualBudgeted, overCount, watchCount, hasBreakdown, breakdownMismatch,
-         catsTotal }                                    // catsTotal = Σcats.amount（不一致注記の「内訳の合計（¥X）」用）
+         catsTotal }                                    // catsTotal = Σcats.amount（不一致注記の「内訳の合計（¥X）」用）／reason:"" は failure 形状 { available:false, reason:"noRow", configured } との固定形状合わせ（Ruling A8）
 ```
 
 **`budgetCategoryStats(rows_in, months=12)`**
 ```
 rows = cashflowRows(rows_in); complete = rows.filter(isComplete); win = complete.slice(-months)
-acc[name] = { sum12, sum3 (末尾3行分), present (出現月数), last (win 末尾行の額・無ければ 0) }
+acc[name] = { sum12, sum3 (末尾3行分), present (amount>0 の月だけ加算・0円計上は非計上), last (win 末尾行の額・無ければ 0) }
 stats = Object.keys(acc).map(name => ({ name, avg12: r(sum12 / win.length), avg3: r(sum3 / min(3, win.length)), months:present, last }))
         .sort((a,b) => b.avg12−a.avg12 || a.name.localeCompare(b.name))
 return { window: win.length, stats }          // win.length===0 → { window:0, stats:[] }
@@ -159,7 +159,7 @@ return { available:true, period:sel, prev, next, latestComplete, isLatestComplet
 
 **`monthlyReport(eff, rows_in, investmentRows_in, period, nowMs)`**
 ```
-nav = reportNav(rows_in, period); if (!nav.available) → { available:false, reason:"noRows" }
+nav = reportNav(rows_in, period); if (!nav.available) → { available:false, reason:"noRows", nav:nav }   // Ruling A8: nav も返す（呼び元が固定形状のまま nav を読める）
 rows = cashflowRows(rows_in); byPeriod; row = byPeriod[nav.period]
 prevRow = byPeriod[_shiftYM(nav.period, −1)] || null;  yoyRow = byPeriod[_shiftYM(nav.period, −12)] || null
 income = row.totalIncome, salary = row.salaryIncome, misc = row.miscIncome, expense = row.totalExpense,
@@ -173,7 +173,9 @@ yoy = yoyRow  ? 同上 : 同上（available:false の固定形状）
 cats = budgetProgress と同じ正規化・同名合算 → amount 降順→name
 categories = { hasBreakdown, count: cats.length,
                top: cats.slice(0,8).map(c => ({ name, amount, sharePct: expense>0 ? Math.round(amount/expense*100) : 0,
-                                                 delta: prevRow?.breakdown ? amount − prevAmount(name) : null })),
+                                                 delta: prevHas ? amount − prevAmount(name) : null })),
+                                                 // prevHas = 前月行の正規化後 categories リストが1件以上（`prevRow.breakdown` の有無ではない・内訳が空の前月に
+                                                 // delta=amount を出すと「先月ゼロから増えた」という誤誘導になるため・Ruling B3）
                othersAmount: Σ cats.slice(8).amount }
 budget = budgetProgress(eff.budgets, row, nowMs)
 series = assetSeries(eff, rows_in, investmentRows_in)
@@ -259,7 +261,8 @@ var rep     = R.monthlyReport(eff, _cashflowRows, _investmentRows, _reportPeriod
 - `!rep.available`（収支未連携）→ 「収支データが未連携です。」1行（`jumpLink("cashflow", …)` は既存の fallback に乗る）。
 - 月ナビ `.mcc-rep-nav`: `<button aria-label="前の月" onclick="MCC.setReportPeriod('<prev>')" [disabled]>◀</button>`
   `<span class="mcc-rep-month">${fmtAnchorMonth(period)}</span> <button aria-label="次の月">▶</button>`＋チップ `最新`
-  （`nav.isLatestComplete`）＋バッジ `確定`／`暫定（進行中）`（`.mcc-hero-chip-live/-prov` と同じ見た目）。
+  （`nav.isLatestComplete`）＋バッジ `確定`／`暫定（進行中）`（専用 class `.mcc-rep-chip-live/-prov`＝`.mcc-hero-chip-live/-prov` と
+  同じ CSS 規則列に併記・同じ見た目・cockpit-e2e のヒーロー系 document-wide セレクタと衝突しないための分離＝Ruling C1）。
   `nav.prev/next` が null のボタンは `disabled`。
 - KPI 4 タイル `.mcc-cf-stats` 流用（収入／支出／収支／貯蓄率）。各タイル下に `.mcc-rep-delta`:
   `前月比 ${yenSigned(delta)}（${pct}%）`／`前年同月比 …`（`available:false` → `前月比 —`）。収支は `.pos/.neg`。
@@ -306,13 +309,16 @@ var rep     = R.monthlyReport(eff, _cashflowRows, _investmentRows, _reportPeriod
   `.mcc-bud-val { color: var(--c-text-dim); font-size:12px; white-space:nowrap }`／`.mcc-bud-over { color: var(--c-danger-soft) }`／
   `.mcc-bud-rem { color: var(--c-slate) }`。
 - チップ `.mcc-bud-chip`＝`.mcc-cf-cat` と同型。注記 `.mcc-bud-note`＝`.mcc-cf-note` と同型。
+- 月ナビのバッジ `.mcc-rep-chip-live`／`.mcc-rep-chip-prov`＝生 hex を新設せず既存 `.mcc-hero-chip-live`／`.mcc-hero-chip-prov`
+  の CSS 規則列に併記（theme D ブロックも同型で併記）。dash の `.mcc-hero-*` は document-wide セレクタ（cockpit-e2e）を
+  持つため、`#mcc-tab-report-body` 側は専用 class で分離する（Ruling C1）。
 - 設定カード表 `.mcc-bud-table`（`.mcc-nisa-table` の grid/ `data-label` 規約を流用）。
 - レポート: `.mcc-rep-nav { display:flex; align-items:center; gap:8px; flex-wrap:wrap }`／`.mcc-rep-delta { font-size:12px; color: var(--c-text-dim) }`／
   `.mcc-rep-assets`・`.mcc-rep-cats`・`.mcc-rep-now`・`.mcc-rep-notes` は既存 `.mcc-cf-*` の余白・色階調に揃える。
   390px: KPI は既存 `.mcc-cf-stats` の 2 列化に乗る・費目行は 2 行折返し・ナビは 1 行に収める（`flex-wrap`）。
 - タブ 3 本（D9）: `.mcc-tab` は既存のまま。`.mcc-tab-lbl-s { display:none }`／`@media (max-width:600px) { .mcc-tab-num, .mcc-tab-lbl { display:none }
   .mcc-tab-lbl-s { display:inline } .mcc-tab { padding: 12px 8px; letter-spacing: 0.5px } }`＝390px で「ダッシュボード／レポート／設定」が
-  1 行（実測で `.mcc-tabbar` が wrap しない・高さ 43px 不変を受入 S9 で確認）。
+  1 行（実測で `.mcc-tabbar` が wrap しない・高さ 42px 不変を受入 S9 で確認＝`LIT.tabbarH=42`・W3 期の 43px から実測更新・Ruling A2）。
 
 ## §6 レポートの置き場（D9・モック実物比較で確定）
 
@@ -430,7 +436,7 @@ var rep     = R.monthlyReport(eff, _cashflowRows, _investmentRows, _reportPeriod
 
 ### 10.3 既存スイート
 
-- `node --test tests/*.test.js`（418 → 440）／`pytest tests/`（106 不変）／`cockpit-e2e.js`（241 → 252）／
+- `node --test tests/*.test.js`（418 → 440）／`pytest tests/test_advice_facts.py -q`（106 不変）／`cockpit-e2e.js`（241 → 252）／
   `w3-smoke.js` 128／`portal-money-smoke.js`／`git diff --stat -- api/ tests/fixtures/ index.html`＝空。
 
 ## §11 リスクと申し送り
@@ -447,7 +453,7 @@ var rep     = R.monthlyReport(eff, _cashflowRows, _investmentRows, _reportPeriod
 - **既存の 390px 横溢れ（別レーン）**: 設定タブの `.mcc-field`（幅 209px・3 件）が fullPage 幅 471px を作っている。`html/body { overflow-x: clip }`
   で画面には出ないが、W3.5 の追加分は溢れゼロ（モック実測 dash 453→452px／config 471→471px）。直すなら別 wave。
 - **`.claude/CLAUDE.md`（統合時に main 直下で追記）**: git 管理外＝worktree からは編集不能（W3 §11 と同じ）。統合セッションが
-  「お金の司令塔／司令室」節の `🆕 W3` bullet の直後へ次を追記すること（cockpit-e2e の新基準値は実装後に確定して差し替える）。
+  「お金の司令塔／司令室」節の `🆕 W3` bullet の直後へ次を追記すること（新基準値 252 は Task 8 で確定済み）。
 
   ```markdown
     - **🆕 W3.5 月次パック（spec `docs/superpowers/specs/2026-08-29-w35-monthly-pack-design.md`）**：予算 vs 実績（`state.budgets={total,items[{name,amount}]}`＝kakeibo 費目そのまま・`normalizeBudgets`／`budgetProgress`／`budgetCategoryStats`）＋月次レポート（`reportNav`／`monthlyReport`・選択月は `_reportPeriod`＝非永続）。**`budgets` は UI 専用＝facts 非出力・advice.py 鏡像なし（`modeAFacts` 出力は budgets の有無で deepEqual＝`tests/money-budget.test.js`）**。⚠`normalizeBudgets` は amount 0 を「削除」と解釈する（0 を保存しない）。⚠経過率は UTC・進行中行（`is_complete=false`）を対象＝末尾行が確定なら「進行中の月はまだありません」注記を消さない。⚠内訳（生取引）と見出し（月別集計）は別源＝`breakdownMismatch` を注記で見せる（直さない）。受入＝`NODE_PATH=/home/shugo/node_modules node scratchpad/w35-smoke.js`（`W35_VARIANTS=0` のモック鯖を自前起動）＋ cockpit-e2e（新基準値 252）。
