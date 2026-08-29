@@ -1578,6 +1578,116 @@
     return { total: num(src.total), items: out };
   }
 
+  // §3.2 月の経過率（0..1）。過去月→1／未来月→0／同月→day / _daysInMonth（UTC・D8）。不正は null。
+  function elapsedFraction(period, nowMs) {
+    if (typeof period !== "string" || !_DATE_RE.test(period)) return null;
+    var ms = num(nowMs);
+    if (!(ms > 0)) return null;
+    var nd = new Date(ms);
+    if (!isFinite(nd.getTime())) return null;
+    var cy = nd.getUTCFullYear();
+    if (cy < 1 || cy > 9999) return null;
+    var nowYM = cy * 12 + nd.getUTCMonth();
+    var pYM = parseInt(period.slice(0, 4), 10) * 12 + (parseInt(period.slice(5, 7), 10) - 1);
+    if (pYM < nowYM) return 1;
+    if (pYM > nowYM) return 0;
+    return clamp(nd.getUTCDate() / _daysInMonth(cy, nd.getUTCMonth() + 1), 0, 1);
+  }
+
+  // §3.2 fold「今月の予算」の対象行＝正規化後の末尾行（末尾が確定なら「進行中の月はまだありません」）。
+  function latestRow(rows_in) {
+    var rows = cashflowRows(rows_in);
+    return rows.length ? rows[rows.length - 1] : null;
+  }
+
+  // 内訳（breakdown.categories）を名前正規化＋同名合算した一覧。負値は num() で 0（内訳の外から金額を作らない）。
+  // list は入力順（＝並びは呼び元が決める）・byKey は "k:"+name の索引。
+  function _budgetActualByName(row) {
+    var cats = (row && row.breakdown && Array.isArray(row.breakdown.categories)) ? row.breakdown.categories : [];
+    var list = [], byKey = {};
+    for (var i = 0; i < cats.length; i++) {
+      var c = cats[i];
+      if (!c || typeof c !== "object") continue;
+      var name = normName(c.name);
+      if (!name.length) continue;
+      var amount = num(c.amount);
+      var key = "k:" + name;
+      if (Object.prototype.hasOwnProperty.call(byKey, key)) { byKey[key].amount += amount; }
+      else { byKey[key] = { name: name, amount: amount }; list.push(byKey[key]); }
+    }
+    return { list: list, byKey: byKey };
+  }
+
+  // §3.2 その行に対する予算の消化。budgets は正規化前後どちらでも可。row は cashflowRows() の1行。
+  function budgetProgress(budgets, row, nowMs) {
+    var b = normalizeBudgets(budgets);
+    var configured = b.total > 0 || b.items.length > 0;
+    if (!row) return { available: false, reason: "noRow", configured: configured };
+    var elapsed = row.isComplete ? 1 : elapsedFraction(row.period, nowMs);
+    if (elapsed === null) elapsed = 1;                       // 進行中でも period 不正なら満月扱い
+    var elapsedPct = Math.round(elapsed * 100);
+    var acc = _budgetActualByName(row);
+    var cats = acc.list;
+    // watch＝「ペース超過（消化% > 経過%+10pt）」と「上限接近（消化% ≥ 90）」の OR。確定月は over/ok のみ。
+    function statusOf(actual, budget) {
+      if (!(budget > 0)) return "none";
+      if (actual > budget) return "over";
+      var pct = Math.round(actual / budget * 100);
+      if (!row.isComplete && actual < budget && (pct > elapsedPct + 10 || pct >= 90)) return "watch";
+      return "ok";
+    }
+    var totalActual = num(row.totalExpense);
+    var total = b.total > 0
+      ? { budget: b.total, actual: totalActual, pct: Math.round(totalActual / b.total * 100),
+          remaining: Math.max(0, b.total - totalActual), over: Math.max(0, totalActual - b.total),
+          status: statusOf(totalActual, b.total) }
+      : { budget: 0, actual: totalActual, pct: null, remaining: null, over: 0, status: "none" };
+    var budgetedKeys = {};
+    var items = b.items.map(function (it) {
+      var key = "k:" + it.name;
+      budgetedKeys[key] = true;
+      var has = Object.prototype.hasOwnProperty.call(acc.byKey, key);
+      var actual = has ? acc.byKey[key].amount : 0;
+      return { name: it.name, budget: it.amount, actual: actual,
+        pct: Math.round(actual / it.amount * 100),
+        remaining: Math.max(0, it.amount - actual), over: Math.max(0, actual - it.amount),
+        status: statusOf(actual, it.amount), hasData: has };
+    });
+    items.sort(function (x, y) { return (y.pct - x.pct) || (y.budget - x.budget) || x.name.localeCompare(y.name); });
+    var unbudgetedAll = cats.filter(function (c) {
+      return c.amount > 0 && !Object.prototype.hasOwnProperty.call(budgetedKeys, "k:" + c.name);
+    }).sort(function (x, y) { return (y.amount - x.amount) || x.name.localeCompare(y.name); });
+    var unbudgetedTotal = 0;
+    unbudgetedAll.forEach(function (c) { unbudgetedTotal += c.amount; });
+    var sumBudgeted = 0, sumActualBudgeted = 0, overCount = 0, watchCount = 0;
+    items.forEach(function (it) {
+      sumBudgeted += it.budget; sumActualBudgeted += it.actual;
+      if (it.status === "over") overCount++;
+      else if (it.status === "watch") watchCount++;
+    });
+    var catsTotal = 0;
+    cats.forEach(function (c) { catsTotal += c.amount; });
+    var hasBreakdown = cats.length > 0;
+    // ETL は見出し（月別集計DB）と内訳（生取引）を別 DB から取る＝ずれ得る。エラーにせず注記フラグ。
+    var breakdownMismatch = hasBreakdown && Math.abs(catsTotal - totalActual) > Math.max(1000, totalActual * 0.01);
+    return { available: true, reason: "", configured: configured, period: row.period, isComplete: row.isComplete,
+      elapsed: elapsed, elapsedPct: elapsedPct, total: total, items: items,
+      unbudgeted: unbudgetedAll.slice(0, 5).map(function (c) { return { name: c.name, amount: c.amount }; }),
+      unbudgetedTotal: unbudgetedTotal, sumBudgeted: sumBudgeted, sumActualBudgeted: sumActualBudgeted,
+      overCount: overCount, watchCount: watchCount, hasBreakdown: hasBreakdown,
+      breakdownMismatch: breakdownMismatch, catsTotal: catsTotal };
+  }
+
+  // §4.2 設定カードの注記用（rows に依存しない＝未ログイン/未連携でも出せる）。money.js で合算しないための単一源。
+  function budgetTotals(budgets) {
+    var b = normalizeBudgets(budgets);
+    var sumItems = 0;
+    b.items.forEach(function (it) { sumItems += it.amount; });
+    return { total: b.total, sumItems: sumItems, count: b.items.length,
+      itemsPct: b.total > 0 ? Math.round(sumItems / b.total * 100) : null,
+      overTotal: b.total > 0 ? Math.max(0, sumItems - b.total) : 0 };
+  }
+
   return {
     STORAGE_KEY: STORAGE_KEY, CURRENT_VERSION: CURRENT_VERSION,
     NEXT_TARGETS: NEXT_TARGETS, FACTS_SCHEMA_VERSION: FACTS_SCHEMA_VERSION,
@@ -1625,6 +1735,7 @@
     monthsBetweenYM: monthsBetweenYM, runwayMonths: runwayMonths, goalOutlook: goalOutlook,
     reserveOutlook: reserveOutlook, nisaReminder: nisaReminder, reminders: reminders,
     // W3.5 月次パック（UI 専用・facts 非出力）
-    normName: normName, normalizeBudgets: normalizeBudgets,
+    normName: normName, normalizeBudgets: normalizeBudgets, budgetTotals: budgetTotals,
+    elapsedFraction: elapsedFraction, latestRow: latestRow, budgetProgress: budgetProgress,
   };
 });

@@ -127,4 +127,136 @@ test("不変条件⑤: 全 fixture ケースで modeAFacts が budgets の有無
   assert.ok(CASES.length >= 71, "fixture ケース数 " + CASES.length);
 });
 
+// ---- W3.5 §3.2 予算の純関数 ----
+const NOW_AUG29 = Date.UTC(2026, 7, 29);   // 2026-08-29（8月は31日 → 29/31 ≒ 93.5%）
+const NOW_APR15 = Date.UTC(2026, 3, 15);   // 2026-04-15（4月は30日 → ちょうど 50%）
+
+test("elapsedFraction: 過去月1／未来月0／同月は day / 日数（UTC・D8）", () => {
+  assert.equal(R.elapsedFraction("2026-07-01", NOW_AUG29), 1);
+  assert.equal(R.elapsedFraction("2026-09-01", NOW_AUG29), 0);
+  assert.ok(Math.abs(R.elapsedFraction("2026-08-01", NOW_AUG29) - 29 / 31) < 1e-12);
+  assert.ok(Math.abs(R.elapsedFraction("2026-08-01", Date.UTC(2026, 7, 1)) - 1 / 31) < 1e-12);
+  assert.equal(R.elapsedFraction("2026-08-01", Date.UTC(2026, 7, 31)), 1);          // 31日の月の末日
+  assert.equal(R.elapsedFraction("2026-04-01", NOW_APR15), 0.5);                     // 30日の月
+  assert.equal(R.elapsedFraction("2026-02-01", Date.UTC(2026, 1, 28)), 1);           // 28日の月
+  assert.equal(R.elapsedFraction("2024-02-01", Date.UTC(2024, 1, 29)), 1);           // 閏29日
+  assert.ok(Math.abs(R.elapsedFraction("2024-02-01", Date.UTC(2024, 1, 15)) - 15 / 29) < 1e-12);
+  assert.equal(R.elapsedFraction("bogus", NOW_AUG29), null);
+  assert.equal(R.elapsedFraction("2026-08", NOW_AUG29), null);
+  assert.equal(R.elapsedFraction(null, NOW_AUG29), null);
+  assert.equal(R.elapsedFraction("2026-08-01", 0), null);
+  assert.equal(R.elapsedFraction("2026-08-01", NaN), null);
+  assert.equal(R.elapsedFraction("2026-08-01", "x"), null);
+});
+
+test("latestRow: 正規化後の末尾行・不正行は捨てる・空は null", () => {
+  const rows = [mkRow("2026-07-01"), mkRow("2026-06-01"), { period: "bad" }];
+  assert.equal(R.latestRow(rows).period, "2026-07-01");
+  assert.equal(R.latestRow(rows).isComplete, true);
+  assert.equal(R.latestRow([mkRow("2026-08-01", { partial: true })]).isComplete, false);
+  assert.equal(R.latestRow([]), null);
+  assert.equal(R.latestRow(null), null);
+});
+
+const BUD = { total: 260000, items: [{ name: "食費", amount: 45000 }, { name: "外食費", amount: 20000 }] };
+const CATS_AUG = [["食費", 41600], ["外食費", 24500], ["車・ガソリン", 12000], ["衣服", 8900], ["保険", 12000], ["書籍・教育", 2600]];
+// budgetProgress / monthlyReport が受けるのは cashflowRows() 済みの行＝生 API 行は latestRow で正規化する。
+const norm = (raw) => R.latestRow([raw]);
+const ROW_AUG = norm(mkRow("2026-08-01", { partial: true, expense: 241300, fixed: 114000, cats: CATS_AUG }));
+
+test("budgetProgress: row null／未設定／合計のみ／費目のみ", () => {
+  const none = R.budgetProgress(BUD, null, NOW_AUG29);
+  assert.deepEqual(none, { available: false, reason: "noRow", configured: true });
+  assert.equal(R.budgetProgress(null, null, NOW_AUG29).configured, false);
+  const unset = R.budgetProgress({ total: 0, items: [] }, ROW_AUG, NOW_AUG29);
+  assert.equal(unset.available, true);
+  assert.equal(unset.configured, false);
+  assert.deepEqual(unset.total, { budget: 0, actual: 241300, pct: null, remaining: null, over: 0, status: "none" });
+  assert.deepEqual(unset.items, []);
+  assert.equal(unset.unbudgeted.length, 5);              // 上位5（全6費目のうち）
+  assert.equal(unset.unbudgetedTotal, 101600);           // 全件合計（上位5だけでない）
+  const totalOnly = R.budgetProgress({ total: 260000, items: [] }, ROW_AUG, NOW_AUG29);
+  assert.equal(totalOnly.total.pct, 93);                 // 241,300 / 260,000
+  assert.equal(totalOnly.total.remaining, 18700);
+  assert.equal(totalOnly.total.over, 0);
+  assert.equal(totalOnly.total.status, "watch");         // 進行中・93% ≥ 90
+  const itemsOnly = R.budgetProgress({ total: 0, items: BUD.items }, ROW_AUG, NOW_AUG29);
+  assert.equal(itemsOnly.total.status, "none");
+  assert.equal(itemsOnly.items.length, 2);
+});
+
+test("budgetProgress: 経過率・費目の値と並び・同名合算・負値0・hasData", () => {
+  const bp = R.budgetProgress(BUD, ROW_AUG, NOW_AUG29);
+  assert.equal(bp.period, "2026-08-01");
+  assert.equal(bp.isComplete, false);
+  assert.equal(bp.elapsedPct, 94);                       // round(29/31*100)
+  assert.equal(bp.total.pct, 93);
+  assert.deepEqual(bp.items.map((i) => i.name), ["外食費", "食費"]);   // pct 降順（123 → 92）
+  assert.deepEqual(bp.items[0], { name: "外食費", budget: 20000, actual: 24500, pct: 123, remaining: 0, over: 4500, status: "over", hasData: true });
+  assert.deepEqual(bp.items[1], { name: "食費", budget: 45000, actual: 41600, pct: 92, remaining: 3400, over: 0, status: "watch", hasData: true });
+  assert.equal(bp.overCount, 1);
+  assert.equal(bp.watchCount, 1);
+  assert.equal(bp.sumBudgeted, 65000);
+  assert.equal(bp.sumActualBudgeted, 66100);
+  assert.equal(bp.hasBreakdown, true);
+  assert.equal(bp.catsTotal, 101600);          // 内訳の総額（予算あり/なしの両方を含む）
+  // 同名は合算・負値は 0・名前ゴミは捨てる
+  const dup = R.budgetProgress({ total: 0, items: [{ name: "食費", amount: 10000 }] },
+    norm(mkRow("2026-08-01", { partial: true, cats: [["食費", 3000], ["食費", 4000], ["食費", -9000], ["", 5000]] })), NOW_AUG29);
+  assert.equal(dup.items[0].actual, 7000);
+  assert.equal(dup.items[0].hasData, true);
+  // 内訳に出ない費目＝実績なし
+  const nodata = R.budgetProgress({ total: 0, items: [{ name: "旧・雑貨", amount: 3000 }] }, ROW_AUG, NOW_AUG29);
+  assert.deepEqual(nodata.items[0], { name: "旧・雑貨", budget: 3000, actual: 0, pct: 0, remaining: 3000, over: 0, status: "ok", hasData: false });
+  // breakdown なしの行＝費目は全て実績なし・合計は見出し列で成立
+  const noBd = R.budgetProgress(BUD, norm(mkRow("2026-07-01", { expense: 250000 })), NOW_AUG29);
+  assert.equal(noBd.hasBreakdown, false);
+  assert.equal(noBd.breakdownMismatch, false);
+  assert.equal(noBd.items.every((i) => i.hasData === false), true);
+  assert.equal(noBd.total.actual, 250000);
+});
+
+test("budgetProgress: status の境界（watch は ペース超過 OR 90% 接近・actual===budget は ok・確定月は watch なし）", () => {
+  const row = (cats, partial) => norm(mkRow("2026-04-01", { partial: partial, expense: 200000, cats: cats }));
+  const st = (actual, partial) => R.budgetProgress({ total: 0, items: [{ name: "x", amount: 10000 }] },
+    row([["x", actual]], partial), NOW_APR15).items[0].status;
+  assert.equal(st(6000, true), "ok");        // pct 60 === elapsedPct(50)+10 かつ <90
+  assert.equal(st(6100, true), "watch");     // pct 61 > 60
+  assert.equal(st(9000, true), "watch");     // pct 90（ペース超過でなくても接近で発火）
+  assert.equal(st(5000, true), "ok");        // pct 50 ＝ 経過どおり
+  assert.equal(st(8900, true), "watch");     // pct 89（90 未満でもペース超過なら watch）
+  assert.equal(st(10000, true), "ok");       // actual === budget（毎月のアンバーを避ける）
+  assert.equal(st(10001, true), "over");
+  assert.equal(st(9000, false), "ok");       // 確定月は watch にならない
+  assert.equal(st(10001, false), "over");
+  assert.equal(R.budgetProgress({ total: 0, items: [{ name: "x", amount: 10000 }] }, row([["x", 6100]], true), NOW_APR15).elapsedPct, 50);
+  // 進行中でも nowMs が読めなければ満月扱い（elapsed=1）
+  const bad = R.budgetProgress({ total: 0, items: [{ name: "x", amount: 10000 }] }, row([["x", 6100]], true), 0);
+  assert.equal(bad.elapsed, 1);
+  assert.equal(bad.elapsedPct, 100);
+});
+
+test("budgetProgress: breakdownMismatch の閾値は max(1000, 1%)", () => {
+  const mk = (catSum, expense) => R.budgetProgress(BUD,
+    norm(mkRow("2026-07-01", { expense: expense, cats: [["食費", catSum]] })), NOW_AUG29);
+  assert.equal(mk(100000, 100000).breakdownMismatch, false);
+  assert.equal(mk(99000, 100000).breakdownMismatch, false);   // 差 1000 = max(1000, 1000) → 超えない
+  assert.equal(mk(98999, 100000).breakdownMismatch, true);    // 差 1001
+  assert.equal(mk(497000, 500000).breakdownMismatch, false);  // 差 3000 < 5000（1%）
+  assert.equal(mk(494000, 500000).breakdownMismatch, true);   // 差 6000 > 5000
+});
+
+test("不変条件③: items[].actual の和 ≦ Σ breakdown.categories.amount", () => {
+  [ROW_AUG, norm(mkRow("2026-07-01", { expense: 250000, cats: [["食費", 50000], ["外食費", 30000]] }))].forEach((row) => {
+    const bp = R.budgetProgress(BUD, row, NOW_AUG29);
+    assert.ok(bp.sumActualBudgeted <= bp.catsTotal, bp.sumActualBudgeted + " / " + bp.catsTotal);
+  });
+});
+
+test("budgetTotals: 費目予算の合計・合計予算比・超過（money.js で足し算をしないための単一源）", () => {
+  assert.deepEqual(R.budgetTotals(BUD), { total: 260000, sumItems: 65000, count: 2, itemsPct: 25, overTotal: 0 });
+  assert.deepEqual(R.budgetTotals({ total: 50000, items: BUD.items }), { total: 50000, sumItems: 65000, count: 2, itemsPct: 130, overTotal: 15000 });
+  assert.deepEqual(R.budgetTotals(null), { total: 0, sumItems: 0, count: 0, itemsPct: null, overTotal: 0 });
+});
+
 module.exports = { mkRow, mkState };
