@@ -853,6 +853,105 @@
     };
   }
 
+  // PL 棒上ラベルの表示計画（plan パターン＝cfLabelPlan と同型・小工数 PL5・2026-09-10）。
+  //  営業利益/当期純利益の 3 行ラベル（値・率・基準値）は幅 137〜151px で、768〜900px では 1 段の幅
+  //  （約 120〜135px）を越えて隣の段にかかる。隣の値が近い銘柄（AAPL: 税引前 1,327 vs 純利益 1,120 億ドル）
+  //  では高さもほぼ同じになり、ラベル同士が実際に重なる（実測 AAPL@768 で 17×20px）。
+  //  方針＝ぶつかる時だけ、幅の広い方（行数の多い方）の行を末尾から畳む（基準値→率→値だけ）。
+  //  値だけにしても重なるなら優先度（core=2 > 補助段=1）の低い方、同点なら |値| の小さい方を落とす。
+  //  align/offset の従来規則（0 は top/12・小さい段は top/6・それ以外 bottom/0）もここに集約し、
+  //  描画・node テスト・受入が同じ幾何を見る。
+  //  items: [{label, x(棒の中心px), y(棒の先端px), val, lines:[...], priority, fixedLines}]
+  //  opts : {canvasW, measure(text)->px, lineH(1行の高さpx), padding, minGap}
+  const PL_SMALL_RATIO = 0.15;   // 最大段に対してこれ未満の段はラベルを棒の外（top）へ逃がす（spec §7.2 #5）
+  function plLabelPlan(items, opts) {
+    const list = Array.isArray(items) ? items : [];
+    const o = opts || {};
+    const measure = typeof o.measure === "function" ? o.measure : (s) => String(s).length * 8;
+    const canvasW = o.canvasW > 0 ? o.canvasW : 0;
+    const pad = typeof o.padding === "number" ? o.padding : 4;
+    const lineH = o.lineH > 0 ? o.lineH : 16.8;
+    const minGap = typeof o.minGap === "number" ? o.minGap : 2;
+    const maxAbs = Math.max.apply(null, list.map((it) => Math.abs(Number(it && it.val) || 0)).concat([0]));
+
+    const boxes = list.map((it, i) => {
+      const val = Number(it && it.val) || 0;
+      const small = val === 0 || (maxAbs > 0 && Math.abs(val) / maxAbs < PL_SMALL_RATIO);
+      const align = small ? "top" : "bottom";
+      const offset = val === 0 ? 12 : small ? 6 : 0;
+      const lines = Array.isArray(it && it.lines) ? it.lines.map((s) => String(s)) : [];
+      return {
+        i, lines, align, offset,
+        x: it && typeof it.x === "number" ? it.x : 0,
+        y: it && typeof it.y === "number" ? it.y : 0,
+        priority: it && typeof it.priority === "number" ? it.priority : 1,
+        weight: Math.abs(val),
+        fixed: !!(it && it.fixedLines),
+        visible: lines.length > 0,
+      };
+    });
+
+    // 箱の矩形（datalabels と同じ置き方: anchor=棒の先端・align top=先端の上／bottom=先端の下）
+    const rectOf = (b) => {
+      const w = Math.max.apply(null, b.lines.map((s) => measure(s)).concat([0])) + pad * 2;
+      const h = b.lines.length * lineH + pad * 2;
+      let cx = b.x;
+      if (canvasW > 0) cx = w >= canvasW ? canvasW / 2 : Math.min(Math.max(cx, w / 2), canvasW - w / 2);
+      const y1 = b.align === "top" ? b.y - b.offset - h : b.y + b.offset;
+      return { x1: cx - w / 2, x2: cx + w / 2, y1, y2: y1 + h, w, h };
+    };
+    const overlap = (a, b) => {
+      const ra = rectOf(a), rb = rectOf(b);
+      return Math.min(ra.x2, rb.x2) - Math.max(ra.x1, rb.x1) > -minGap &&
+        Math.min(ra.y2, rb.y2) - Math.max(ra.y1, rb.y1) > -minGap;
+    };
+
+    // 重なりが無くなるまで: 行数の多い方を畳む → 畳めなければ優先度（同点は |値|）の低い方を落とす
+    const trimmed = new Set();
+    for (let guard = 0; guard < list.length * 4 + 4; guard++) {
+      let pair = null;
+      const vis = boxes.filter((b) => b.visible);
+      for (let a = 0; a < vis.length && !pair; a++) {
+        for (let c = a + 1; c < vis.length; c++) {
+          if (overlap(vis[a], vis[c])) { pair = [vis[a], vis[c]]; break; }
+        }
+      }
+      if (!pair) break;
+      const canTrim = (b) => !b.fixed && b.lines.length > 1;
+      const [p, q] = pair;
+      let target = null;
+      if (canTrim(p) || canTrim(q)) {
+        if (canTrim(p) && canTrim(q)) target = p.lines.length >= q.lines.length ? p : q;
+        else target = canTrim(p) ? p : q;
+        target.lines = target.lines.slice(0, -1);
+        trimmed.add(target.i);
+        continue;
+      }
+      const dropQ = q.priority < p.priority || (q.priority === p.priority && q.weight < p.weight);
+      (dropQ ? q : p).visible = false;
+    }
+
+    return {
+      lines: boxes.map((b) => b.lines),
+      visible: boxes.map((b) => b.visible),
+      align: boxes.map((b) => b.align),
+      offset: boxes.map((b) => b.offset),
+      trimmed: boxes.filter((b) => trimmed.has(b.i) && b.visible).map((b) => list[b.i] && list[b.i].label),
+      hidden: boxes.filter((b) => !b.visible && list[b.i] && (list[b.i].lines || []).length).map((b) => list[b.i].label),
+      boxes: boxes.map((b) => Object.assign({ i: b.i, visible: b.visible }, rectOf(b))),
+    };
+  }
+
+  // FCF 推移の棒に渡す値（小工数 FCF5・2026-09-10）。単位で割り、欠測 null は null のまま。
+  //  描画側は minBarLength（最小棒高さ）で「値があるのに 0.2px で見えない棒」（8411.T 2025＝−277 億円）を
+  //  救うが、Chart.js の minBarLength はゼロの棒にも下限を適用する（cf-minbar-probe.js 実測）ので、
+  //  ちょうど 0 の年は棒にしない（null）＝cfWaterfall の「差分ゼロの段を作らない」と同じ二段構え。
+  function fcfBarValues(values, div) {
+    const list = Array.isArray(values) ? values : [];
+    const d = Number(div) > 0 ? Number(div) : 1;
+    return list.map((v) => (v == null || !isFinite(Number(v)) || Number(v) === 0) ? null : Number(v) / d);
+  }
+
   // レーダー5指標スコア（0..100 clamp）＋ roe/roa 実値（持株会社は税引前利益で収益性評価）。index.html 4186-4211。
   function radarScores(fin, ticker) {
     const roe = FR.roe(fin);
@@ -1281,8 +1380,8 @@
     signalDigest, healthTrendSeries, dupontFactorSeries, fcfTrendSeries,
     // 財務ディスクリプタ純関数
     priceWindow, rollingWindow, fitLogicalRange, periodLabel, periodLabelParts, rollingLabelParts, ROLL_NAME, benchRebase, benchFor, displayName, hasTickerSuffix, marketBasisFor, perStatus, pbrStatus,
-    equityRatioDesc, currentRatioDesc, yoyBadge, isFinancialPL, plSteps, cfFlowStatus, cfCompanyType, cfWaterfall, cfLabelPlan, radarScores,
-    sparklineSVG, dupontDescriptor, fcfQualityDescriptor,
+    equityRatioDesc, currentRatioDesc, yoyBadge, isFinancialPL, plSteps, plLabelPlan, cfFlowStatus, cfCompanyType, cfWaterfall, cfLabelPlan, radarScores,
+    sparklineSVG, dupontDescriptor, fcfQualityDescriptor, fcfBarValues,
     // 色/特例定数
     FIN_COLORS, CF_BADGE_PAIR, COMPARE_COLORS, HOLDING_COMPANIES,
     // 分析グロッサリ・免責データ

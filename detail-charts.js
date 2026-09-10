@@ -1310,6 +1310,59 @@
         const unit = FinanceRules.pickUnit(plMax, currency);
         setUnitBadge("pl-title", unit);
 
+        // 棒上ラベルの全行（値／率／基準値・N/A 注記）。表示する行数は plPlan が決める（小工数 PL5）。
+        const plLines = (i) => {
+          const value = plData[i];
+          const label = plLabels[i];
+          if (value === 0 && label === "営業利益" && HOLDING_COMPANIES.has(currentTicker)) {
+            return ["N/A", "(持株会社仕様)"];
+          }
+          // spec §7.1 D16: 銀行/保険/証券は営業利益の概念がなく経常利益で開示＝棒なしの黄「0」ラベルを N/A 化。
+          //  判定は値ベース純関数（DetailRules.isFinancialPL・実DBで金融12銘柄36行と外延一致）。
+          //  9984.T は経常=0 で自動排除＝上の HOLDING 分岐と非衝突（順序も HOLDING 優先で保険）。
+          if (value === 0 && label === "営業利益" && DetailRules.isFinancialPL(fin)) {
+            return ["N/A", "(銀行・金融)"];
+          }
+          const baseStr = FinanceRules.fmtUnitValue(value, unit);
+          if (label === "営業利益") return [baseStr, `営業利益率: ${opMargin.toFixed(1)}%`, "(基準値4-5%前後)"];
+          if (label === "当期純利益") return [baseStr, `当期純利益率: ${netMargin.toFixed(1)}%`, "(基準値3-4%前後)"];
+          return [baseStr];
+        };
+        // 小工数 PL5: 3 行ラベルが 768〜900px で隣の段のラベルと重なる（AAPL/MCD）。
+        //  ぶつかる時だけ末尾の行から畳む／それでも重なる段は落とす（判断は DetailRules.plLabelPlan＝
+        //  node テストと同じ実装）。幅・高さで結果が変わるので chart の寸法をキーに作り直す。
+        //  ⚠ context.chart が無い経路（scriptable option を外から読むと chart 抜きで解決される）でも
+        //     throw しない。プラグインフックは try/catch されないので、投げると neonGlowPlugin まで巻き添え。
+        const plPlan = (chart) => {
+          if (!chart || !chart.getDatasetMeta) return null;
+          if (chart.$plPlan && chart.$plPlan.w === chart.width && chart.$plPlan.h === chart.height) return chart.$plPlan.plan;
+          const meta = chart.getDatasetMeta(0);
+          if (!meta || !meta.data || !meta.data.length) return null;
+          const c2 = chart.ctx;
+          const prevFont = c2.font;
+          c2.font = "bold 14px " + getComputedStyle(chart.canvas).fontFamily;
+          const items = meta.data.map((el, i) => {
+            const p = el.getProps(["x", "y"], true);   // アニメーション後の最終位置
+            const lines = plLines(i);
+            return {
+              label: plLabels[i], x: p.x, y: p.y, val: FinanceRules.n(plData[i]), lines,
+              priority: plSteps[i] && plSteps[i].core ? 2 : 1,
+              fixedLines: lines[0] === "N/A",   // N/A 注記は畳まない（「N/A」だけでは意味が消える）
+            };
+          });
+          const plan = DetailRules.plLabelPlan(items, {
+            canvasW: chart.width,
+            measure: (s) => c2.measureText(s).width,
+            lineH: 14 * 1.2,   // font 14px × datalabels 既定 line-height 1.2（実測 3 行=58px と一致）
+          });
+          c2.font = prevFont;
+          chart.$plPlan = { w: chart.width, h: chart.height, plan };
+          return plan;
+        };
+        // plan が引けない経路の従来規則（0 は top/12・小さい段は top/6・それ以外 bottom/0）
+        const legacyAlign = (val) => (val === 0 || Math.abs(val) / (plMax || 1) < 0.15) ? "top" : "bottom";
+        const legacyOffset = (val) => val === 0 ? 12 : Math.abs(val) / (plMax || 1) < 0.15 ? 6 : 0;
+
         plChartInstance = new Chart(ctx, {
           type: "bar",
           data: {
@@ -1346,47 +1399,29 @@
                 display: isMobile ? function(ctx) {
                   // モバイルでは当期純利益（先頭）と売上高（末尾）のみ表示（段の省略に追従）
                   return ctx.dataIndex === 0 || ctx.dataIndex === ctx.chart.data.labels.length - 1;
-                } : true,
+                } : function (context) {
+                  /* 小工数 PL5: 値だけにしても隣と重なる段は plan が落とす（実測 AAPL@768 で 3 組） */
+                  const plan = plPlan(context && context.chart);
+                  return plan ? plan.visible[context.dataIndex] !== false : true;
+                },
                 font: { weight: "bold", size: isMobile ? 9 : 14 },
                 anchor: "end",
+                // spec §7.2 (#5): val=0 は一律 top 退避（HOLDING の center=基線上＝X軸ラベル衝突を廃止）。
+                //  銀行 N/A（#4）も 0 値ゆえ同経路に乗る。規則の実体は DetailRules.plLabelPlan（単一源）。
                 align: function (context) {
-                  const val = context.dataset.data[context.dataIndex];
-                  // spec §7.2 (#5): val=0 は一律 top 退避（HOLDING の center=基線上＝X軸ラベル衝突を廃止）。
-                  //  銀行 N/A（#4）も 0 値ゆえ同経路に乗る。
-                  if (val === 0) return "top";
-                  const max = Math.max(...context.dataset.data.map(Math.abs));
-                  return Math.abs(val) / max < 0.15 ? "top" : "bottom";
+                  const idx = context ? context.dataIndex : 0;
+                  const plan = plPlan(context && context.chart);
+                  return plan ? plan.align[idx] : legacyAlign(FinanceRules.n(plData[idx]));
                 },
                 offset: function (context) {
-                  const val = context.dataset.data[context.dataIndex];
-                  if (val === 0) return 12;   // spec §7.2: 現行6→12 で軸帯から確実に離す
-                  const max = Math.max(...context.dataset.data.map(Math.abs));
-                  return Math.abs(val) / max < 0.15 ? 6 : 0;
+                  const idx = context ? context.dataIndex : 0;
+                  const plan = plPlan(context && context.chart);
+                  return plan ? plan.offset[idx] : legacyOffset(FinanceRules.n(plData[idx]));   // spec §7.2: 0 は 12 で軸帯から確実に離す
                 },
                 formatter: function (value, context) {
-                  let label = context.chart.data.labels[context.dataIndex];
-                  if (value === 0 && label === "営業利益" && HOLDING_COMPANIES.has(currentTicker)) {
-                    return `N/A\n(持株会社仕様)`;
-                  }
-                  // spec §7.1 D16: 銀行/保険/証券は営業利益の概念がなく経常利益で開示＝棒なしの黄「0」ラベルを N/A 化。
-                  //  判定は値ベース純関数（DetailRules.isFinancialPL・実DBで金融12銘柄36行と外延一致）。
-                  //  9984.T は経常=0 で自動排除＝上の HOLDING 分岐と非衝突（順序も HOLDING 優先で保険）。
-                  if (value === 0 && label === "営業利益" && DetailRules.isFinancialPL(fin)) {
-                    return `N/A\n(銀行・金融)`;
-                  }
-                  let baseStr = FinanceRules.fmtUnitValue(value, unit);
-                  if (label === "営業利益") {
-                    return (
-                      baseStr +
-                      `\n営業利益率: ${opMargin.toFixed(1)}%\n(基準値4-5%前後)`
-                    );
-                  } else if (label === "当期純利益") {
-                    return (
-                      baseStr +
-                      `\n当期純利益率: ${netMargin.toFixed(1)}%\n(基準値3-4%前後)`
-                    );
-                  }
-                  return baseStr;
+                  const idx = context ? context.dataIndex : 0;
+                  const plan = plPlan(context && context.chart);
+                  return (plan ? plan.lines[idx] : plLines(idx)).join("\n");
                 },
                 textAlign: "center",
               },
@@ -1762,12 +1797,19 @@
     s.fcf.forEach(function (v) { if (v != null) maxAbs = Math.max(maxAbs, Math.abs(v)); });
     var unit = FinanceRules.pickUnit(maxAbs, cur);
     var unitStr = FinanceRules.unitLabel(unit);
-    var fcfU = s.fcf.map(function (v) { return v == null ? null : v / unit.div; });   // ← 数値を渡す（fmtUnitValue文字列は不可）
+    // 数値を渡す（fmtUnitValue文字列は不可）。ちょうど 0 の年は棒にしない＝下の minBarLength で 0 が水増しされない
+    //  （小工数 FCF5・DetailRules.fcfBarValues）。
+    var fcfU = DetailRules.fcfBarValues(s.fcf, unit.div);
     // バー色は正負で FIN_COLORS.cf.pos/neg（cfWaterfall と同じ意味色＝プラス=cyan/マイナス=pink）。
     var barSpecs = s.fcf.map(function (v) { return (v != null && v < 0) ? FIN_COLORS.cf.neg : FIN_COLORS.cf.pos; });
     var ds = [
       { type: "bar", label: "概算FCF(" + unitStr + ")", data: fcfU, yAxisID: "amt", order: 3,
         backgroundColor: neonBarBgByIndex(barSpecs), borderColor: neonEdgeByIndex(barSpecs), borderWidth: 1,
+        /* 小工数 FCF5: 値があるのに 0.2px で描けない年（8411.T 2025＝−277億円・最大 15.5兆円の 0.18%）に下限。
+           ⚠ Chart.js の minBarLength はゼロの棒にも下限を適用する（cf-minbar-probe.js 実測）ので、
+           fcfBarValues がちょうど 0 を null にして棒を作らない、との二段構え（CF フローモードと同型）。
+           4 なのは Chart.js が 0 基線のグリッド線幅の半分（0.5px）を棒から差し引くため（3 だと実測 2.5px）。 */
+        minBarLength: 4,
         datalabels: { display: false } },
       { type: "line", label: "現金変換率(%)", data: s.cashConversion, yAxisID: "pct", order: 1,
         borderColor: "#5cf0ff", backgroundColor: "transparent", tension: 0.25, spanGaps: true,

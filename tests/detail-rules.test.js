@@ -1427,3 +1427,98 @@ test("cfWaterfall: フロー内訳モードでは差分ゼロの段を作らな�
   const sum = r.cfDiffs.reduce((a, b) => a + b, 0);
   assert.equal(sum, r.cashNote.delta);
 });
+
+// ── plLabelPlan: PL 棒上ラベルの表示計画（plan パターン＝cfLabelPlan と同型・小工数 PL5・2026-09-10） ──
+//  営業利益/当期純利益の 3 行ラベル（値・率・基準値）は 768〜900px で 1 段の幅を越え、隣の値が近い
+//  銘柄（AAPL/MCD）で隣のラベルと縦にもぶつかる。ぶつかる時だけ行を末尾から畳む（基準値→率→値だけ）。
+//  それでも重なれば優先度（core=2 > 補助段=1）の低い方、同点なら |値| の小さい方を落とす。
+const LH = 16.8;   // 14px × line-height 1.2（datalabels 既定）
+const plItem = (label, x, y, val, lines, extra) => Object.assign({ label, x, y, val, lines }, extra || {});
+
+test("plLabelPlan: 余裕があれば 3 行のまま（1440px 相当）", () => {
+  const items = [
+    plItem("当期純利益", 200, 346, 112000, ["1,120億ドル", "当期純利益率: 26.9%", "(基準値3-4%前後)"], { priority: 2 }),
+    plItem("税金等調整前当期純利益", 420, 330, 132700, ["1,327億ドル"], { priority: 1 }),
+  ];
+  const p = D.plLabelPlan(items, { canvasW: 1350, measure: M8, lineH: LH });
+  assert.deepEqual(p.lines[0], ["1,120億ドル", "当期純利益率: 26.9%", "(基準値3-4%前後)"]);
+  assert.deepEqual(p.visible, [true, true]);
+  assert.deepEqual(p.trimmed, []);
+});
+
+test("plLabelPlan: 隣とぶつかる 3 行ラベルは末尾の行から畳む（基準値→率）", () => {
+  // 768px 相当（M8 換算で段幅 80px）: 当期純利益（3行・率の行が 104px）と税引前（1行 72px）の高さがほぼ同じ
+  const items = [
+    plItem("当期純利益", 120, 160, 112000, ["1,120億ドル", "当期純利益率: 26.9%", "(基準値3-4%前後)"], { priority: 2 }),
+    plItem("税金等調整前当期純利益", 200, 155, 132700, ["1,327億ドル"], { priority: 1 }),
+  ];
+  const p = D.plLabelPlan(items, { canvasW: 718, measure: M8, lineH: LH });
+  assert.deepEqual(p.visible, [true, true]);
+  // 率の行（104px）が畳まれ、値だけ（72px）になれば隣（72px・中心 200）と重ならない
+  assert.deepEqual(p.lines[0], ["1,120億ドル"]);
+  assert.deepEqual(p.lines[1], ["1,327億ドル"]);
+  assert.deepEqual(p.trimmed, ["当期純利益"]);
+});
+
+test("plLabelPlan: 高さが離れていれば幅が重なっても畳まない（7203.T@768 の現行）", () => {
+  const items = [
+    plItem("当期純利益", 120, 114, 4800000, ["4.8兆円", "当期純利益率: 9.9%", "(基準値3-4%前後)"], { priority: 2 }),
+    plItem("税金等調整前当期純利益", 200, 200, 6400000, ["6.4兆円"], { priority: 1 }),   // 幅は重なるが高さが 28px 離れている
+  ];
+  const p = D.plLabelPlan(items, { canvasW: 718, measure: M8, lineH: LH });
+  assert.equal(p.lines[0].length, 3);
+  assert.deepEqual(p.trimmed, []);
+});
+
+test("plLabelPlan: 値だけにしても重なるなら優先度の低い段（補助段）を落とす", () => {
+  const items = [
+    plItem("当期純利益", 40, 150, 100, ["1,120億ドル"], { priority: 2 }),
+    plItem("税金等調整前当期純利益", 60, 150, 200, ["1,327億ドル"], { priority: 1 }),
+  ];
+  const p = D.plLabelPlan(items, { canvasW: 300, measure: M8, lineH: LH });
+  assert.deepEqual(p.visible, [true, false]);
+  assert.deepEqual(p.hidden, ["税金等調整前当期純利益"]);
+});
+
+test("plLabelPlan: fixedLines の段（N/A 注記）は行を畳まない", () => {
+  const items = [
+    plItem("経常利益", 100, 150, 100, ["1,327億ドル"], { priority: 1 }),
+    // val=0 → top/12 なので箱は y=200 の上 146〜188 に来て、経常（150〜175）と縦にも重なる
+    plItem("営業利益", 160, 200, 0, ["N/A", "(銀行・金融)"], { priority: 2, fixedLines: true }),
+  ];
+  const p = D.plLabelPlan(items, { canvasW: 400, measure: M8, lineH: LH });
+  assert.deepEqual(p.lines[1], ["N/A", "(銀行・金融)"]);
+  assert.deepEqual(p.visible, [false, true]);   // 畳めないので優先度の低い経常が落ちる
+});
+
+test("plLabelPlan: align/offset は従来規則（0 は top/12・小さい段は top/6・それ以外 bottom/0）", () => {
+  const items = [
+    plItem("営業利益", 100, 150, 0, ["N/A"], { priority: 2, fixedLines: true }),
+    plItem("当期純利益", 300, 150, 5, ["5億円"], { priority: 2 }),
+    plItem("売上高", 500, 20, 1000, ["1,000億円"], { priority: 2 }),
+  ];
+  const p = D.plLabelPlan(items, { canvasW: 800, measure: M8, lineH: LH });
+  assert.deepEqual(p.align, ["top", "top", "bottom"]);
+  assert.deepEqual(p.offset, [12, 6, 0]);
+});
+
+test("plLabelPlan: 空入力・measure 未指定でも落ちない", () => {
+  assert.deepEqual(D.plLabelPlan([], {}).visible, []);
+  const p = D.plLabelPlan([plItem("売上高", 10, 10, 1, ["1億円"])], { canvasW: 200 });
+  assert.deepEqual(p.visible, [true]);
+});
+
+// ── fcfBarValues: FCF 推移の棒に渡す値（最小棒高さとゼロの二段構え・小工数 FCF5・2026-09-10） ──
+//  Chart.js の minBarLength はゼロの棒にも下限を適用する（cf-minbar-probe.js 実測）。
+//  8411.T 2025 の FCF −277 億円（最大 15.5 兆円の 0.18%）が 0.2px で見えないのを最小棒高さで救う代わりに、
+//  ちょうど 0 の年は棒にしない（null）＝0 が 3px の棒に化けない。欠測 null はそのまま。
+test("fcfBarValues: 単位で割り、null は null のまま", () => {
+  assert.deepEqual(D.fcfBarValues([15472913, null, -27708], 1e6), [15.472913, null, -0.027708]);
+});
+test("fcfBarValues: ちょうど 0 は棒にしない（最小棒高さで水増ししない）", () => {
+  assert.deepEqual(D.fcfBarValues([0, 100, -0], 100), [null, 1, null]);
+});
+test("fcfBarValues: div が不正なら 1 で割る（NaN を返さない）", () => {
+  assert.deepEqual(D.fcfBarValues([5], 0), [5]);
+  assert.deepEqual(D.fcfBarValues(null, 10), []);
+});
