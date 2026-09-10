@@ -1328,9 +1328,9 @@
           if (label === "当期純利益") return [baseStr, `当期純利益率: ${netMargin.toFixed(1)}%`, "(基準値3-4%前後)"];
           return [baseStr];
         };
-        // 小工数 PL5: 3 行ラベルが 768〜900px で隣の段のラベルと重なる（AAPL/MCD）。
-        //  ぶつかる時だけ末尾の行から畳む／それでも重なる段は落とす（判断は DetailRules.plLabelPlan＝
-        //  node テストと同じ実装）。幅・高さで結果が変わるので chart の寸法をキーに作り直す。
+        // 小工数 PL5: 3 行ラベルが 768〜900px で自分の段から張り出し、隣の段のラベルとも重なる（AAPL/MCD）。
+        //  段幅に収まる行だけ出す→それでもぶつかれば末尾の行から畳む→それでも重なる段は落とす
+        //  （判断は DetailRules.plLabelPlan＝node テストと同じ実装）。幅・高さで結果が変わるので chart の寸法をキーに作り直す。
         //  ⚠ context.chart が無い経路（scriptable option を外から読むと chart 抜きで解決される）でも
         //     throw しない。プラグインフックは try/catch されないので、投げると neonGlowPlugin まで巻き添え。
         const plPlan = (chart) => {
@@ -1350,8 +1350,12 @@
               fixedLines: lines[0] === "N/A",   // N/A 注記は畳まない（「N/A」だけでは意味が消える）
             };
           });
+          // 1 段の幅＝隣の棒の中心までの距離（段が 1 本だけなら描画領域の幅）。段幅に収まる行だけ出す。
+          const slotW = items.length > 1 ? Math.abs(items[1].x - items[0].x)
+            : (chart.chartArea ? chart.chartArea.width : chart.width);
           const plan = DetailRules.plLabelPlan(items, {
             canvasW: chart.width,
+            slotW,
             measure: (s) => c2.measureText(s).width,
             lineH: 14 * 1.2,   // font 14px × datalabels 既定 line-height 1.2（実測 3 行=58px と一致）
           });

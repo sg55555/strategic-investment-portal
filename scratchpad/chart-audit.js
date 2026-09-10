@@ -22,7 +22,10 @@ const OUT = path.join(__dirname, "chart-audit-out");
 
 // 代表パターン: 製造業 / 銀行3行 / 債務超過(米) / 米大型 / 持株会社
 const DEFAULT_TICKERS = ["7203.T", "8306.T", "8411.T", "8316.T", "MCD", "SBUX", "AAPL", "9984.T"];
-const VIEWPORTS = [
+//  AUDIT_WIDTHS="850,875,890" で任意の幅に差し替え可（本人指摘の 851〜900px 帯など、境界の間を測るとき）
+const VIEWPORTS = process.env.AUDIT_WIDTHS
+  ? process.env.AUDIT_WIDTHS.split(",").map((w) => ({ name: String(+w), width: +w, height: 900 }))
+  : [
   { name: "1440", width: 1440, height: 900 },
   { name: "1100", width: 1100, height: 900 },
   { name: "900", width: 900, height: 900 },

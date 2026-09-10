@@ -857,18 +857,22 @@
   //  営業利益/当期純利益の 3 行ラベル（値・率・基準値）は幅 137〜151px で、768〜900px では 1 段の幅
   //  （約 120〜135px）を越えて隣の段にかかる。隣の値が近い銘柄（AAPL: 税引前 1,327 vs 純利益 1,120 億ドル）
   //  では高さもほぼ同じになり、ラベル同士が実際に重なる（実測 AAPL@768 で 17×20px）。
-  //  方針＝ぶつかる時だけ、幅の広い方（行数の多い方）の行を末尾から畳む（基準値→率→値だけ）。
-  //  値だけにしても重なるなら優先度（core=2 > 補助段=1）の低い方、同点なら |値| の小さい方を落とす。
+  //  方針＝①**自分の段幅（slotW＝隣の棒の中心までの距離）に収まる行だけ出す**（末尾の行から畳む＝基準値→率→値だけ）。
+  //    2026-09-10 本人指摘: 衝突判定だけだと 851〜900px 帯で「隣とはぶつからないが自分の段から張り出す」3 行が
+  //    残り、幅を変えるたびに 1 行↔3 行がぶれた。段幅で先に決めれば 1440/1100px は 3 行・900px 以下は値だけ、で安定する。
+  //  ②それでも矩形が重なる時は、行数の多い方の行を末尾から畳む。
+  //  ③値だけにしても重なるなら優先度（core=2 > 補助段=1）の低い方、同点なら |値| の小さい方を落とす。
   //  align/offset の従来規則（0 は top/12・小さい段は top/6・それ以外 bottom/0）もここに集約し、
   //  描画・node テスト・受入が同じ幾何を見る。
   //  items: [{label, x(棒の中心px), y(棒の先端px), val, lines:[...], priority, fixedLines}]
-  //  opts : {canvasW, measure(text)->px, lineH(1行の高さpx), padding, minGap}
+  //  opts : {canvasW, slotW(1段の幅px), measure(text)->px, lineH(1行の高さpx), padding, minGap}
   const PL_SMALL_RATIO = 0.15;   // 最大段に対してこれ未満の段はラベルを棒の外（top）へ逃がす（spec §7.2 #5）
   function plLabelPlan(items, opts) {
     const list = Array.isArray(items) ? items : [];
     const o = opts || {};
     const measure = typeof o.measure === "function" ? o.measure : (s) => String(s).length * 8;
     const canvasW = o.canvasW > 0 ? o.canvasW : 0;
+    const slotW = o.slotW > 0 ? o.slotW : 0;
     const pad = typeof o.padding === "number" ? o.padding : 4;
     const lineH = o.lineH > 0 ? o.lineH : 16.8;
     const minGap = typeof o.minGap === "number" ? o.minGap : 2;
@@ -891,23 +895,35 @@
       };
     });
 
-    // 箱の矩形（datalabels と同じ置き方: anchor=棒の先端・align top=先端の上／bottom=先端の下）
+    // 箱の矩形（datalabels と同じ置き方: anchor=棒の先端・align top=先端の上／bottom=先端の下）。
+    //  描画側はクランプしない（PL は clamp 未指定）ので、ここもクランプせず実描画と同じ位置で判定する。
+    const widthOf = (lines) => Math.max.apply(null, lines.map((s) => measure(s)).concat([0])) + pad * 2;
     const rectOf = (b) => {
-      const w = Math.max.apply(null, b.lines.map((s) => measure(s)).concat([0])) + pad * 2;
+      const w = widthOf(b.lines);
       const h = b.lines.length * lineH + pad * 2;
-      let cx = b.x;
-      if (canvasW > 0) cx = w >= canvasW ? canvasW / 2 : Math.min(Math.max(cx, w / 2), canvasW - w / 2);
       const y1 = b.align === "top" ? b.y - b.offset - h : b.y + b.offset;
-      return { x1: cx - w / 2, x2: cx + w / 2, y1, y2: y1 + h, w, h };
+      return { x1: b.x - w / 2, x2: b.x + w / 2, y1, y2: y1 + h, w, h };
     };
     const overlap = (a, b) => {
       const ra = rectOf(a), rb = rectOf(b);
       return Math.min(ra.x2, rb.x2) - Math.max(ra.x1, rb.x1) > -minGap &&
         Math.min(ra.y2, rb.y2) - Math.max(ra.y1, rb.y1) > -minGap;
     };
-
-    // 重なりが無くなるまで: 行数の多い方を畳む → 畳めなければ優先度（同点は |値|）の低い方を落とす
     const trimmed = new Set();
+    const canTrim = (b) => !b.fixed && b.lines.length > 1;
+
+    // ① 段幅に収まらない行は畳む（canvas の端からはみ出す場合も同じ扱い）
+    const fitsSlot = (b) => {
+      const r = rectOf(b);
+      if (slotW > 0 && r.w > slotW) return false;
+      if (canvasW > 0 && (r.x1 < 0 || r.x2 > canvasW)) return false;
+      return true;
+    };
+    for (const b of boxes) {
+      while (canTrim(b) && !fitsSlot(b)) { b.lines = b.lines.slice(0, -1); trimmed.add(b.i); }
+    }
+
+    // ②③ 重なりが無くなるまで: 行数の多い方を畳む → 畳めなければ優先度（同点は |値|）の低い方を落とす
     for (let guard = 0; guard < list.length * 4 + 4; guard++) {
       let pair = null;
       const vis = boxes.filter((b) => b.visible);
@@ -917,7 +933,6 @@
         }
       }
       if (!pair) break;
-      const canTrim = (b) => !b.fixed && b.lines.length > 1;
       const [p, q] = pair;
       let target = null;
       if (canTrim(p) || canTrim(q)) {

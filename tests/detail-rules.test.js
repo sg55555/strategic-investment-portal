@@ -1460,7 +1460,7 @@ test("plLabelPlan: 隣とぶつかる 3 行ラベルは末尾の行から畳む�
   assert.deepEqual(p.trimmed, ["当期純利益"]);
 });
 
-test("plLabelPlan: 高さが離れていれば幅が重なっても畳まない（7203.T@768 の現行）", () => {
+test("plLabelPlan: slotW 未指定なら高さが離れている限り幅が重なっても畳まない", () => {
   const items = [
     plItem("当期純利益", 120, 114, 4800000, ["4.8兆円", "当期純利益率: 9.9%", "(基準値3-4%前後)"], { priority: 2 }),
     plItem("税金等調整前当期純利益", 200, 200, 6400000, ["6.4兆円"], { priority: 1 }),   // 幅は重なるが高さが 28px 離れている
@@ -1468,6 +1468,28 @@ test("plLabelPlan: 高さが離れていれば幅が重なっても畳まない�
   const p = D.plLabelPlan(items, { canvasW: 718, measure: M8, lineH: LH });
   assert.equal(p.lines[0].length, 3);
   assert.deepEqual(p.trimmed, []);
+});
+
+test("plLabelPlan: 段幅（slotW）に収まらない行は隣とぶつからなくても畳む（851〜900px 帯の本人指摘）", () => {
+  // AAPL@890 の型: 営業利益 3 行（率の行 104px）が 1 段幅 80px を越え、隣の棒の上まで張り出す（高さは隣と別）
+  const items = [
+    plItem("経常利益", 120, 200, 132700, ["1,327億ドル"], { priority: 1 }),
+    plItem("営業利益", 200, 120, 133100, ["1,331億ドル", "営業利益率: 32.0%", "(基準値4-5%前後)"], { priority: 2 }),
+    plItem("売上総利益", 280, 60, 195200, ["1,952億ドル"], { priority: 1 }),
+  ];
+  const p = D.plLabelPlan(items, { canvasW: 718, slotW: 80, measure: M8, lineH: LH });
+  assert.deepEqual(p.lines[1], ["1,331億ドル"]);   // 72px ≤ 80px
+  assert.deepEqual(p.trimmed, ["営業利益"]);
+  // 段幅に余裕があれば（1440px 相当）3 行のまま
+  const wide = D.plLabelPlan(items, { canvasW: 1350, slotW: 225, measure: M8, lineH: LH });
+  assert.equal(wide.lines[1].length, 3);
+});
+
+test("plLabelPlan: canvas の端からはみ出す行も畳む", () => {
+  const items = [plItem("当期純利益", 40, 150, 100, ["1,120億ドル", "当期純利益率: 26.9%", "(基準値3-4%前後)"], { priority: 2 })];
+  const p = D.plLabelPlan(items, { canvasW: 400, slotW: 200, measure: M8, lineH: LH });
+  assert.deepEqual(p.lines[0], ["1,120億ドル"]);   // 率の行（104px）は中心 40 から左へ 52px はみ出す
+  assert.equal(p.boxes[0].x1 >= 0, true);
 });
 
 test("plLabelPlan: 値だけにしても重なるなら優先度の低い段（補助段）を落とす", () => {
