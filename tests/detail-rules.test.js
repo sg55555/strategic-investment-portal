@@ -1312,3 +1312,118 @@ test("benchFor: ベンチ自身を開いているときは null", () => {
   assert.equal(D.benchFor("1306.T", { country: "JP" }), null);
   assert.equal(D.benchFor("SPY", { country: "US" }), null);
 });
+
+// ── CF ウォーターフォール: 残高がフローを圧倒するとき（銀行など）の「フロー内訳モード」 ──
+//  2026-09-10 実測（小工数 #14）: 8306.T FY2025 は期首 109.9兆円に対し最大フローが 8,611億円で、
+//  営業CF の棒が 0.0px（描画不能）。フロー最大 / 残高 が閾値未満なら残高段を畳んでフローだけを
+//  0 基準で描き、期首→期末は注記（cashNote）へ逃がす。
+const MUFG_FY2025 = {   // 実 DB 値（百万円）
+  operating_cf: 6415, investing_cf: -186948, financing_cf: -861116,
+  cf_cash_start: 109875097, cf_cash_end: 109095437,
+};
+
+test("cfWaterfall: 通常企業はこれまでどおり期首→期末の連結ウォーターフォール", () => {
+  const r = D.cfWaterfall(TOYOTA);
+  assert.equal(r.flowMode, false);
+  assert.equal(r.cashNote, null);
+  assert.equal(r.cfLabels[0], "期首現金残高");
+  assert.equal(r.cfLabels[r.cfLastIdx], "期末現金残高");
+  assert.deepEqual(r.waterfallData[0], [0, 6524000]);          // 期首は 0 基準
+  assert.deepEqual(r.waterfallData[1], [6524000, 10524000]);   // 営業は期首の上に積む
+});
+
+test("cfWaterfall: 銀行はフロー内訳モード（残高段を畳み・0 基準・注記へ逃がす）", () => {
+  const r = D.cfWaterfall(MUFG_FY2025);
+  assert.equal(r.flowMode, true);
+  assert.deepEqual(r.cfLabels, ["営業活動CF", "投資活動CF", "財務活動CF", "その他・調整"]);
+  assert.deepEqual(r.waterfallData[0], [0, 6415]);             // 各段は 0 基準の独立棒
+  assert.deepEqual(r.waterfallData[2], [0, -861116]);
+  assert.equal(r.cashNote.start, 109875097);
+  assert.equal(r.cashNote.end, 109095437);
+  assert.equal(r.cashNote.delta, 109095437 - 109875097);
+  // 軸スケールは残高でなくフロー最大 ＝ 単位が兆円でなく億円側に落ちて数字が読める
+  assert.equal(r.maxCfScale, 861116);
+});
+
+test("cfWaterfall: フロー内訳モードでも段の合計は期末−期首に一致する（嘘をつかない）", () => {
+  const r = D.cfWaterfall(MUFG_FY2025);
+  const sum = r.cfDiffs.reduce((a, b) => a + b, 0);
+  assert.equal(sum, r.cashNote.delta);
+});
+
+test("cfWaterfall: 期首現金が無い銘柄はフローモードにしない（0 基準の現行動作）", () => {
+  const r = D.cfWaterfall({ operating_cf: 100, investing_cf: -50, financing_cf: -20 });
+  assert.equal(r.flowMode, false);
+  assert.equal(r.cfLabels[0], "期首（0基準）");
+});
+
+test("cfWaterfall: 閾値の境界（フロー最大が残高の 15% 以上なら通常モード）", () => {
+  const on = D.cfWaterfall({ operating_cf: 149, investing_cf: 0, financing_cf: 0, cf_cash_start: 1000, cf_cash_end: 1149 });
+  const off = D.cfWaterfall({ operating_cf: 150, investing_cf: 0, financing_cf: 0, cf_cash_start: 1000, cf_cash_end: 1150 });
+  assert.equal(on.flowMode, true);
+  assert.equal(off.flowMode, false);
+});
+
+// ── cfLabelPlan: 棒上ラベルの表示計画（plan パターン＝srLabelPlan と同型） ──
+//  段名は x 軸に出ているので棒上は値だけにする（これだけで幅がほぼ半分になり衝突が消える）。
+//  それでも重なる場合は優先度（期首/期末 > フロー > その他・調整）の低い方を落とす。
+const M8 = (s) => String(s).length * 8;   // 決定論ダミー（1文字 8px）
+
+test("cfLabelPlan: 棒上は値だけ（段名は x 軸と重複するので出さない）", () => {
+  const items = [
+    { label: "期首現金残高", valueText: "6.5兆円", x: 100, diff: 6524000, priority: 2 },
+    { label: "営業活動CF", valueText: "+4.0兆円", x: 300, diff: 4000000, priority: 1 },
+  ];
+  const p = D.cfLabelPlan(items, { canvasW: 800, measure: M8 });
+  assert.deepEqual(p.texts, ["6.5兆円", "+4.0兆円"]);
+  assert.deepEqual(p.visible, [true, true]);
+  assert.deepEqual(p.hidden, []);
+});
+
+test("cfLabelPlan: 狭いと優先度の低い段（その他・調整）が落ちる", () => {
+  const items = [
+    { label: "その他・調整", valueText: "+3.7兆円", x: 100, diff: 3700000, priority: 0 },
+    { label: "期末現金残高", valueText: "10.4兆円", x: 150, diff: 10415170, priority: 2 },
+  ];
+  const p = D.cfLabelPlan(items, { canvasW: 300, measure: M8 });
+  assert.deepEqual(p.visible, [false, true]);
+  assert.deepEqual(p.hidden, ["その他・調整"]);
+});
+
+test("cfLabelPlan: 同じ優先度なら値の小さい段を落とす", () => {
+  const items = [
+    { label: "投資活動CF", valueText: "-4.5兆円", x: 100, diff: -4500000, priority: 1 },
+    { label: "財務活動CF", valueText: "-0.6兆円", x: 140, diff: -600000, priority: 1 },
+  ];
+  const p = D.cfLabelPlan(items, { canvasW: 400, measure: M8 });
+  assert.deepEqual(p.hidden, ["財務活動CF"]);
+});
+
+test("cfLabelPlan: 端のラベルは canvas 内へクランプされる（はみ出さない）", () => {
+  const items = [{ label: "期末現金残高", valueText: "109.1兆円", x: 495, diff: 1, priority: 2 }];
+  const p = D.cfLabelPlan(items, { canvasW: 500, measure: M8 });
+  const w = M8("109.1兆円") + 8;
+  assert.equal(p.boxes[0].x2 <= 500, true);
+  assert.equal(p.boxes[0].x1 >= 0, true);
+  assert.equal(Math.round(p.boxes[0].x2 - p.boxes[0].x1), w);
+});
+
+test("cfLabelPlan: measure 未指定でも落ちない（既定の概算幅で計画する）", () => {
+  const p = D.cfLabelPlan([{ label: "営業活動CF", valueText: "+64億円", x: 50, diff: 6415, priority: 1 }], { canvasW: 400 });
+  assert.equal(p.visible[0], true);
+  assert.equal(p.texts[0], "+64億円");
+});
+
+test("cfWaterfall: フロー内訳モードでは差分ゼロの段を作らない（最小棒高さで 0 を水増ししない）", () => {
+  // 2026-09-10 実測: Chart.js の minBarLength は差分 0 の棒にも下限を適用する（0 が 3px の棒になる）。
+  // フローモードでだけ下限を使うので、0 の段はそもそも段にしない＝欠損/ゼロを棒として描かない。
+  const r = D.cfWaterfall({
+    operating_cf: 0, investing_cf: -186948, financing_cf: -861116,
+    cf_cash_start: 109875097, cf_cash_end: 108827033,
+  });
+  assert.equal(r.flowMode, true);
+  assert.equal(r.cfLabels.includes("営業活動CF"), false);
+  assert.deepEqual(r.cfLabels, ["投資活動CF", "財務活動CF"]);
+  const sum = r.cfDiffs.reduce((a, b) => a + b, 0);
+  assert.equal(sum, r.cashNote.delta);
+});

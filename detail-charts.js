@@ -902,6 +902,29 @@
         badge.textContent = "単位: " + FinanceRules.unitLabel(unit);
       }
 
+      // 小工数 #14: CF がフロー内訳モードのとき、グラフから畳んだ残高段をカード下の注記に出す。
+      //  数字は失わせない（残高は残高のスケール、差引はグラフと同じ単位で書く）。note が null なら消す。
+      function setCfCashNote(note, flowUnit, currency) {
+        const title = document.getElementById("cf-title");
+        const card = title && title.parentElement;
+        if (!card) return;
+        let el = document.getElementById("cf-cash-note");
+        if (!note) { if (el) el.remove(); return; }
+        if (!el) {
+          el = document.createElement("div");
+          el.id = "cf-cash-note";
+          el.className = "cf-cash-note";
+          card.appendChild(el);
+        }
+        const cashUnit = FinanceRules.pickUnit(Math.max(Math.abs(note.start), Math.abs(note.end)), currency);
+        const c = (v) => FinanceRules.fmtUnitValue(v, cashUnit);
+        const f = (v) => FinanceRules.fmtUnitValue(v, flowUnit);
+        const sign = note.delta > 0 ? "+" : "";
+        el.innerHTML = "現金残高 <b>" + esc(c(note.start)) + "</b> → <b>" + esc(c(note.end)) +
+          "</b>（差引 <span class=\"cf-cash-delta\">" + esc(sign + f(note.delta)) + "</span>）。" +
+          "残高がフローに比べて大きいため、グラフは<b>フローの内訳</b>を表示しています。";
+      }
+
       // 📊 1. BS (極太2.5倍 & 吹き出しエスケープ)
       // spec §7.1 D10: BS はチャート別単位＝両スタック和の max で選層（ページ統一単位の引数受け渡しは廃止）。
       function renderBSChart(fin) {
@@ -1436,10 +1459,45 @@
         // C4: 期首現金が無い銘柄に特定企業のマジック定数(6524000)を流用していたのを廃止（0基準で実フロー表示）。
         //  ウォーターフォールの段構築（期首→営業→投資→財務→(その他調整)→期末/純増減）は
         //  detail-rules.js（cfWaterfall）へ集約。描画はここに残す（挙動不変）。
-        const { waterfallData, cfLabels, cfSpecs, cfDiffs, cfLastIdx, maxCfScale } = DetailRules.cfWaterfall(fin);
+        const { waterfallData, cfLabels, cfSpecs, cfDiffs, cfLastIdx, maxCfScale, flowMode, cashNote } =
+          DetailRules.cfWaterfall(fin);
         const currency = STOCK_DATA[currentTicker]?.currency;
         const unit = FinanceRules.pickUnit(maxCfScale, currency);   // 累積水準込み＝軸レンジと同義（spec §7.1）
         setUnitBadge("cf-title", unit);
+        setCfCashNote(cashNote, unit, currency);   // #14: 畳んだ残高段は注記へ（通常モードは null で消える）
+
+        // 小工数 #11: 棒上ラベルの表示計画。段名は x 軸に出ているので棒上は値だけにし、
+        //  それでも重なる段は落とす（判断は DetailRules.cfLabelPlan＝node テストと同じ実装）。
+        //  幅で結果が変わるので chart.width をキーに作り直す。
+        const isEdge = (i) => !flowMode && (i === 0 || i === cfLastIdx);
+        const cfValueText = (i) =>
+          (cfDiffs[i] > 0 && !isEdge(i) ? "+" : "") + FinanceRules.fmtUnitValue(cfDiffs[i], unit);
+        //  ⚠ context.chart が無い経路（Chart.js の scriptable option を外から読むと
+        //     chart 抜きの context で解決されることがある）でも throw しない。プラグイン
+        //     フックは try/catch されないので、ここで投げると neonGlowPlugin まで巻き添えになる。
+        const cfPlan = (chart) => {
+          if (!chart || !chart.getDatasetMeta) return null;
+          if (chart.$cfPlan && chart.$cfPlan.w === chart.width) return chart.$cfPlan.plan;
+          const meta = chart.getDatasetMeta(0);
+          if (!meta || !meta.data || !meta.data.length) return null;
+          const c2 = chart.ctx;
+          const prevFont = c2.font;
+          c2.font = "bold 14px " + getComputedStyle(chart.canvas).fontFamily;
+          const items = meta.data.map((el, i) => ({
+            label: cfLabels[i],
+            valueText: cfValueText(i),
+            x: el.x,
+            diff: cfDiffs[i],
+            priority: isEdge(i) ? 2 : cfLabels[i] === "その他・調整" ? 0 : 1,
+          }));
+          const plan = DetailRules.cfLabelPlan(items, {
+            canvasW: chart.width,
+            measure: (s) => c2.measureText(s).width,
+          });
+          c2.font = prevFont;
+          chart.$cfPlan = { w: chart.width, plan };
+          return plan;
+        };
 
         cfChartInstance = new Chart(ctx, {
           type: "bar",
@@ -1454,6 +1512,12 @@
                 borderRadius: 2,
                 categoryPercentage: 0.99,
                 barPercentage: 0.9,
+                /* #14: 値があるのに 1px 未満で描けない段（銀行の営業CF＝64億円 等）に下限を与える。
+                   ⚠ Chart.js の minBarLength は**ゼロ幅の棒にも下限を適用する**（2026-09-10 実測）。
+                   そのため ①フロー内訳モードでだけ有効にし（段が 0 基準で独立＝連結を歪めない）
+                   ②cfWaterfall 側で差分ゼロの段を作らない、の 2 段構えで「0 を棒にしない」を守る。
+                   通常モードは従来どおり下限なし（実寸のみ）。実数はラベルが示す。 */
+                minBarLength: flowMode ? 3 : undefined,
               },
             ],
           },
@@ -1465,15 +1529,22 @@
             plugins: {
               legend: { display: false },
               datalabels: {
-                display: isMobile ? false : true,  /* モバイルは数値省略（サイドパネルで確認可） */
+                /* モバイルは数値省略（サイドパネルで確認可）。それ以外は plan が可視段を決める（#11） */
+                display: function (context) {
+                  if (isMobile) return false;
+                  const plan = cfPlan(context && context.chart);
+                  return plan ? plan.visible[context.dataIndex] !== false : true;
+                },
+                clamp: true,   /* #11: 端のラベルが canvas をはみ出さない */
                 color: "#eaf4ff",
                 textShadowBlur: 6,
                 textShadowColor: "rgba(120,210,255,0.6)",
                 font: { weight: "bold", size: 14 },
                 position: "center",
                 anchor: function (context) {
-                  const idx = context.dataIndex;
+                  const idx = context ? context.dataIndex : 0;
                   const diff = cfDiffs[idx];
+                  if (flowMode) return "end";   /* 全段が 0 基準＝値の先端に置く */
                   return idx === 0 || idx === cfLastIdx
                     ? "end"
                     : diff >= 0
@@ -1481,21 +1552,16 @@
                       : "start";
                 },
                 align: function (context) {
-                  const idx = context.dataIndex;
+                  const idx = context ? context.dataIndex : 0;
                   const diff = cfDiffs[idx];
                   return diff >= 0 ? "top" : "bottom";
                 },
                 offset: 15,
+                /* #11: 段名は x 軸に出ているので棒上は値だけ（幅がほぼ半分になり衝突が消える） */
                 formatter: function (value, context) {
-                  const idx = context.dataIndex;
-                  const diff = cfDiffs[idx];
-                  const sign = diff > 0 && idx !== 0 && idx !== cfLastIdx ? "+" : "";
-                  return (
-                    cfLabels[idx] +
-                    "\n" +
-                    sign +
-                    FinanceRules.fmtUnitValue(diff, unit)
-                  );
+                  const idx = context ? context.dataIndex : 0;
+                  const plan = cfPlan(context && context.chart);
+                  return plan ? plan.texts[idx] : cfValueText(idx);
                 },
                 textAlign: "center",
               },

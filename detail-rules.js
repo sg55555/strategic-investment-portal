@@ -723,7 +723,15 @@
     return { cfType: "pivot", icon: "bars", label: "転換期・変革タイプ" };
   }
 
+  // 残高がフローを圧倒するときに「フロー内訳モード」へ落とす閾値（小工数 #14・2026-09-10）。
+  //  フロー最大 / 期首現金 がこれ未満なら、期首・期末の残高段を畳んでフローだけを 0 基準で描く。
+  //  実測（実 DB）: 8306.T=0.8% / 8411.T=5.4% / 8316.T=7.3% が該当、7203.T=80.8% は非該当。
+  //  ⚠ 銘柄や業種名でなく「残高に対するフローの比」で判定する（D16/D17 の「銀行・金融」文言が
+  //     述語ごとに増える問題の再発を避ける＝現金の厚い非金融企業にも同じ理屈で効く）。
+  const CF_FLOW_MODE_RATIO = 0.15;
+
   // CF ウォーターフォールの段（期首→営業→投資→財務→(その他調整)→期末/純増減）。index.html 4478-4510。
+  //  返り値に flowMode / cashNote を足した（挙動は通常モードでは不変）。
   function cfWaterfall(fin) {
     const opCf = FR.n(fin.operating_cf);
     const invCf = FR.n(fin.investing_cf);
@@ -736,6 +744,38 @@
     const hasEndCash = FR.hasValue(fin, "cf_cash_end");
     const endCash = (hasStartCash && hasEndCash) ? fin.cf_cash_end : step3;
     const fxOther = endCash - step3;      // その他・調整（為替換算差額／データ差異等）
+
+    // ── フロー内訳モード判定（#14）: 残高が大きすぎてフロー段が物理的に描けないとき
+    const flowSpecOf = (v) => (v >= 0 ? FIN_COLORS.cf.pos : FIN_COLORS.cf.neg);
+    const flowBase = Math.max(Math.abs(opCf), Math.abs(invCf), Math.abs(finCf));
+    const flowMax = Math.max(flowBase, Math.abs(fxOther));
+    const flowMode = hasStartCash && hasEndCash && Math.abs(startCash) > 0 && flowMax > 0 &&
+      flowMax < Math.abs(startCash) * CF_FLOW_MODE_RATIO;
+    if (flowMode) {
+      // 残高段は棒にせず注記（cashNote）へ逃がし、フローだけを 0 基準の独立棒で描く。
+      // 軸スケールもフロー最大になるので、単位が兆円から億円側へ落ちて数字が読めるようになる。
+      //  ⚠ 差分ゼロの段は作らない。フローモードでは描画側が minBarLength（最小棒高さ）を使うが、
+      //     Chart.js はゼロ幅の棒にも下限を適用する（2026-09-10 実測）＝欠損や 0 が「小さな棒」に
+      //     化けてしまうため。ゼロは棒にせず、符号はサイドパネルのカードが引き続き示す。
+      const flowSegs = [
+        { label: "営業活動CF", data: [0, opCf], diff: opCf, spec: flowSpecOf(opCf) },
+        { label: "投資活動CF", data: [0, invCf], diff: invCf, spec: flowSpecOf(invCf) },
+        { label: "財務活動CF", data: [0, finCf], diff: finCf, spec: flowSpecOf(finCf) },
+      ].filter((s) => s.diff !== 0);
+      if (Math.abs(fxOther) > flowBase * 0.005) {
+        flowSegs.push({ label: "その他・調整", data: [0, fxOther], diff: fxOther, spec: FIN_COLORS.cf.fx });
+      }
+      return {
+        waterfallData: flowSegs.map((s) => s.data),
+        cfLabels: flowSegs.map((s) => s.label),
+        cfSpecs: flowSegs.map((s) => s.spec),
+        cfDiffs: flowSegs.map((s) => s.diff),
+        cfLastIdx: flowSegs.length - 1,
+        maxCfScale: Math.max.apply(null, flowSegs.map((s) => Math.abs(s.diff)).concat([1])),
+        flowMode: true,
+        cashNote: { start: startCash, end: endCash, delta: endCash - startCash },
+      };
+    }
 
     const cfSegs = [
       { label: hasStartCash ? "期首現金残高" : "期首（0基準）", data: [0, startCash], diff: startCash, spec: FIN_COLORS.cf.start },
@@ -756,6 +796,60 @@
       cfDiffs: cfSegs.map((s) => s.diff),
       cfLastIdx: cfSegs.length - 1,
       maxCfScale: cfScale,
+      flowMode: false,
+      cashNote: null,
+    };
+  }
+
+  // CF 棒上ラベルの表示計画（plan パターン＝srLabelPlan と同型・小工数 #11・2026-09-10）。
+  //  描画判断をここ 1 か所に置き、描画・node テスト・受入スクリプトが同じ実装を見る。
+  //  ①段名は x 軸に出ているので棒上は「値だけ」にする（幅がほぼ半分になり衝突が消える）
+  //  ②端は canvas 内へクランプ（datalabels の clamp と同じ狙い・はみ出し防止）
+  //  ③それでも重なる段は優先度（期首/期末=2 > フロー=1 > その他・調整=0）の低い方を落とす。
+  //    同じ優先度なら |値| の小さい方を落とす（残った段は x 軸とサイドパネルで確認できる）。
+  //  measure は文字幅を返す関数（描画側は canvas の measureText、テストは決定論ダミーを渡す）。
+  function cfLabelPlan(items, opts) {
+    const list = Array.isArray(items) ? items : [];
+    const o = opts || {};
+    const measure = typeof o.measure === "function" ? o.measure : (s) => String(s).length * 8;
+    const canvasW = o.canvasW > 0 ? o.canvasW : 0;
+    const pad = typeof o.padding === "number" ? o.padding : 4;
+    const minGap = typeof o.minGap === "number" ? o.minGap : 2;
+
+    const boxes = list.map((it, i) => {
+      const text = it && it.valueText != null ? String(it.valueText) : "";
+      const w = measure(text) + pad * 2;
+      let cx = it && typeof it.x === "number" ? it.x : 0;
+      if (canvasW > 0) {
+        if (w >= canvasW) cx = canvasW / 2;
+        else cx = Math.min(Math.max(cx, w / 2), canvasW - w / 2);
+      }
+      return {
+        i, text, w, cx, x1: cx - w / 2, x2: cx + w / 2,
+        priority: it && typeof it.priority === "number" ? it.priority : 1,
+        weight: Math.abs((it && it.diff) || 0),
+        visible: true,
+      };
+    });
+
+    // 左から見て、直前の可視ラベルと重なるなら優先度（同点なら |値|）の低い方を落とす
+    let prev = null;
+    for (const b of boxes) {
+      if (!prev) { prev = b; continue; }
+      if (b.x1 < prev.x2 + minGap) {
+        const dropB = b.priority < prev.priority ||
+          (b.priority === prev.priority && b.weight < prev.weight);
+        if (dropB) { b.visible = false; continue; }
+        prev.visible = false;
+      }
+      prev = b;
+    }
+
+    return {
+      texts: boxes.map((b) => b.text),
+      visible: boxes.map((b) => b.visible),
+      hidden: boxes.filter((b) => !b.visible).map((b) => list[b.i] && list[b.i].label),
+      boxes: boxes.map((b) => ({ i: b.i, x1: b.x1, x2: b.x2, w: b.w, visible: b.visible })),
     };
   }
 
@@ -1187,7 +1281,7 @@
     signalDigest, healthTrendSeries, dupontFactorSeries, fcfTrendSeries,
     // 財務ディスクリプタ純関数
     priceWindow, rollingWindow, fitLogicalRange, periodLabel, periodLabelParts, rollingLabelParts, ROLL_NAME, benchRebase, benchFor, displayName, hasTickerSuffix, marketBasisFor, perStatus, pbrStatus,
-    equityRatioDesc, currentRatioDesc, yoyBadge, isFinancialPL, plSteps, cfFlowStatus, cfCompanyType, cfWaterfall, radarScores,
+    equityRatioDesc, currentRatioDesc, yoyBadge, isFinancialPL, plSteps, cfFlowStatus, cfCompanyType, cfWaterfall, cfLabelPlan, radarScores,
     sparklineSVG, dupontDescriptor, fcfQualityDescriptor,
     // 色/特例定数
     FIN_COLORS, CF_BADGE_PAIR, COMPARE_COLORS, HOLDING_COMPANIES,

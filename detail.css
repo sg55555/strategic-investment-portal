@@ -74,6 +74,13 @@
         min-width: 320px;
         width: 100%;
       }
+      /* ⚠ 2026-09-10 実測で判明: .grid-layout は 1024px 未満だと column なので、上の flex:1
+         （＝flex-basis:0%）が **主軸＝高さ** に効いて height 530px / 320px / 280px / 240px の
+         指定を全部無効化し、canvas が 150px まで潰れていた（BS・CF が特に読めない）。
+         行方向（≥1024px）の flex:1 は幅の分配に必要なのでそのまま、列方向でだけ外す。 */
+      @media (max-width: 1023.98px) {
+        .chart-main-area { flex: none; }
+      }
 
       .side-panel {
         display: flex;
@@ -1201,6 +1208,12 @@
 
       /* spec §11.2 (P8): BS モバイル低棒サマリ（.sig-disclaimer/.fin-pending-note と同規約・12px床） */
       .bs-mobile-note { font-size: 12px; color: var(--ix-text-dim); line-height: 1.5; margin: 6px 2px 0; }
+
+      /* 小工数 #14: CF フロー内訳モードの残高注記（チャートから畳んだ期首→期末をここで示す）。
+         .bs-mobile-note と同規約（12px床）だが、数値そのものなので b は明色にする。 */
+      .cf-cash-note { font-size: 12px; color: var(--ix-text-dim); line-height: 1.5; margin: 6px 2px 0; }
+      .cf-cash-note b { color: var(--ix-text-hi); font-weight: 600; }
+      .cf-cash-note .cf-cash-delta { color: var(--ix-text-hi); }
 
       /* spec §6.3 G3/D27: タイトルの期間注記を副題行へ分離（wide でも block＝narrow 個別 media 分岐は不要）。
          色は 12px 本文として AA 寄りの --ix-text-dim（--ix-border-mid は背景比 ≈1.6:1 で本文には不足）。 */
